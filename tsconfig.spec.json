@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/test",
+    "module": "esnext",
+    "moduleResolution": "node16",
+    "target": "es2022",
+    "resolveJsonModule": true,
+    "noEmitOnError": false,
+    "types": ["vitest/globals", "node"]
+  },
+  "include": [
+    "vitest.config.ts",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.d.ts",
+    "src/**/*.json"
+  ]
+}

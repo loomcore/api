@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "removeComments": true,
+    "tsBuildInfoFile": null,
+    "sourceMap": false,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "dist/prod",
+    "paths": {
+      "#root/*": ["./src/*.js"],
+      "#common/*": ["./src/common/*.js"],
+      "#features/*": ["./src/features/*.js"],
+      "#server/*": ["./src/server/*.js"],
+      "#test/*": ["./src/test/*.js"],
+      "@monorepo-starter/api-common/*": ["../packages/api-common/dist/*"],
+      "@monorepo-starter/models": ["../packages/models/dist"],
+      "@monorepo-starter/models/*": ["../packages/models/dist/*"]
+    }
+  },
+  "exclude": [
+    "**/test",
+    "**/__test__",
+    "**/*.test.ts"
+  ]
+}

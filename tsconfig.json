@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "types": ["node"],
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    "resolveJsonModule": true,
+    "paths": {
+      "#root/*": ["./src/*.js"],
+      "#common/*": ["./src/common/*.js"],
+      "#features/*": ["./src/features/*.js"],
+      "#server/*": ["./src/server/*.js"],
+      "#test/*": ["./src/test/*.js"],
+      "@monorepo-starter/api-common/*": ["../packages/api-common/src/*/index.ts"],
+      "@monorepo-starter/models": ["../packages/models/src"],
+      "@monorepo-starter/models/*": ["../packages/models/src/*/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.json"],
+  "references": [
+    {
+      "path": "../../packages/models"
+    },
+    {
+      "path": "../../packages/api-common"
+    }
+  ]
+}
