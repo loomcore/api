@@ -11,7 +11,7 @@
     "commit": "git commit -m \"Updates\"",
     "patch": "npm version patch",
     "push": "git push",
-    "publishMe": "npm publish",
+    "publishMe": "npm publish --access public",
     "pub": "npm-run-all -s add commit patch build push publishMe",
     "update-lib-versions": "npx --yes npm-check-updates -u -f @loomcore/models",
     "install-updated-libs": "npm i @loomcore/models",
