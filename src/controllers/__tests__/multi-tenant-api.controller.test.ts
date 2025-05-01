@@ -2,15 +2,15 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
 import { Db, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
+import { IEntity, IAuditable } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
 
 import { ApiController } from '../api.controller.js';
-import { IEntity, IAuditable } from '../../models/index.js';
-import { entityUtils } from '../../utils/index.js';
 import { MultiTenantApiService } from '../../services/multi-tenant-api.service.js';
 
 // Import our test utilities
-import { TestExpressApp } from '../../__tests__/setup/test-express-app.js';
-import { CommonTestUtils } from '../../__tests__/setup/common-test.utils.js';
+import { TestExpressApp } from '../../__tests__/test-express-app.js';
+import testUtils from '../../__tests__/common-test.utils.js';
 
 // Test entity for MultiTenantApiService
 interface ITestTenantItem extends IEntity, IAuditable {
@@ -51,7 +51,7 @@ class TestTenantItemController extends ApiController<ITestTenantItem> {
  * This suite tests the ApiController with a MultiTenantApiService.
  * It focuses on validating proper error handling when userContext is invalid.
  */
-describe('[library] ApiController with MultiTenantApiService', () => {
+describe('ApiController with MultiTenantApiService', () => {
   let db: Db;
   let app: Application;
   let testAgent: any;
@@ -67,11 +67,11 @@ describe('[library] ApiController with MultiTenantApiService', () => {
     db = testSetup.db;
     testAgent = testSetup.agent;
 
-    await CommonTestUtils.setupTestUser();
+    await testUtils.setupTestUser();
     
-    // Get auth token and user ID from CommonTestUtils
-    authToken = CommonTestUtils.getAuthToken();
-    userId = CommonTestUtils.getUserId();
+    // Get auth token and user ID from testUtils
+    authToken = testUtils.getAuthToken();
+    userId = testUtils.testUserId;
     
     // Create service and controller instances
     tenantItemController = new TestTenantItemController(app, db);
@@ -81,7 +81,6 @@ describe('[library] ApiController with MultiTenantApiService', () => {
   });
 
   afterAll(async () => {
-    //await CommonTestUtils.deleteTestUser(); // clearCollections handles all data
     await TestExpressApp.clearCollections();
     await TestExpressApp.cleanup();
   });
@@ -94,9 +93,9 @@ describe('[library] ApiController with MultiTenantApiService', () => {
   //  then use the token that comes back to make the next get request
   describe('proper handling of userContext', () => {
     it('should succeed with valid userContext containing orgId', async () => {
-      const authorizationHeaderValue = await CommonTestUtils.simulateloginWithTestUser();
+      const authorizationHeaderValue = await testUtils.simulateloginWithTestUser();
 
-      // This should succeed because the authToken from CommonTestUtils includes orgId
+      // This should succeed because the authToken from testUtils includes orgId
       const response = await testAgent
         .get('/api/test-tenant-items')
         .set('Authorization', authorizationHeaderValue);

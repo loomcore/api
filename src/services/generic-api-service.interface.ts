@@ -1,8 +1,5 @@
 import {DeleteResult, Document, FindOptions} from 'mongodb';
-import {IUserContext} from '../models/user-context.model.js';
-import {IEntity} from '../models/entity.model.js';
-import {IPagedResult} from '../models/paged-result.interface.js';
-import {QueryOptions} from '../models/query-options.model.js';    
+import {IUserContext, IEntity, IPagedResult, QueryOptions} from '@loomcore/common/models';
 
 export interface IGenericApiService<T extends IEntity> {
   getAll(userContext: IUserContext): Promise<T[]>;

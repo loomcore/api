@@ -2,15 +2,14 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
 import { Db, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
+import { IEntity, IAuditable } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
 
 import { ApiController } from '../api.controller.js';
 import { GenericApiService } from '../../services/generic-api.service.js';
-import { IEntity, IAuditable } from '../../models/index.js';
-import { entityUtils } from '../../utils/index.js';
 
-// Import our new test utilities
-import { TestExpressApp } from '../../__tests__/setup/test-express-app.js';
-import { CommonTestUtils } from '../../__tests__/setup/common-test.utils.js';
+import { TestExpressApp } from '../../__tests__/test-express-app.js';
+import testUtils from '../../__tests__/common-test.utils.js';
 
 // Mock model for testing
 interface ITestItem extends IEntity, IAuditable {
@@ -87,7 +86,7 @@ class TestUserController extends ApiController<ITestUser> {
  * This suite tests the ApiController.
  * It uses our custom test utilities for MongoDB and Express.
  */
-describe('[library] ApiController - Integration Tests', () => {
+describe('ApiController - Integration Tests', () => {
   let db: Db;
   let app: Application;
   let testAgent: any;
@@ -105,9 +104,9 @@ describe('[library] ApiController - Integration Tests', () => {
     db = testSetup.db;
     testAgent = testSetup.agent;
     
-    // Get auth token and user ID from CommonTestUtils
-    authToken = CommonTestUtils.getAuthToken();
-    userId = CommonTestUtils.getUserId();
+    // Get auth token and user ID from testUtils
+    authToken = testUtils.getAuthToken();
+    userId = testUtils.testUserId;
     
     // Create service and controller instances
     controller = new TestItemController(app, db);
@@ -131,7 +130,7 @@ describe('[library] ApiController - Integration Tests', () => {
 
   describe('auditable behavior', () => {
     it('should include audit properties in POST response', async () => {
-      // Make the API request with the token from CommonTestUtils
+      // Make the API request with the token from testUtils
       const response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
@@ -158,7 +157,7 @@ describe('[library] ApiController - Integration Tests', () => {
       const originalItem = createResponse.body.data;
       expect(originalItem).toBeDefined();
       expect(originalItem._id).toBeDefined();
-      
+
       const itemId = originalItem._id;
       
       // Wait a bit to ensure timestamps differ
@@ -390,7 +389,7 @@ describe('[library] ApiController - Integration Tests', () => {
           email: 'unauthorized@example.com',
           password: 'password123'
         });
-      
+
       // Verify that authentication is enforced
       expect(response.status).toBe(401);
     });

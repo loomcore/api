@@ -1,8 +1,9 @@
 import {Db, ObjectId} from 'mongodb';
 import crypto from 'crypto';
 import moment from 'moment';
+import {EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec} from '@loomcore/common/models';
+
 import {GenericApiService} from './generic-api.service.js';
-import {EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec} from '../models/index.js';
 
 export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
 	constructor(db: Db) {

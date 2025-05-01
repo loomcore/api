@@ -1,10 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { Db, Collection, FindCursor, ObjectId } from 'mongodb';
+import { Type } from '@sinclair/typebox';
+import { IUserContext, QueryOptions, IEntity } from '@loomcore/common/models';
+import { TypeboxObjectId } from '@loomcore/common/validation';
+import { entityUtils } from '@loomcore/common/utils';
+
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
 import { TenantQueryDecorator } from '../tenant-query-decorator.js';
-import { IUserContext, QueryOptions, IEntity } from '../../models/index.js';
-import { BadRequestError } from '../../errors/index.js';
-import { ServerError, IdNotFoundError } from '../../errors/index.js';
+import { BadRequestError, ServerError, IdNotFoundError } from '../../errors/index.js';
+import { TestExpressApp } from '../../__tests__/test-express-app.js';
+import testUtils from '../../__tests__/common-test.utils.js';
 
 // Mock entity interface matching the service generic type
 interface TestEntity extends IEntity {
@@ -13,42 +18,51 @@ interface TestEntity extends IEntity {
   _orgId?: string;
 }
 
-// Helper function to create a mock user context
-const createUserContext = (orgId: string): IUserContext => ({
-  user: { 
-    _id: new ObjectId(), 
-    email: 'test@example.com',
-    password: '',
-    _created: new Date(),
-    _createdBy: 'system',
-    _updated: new Date(),
-    _updatedBy: 'system'
-  },
-  _orgId: orgId
+// Define TypeBox schema for test entity with proper ObjectId handling
+const TestEntitySchema = Type.Object({
+  _id: TypeboxObjectId(),
+  name: Type.String(),
+  description: Type.Optional(Type.String()),
+  _orgId: Type.Optional(Type.String())
 });
+
+// Create a model spec for the test entity
+const TestEntityModelSpec = entityUtils.getModelSpec(TestEntitySchema);
 
 // Creates a valid MongoDB ObjectId string
 const createValidObjectId = () => new ObjectId().toString();
 
-describe('[library] MultiTenantApiService', () => {
+describe('MultiTenantApiService', () => {
   // Mock dependencies
-  let mockDb: Db;
+  let db: Db;
   let mockCollection: Collection;
   let mockFindCursor: FindCursor;
   let service: MultiTenantApiService<TestEntity>;
   
   // Test data
-  const testOrgId = 'org-123';
+  const testOrgId = testUtils.testOrgId;
   const otherOrgId = 'org-456';
   // Generate a valid ObjectId string for testing
   const validObjectIdString = createValidObjectId();
   const testEntity: TestEntity = {
-    _id: new ObjectId(validObjectIdString),
+    _id: validObjectIdString, // Use string ID to match the model interface
     name: 'Test Entity'
   };
   
+  // Set up the test environment once before all tests
+  beforeAll(async () => {
+    const setup = await TestExpressApp.init();
+    db = setup.db;
+  });
+
+  afterAll(async () => {
+    await TestExpressApp.cleanup();
+  });
+  
   // Set up mocks before each test
-  beforeEach(() => {
+  beforeEach(async () => {
+    await TestExpressApp.clearCollections();
+    
     // Mock MongoDB collection methods
     mockFindCursor = {
       toArray: vi.fn().mockResolvedValue([]),
@@ -57,7 +71,7 @@ describe('[library] MultiTenantApiService', () => {
     mockCollection = {
       find: vi.fn().mockReturnValue(mockFindCursor),
       findOne: vi.fn().mockResolvedValue({
-        _id: new ObjectId(validObjectIdString),
+        _id: new ObjectId(validObjectIdString), // MongoDB returns ObjectId
         name: 'Original Name',
         _orgId: testOrgId,
         created: new Date(),
@@ -66,7 +80,7 @@ describe('[library] MultiTenantApiService', () => {
       findOneAndUpdate: vi.fn().mockResolvedValue({
         ok: 1,
         value: {
-          _id: new ObjectId(validObjectIdString),
+          _id: new ObjectId(validObjectIdString), // MongoDB returns ObjectId
           name: 'Updated Name',
           _orgId: testOrgId,
           created: new Date(),
@@ -87,15 +101,16 @@ describe('[library] MultiTenantApiService', () => {
       }),
     } as unknown as Collection;
     
-    mockDb = {
+    const mockDb = {
       collection: vi.fn().mockReturnValue(mockCollection),
     } as unknown as Db;
     
-    // Create the service to test
+    // Create the service to test with model spec
     service = new MultiTenantApiService<TestEntity>(
       mockDb,
       'testEntities',
-      'testEntity'
+      'testEntity',
+      TestEntityModelSpec
     );
     
     // Spy on TenantQueryDecorator methods to verify they're called
@@ -108,7 +123,7 @@ describe('[library] MultiTenantApiService', () => {
   describe('prepareQuery', () => {
     it('should call TenantQueryDecorator.applyTenantToQuery with correct parameters', () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const query = { name: 'Test' };
       
       // Get the protected method and bind it to the service instance
@@ -138,7 +153,7 @@ describe('[library] MultiTenantApiService', () => {
 
     it('should override consumer-supplied orgId with userContext orgId', () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       // Create query with a different orgId than the one in userContext
       const query = { name: 'Test', _orgId: otherOrgId };
       
@@ -163,7 +178,7 @@ describe('[library] MultiTenantApiService', () => {
   describe('prepareQueryOptions', () => {
     it('should call TenantQueryDecorator.applyTenantToQueryOptions with the provided options', () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const queryOptions = new QueryOptions();
       queryOptions.filters = { name: { eq: 'Test' } };
       
@@ -190,7 +205,7 @@ describe('[library] MultiTenantApiService', () => {
 
     it('should override consumer-supplied orgId filter with userContext orgId', () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const queryOptions = new QueryOptions();
       // Create filter with a different orgId than the one in userContext
       queryOptions.filters = { name: { eq: 'Test' }, orgId: { eq: otherOrgId } };
@@ -221,23 +236,23 @@ describe('[library] MultiTenantApiService', () => {
     });
   });
   
-  describe('prepareEntity', () => {
-    it('should add tenant ID to entity', () => {
+  describe('prepareEntity', () => { 
+    it('should add tenant ID to entity', async () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const entity: TestEntity = { ...testEntity };
       
       // Get the protected method and bind it to the service instance
       const prepareEntity = (service as any).prepareEntity.bind(service);
       
       // Act
-      const result = prepareEntity(userContext, entity, true);
+      const result = await prepareEntity(userContext, entity, true);
       
       // Assert
       expect(result).toHaveProperty('_orgId', testOrgId);
     });
     
-    it('should throw BadRequestError if userContext is undefined', () => {
+    it('should throw BadRequestError if userContext is undefined', async () => {
       // Arrange
       const entity: TestEntity = { ...testEntity };
       
@@ -245,14 +260,14 @@ describe('[library] MultiTenantApiService', () => {
       const prepareEntity = (service as any).prepareEntity.bind(service);
       
       // Act & Assert
-      expect(() => prepareEntity(undefined, entity, true)).toThrow(BadRequestError);
+      await expect(prepareEntity(undefined, entity, true)).rejects.toThrow(BadRequestError);
     });
     
-    it('should throw BadRequestError if userContext has no orgId', () => {
+    it('should throw BadRequestError if userContext has no orgId', async () => {
       // Arrange
       const userContextWithoutOrg: IUserContext = {
         user: { 
-          _id: new ObjectId(), 
+          _id: testUtils.testUserId,
           email: 'test@example.com',
           password: '',
           _created: new Date(),
@@ -267,7 +282,7 @@ describe('[library] MultiTenantApiService', () => {
       const prepareEntity = (service as any).prepareEntity.bind(service);
       
       // Act & Assert
-      expect(() => prepareEntity(userContextWithoutOrg, entity, true)).toThrow(BadRequestError);
+      await expect(prepareEntity(userContextWithoutOrg, entity, true)).rejects.toThrow(BadRequestError);
     });
   });
   
@@ -275,7 +290,7 @@ describe('[library] MultiTenantApiService', () => {
   describe('getAll', () => {
     it('should call prepareQuery and pass the result to find', async () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       
       // Spy on the protected method
       const spy = vi.spyOn(service as any, 'prepareQuery');
@@ -292,7 +307,7 @@ describe('[library] MultiTenantApiService', () => {
   describe('get', () => {
     it('should call prepareQueryOptions with the provided options', async () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const queryOptions = new QueryOptions();
       queryOptions.filters = { name: { eq: 'Test' } };
       
@@ -310,10 +325,11 @@ describe('[library] MultiTenantApiService', () => {
   describe('create', () => {
     it('should call prepareEntity and pass the preparedEntity to insertOne', async () => {
       // Spy on the protected method
-      const spy = vi.spyOn(service as any, 'prepareEntity');
+      const spy = vi.spyOn(service as any, 'prepareEntity')
+        .mockResolvedValue({ ...testEntity, _orgId: testOrgId });
       
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const entity: TestEntity = { ...testEntity };
       
       // Act
@@ -328,11 +344,12 @@ describe('[library] MultiTenantApiService', () => {
   describe('partialUpdateById', () => {
     it('should call prepareEntity and prepareQuery', async () => {
       // Spy on protected methods
-      const prepareEntitySpy = vi.spyOn(service as any, 'prepareEntity');
+      const prepareEntitySpy = vi.spyOn(service as any, 'prepareEntity')
+        .mockResolvedValue({ ...testEntity, _orgId: testOrgId });
       const prepareQuerySpy = vi.spyOn(service as any, 'prepareQuery');
       
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const entity: TestEntity = { ...testEntity };
       
       // Act
@@ -346,8 +363,12 @@ describe('[library] MultiTenantApiService', () => {
     
     it('should throw IdNotFoundError if entity not found', async () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       const entity: TestEntity = { ...testEntity };
+      
+      // Mock prepareEntity to avoid issues with async behavior
+      vi.spyOn(service as any, 'prepareEntity')
+        .mockResolvedValue({ ...entity, _orgId: testOrgId });
       
       // Mock findOneAndUpdate to simulate not finding the entity
       mockCollection.findOneAndUpdate = vi.fn().mockResolvedValue(null);
@@ -365,7 +386,7 @@ describe('[library] MultiTenantApiService', () => {
       const spy = vi.spyOn(service as any, 'prepareQuery');
       
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       
       // Act
       await service.deleteById(userContext, validObjectIdString);
@@ -377,7 +398,7 @@ describe('[library] MultiTenantApiService', () => {
     
     it('should throw IdNotFoundError if no entity found', async () => {
       // Arrange
-      const userContext = createUserContext(testOrgId);
+      const userContext = testUtils.testUserContext;
       
       // Mock deleteOne to return 0 deletedCount (no entity found)
       mockCollection.deleteOne = vi.fn().mockResolvedValue({ deletedCount: 0 });

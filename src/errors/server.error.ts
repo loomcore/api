@@ -1,4 +1,4 @@
-import {CustomError} from './custom.error.js';
+import {CustomError} from '@loomcore/common/errors';
 
 export class ServerError extends CustomError {
 	statusCode = 500;

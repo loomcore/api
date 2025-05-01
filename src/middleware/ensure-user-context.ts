@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { EmptyUserContext } from '../models/user-context.model.js';
+import { EmptyUserContext } from '@loomcore/common/models';
 
 /**
  * Middleware that ensures every request has a userContext.

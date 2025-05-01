@@ -7,7 +7,7 @@ export function setApiCommonConfig(apiCommonConfig: IApiCommonConfig) {
   if (!isConfigSet) {
     config = apiCommonConfig;
     isConfigSet = true;
-  } else {
+  } else if (config.env !== 'test') {
     console.warn('ApiCommonConfig data has already been set. Ignoring subsequent calls to setApiCommonConfig.');
   }
 }

@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import {CustomError} from '../errors/index.js';
+import {CustomError} from '@loomcore/common/errors';
 import {apiUtils} from '../utils/index.js';
+import { config } from '../config/api-common-config.js';
 
 // this is used as an error handler by express because we accept all five parameters in our handler
 export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
 	// todo: review this logging
-	if (process.env.NODE_ENV !== 'test') {
+	if (config.debug?.showErrors || config.env !== 'test') {
 		console.error('API Error:', {
 			error: err.message,
 			stack: err.stack,
@@ -24,13 +25,14 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
 	}
 
 	if (err instanceof CustomError) {
-		return apiUtils.apiResponse(res, err.statusCode, {
+		apiUtils.apiResponse(res, err.statusCode, {
 			errors: err.serializeErrors()
 		});
 	}
-
-	return apiUtils.apiResponse(res, 500, {
-		errors: [{ message: 'Server Error' }]
-	});
+	else {
+		apiUtils.apiResponse(res, 500, {
+			errors: [{ message: 'Server Error' }]
+		});
+	}
 };
 

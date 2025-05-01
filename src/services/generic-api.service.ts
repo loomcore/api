@@ -1,13 +1,13 @@
 import { Db, Collection, ObjectId, DeleteResult, Document, FindOptions } from 'mongodb';
 import moment from 'moment';
 import _ from 'lodash';
-import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError, ServerError } from '../errors/index.js';
 import { ValueError } from '@sinclair/typebox/errors';
-import { Value } from '@sinclair/typebox/value';
+import { IUserContext, IEntity, QueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
+import {entityUtils} from '@loomcore/common/utils';
 
 import { IGenericApiService } from './generic-api-service.interface.js';
-import { IAuditable, IUserContext, IEntity, QueryOptions, IPagedResult, IModelSpec } from '../models/index.js';
-import { entityUtils, apiUtils, dbUtils } from '../utils/index.js';
+import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError, ServerError } from '../errors/index.js';
+import { apiUtils, dbUtils } from '../utils/index.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected db: Db;
@@ -165,7 +165,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       throw new BadRequestError('id is not a valid ObjectId');
     }
 
-    // Apply query preparation hook
+    // Apply query preparation hook with ObjectId conversion
     const baseQuery = { _id: new ObjectId(id) };
     const query = this.prepareQuery(userContext, baseQuery);
 
@@ -203,25 +203,26 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     let createdEntity = null;
     try {
       const preparedEntity = await this.onBeforeCreate(userContext, entity);
-      const insertResult = await this.collection.insertOne(preparedEntity);
-
+      // Need to use "as any" to bypass TypeScript's strict type checking
+      // This is necessary because we're changing _id from string to ObjectId
+      const insertResult = await this.collection.insertOne(preparedEntity as any);
+      
       if (insertResult.insertedId) {
         // mongoDb mutates the entity passed into insertOne to have an _id property
         createdEntity = this.transformSingle(preparedEntity);
       }
-
+      
       if (createdEntity) {
         await this.onAfterCreate(userContext, createdEntity);
       }
     }
     catch (err: any) {
-      console.log(`error in GenericApiService.create - ${err.message}`);
       if (err.code === 11000) { // this is the MongoDb error code for duplicate key
         throw new DuplicateKeyError(`${this.singularResourceName} already exists`);
       }
       throw new BadRequestError(`Error creating ${this.singularResourceName}`);
     }
-
+    
     return createdEntity;
   }
 
@@ -245,8 +246,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
         // Call onBeforeCreate once with the array of entities
         const preparedEntities = await this.onBeforeCreate(userContext, entities); // onBeforeCreate calls preparePayload, which calls prepareEntity
 
-        // Insert all prepared entities
-        const insertResult = await this.collection.insertMany(preparedEntities);
+        // Insert all prepared entities - use "as any" to bypass TypeScript's strict checks
+        const insertResult = await this.collection.insertMany(preparedEntities as any);
 
         if (insertResult.insertedIds) {
           // Transform all entities to have friendly IDs
@@ -257,7 +258,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
         await this.onAfterCreate(userContext, createdEntities);
       }
       catch (err: any) {
-        console.log(`error in GenericApiService.createMany - ${err.message}`);
         if (err.code === 11000) {
           throw new DuplicateKeyError(`One or more ${this.pluralResourceName} already exist`);
         }
@@ -280,7 +280,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const validationErrors = this.validate(entity);
     entityUtils.handleValidationResult(validationErrors, 'GenericApiService.fullUpdateById');
 
-    // Apply query preparation hook
+    // Apply query preparation hook with ObjectId conversion
     const baseQuery = { _id: new ObjectId(id) };
     const query = this.prepareQuery(userContext, baseQuery);
 
@@ -324,6 +324,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const clone = await this.onBeforeUpdate(userContext, entity); // onBeforeUpdate calls preparePayload, which calls prepareEntity
 
+    // Use ObjectId conversion for query
     const baseQuery = { _id: new ObjectId(id) };
     const query = this.prepareQuery(userContext, baseQuery);
     
@@ -337,7 +338,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       throw new IdNotFoundError(); // todo: refactor to output the id
     }
     else {
-      await this.onAfterUpdate(userContext, updatedEntity as T);
+      // Cast updatedEntity to unknown and then to T to bypass TypeScript type checking
+      const typedEntity = updatedEntity as unknown as T;
+      await this.onAfterUpdate(userContext, typedEntity);
     }
 
     // allow derived classes to transform the result
@@ -407,7 +410,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       throw new BadRequestError('id is not a valid ObjectId');
     }
 
-    // Apply query preparation hook
+    // Apply query preparation hook with ObjectId conversion
     const baseQuery = { _id: new ObjectId(id) };
     const query = this.prepareQuery(userContext, baseQuery);
 
@@ -483,9 +486,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @param entities Entity or array of entities to be created
    * @returns The prepared entity or entities
    */
-  onBeforeCreate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E> {
+  async onBeforeCreate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
     // Apply entity preparation with isCreate=true
-    const preparedEntities = this.preparePayload(userContext, entities, true);
+    const preparedEntities = await this.preparePayload(userContext, entities, true);
     return Promise.resolve(preparedEntities);
   }
 
@@ -496,7 +499,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @param entities Entity or array of entities that were created
    * @returns The entities after post-processing
    */
-  onAfterCreate<E extends T | T[]>(userContext: IUserContext | undefined, entities: E): Promise<E> {
+  async onAfterCreate<E extends T | T[]>(userContext: IUserContext | undefined, entities: E): Promise<E | E[]> {
     return Promise.resolve(entities);
   }
 
@@ -508,9 +511,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @param entities Entity or array of entities to be updated
    * @returns The prepared entity or entities
    */
-  onBeforeUpdate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E> {
+  async onBeforeUpdate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
     // Apply entity preparation with isCreate=false
-    const preparedEntities = this.preparePayload(userContext, entities, false);
+    const preparedEntities = await this.preparePayload(userContext, entities, false);
     return Promise.resolve(preparedEntities);
   }
 
@@ -540,8 +543,23 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return list.map(item => this.transformSingle(item));
   }
 
+  /**
+   * Transforms a single entity after retrieving from the database.
+   * This method converts ObjectIds from mongodb to strings - our models use strings, not ObjectIds
+   * @param single Entity retrieved from database
+   * @returns Transformed entity with string IDs
+   */
   transformSingle(single: any): T {
-    return single;
+    if (!single) return single;
+  
+    // Require a modelSpec for conversion - without a schema we can't properly convert
+    if (!this.modelSpec?.fullSchema) {
+      throw new ServerError(`Cannot transform entity: No model specification with schema provided for ${this.pluralResourceName}`);
+    }
+    
+    // Only use schema-driven conversion
+    const transformedEntity = dbUtils.convertObjectIdsToStrings<T>(single, this.modelSpec.fullSchema);
+    return transformedEntity;
   }
 
   private stripSenderProvidedSystemProperties(doc: any) {
@@ -561,22 +579,22 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   /**
-   * Prepares an entity before database operations.
+   * Prepares an entity before database operations - handles single and arrays of entities
    * This is a hook method that can be overridden by derived classes to modify entities.
    * @param userContext The user context for the operation
    * @param entity The original entity object or array of entities
    * @param isCreate Whether this is for a create operation (true) or update operation (false)
    * @returns The potentially modified entity or array of entities
    */
-  protected preparePayload<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entity: E, isCreate: boolean = false): E {
-    let result: E;
+  protected async preparePayload<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entity: E, isCreate: boolean = false): Promise<E | E[]> {
+    let result: E | E[];
 
     if (Array.isArray(entity)) {
       // Handle array of entities
-      result = entity.map(item => this.prepareEntity(userContext, item, isCreate)) as E;
+      result = await Promise.all(entity.map(item => this.prepareEntity(userContext, item, isCreate))) as E[];
     } else {
       // Handle single entity
-      result = this.prepareEntity(userContext, entity as T, isCreate) as E;
+      result = await this.prepareEntity(userContext, entity as T, isCreate) as E;
     }
 
     return result;
@@ -590,7 +608,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @param isCreate Whether this is for a create operation (true) or update operation (false)
    * @returns The potentially modified entity
    */
-  protected prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean): T | Partial<T> {
+  protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean): Promise<T | Partial<T>> {
     // Clone the entity to avoid modifying the original
     const preparedEntity = _.clone(entity);
 
@@ -606,18 +624,20 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       }
     }
 
-    // Not anymore - this is now handled via decode. Every property that is an ObjectId must be defined as such in the Schema
-    // Convert any foreign keys to ObjectIds
-    //entityUtils.convertForeignKeysToObjectIds(preparedEntity);
-
     // Use TypeBox to decode properties and clean properties not in the schema if a model spec is provided
+    let cleanedEntity = preparedEntity;
     if (this.modelSpec) {
       // Use type assertion to handle potential unknown return type
-      const cleanedEntity = this.modelSpec.decode(preparedEntity); // as T | Partial<T>
-      return cleanedEntity;
+      cleanedEntity = this.modelSpec.decode(preparedEntity);
     }
 
-    return preparedEntity;
+    // Require a modelSpec for conversion - without a schema we can't properly convert
+    if (!this.modelSpec?.fullSchema) {
+      throw new ServerError(`Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`);
+    }
+    
+    // Only use schema-driven conversion
+    return dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
   }
 
   /**

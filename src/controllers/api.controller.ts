@@ -1,9 +1,9 @@
 import {Application, NextFunction, Request, Response} from 'express';
 import {DeleteResult, UpdateResult} from 'mongodb';
-import {IGenericApiService} from '../services/index.js';
-import {IEntity, IPagedResult, IModelSpec} from '../models/index.js';
 import { TSchema } from '@sinclair/typebox';
+import {IEntity, IPagedResult, IModelSpec} from '@loomcore/common/models';
 
+import {IGenericApiService} from '../services/index.js';
 import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
 
@@ -84,7 +84,7 @@ export abstract class ApiController<T extends IEntity> {
   async getAll(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const entities = await this.service.getAll(req.userContext!);
-    return apiUtils.apiResponse<T[]>(res, 200, {data: entities}, this.modelSpec, this.publicSchema);
+    apiUtils.apiResponse<T[]>(res, 200, {data: entities}, this.modelSpec, this.publicSchema);
   }
 
 	async get(req: Request, res: Response, next: NextFunction) {
@@ -92,48 +92,47 @@ export abstract class ApiController<T extends IEntity> {
     
 		// Extract query options from request
 		const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
-
+    
     // Get paged result from service
 		const pagedResult = await this.service.get(req.userContext!, queryOptions);
-		
-		// Prepare API response
-		return apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSchema);
+    // Prepare API response
+		apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSchema);
 	}
 
   async getById(req: Request, res: Response, next: NextFunction) {
     let id = req.params?.id;
     res.set('Content-Type', 'application/json');
     const entity = await this.service.getById(req.userContext!, id);
-    return apiUtils.apiResponse<T>(res, 200, {data: entity}, this.modelSpec, this.publicSchema);
+    apiUtils.apiResponse<T>(res, 200, {data: entity}, this.modelSpec, this.publicSchema);
   }
 
 	async getCount(req: Request, res: Response, next: NextFunction) {
 		res.set('Content-Type', 'application/json');
 		const count = await this.service.getCount(req.userContext!); // result is in the form { count: number }
-		return apiUtils.apiResponse<number>(res, 200, {data: count}, this.modelSpec, this.publicSchema);
+		apiUtils.apiResponse<number>(res, 200, {data: count}, this.modelSpec, this.publicSchema);
 	}
 
   async create(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const entity = await this.service.create(req.userContext!, req.body);
-    return apiUtils.apiResponse<T>(res, 201, {data: entity || undefined}, this.modelSpec, this.publicSchema);
+    apiUtils.apiResponse<T>(res, 201, {data: entity || undefined}, this.modelSpec, this.publicSchema);
   }
 
   async fullUpdateById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const updateResult = await this.service.fullUpdateById(req.userContext!, req.params.id, req.body);
-    return apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
+    apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
   }
 
 	async partialUpdateById(req: Request, res: Response, next: NextFunction) {
 		res.set('Content-Type', 'application/json');
 		const updateResult = await this.service.partialUpdateById(req.userContext!, req.params.id, req.body);
-		return apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
+		apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
 	}
 
   async deleteById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const deleteResult = await this.service.deleteById(req.userContext!, req.params.id);
-    return apiUtils.apiResponse<DeleteResult>(res, 200, {data: deleteResult}, this.modelSpec, this.publicSchema);
+    apiUtils.apiResponse<DeleteResult>(res, 200, {data: deleteResult}, this.modelSpec, this.publicSchema);
   }
 }

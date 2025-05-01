@@ -2,14 +2,14 @@ import {Db, InsertOneResult, AnyError, ObjectId, Collection, UpdateResult} from 
 import {Request, Response} from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
+import {IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse} from '@loomcore/common/models';
+import {entityUtils} from '@loomcore/common/utils';
 
 import {BadRequestError, DuplicateKeyError, ServerError} from '../errors/index.js';
 import {JwtService, EmailService} from './index.js';
 import {GenericApiService} from './generic-api.service.js';
 import {PasswordResetTokenService} from './password-reset-token.service.js';
-import {IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse} from '../models/index.js';
-import {conversionUtils, entityUtils, passwordUtils} from '../utils/index.js';
-
+import {conversionUtils, passwordUtils} from '../utils/index.js';
 import {config} from '../config/index.js';
 
 export class AuthService extends GenericApiService<IUser> {
@@ -19,6 +19,8 @@ export class AuthService extends GenericApiService<IUser> {
 
 	constructor(db: Db) {
 		super(db, 'users', 'user', UserSpec);
+
+		//console.log(`In AuthService constructor, config: ${JSON.stringify(config)}`);
 
 		this.refreshTokensCollection = db.collection('refreshTokens');
 		this.passwordResetTokenService = new PasswordResetTokenService(db);
@@ -96,47 +98,14 @@ export class AuthService extends GenericApiService<IUser> {
 			});
 	}
 
-	async createUser(userContext: IUserContext, user: IUser): Promise<IUser> {
+	async createUser(userContext: IUserContext, user: IUser): Promise<IUser | null> {
 		// You currently don't have to be logged-in to create a user - we'll need to vette exactly what you do need based on the scenario.
 		// todo: validate that the user._orgId exists - think through the whole user creation process
 		//  I think a user either has to be created by someone with the authorization to do so, or they need to be
 		//  joining an org that has open registration, or else they have some sort of invite to join an org,
 		//  or initialSetup is occurring.
-		const validationResult = this.validate(user);
-		entityUtils.handleValidationResult(validationResult, 'AuthService.createUser');
-
-		conversionUtils.convertISOStringDateTimesToJSDates(user);
-		// lowercase the email
-		user.email = user.email!.toLowerCase();
-
-		const hash = await passwordUtils.hashPassword(user.password!);
-		user.password = hash;
-
-		/**
-		 * Need to set default roles if new user created without a role.
-		 */
-		if (!user.roles) {
-			user.roles = ["user"];
-		}
-
-		user = await this.onBeforeCreate(userContext, user);
-		
-		try {
-			const insertResult = await this.collection.insertOne(user);
-
-			if (insertResult.insertedId) {
-				this.transformSingle(user);
-			}
-		} catch (err: any) {
-			if (err.code === 11000) {
-				throw new DuplicateKeyError('User already exists');
-			}
-			throw new BadRequestError('Error creating user');
-		}
-		
-		await this.onAfterCreate(userContext, user);
-		
-		return user; // ignore the result of onAfterCreate and return what the original call returned
+		const createdUser = await this.create(userContext, user);
+		return createdUser;
 	}
 
 	async requestTokenUsingRefreshToken(req: Request): Promise<ITokenResponse | null> {
@@ -151,11 +120,12 @@ export class AuthService extends GenericApiService<IUser> {
 			// look for this particular refreshToken in our database. refreshTokens are assigned to deviceIds,
 			//  so they can only be retrieved together.
 			const activeRefreshToken = await this.getActiveRefreshToken(refreshToken, deviceId);
-			console.log(`activeRefreshToken: ${activeRefreshToken}`); // todo: delete me
+			//console.log(`activeRefreshToken: ${activeRefreshToken}`); // todo: delete me
 			if (activeRefreshToken) {
 				userId = activeRefreshToken.userId;
 
 				if (userId) {
+					// todo: why do we need to create a new refreshToken? Can we just let the original one expire and create a new one after they login at that time?
 					// we found an activeRefreshToken, and we know what user it was assigned to
 					//  - create a new refreshToken and persist it to the database
 					// upon refresh, we want to create a new refreshToken maintaining the existing expiresOn expiration
@@ -205,7 +175,8 @@ export class AuthService extends GenericApiService<IUser> {
 		const hashedPassword = await passwordUtils.hashPassword(password);
 		let updates = { password: hashedPassword, lastPasswordChange: moment().utc().toDate() };
 
-		updates = await this.onBeforeUpdate(userContext, updates);
+		// Add type assertion to tell TypeScript this will always be an object, not an array
+		updates = (await this.onBeforeUpdate(userContext, updates)) as typeof updates;
 		
 		const mongoUpdateResult = await this.collection.updateOne(queryObject, {$set: updates});
 
@@ -407,7 +378,7 @@ export class AuthService extends GenericApiService<IUser> {
 	}
 
 	getDeviceIdFromCookie(req: Request) {
-		console.log(`req.cookies: ${JSON.stringify(req.cookies)}`); // todo: delete me
+		//console.log(`req.cookies: ${JSON.stringify(req.cookies)}`); // todo: delete me
 		return req.cookies['deviceId'];
 	}
 
@@ -424,6 +395,26 @@ export class AuthService extends GenericApiService<IUser> {
 	getExpiresOnFromDays(expiresInDays: number) {
 		// exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
 		return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
+	}
+
+	override async prepareEntity(userContext: IUserContext, entity: IUser | Partial<IUser>, isCreate: boolean): Promise<IUser | Partial<IUser>> {
+		if (entity.email) {
+			// lowercase the email
+			entity.email = entity.email!.toLowerCase();
+		}
+
+		if (entity.password) {
+			const hash = await passwordUtils.hashPassword(entity.password!);
+			entity.password = hash;
+		}
+
+		// Need to set default roles if new user created without a role.
+		if (isCreate && !entity.roles) {
+			entity.roles = ["user"];
+		}
+		
+		const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
+		return preparedEntity;
 	}
 	
 	override transformList(users: IUser[]) {

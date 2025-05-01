@@ -1,7 +1,8 @@
 {
   "name": "@loomcore/api",
   "version": "0.0.1",
-  "description": "An opinionated Node.js api using Typescript, Express, and MongoDb",
+  "private": false,
+  "description": "Loom Core Api - An opinionated Node.js api using Typescript, Express, and MongoDb",
   "scripts": {
     "clean": "rm -rf dist",
     "tsc": "tsc --project tsconfig.prod.json",
@@ -23,8 +24,9 @@
     "coverage": "cross-env NODE_ENV=test vitest run --coverage"
   },
   "author": "Tim Hardy",
-  "license": "ISC",
+  "license": "Apache 2.0",
   "main": "dist/index.js",
+  "type": "module",
   "types": "dist/index.d.ts",
   "files": [
     "dist/**/*"
@@ -43,24 +45,27 @@
     "jsonwebtoken": "^9.0.2"
   },
   "peerDependencies": {
-    "@loomcore/models": "^0.0.1",
-    "express": "^4.19.2",
+    "@loomcore/common": "^0.0.6",
+    "@sinclair/typebox": "^0.34.31",
+    "cookie-parser": "^1.4.6",
+    "express": "^5.1.0",
     "lodash": "^4.17.21",
     "moment": "^2.30.1",
-    "mongodb": "^6.15.0"
+    "mongodb": "^6.16.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/express": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/lodash": "^4.17.13",
     "@types/supertest": "^6.0.3",
     "@vitest/coverage-v8": "^3.0.9",
+    "cross-env": "^7.0.3",
     "mongodb-memory-server": "^9.3.0",
     "npm-run-all": "^4.1.5",
     "supertest": "^7.1.0",
-    "typescript": "^5.4.5",
+    "typescript": "^5.8.3",
     "vite": "^6.2.5",
-    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.9"
   }
 }

@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Db, MongoClient, Collection, ObjectId } from 'mongodb';
-import { GenericApiService } from '../generic-api.service.js';
-import { IUserContext, QueryOptions, IEntity, IAuditable, EmptyUserContext } from '../../models/index.js';
 import { Type } from '@sinclair/typebox';
-import { TypeCompiler } from '@sinclair/typebox/compiler';
-import { IdNotFoundError, DuplicateKeyError, BadRequestError } from '../../errors/index.js';
-import { entityUtils } from '../../utils/entity.utils.js';
 import moment from 'moment';
-import { TypeboxIsoDate, TypeboxObjectId } from '../../validation/typebox-extensions.js';
-import { initializeTypeBox } from '../../validation/typebox-setup.js';
+import { IUserContext, QueryOptions, IEntity, IAuditable, EmptyUserContext } from '@loomcore/common/models';
+import { TypeboxIsoDate, TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
+import { entityUtils } from '@loomcore/common/utils';
+
+import { GenericApiService } from '../generic-api.service.js';
+import { IdNotFoundError, DuplicateKeyError, BadRequestError } from '../../errors/index.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -41,7 +40,7 @@ const testModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: 
 // Helper function to create a mock user context
 const createUserContext = (): IUserContext => ({
   user: { 
-    _id: new ObjectId(),
+    _id: new ObjectId().toString(),
     email: 'test@example.com',
     password: '',
     _created: new Date(),
@@ -52,13 +51,13 @@ const createUserContext = (): IUserContext => ({
   _orgId: '67e8e19b149f740323af93d7'
 });
 
-describe('[library] GenericApiService - Integration Tests', () => {
+describe('GenericApiService - Integration Tests', () => {
   let mongoServer: MongoMemoryServer;
   let mongoClient: MongoClient;
   let db: Db;
   let service: GenericApiService<TestEntity>;
   let collection: Collection;
-  let mockUserContext: IUserContext;
+  let testUserContext: IUserContext;
   
   // Set up MongoDB Memory Server before all tests
   beforeAll(async () => {
@@ -76,9 +75,9 @@ describe('[library] GenericApiService - Integration Tests', () => {
       testModelSpec
     );
     
-    mockUserContext = {
+    testUserContext = {
       user: {
-        _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0d'),
+        _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0d').toString(),
         email: 'test@example.com',
         password: '',
         _created: new Date(),
@@ -302,7 +301,7 @@ describe('[library] GenericApiService - Integration Tests', () => {
       // Assert
       expect(pagedResult.entities).toBeDefined();
       expect(pagedResult.entities!.length).toBe(3);
-      expect(pagedResult.entities!.every(e => e.isActive === true)).toBe(true);
+      expect(pagedResult.entities!.every((e: TestEntity) => e.isActive === true)).toBe(true);
     });
     
     it('should find entities matching a query', async () => {
@@ -474,15 +473,15 @@ describe('[library] GenericApiService - Integration Tests', () => {
       const entity: Partial<TestEntity> = { name: 'AuditTest' };
       
       // Act
-      const result = await service.create(mockUserContext, entity as TestEntity);
+      const result = await service.create(testUserContext, entity as TestEntity);
       
       // Assert
       expect(result).not.toBeNull();
       if (result) {
         expect(result._created).toBeDefined();
-        expect(result._createdBy).toBe(mockUserContext.user._id.toString());
+        expect(result._createdBy).toBe(testUserContext.user._id.toString());
         expect(result._updated).toBeDefined();
-        expect(result._updatedBy).toBe(mockUserContext.user._id.toString());
+        expect(result._updatedBy).toBe(testUserContext.user._id.toString());
       }
     });
 
@@ -500,7 +499,7 @@ describe('[library] GenericApiService - Integration Tests', () => {
       const entity: Partial<TestEntity> = { name: 'NonAuditTest' };
       
       // Act
-      const result = await nonAuditableService.create(mockUserContext, entity as TestEntity);
+      const result = await nonAuditableService.create(testUserContext, entity as TestEntity);
       
       // Assert
       expect(result).not.toBeNull();
@@ -519,17 +518,18 @@ describe('[library] GenericApiService - Integration Tests', () => {
     it('should update _updated and _updatedBy on update but preserve _created and _createdBy', async () => {
       // First create an entity
       const entity: Partial<TestEntity> = { name: 'UpdateTest' };
-      const createdEntity = await service.create(mockUserContext, entity as TestEntity);
+      const createdEntity = await service.create(testUserContext, entity as TestEntity);
       expect(createdEntity).not.toBeNull();
       
       if (createdEntity) {
         const originalCreated = createdEntity._created;
         const originalCreatedBy = createdEntity._createdBy;
+        const originalUpdated = createdEntity._updated;
         
         // Create a new user context for the update
         const updaterUserContext: IUserContext = {
           user: {
-            _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0e'),
+            _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0e').toString(),
             email: 'updater@example.com',
             password: '',
             _created: new Date(),
@@ -575,7 +575,7 @@ describe('[library] GenericApiService - Integration Tests', () => {
         _updatedBy: 'hacker'
       } as any; // Use 'any' to bypass TypeScript checks on purpose
       
-      const result = await service.create(mockUserContext, entity);
+      const result = await service.create(testUserContext, entity);
       
       expect(result).not.toBeNull();
       if (result) {
@@ -583,14 +583,14 @@ describe('[library] GenericApiService - Integration Tests', () => {
         expect(result._createdBy).not.toEqual('hacker');
         expect(result._updated).not.toEqual(hackDate);
         expect(result._updatedBy).not.toEqual('hacker');
-        expect(result._createdBy).toEqual(mockUserContext.user._id.toString());
+        expect(result._createdBy).toEqual(testUserContext.user._id.toString());
       }
     });
 
     it('should not allow client to override audit properties on update', async () => {
       // First create an entity
       const entity: Partial<TestEntity> = { name: 'TamperUpdateTest' };
-      const createdEntity = await service.create(mockUserContext, entity as TestEntity);
+      const createdEntity = await service.create(testUserContext, entity as TestEntity);
       expect(createdEntity).not.toBeNull();
       
       if (createdEntity) {
@@ -610,7 +610,7 @@ describe('[library] GenericApiService - Integration Tests', () => {
         } as any;
         
         const updatedEntity = await service.partialUpdateById(
-          mockUserContext,
+          testUserContext,
           createdEntity._id.toString(),
           tamperedUpdate
         );
@@ -619,14 +619,14 @@ describe('[library] GenericApiService - Integration Tests', () => {
         expect(updatedEntity._created).toEqual(createdEntity._created);
         expect(updatedEntity._createdBy).toEqual(createdEntity._createdBy);
         expect(updatedEntity._updated).not.toEqual(createdEntity._updated); // Should be updated with current timestamp
-        expect(updatedEntity._updatedBy).toEqual(mockUserContext.user._id.toString());
+        expect(updatedEntity._updatedBy).toEqual(testUserContext.user._id.toString());
       }
     });
 
     it('should handle system updates without a user context', async () => {
       // Create with user context
       const entity: Partial<TestEntity> = { name: 'SystemUpdateTest' };
-      const createdEntity = await service.create(mockUserContext, entity as TestEntity);
+      const createdEntity = await service.create(testUserContext, entity as TestEntity);
       expect(createdEntity).not.toBeNull();
       
       if (createdEntity) {
@@ -647,11 +647,11 @@ describe('[library] GenericApiService - Integration Tests', () => {
   });
   
   describe('Type Conversion', () => {
-    it('should convert string IDs to ObjectIds based on schema definition', async () => {
+    it('should preserve string IDs based on schema definition', async () => {
       // Arrange
       const userContext = createUserContext();
       
-      // Create a schema with refId defined as ObjectId type
+      // Create a schema with refId defined as TypeboxObjectId type (which is actually a string schema with objectid format)
       const ObjectIdSchema = Type.Object({
         name: Type.String({ minLength: 1 }),
         // Use TypeboxObjectId for proper transformation
@@ -680,11 +680,11 @@ describe('[library] GenericApiService - Integration Tests', () => {
       // Retrieve the entity
       const retrievedEntity = await objectIdService.getById(userContext, createdEntity!._id.toString());
       
-      // Assert - the refId should be converted to an ObjectId by the schema
+      // Assert - the refId should remain a string according to our architecture
       expect(retrievedEntity).toBeDefined();
       expect(retrievedEntity.refId).toBeDefined();
-      expect(retrievedEntity.refId instanceof ObjectId).toBe(true);
-      expect(retrievedEntity.refId.toString()).toBe(stringIdEntity.refId);
+      expect(typeof retrievedEntity.refId).toBe('string');
+      expect(retrievedEntity.refId).toBe(stringIdEntity.refId);
     });
     
     it('should convert ISO date strings to Date objects based on schema definition', async () => {
@@ -730,11 +730,11 @@ describe('[library] GenericApiService - Integration Tests', () => {
       expect(retrievedEntity.eventDate.toISOString()).toBe(isoDateString);
     });
     
-    it('should handle nested objects with ObjectIds and Dates based on schema definition', async () => {
+    it('should handle nested objects with string IDs and Date objects based on schema definition', async () => {
       // Arrange
       const userContext = createUserContext();
       const testDate = new Date();
-      const refId = new ObjectId();
+      const refIdString = new ObjectId().toString();
       
       // Create a schema for a complex entity with nested objects
       const ComplexSchema = Type.Object({
@@ -749,7 +749,7 @@ describe('[library] GenericApiService - Integration Tests', () => {
         items: Type.Array(
           Type.Object({
             itemRefId: TypeboxObjectId({ title: 'Item Reference ID' }),
-            created: TypeboxIsoDate({ title: 'Created Date' })
+            eventDate: TypeboxIsoDate({ title: 'Event Date' })
           })
         )
       });
@@ -768,15 +768,15 @@ describe('[library] GenericApiService - Integration Tests', () => {
       const complexJsonEntity = {
         name: 'Complex Entity',
         nested: {
-          refId: refId.toString(), // String ID from client
+          refId: refIdString, // String ID from client
           timestamp: testDate.toISOString(), // ISO date string from client
           deeplyNested: {
-            anotherRefId: refId.toString() // String ID from client
+            anotherRefId: refIdString // String ID from client
           }
         },
         items: [
-          { itemRefId: refId.toString(), created: testDate.toISOString() },
-          { itemRefId: new ObjectId().toString(), created: new Date().toISOString() }
+          { itemRefId: refIdString, eventDate: testDate.toISOString() },
+          { itemRefId: new ObjectId().toString(), eventDate: new Date().toISOString() }
         ]
       };
       
@@ -786,20 +786,24 @@ describe('[library] GenericApiService - Integration Tests', () => {
       // Retrieve the entity
       const retrievedEntity = await complexService.getById(userContext, createdEntity!._id.toString());
       
-      // Assert - check that all string IDs and ISO date strings were converted to their proper types
+      // Assert - check that IDs remain strings and date strings are converted to Date objects
       expect(retrievedEntity).toBeDefined();
-      expect(retrievedEntity.nested.refId instanceof ObjectId).toBe(true);
+      
+      // IDs should be strings
+      expect(typeof retrievedEntity.nested.refId).toBe('string');
+      expect(typeof retrievedEntity.nested.deeplyNested.anotherRefId).toBe('string');
+      expect(typeof retrievedEntity.items[0].itemRefId).toBe('string');
+      expect(typeof retrievedEntity.items[1].itemRefId).toBe('string');
+      
+      // Dates should be Date objects
       expect(retrievedEntity.nested.timestamp instanceof Date).toBe(true);
-      expect(retrievedEntity.nested.deeplyNested.anotherRefId instanceof ObjectId).toBe(true);
-      expect(retrievedEntity.items[0].itemRefId instanceof ObjectId).toBe(true);
-      expect(retrievedEntity.items[0].created instanceof Date).toBe(true);
-      expect(retrievedEntity.items[1].itemRefId instanceof ObjectId).toBe(true);
-      expect(retrievedEntity.items[1].created instanceof Date).toBe(true);
+      expect(retrievedEntity.items[0].eventDate instanceof Date).toBe(true);
+      expect(retrievedEntity.items[1].eventDate instanceof Date).toBe(true);
       
       // Verify the values match the original input
-      expect(retrievedEntity.nested.refId.toString()).toBe(refId.toString());
+      expect(retrievedEntity.nested.refId).toBe(refIdString);
       expect(retrievedEntity.nested.timestamp.toISOString()).toBe(testDate.toISOString());
-      expect(retrievedEntity.nested.deeplyNested.anotherRefId.toString()).toBe(refId.toString());
+      expect(retrievedEntity.nested.deeplyNested.anotherRefId).toBe(refIdString);
     });
   });
 }); 

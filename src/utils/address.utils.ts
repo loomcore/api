@@ -1,4 +1,4 @@
-import {IAddress} from '../models/address.interface.js';
+import {IAddress} from '@loomcore/common/models';
 
 function getSingleLineAddress(address: IAddress): string {
 	// create street from appliedClient.address.streets array

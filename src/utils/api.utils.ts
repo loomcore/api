@@ -1,18 +1,22 @@
 import {Request, Response} from 'express';
-import {IApiResponse} from '../models/api-response.interface.js';
-import {IQueryOptions, Filter} from '../models/query-options.model.js';
-import {QueryOptions} from '../models/query-options.model.js';
-import {IPagedResult} from '../models/paged-result.interface.js';
-import {SortDirection} from '../models/types/index.js';
-import {IApiError} from '../models/api-error.interface.js';
-import {IModelSpec} from '../models/model-spec.interface.js';
 import { TSchema } from '@sinclair/typebox';
+import {
+  IApiResponse,
+	IQueryOptions,
+	IError,
+  Filter,
+  QueryOptions,
+  IPagedResult,
+  IModelSpec
+} from '@loomcore/common/models';
+import {SortDirection} from '@loomcore/common/types';
 
 export interface IApiResponseOptions<T> {
 	messages?: string[];
-	errors?: IApiError[];
+	errors?: IError[];
 	data?: T;
 }
+
 function apiResponse<T>(
 	response: Response, 
 	status: number, 
@@ -27,7 +31,7 @@ function apiResponse<T>(
 	if (modelSpec && options.data) {
 		if (Array.isArray(options.data)) {
 			// For arrays, encode each item
-			options.data = options.data.map(item => modelSpec.encode(item, publicSchema)) as T;
+			options.data = options.data.map((item: any) => modelSpec.encode(item, publicSchema)) as T;
 		} 
 		// Special handling for paged results (objects with 'entities' property)
 		else if (typeof options.data === 'object' && options.data !== null && 'entities' in options.data && Array.isArray((options.data as any).entities)) {

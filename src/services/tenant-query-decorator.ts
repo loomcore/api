@@ -1,5 +1,5 @@
-import { IUserContext, QueryOptions, Filter, IEntity } from '../models/index.js';
-import { ServerError } from '../errors/server.error.js';
+import { IUserContext, QueryOptions, Filter, IEntity } from '@loomcore/common/models';
+import { ServerError } from '../errors/index.js';
 
 export interface ITenantQueryOptions {
   /**
