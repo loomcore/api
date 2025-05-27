@@ -274,7 +274,22 @@ function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions) {
 					match[key] = value.eq;
 				}
 			}
-		  else if (value.gte !== undefined) {
+		  else if (value.in !== undefined && Array.isArray(value.in)) {
+				// Handle $in operator
+				if (key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)) {
+					// Convert string values to ObjectIds for properties ending with 'Id'
+					const objectIds = value.in
+						.filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))
+						.map(val => new ObjectId(val as string));
+					if (objectIds.length > 0) {
+						match[key] = { $in: objectIds };
+					}
+				} else {
+					// Use values as-is for non-ObjectId properties
+					match[key] = { $in: value.in };
+				}
+			}
+			else if (value.gte !== undefined) {
 				match[key] = { $gte: value.gte };
 			}
 			else if (value.lte !== undefined) {
@@ -318,6 +333,11 @@ function addKeyValueToWhereClause(whereClause: string, key: string, value: Filte
 		if (value.eq !== undefined) {
 			formattedValue = formatValue(value.eq);
 			operator = '=';
+		} else if (value.in !== undefined && Array.isArray(value.in)) {
+			// Handle IN operator
+			const formattedValues = value.in.map(val => formatValue(val)).join(', ');
+			formattedValue = `(${formattedValues})`;
+			operator = 'IN';
 		} else if (value.gte !== undefined) {
 			formattedValue = formatValue(value.gte);
 			operator = '>=';

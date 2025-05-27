@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 import { dbUtils } from '../db.utils.js';
+import { QueryOptions } from '@loomcore/common/models';
 
 describe('dbUtils', () => {
   describe('convertObjectIdsToStrings', () => {
@@ -370,6 +371,151 @@ describe('dbUtils', () => {
       expect(dbUtils.convertStringToObjectId(number)).toBe(number);
       expect(dbUtils.convertStringToObjectId(bool)).toBe(bool);
       expect(dbUtils.convertStringToObjectId(obj)).toBe(obj);
+    });
+  });
+  
+  describe('buildMongoMatchFromQueryOptions', () => {
+    it('should build MongoDB $in query for string array', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          status: {
+            in: ['active', 'pending', 'completed']
+          }
+        }
+      });
+
+      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+
+      expect(result).toEqual({
+        $match: {
+          status: { $in: ['active', 'pending', 'completed'] }
+        }
+      });
+    });
+
+    it('should build MongoDB $in query for number array', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          priority: {
+            in: [1, 2, 3]
+          }
+        }
+      });
+
+      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+
+      expect(result).toEqual({
+        $match: {
+          priority: { $in: [1, 2, 3] }
+        }
+      });
+    });
+
+    it('should convert string ObjectIds to ObjectId instances for properties ending with Id', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          clientId: {
+            in: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']
+          }
+        }
+      });
+
+      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+
+      expect(result.$match.clientId.$in).toHaveLength(2);
+      expect(result.$match.clientId.$in[0]).toBeInstanceOf(ObjectId);
+      expect(result.$match.clientId.$in[1]).toBeInstanceOf(ObjectId);
+      expect(result.$match.clientId.$in[0].toString()).toBe('507f1f77bcf86cd799439011');
+      expect(result.$match.clientId.$in[1].toString()).toBe('507f1f77bcf86cd799439012');
+    });
+
+    it('should handle empty in array', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          status: {
+            in: []
+          }
+        }
+      });
+
+      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+
+      expect(result).toEqual({
+        $match: {
+          status: { $in: [] }
+        }
+      });
+    });
+
+    it('should combine in filter with other filters', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          status: {
+            in: ['active', 'pending']
+          },
+          priority: {
+            gte: 2
+          }
+        }
+      });
+
+      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+
+      expect(result).toEqual({
+        $match: {
+          status: { $in: ['active', 'pending'] },
+          priority: { $gte: 2 }
+        }
+      });
+    });
+  });
+
+  describe('buildSQLWhereClauseFromQueryOptions', () => {
+    it('should build SQL IN clause for string array', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          status: {
+            in: ['active', 'pending', 'completed']
+          }
+        }
+      });
+
+      const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
+
+      expect(result).toBe("WHERE Status IN ('active', 'pending', 'completed')");
+    });
+
+    it('should build SQL IN clause for number array', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          priority: {
+            in: [1, 2, 3]
+          }
+        }
+      });
+
+      const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
+
+      expect(result).toBe('WHERE Priority IN (1, 2, 3)');
+    });
+
+    it('should combine IN clause with other conditions', () => {
+      const queryOptions = new QueryOptions({
+        filters: {
+          status: {
+            in: ['active', 'pending']
+          },
+          priority: {
+            gte: 2
+          }
+        }
+      });
+
+      const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
+
+      expect(result).toContain('Status IN (');
+      expect(result).toContain('Priority >= 2');
+      expect(result).toContain('AND');
     });
   });
 }); 

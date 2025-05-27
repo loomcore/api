@@ -45,7 +45,7 @@
     "jsonwebtoken": "^9.0.2"
   },
   "peerDependencies": {
-    "@loomcore/common": "^0.0.6",
+    "@loomcore/common": "^0.0.7",
     "@sinclair/typebox": "^0.34.31",
     "cookie-parser": "^1.4.6",
     "express": "^5.1.0",
