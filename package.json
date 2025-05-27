@@ -1,6 +1,6 @@
 {
   "name": "@loomcore/api",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": false,
   "description": "Loom Core Api - An opinionated Node.js api using Typescript, Express, and MongoDb",
   "scripts": {
@@ -16,7 +16,6 @@
     "update-lib-versions": "npx --yes npm-check-updates -u -f @loomcore/models",
     "install-updated-libs": "npm i @loomcore/models",
     "update-libs": "npm-run-all -s update-lib-versions install-updated-libs",
-    
     "typecheck": "tsc",
     "test": "cross-env NODE_ENV=test vitest run",
     "test:ci": "cross-env NODE_ENV=test vitest run --reporter=json --outputFile=test-results.json",
