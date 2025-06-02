@@ -5,7 +5,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 
 import jwt from 'jsonwebtoken';
-import { config } from '../../config/api-common-config.js';
+import { config } from '../../config/base-api-config.js';
 import { AuthController } from '../../controllers/auth.controller.js';
 
 describe('AuthController', () => {

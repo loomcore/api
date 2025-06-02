@@ -1,1 +1,1 @@
-export * from './api-common-config.js';
+export * from './base-api-config.js';

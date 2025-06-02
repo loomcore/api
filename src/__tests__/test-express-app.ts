@@ -7,7 +7,7 @@ import { MongoClient, Db } from 'mongodb';
 import { initializeTypeBox } from '@loomcore/common/validation';
 
 import testUtils from './common-test.utils.js';
-import { setApiCommonConfig } from '../config/api-common-config.js';
+import { setBaseApiConfig } from '../config/base-api-config.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
 
@@ -31,12 +31,20 @@ export class TestExpressApp {
     agent: any  // Using any type for supertest agent to avoid type issues
   }> {
     // Set up a fake clientSecret for authentication
-    // IMPORTANT: Must set the API common config using the proper function
-    setApiCommonConfig({
+    // IMPORTANT: Must set the base API config using the proper function
+    setBaseApiConfig({
       env: 'test',
       hostName: 'localhost',
       appName: 'test-app',
       clientSecret: 'test-secret',
+      mongoDbUrl: '',
+      databaseName: '',
+      externalPort: 4000,
+      internalPort: 8083,
+      corsAllowedOrigins: ['*'],
+      saltWorkFactor: 10,
+      jobTypes: '',
+      deployedBranch: '',
       debug: {
         showErrors: false
       },

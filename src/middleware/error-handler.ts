@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import {CustomError} from '@loomcore/common/errors';
 import {apiUtils} from '../utils/index.js';
-import { config } from '../config/api-common-config.js';
+import { config } from '../config/base-api-config.js';
 
 // this is used as an error handler by express because we accept all five parameters in our handler
 export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {

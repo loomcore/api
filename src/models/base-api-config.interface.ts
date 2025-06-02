@@ -1,9 +1,8 @@
-import {IApiCommonConfig} from './api-common-config.interface.js';
-
-// todo: see if we can merge this with IApiCommonConfig (why do we need both?). Currently IApiCommonConfig is config that is used
-//  inside the @loomcore/api library, but IBaseApiConfig contains config that is used inside the api project. I think we should move more
-//  of the functionality that uses these properties into @loomcore/api.
 export interface IBaseApiConfig {
+  appName: string;
+  env: string;
+  hostName: string;
+  clientSecret: string;
   mongoDbUrl?: string;
   databaseName?: string;
   externalPort?: number;
@@ -12,5 +11,24 @@ export interface IBaseApiConfig {
   saltWorkFactor?: number;
   jobTypes?: string;
   deployedBranch?: string;
-  api: IApiCommonConfig;
+  debug?: {
+    showErrors?: boolean;
+  },
+  /**
+   * app is global configuration for the app. These values should be hardcoded and not changed 
+   * from environment to environment..
+   */
+  app: {
+    multiTenant: boolean; // I don't think this is used currently
+  },
+  auth: {
+    jwtExpirationInSeconds: number;
+    refreshTokenExpirationInDays: number;
+    deviceIdCookieMaxAgeInDays: number;
+    passwordResetTokenExpirationInMinutes: number;
+  },
+  email: {
+    sendGridApiKey?: string;
+    fromAddress?: string;
+  }
 }
