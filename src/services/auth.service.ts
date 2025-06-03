@@ -364,12 +364,7 @@ export class AuthService extends GenericApiService<IUser> {
 				maxAge: config.auth.deviceIdCookieMaxAgeInDays * 24 * 60 * 60 * 1000,
 				httpOnly: true
 			};
-			if (config.env === 'local' || config.env === 'dev') {
-				console.log('setting deviceId cookieOptions sameSite=none and secure=true');
-				cookieOptions['sameSite'] = 'none'; // CANNOT be 'none' unless using secure (have to use https)
-				cookieOptions['secure'] = true;
-			}
-
+			
 			// save deviceId as cookie on response
 			res.cookie('deviceId', deviceId, cookieOptions);
 		}
