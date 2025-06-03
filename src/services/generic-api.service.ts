@@ -624,10 +624,19 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       }
     }
 
-    // Use TypeBox to decode properties and clean properties not in the schema if a model spec is provided
     let cleanedEntity = preparedEntity;
     if (this.modelSpec) {
-      // Use type assertion to handle potential unknown return type
+      /**
+       * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming 
+       *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the 
+       *  controllers, transforming entities back into json format as the response of the controller endpoints.
+       *  We keep the actual types (ObjectId, Date, etc) for use throughout the api, only transforming to their json 
+       *  format when finally sending back to the client.
+       * Note: All our models define props that are ObjectIds in Mongodb as strings. That's why we have a separate step
+       *  (below) to convert those strings into ObjectIds. As far as TypeBox is concerned, those props are strings.
+       *   This is necessary because shared model classes can't define anything as ObjectId - it would require 
+       *   importing MongoDb, which we definitely don't want in a shared model library.
+       */
       cleanedEntity = this.modelSpec.decode(preparedEntity);
     }
 

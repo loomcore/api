@@ -12,9 +12,9 @@ function copyOnlyBaseApiConfigProperties<T extends IBaseApiConfig>(obj: T): IBas
   return baseConfig;
 }
 
-export function setBaseApiConfig(baseApiConfig: IBaseApiConfig) {
+export function setBaseApiConfig(apiConfig: IBaseApiConfig) {
   if (!isConfigSet) {
-    config = copyOnlyBaseApiConfigProperties(baseApiConfig);
+    config = copyOnlyBaseApiConfigProperties(apiConfig);
     isConfigSet = true;
   } else if (config.env !== 'test') {
     console.warn('BaseApiConfig data has already been set. Ignoring subsequent calls to setBaseApiConfig.');

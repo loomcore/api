@@ -87,8 +87,8 @@ async function createTestUser() {
       });
     }
     
-    const localTestUser: Partial<IUser> = {
-      _id: testUserId,
+    const localTestUser = {
+      _id: new ObjectId(testUserId),
       email: testUserEmail, 
       password: hashedAndSaltedTestUserPassword,
       _orgId: testOrgId,
@@ -105,10 +105,10 @@ async function createTestUser() {
     
     // since this is a simulation, and we aren't using an actual controller, our normal mechanism for filtering out sensitive
     //  properties is not being called. We will have to manually remove the password property here...
-    delete localTestUser['password'];
+    delete (localTestUser as any)['password'];
 
     // mongoDb mutates the entity passed into insertOne to have an _id property
-    testUser = localTestUser;
+    testUser = {...localTestUser, _id: localTestUser._id.toString()};
 
     return localTestUser;
   }
