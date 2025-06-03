@@ -1,6 +1,6 @@
 {
   "name": "@loomcore/api",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": false,
   "description": "Loom Core Api - An opinionated Node.js api using Typescript, Express, and MongoDb",
   "scripts": {
