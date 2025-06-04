@@ -30,10 +30,7 @@ type RouteSetupFunction = (app: Application, db: Db, config: IBaseApiConfig) => 
 function setupExpressApp(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetupFunction): Application {
   const app: Application = express();
 
-  console.log(`config: `, config); // todo: delete me
-  
   // Add early request logging before any middleware
-  console.log(`about to register health endpoint`); // todo: delete me
   app.use((req, res, next) => {
     if (req.path !== '/api/health' && process.env.NODE_ENV !== 'test') {
       console.log(`[${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })}] INCOMING REQUEST: ${req.method} ${req.path}`);
@@ -41,25 +38,20 @@ function setupExpressApp(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetup
     next();
   });
 
-  console.log(`registering third party middleware`); // todo: delete me
   app.use(bodyParser.json());
   app.use(cookieParser() as any);
 	app.use(cors({
 		origin: config.corsAllowedOrigins,
 		credentials: true
 	}));
-  console.log(`about to register ensureUserContext`); // todo: delete me
   app.use(ensureUserContext);
 
-  console.log(`about to call setupRoutes`); // todo: delete me
   setupRoutes(app, db, config); // setupRoutes calls every controller to map its own routes
 
-  console.log(`about to register * middleware for notfound paths`); // todo: delete me
   app.use(async (req, res) => {
     throw new NotFoundError(`Requested path, ${req.path}, Not Found`);
   });
 
-  console.log(`about to register errorHandler middleware`); // todo: delete me
   app.use(errorHandler);
   return app;
 }
