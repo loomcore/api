@@ -55,7 +55,7 @@ function setupExpressApp(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetup
   setupRoutes(app, db, config); // setupRoutes calls every controller to map its own routes
 
   console.log(`about to register * middleware for notfound paths`); // todo: delete me
-  app.all('*', async (req, res) => {
+  app.use(async (req, res) => {
     throw new NotFoundError(`Requested path, ${req.path}, Not Found`);
   });
 
