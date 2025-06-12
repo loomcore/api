@@ -7,8 +7,10 @@ export default defineConfig({
     globals: true,
     setupFiles: [],
     globalSetup: [],
-    include: ['**/__tests__/**/*.test.ts?(x)', '**/?(*.)+(test).ts?(x)'],
-    exclude: ['**/__tests__/setup/**/*'],
+    include: ['src/**/__tests__/**/*.test.ts?(x)', 'src/**/?(*.)+(test).ts?(x)'],
+    exclude: ['**/node_modules/**', '**/__tests__/setup/**/*'],
+    testTimeout: 10000, // 10 seconds should be plenty for database operations
+    hookTimeout: 10000, // 10 seconds for setup/teardown hooks
     environmentOptions: {
       env: {
         NODE_ENV: 'test'

@@ -20,6 +20,7 @@ export class TestExpressApp {
   private static mongoServer: MongoMemoryServer;
   private static client: MongoClient;
   private static db: Db;
+  private static initPromise: Promise<{ app: Application, db: Db, agent: any }> | null = null;
   
   /**
    * Initialize the Express application with a MongoDB memory server
@@ -29,6 +30,21 @@ export class TestExpressApp {
     app: Application, 
     db: Db, 
     agent: any  // Using any type for supertest agent to avoid type issues
+  }> {
+    // Return existing promise if initialization is already in progress
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    // Create and cache the initialization promise
+    this.initPromise = this._performInit();
+    return this.initPromise;
+  }
+
+  private static async _performInit(): Promise<{ 
+    app: Application, 
+    db: Db, 
+    agent: any
   }> {
     // Set up a fake clientSecret for authentication
     // IMPORTANT: Must set the base API config using the proper function
@@ -67,7 +83,14 @@ export class TestExpressApp {
     
     // Set up MongoDB memory server if not already done
     if (!this.db) {
-      this.mongoServer = await MongoMemoryServer.create();
+      this.mongoServer = await MongoMemoryServer.create({
+        instance: {
+          port: 0, // Use dynamic port allocation
+        },
+        binary: {
+          downloadDir: process.env.HOME ? `${process.env.HOME}/.cache/mongodb-binaries` : undefined,
+        }
+      });
       const uri = this.mongoServer.getUri();
       this.client = await MongoClient.connect(uri);
       this.db = this.client.db();
@@ -114,6 +137,12 @@ export class TestExpressApp {
     if (this.mongoServer) {
       await this.mongoServer.stop();
     }
+    // Reset initialization state
+    this.initPromise = null;
+    this.app = undefined as any;
+    this.db = undefined as any;
+    this.client = undefined as any;
+    this.mongoServer = undefined as any;
   }
   
   /**
