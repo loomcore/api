@@ -8,15 +8,8 @@ import { config } from '../config/base-api-config.js';
  */
 const SENSITIVE_FIELDS = [
 	'password',
-	'token',
-	'apiKey',
 	'secret',
-	'credit_card',
-	'creditCard',
-	'ssn',
-	'email',
-	'phone',
-	'address'
+	'ssn'
 ];
 
 /**

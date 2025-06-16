@@ -266,9 +266,15 @@ function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions) {
 		if (value) {
 			if (value.eq !== undefined) {
 				//if (!ignoredProperties.includes(key) && key.endsWith('Id') && doc[key]) {
-				if (typeof value.eq === 'string' && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key) 
-					&& key.endsWith('Id') && entityUtils.isValidObjectId(value.eq)) {
+				if (typeof value.eq === 'string' 
+					&& key.endsWith('Id') 
+					&& !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key) 
+					&& entityUtils.isValidObjectId(value.eq)) {
 					match[key] = new ObjectId(value.eq)
+				}
+				// Convert numeric strings to numbers
+				else if (typeof value.eq === 'string' && !isNaN(Number(value.eq))) {
+					match[key] = Number(value.eq);
 				}
 				else {
 					match[key] = value.eq;
@@ -285,8 +291,11 @@ function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions) {
 						match[key] = { $in: objectIds };
 					}
 				} else {
-					// Use values as-is for non-ObjectId properties
-					match[key] = { $in: value.in };
+					// Convert numeric strings to numbers in arrays
+					const convertedValues = value.in.map(val => 
+						typeof val === 'string' && !isNaN(Number(val)) ? Number(val) : val
+					);
+					match[key] = { $in: convertedValues };
 				}
 			}
 			else if (value.gte !== undefined) {
