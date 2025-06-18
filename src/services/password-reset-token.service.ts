@@ -11,11 +11,11 @@ export class PasswordResetTokenService extends GenericApiService<IPasswordResetT
 	}
 
 	async createPasswordResetToken(email: string, expiresOn: number): Promise<IPasswordResetToken | null> {
-
-		await this.collection.deleteMany({email});
+		const lowerCaseEmail = email.toLowerCase();
+		await this.collection.deleteMany({email: lowerCaseEmail});
 
 		const passwordResetToken: Partial<IPasswordResetToken> = {
-			email,
+			email: lowerCaseEmail,
 			token: crypto.randomBytes(40).toString('hex'),
 			expiresOn: expiresOn,
 		};
@@ -24,6 +24,6 @@ export class PasswordResetTokenService extends GenericApiService<IPasswordResetT
 	}
 
 	async getByEmail(email: string): Promise<IPasswordResetToken | null> {
-		return  await super.findOne(EmptyUserContext, {email});
+		return  await super.findOne(EmptyUserContext, {email: email.toLowerCase()});
 	}
 }

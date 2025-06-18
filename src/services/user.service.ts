@@ -21,6 +21,10 @@ export class UserService extends MultiTenantApiService<IUser> {
 		// First, let the base class do its preparation
 		const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
 		
+		if (preparedEntity.email) {
+			preparedEntity.email = preparedEntity.email.toLowerCase();
+		}
+		
 		// Only clean the User object during updates, not during creation. If we want to actually update the password, we need to use 
 		//  a specific, explicit endpoint - /auth/change-password
 		if (!isCreate) {

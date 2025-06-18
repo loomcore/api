@@ -92,7 +92,7 @@ export class AuthService extends GenericApiService<IUser> {
 	}
 
 	getUserByEmail(email: string): Promise<IUser> {
-		return this.collection.findOne({email: email})
+		return this.collection.findOne({email: email.toLowerCase()})
 			.then((user: any) => {
 				return user;
 			});
@@ -104,6 +104,7 @@ export class AuthService extends GenericApiService<IUser> {
 		//  I think a user either has to be created by someone with the authorization to do so, or they need to be
 		//  joining an org that has open registration, or else they have some sort of invite to join an org,
 		//  or initialSetup is occurring.
+		// prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 		const createdUser = await this.create(userContext, user);
 		return createdUser;
 	}
@@ -286,12 +287,13 @@ export class AuthService extends GenericApiService<IUser> {
 	}
 
 	async resetPassword(email: string, passwordResetToken: string, password: string): Promise<UpdateResult> {
+		const lowerCaseEmail = email.toLowerCase();
 		// fetch passwordResetToken
-		const retrievedPasswordResetToken = await this.passwordResetTokenService.getByEmail(email);
+		const retrievedPasswordResetToken = await this.passwordResetTokenService.getByEmail(lowerCaseEmail);
 		
 		// Check if token exists
 		if (!retrievedPasswordResetToken) {
-			throw new ServerError(`Unable to retrieve password reset token for email: ${email}`);
+			throw new ServerError(`Unable to retrieve password reset token for email: ${lowerCaseEmail}`);
 		}
 		
 		// Validate they sent the same token that we have saved for this email (there can only be one) and that it hasn't expired
@@ -300,13 +302,13 @@ export class AuthService extends GenericApiService<IUser> {
 		}
 
 		// update user password
-		const result = await this.changePassword(EmptyUserContext, {email}, password);
-		console.log(`password changed using forgot-password for email: ${email}`);
+		const result = await this.changePassword(EmptyUserContext, {email: lowerCaseEmail}, password);
+		console.log(`password changed using forgot-password for email: ${lowerCaseEmail}`);
 
 		// delete passwordResetToken
 		// todo: should we await here? I think we should not. The user successfully changed their password regardless of what happens to the resetToken
 		await this.passwordResetTokenService.deleteById(EmptyUserContext, retrievedPasswordResetToken._id.toString());
-		console.log(`passwordResetToken deleted for email: ${email}`);
+		console.log(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
 
 		return result;
 	}
