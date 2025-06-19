@@ -19,7 +19,7 @@ export interface IBaseApiConfig {
    * from environment to environment..
    */
   app: {
-    multiTenant: boolean; // I don't think this is used currently
+    isMultiTenant: boolean;
   },
   auth: {
     jwtExpirationInSeconds: number;

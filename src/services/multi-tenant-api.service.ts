@@ -3,6 +3,7 @@ import { IUserContext, IEntity, QueryOptions, IModelSpec } from '@loomcore/commo
 import { GenericApiService } from './generic-api.service.js';
 import { TenantQueryDecorator } from './tenant-query-decorator.js';
 import { BadRequestError } from '../errors/bad-request.error.js';
+import { config } from '../config/base-api-config.js';
 
 /**
  * Decorates the GenericApiService with multi-tenancy behavior.
@@ -10,7 +11,7 @@ import { BadRequestError } from '../errors/bad-request.error.js';
  * to transparently add tenant filtering to all database operations.
  */
 export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
-  private tenantDecorator: TenantQueryDecorator;
+  private tenantDecorator?: TenantQueryDecorator;
   
   constructor(
     db: Db, 
@@ -19,19 +20,24 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     modelSpec?: IModelSpec
   ) {
     super(db, pluralResourceName, singularResourceName, modelSpec);
-    this.tenantDecorator = new TenantQueryDecorator();
+    if (config?.app?.isMultiTenant) {
+      this.tenantDecorator = new TenantQueryDecorator();
+    }
   }
 
   /**
    * Override the query preparation hook to add tenant filtering
    */
   protected override prepareQuery(userContext: IUserContext, query: any): any {
+    if (!config?.app?.isMultiTenant) {
+      return super.prepareQuery(userContext, query);
+    }
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareQuery');
     }
     
     // Apply tenant filtering to the query object
-    return this.tenantDecorator.applyTenantToQuery(
+    return this.tenantDecorator!.applyTenantToQuery(
       userContext, 
       query, 
       this.pluralResourceName
@@ -42,12 +48,15 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the query options preparation hook to add tenant filtering
    */
   protected override prepareQueryOptions(userContext: IUserContext, queryOptions: QueryOptions): QueryOptions {
+    if (!config?.app?.isMultiTenant) {
+      return super.prepareQueryOptions(userContext, queryOptions);
+    }
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareQueryOptions');
     }
     
     // Apply tenant filtering to the query options
-    return this.tenantDecorator.applyTenantToQueryOptions(
+    return this.tenantDecorator!.applyTenantToQueryOptions(
       userContext, 
       queryOptions, 
       this.pluralResourceName
@@ -59,6 +68,9 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * This will be called for both create and update operations
    */
   protected override async prepareEntity(userContext: IUserContext, entity: T, isCreate: boolean): Promise<T | Partial<T>> {
+    if (!config?.app?.isMultiTenant) {
+      return super.prepareEntity(userContext, entity, isCreate);
+    }
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareEntity');
     }
@@ -67,7 +79,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
     
     // Then apply tenant ID
-    const orgIdField = this.tenantDecorator.getOrgIdField();
+    const orgIdField = this.tenantDecorator!.getOrgIdField();
     (preparedEntity as any)[orgIdField] = userContext._orgId;
     
     return preparedEntity;
