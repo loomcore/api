@@ -64,7 +64,7 @@ export class TestExpressApp {
       debug: {
         showErrors: false
       },
-      app: { multiTenant: true },
+      app: { isMultiTenant: true },
       auth: {
         jwtExpirationInSeconds: 3600,
         refreshTokenExpirationInDays: 7,
