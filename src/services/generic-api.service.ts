@@ -564,20 +564,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
   private stripSenderProvidedSystemProperties(doc: any) {
     // we don't allow users to provide/overwrite any system properties
-    if (doc._id) {
-      delete doc._id;
-    }
-    if (doc._created) {
-      delete doc._created;
-    }
-    if (doc._createdBy) {
-      delete doc._createdBy;
-    }
-    if (doc._updated) {
-      delete doc._updated;
-    }
-    if (doc._updatedBy) {
-      delete doc._updatedBy;
+    for (const key in doc) {
+      if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_')) {
+        delete doc[key];
+      }
     }
   }
 
