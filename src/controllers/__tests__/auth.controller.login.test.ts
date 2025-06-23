@@ -47,6 +47,23 @@ describe('AuthController', () => {
       expect(response.body?.data?.userContext?.user?.email).toEqual(user.email.toLowerCase());
     });
 
+    it('should return a user object with a string _id', async () => {
+      const user = {
+        email: testUtils.testUserEmail,
+        password: testUtils.testUserPassword
+      };
+      
+      // Set a device ID cookie before making the request
+      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+      
+      const response = await testAgent
+        .post(apiEndpoint)
+        .send(user)
+        .expect(200);
+
+      expect(typeof response.body?.data?.userContext?.user?._id).toBe('string');
+    });
+
     it('should allow email to be case insensitive', async () => {
       const user = {
         email: testUtils.testUserEmailCaseInsensitive,

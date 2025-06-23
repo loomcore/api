@@ -128,6 +128,35 @@ describe('ApiController - Integration Tests', () => {
     await TestExpressApp.clearCollections();
   });
 
+  describe('GET /:id - _id as string', () => {
+    it('should return an entity with _id as a string, not an object', async () => {
+      // Create a test item first
+      const newItem = { name: 'Test for ID type' };
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send(newItem);
+
+      expect(createResponse.status).toBe(201);
+      const createdItem = createResponse.body.data;
+      const itemId = createdItem._id;
+      expect(typeof itemId).toBe('string');
+
+      // Now fetch the item by its ID
+      const getResponse = await testAgent
+        .get(`/api/test-items/${itemId}`)
+        .set('Authorization', authToken);
+      
+      // Assertions
+      expect(getResponse.status).toBe(200);
+      const fetchedItem = getResponse.body.data;
+      expect(fetchedItem).toHaveProperty('_id');
+
+      expect(typeof fetchedItem._id).toBe('string');
+      expect(fetchedItem._id).toBe(itemId);
+    });
+  });
+
   describe('auditable behavior', () => {
     it('should include audit properties in POST response', async () => {
       // Make the API request with the token from testUtils

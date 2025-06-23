@@ -79,23 +79,18 @@ export class AuthService extends GenericApiService<IUser> {
 		return loginResponse;
 	}
 
-	getUserById(id: string) {
+	async getUserById(id: string): Promise<IUser | null> {
 		if (!entityUtils.isValidObjectId(id)) {
 			throw new BadRequestError('id is not a valid ObjectId');
 		}
 
-		// todo: remove all these direct collection calls and use the GenericApiService methods instead!!!!!!!!!
-		return this.collection.findOne({_id: new ObjectId(id)})
-			.then((doc) => {
-				return doc;
-			});
+		const user = await this.findOne(EmptyUserContext, {_id: new ObjectId(id)});
+		return user;
 	}
 
-	getUserByEmail(email: string): Promise<IUser> {
-		return this.collection.findOne({email: email.toLowerCase()})
-			.then((user: any) => {
-				return user;
-			});
+	async getUserByEmail(email: string): Promise<IUser | null> {
+		const user = await this.findOne(EmptyUserContext, {email: email.toLowerCase()});
+		return user;
 	}
 
 	async createUser(userContext: IUserContext, user: IUser): Promise<IUser | null> {
@@ -173,20 +168,18 @@ export class AuthService extends GenericApiService<IUser> {
 
 	async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
 		// queryObject will either be {_id: someUserId} for loggedInUser change or {email: someEmail} from forgotPassword
-		const hashedPassword = await passwordUtils.hashPassword(password);
-		let updates = { password: hashedPassword, lastPasswordChange: moment().utc().toDate() };
+		const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
+		const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
 
-		// Add type assertion to tell TypeScript this will always be an object, not an array
-		updates = (await this.onBeforeUpdate(userContext, updates)) as typeof updates;
-		
-		const mongoUpdateResult = await this.collection.updateOne(queryObject, {$set: updates});
+		const result: UpdateResult = {
+			acknowledged: true,
+			modifiedCount: updatedUsers.length,
+			upsertedId: null,
+			upsertedCount: 0,
+			matchedCount: updatedUsers.length
+		};
 
-		if (mongoUpdateResult?.modifiedCount > 0) {
-			// only call onAfterUpdate if something was updated
-			await this.onAfterUpdate(userContext, updates);
-		}
-
-		return mongoUpdateResult;
+		return result;
 	}
 
 	async createNewTokens(userId: string, deviceId: string, refreshTokenExpiresOn: number) {
@@ -433,10 +426,9 @@ export class AuthService extends GenericApiService<IUser> {
 				throw new BadRequestError('userId is not a valid ObjectId');
 			}
 
-			const queryObject = {_id: new ObjectId(userId)};
-			const updates = { lastLoggedIn: moment().utc().toDate() };
+			const updates = { _lastLoggedIn: moment().utc().toDate() };
 			
-			await this.collection.updateOne(queryObject, {$set: updates});
+			await this.partialUpdateById(EmptyUserContext, userId, updates);
 		} catch (error) {
 			// Log error but don't throw to ensure non-blocking behavior
 			console.log(`Failed to update lastLoggedIn for user ${userId}: ${error}`);
