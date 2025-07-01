@@ -54,6 +54,7 @@ describe('AuthController', () => {
   });
 
   describe('POST /auth/register', () => {
+    console.log('**************** In /auth/register ****************'); // todo: delete me
     const apiEndpoint = '/api/auth/register';
 
     it("should return a 201 and a newly created user on successful creation", async () => {
@@ -69,6 +70,7 @@ describe('AuthController', () => {
         .send(newUser)
         .expect(201);
 
+      console.log(response.body); // todo: delete me
       expect(response.body?.data).toHaveProperty('_id');
       expect(response.body?.data).toHaveProperty('email', newUser.email);
       expect(response.body?.data).toHaveProperty('_orgId', testUtils.testOrgId);

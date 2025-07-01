@@ -426,9 +426,10 @@ export class AuthService extends GenericApiService<IUser> {
 				throw new BadRequestError('userId is not a valid ObjectId');
 			}
 
-			const updates = { _lastLoggedIn: moment().utc().toDate() };
+			// Pass ISO string so TypeBox can decode it to Date per TypeboxIsoDate transform
+			const updates = { _lastLoggedIn: moment().utc().toISOString() };
 			
-			await this.partialUpdateById(EmptyUserContext, userId, updates);
+			await this.partialUpdateById(EmptyUserContext, userId, updates as unknown as Partial<IUser>);
 		} catch (error) {
 			// Log error but don't throw to ensure non-blocking behavior
 			console.log(`Failed to update lastLoggedIn for user ${userId}: ${error}`);

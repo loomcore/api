@@ -1,7 +1,10 @@
 import {DeleteResult, Document, FindOptions} from 'mongodb';
+import { ValueError } from '@sinclair/typebox/errors';
 import {IUserContext, IEntity, IPagedResult, QueryOptions} from '@loomcore/common/models';
 
 export interface IGenericApiService<T extends IEntity> {
+  validate(doc: any, isPartial?: boolean): ValueError[] | null;
+  validateMany(docs: any[], isPartial?: boolean): ValueError[] | null;
   getAll(userContext: IUserContext): Promise<T[]>;
 	get(userContext: IUserContext, queryOptions: QueryOptions): Promise<IPagedResult<T>>;
   getById(userContext: IUserContext, id: string): Promise<T>;

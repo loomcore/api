@@ -55,6 +55,27 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return entityUtils.validate(validator, doc);
   }
 
+  validateMany(docs: any[], isPartial: boolean = false): ValueError[] | null {
+    // If no model spec was provided, consider it valid
+    if (!this.modelSpec) {
+      return null;
+    }
+    
+    const validator = isPartial ? this.modelSpec.partialValidator : this.modelSpec.validator;
+    let allErrors: ValueError[] = [];
+
+    for (const doc of docs) {
+      const errors = entityUtils.validate(validator, doc);
+      if (errors && errors.length > 0) {
+        allErrors.push(...errors);
+      }
+    }
+    
+    // Return null if no errors found, otherwise return the accumulated errors
+    return allErrors.length > 0 ? allErrors : null;
+  }
+  
+
   /**
    * Returns additional pipeline stages to be included in aggregation queries.
    * Override this in derived classes to add custom joins or transformations.
@@ -238,10 +259,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     if (entities.length) {
       try {
         // Validate all entities first
-        for (const entity of entities) {
-          const validationErrors = this.validate(entity);
-          entityUtils.handleValidationResult(validationErrors, 'GenericApiService.createMany');
-        }
+        const validationErrors = this.validateMany(entities);
+        entityUtils.handleValidationResult(validationErrors, 'GenericApiService.createMany');
 
         // Call onBeforeCreate once with the array of entities
         const preparedEntities = await this.onBeforeCreate(userContext, entities); // onBeforeCreate calls preparePayload, which calls prepareEntity
@@ -319,6 +338,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       throw new BadRequestError('id is not a valid ObjectId');
     }
 
+    // validation is expecting json formatted data, like an ISO string for dates. If we want to have the service handle the actual
+    //  property types of models, we will need to move validation to the controller.
     const validationErrors = this.validate(entity, true);
     entityUtils.handleValidationResult(validationErrors, 'GenericApiService.partialUpdateById');
 
@@ -565,7 +586,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   private stripSenderProvidedSystemProperties(doc: any) {
     // we don't allow users to provide/overwrite any system properties
     for (const key in doc) {
-      if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_')) {
+      // todo: seriously consider removing the _orgId check once we handle user creation properly (no more register endpoint)
+      if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_') && key !== '_orgId') {
         delete doc[key];
       }
     }
