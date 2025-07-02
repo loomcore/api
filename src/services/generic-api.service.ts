@@ -583,10 +583,16 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return transformedEntity;
   }
 
-  private stripSenderProvidedSystemProperties(doc: any) {
+  private stripSenderProvidedSystemProperties(userContext: IUserContext,doc: any) {
+    // Allow system properties if this is a system-initiated action
+    const isSystemUser = userContext.user?._id === 'system';
+    if (isSystemUser) {
+      return; // Don't strip any properties for system actions
+    }
+
     // we don't allow users to provide/overwrite any system properties
     for (const key in doc) {
-      // todo: seriously consider removing the _orgId check once we handle user creation properly (no more register endpoint)
+      // todo: seriously consider removing the _orgId check once we handle user creation properly (when there is no more register endpoint)
       if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_') && key !== '_orgId') {
         delete doc[key];
       }
@@ -628,7 +634,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const preparedEntity = _.clone(entity);
 
     // Strip out any system properties sent by the client
-    this.stripSenderProvidedSystemProperties(preparedEntity);
+    this.stripSenderProvidedSystemProperties(userContext, preparedEntity);
 
     // Apply appropriate auditing based on operation type if the entity is auditable
     if (this.modelSpec?.isAuditable) {

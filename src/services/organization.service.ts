@@ -23,4 +23,9 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 
 		return orgId;
 	}
+
+	async getMetaOrg(userContext: IUserContext): Promise<IOrganization> {
+		const org = await this.findOne(userContext, { isMetaOrg: true });
+		return org;
+	}
 }

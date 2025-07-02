@@ -1,7 +1,11 @@
-import {IBaseApiConfig} from '../models/index.js';
+import { Db } from 'mongodb';
+import { EmptyUserContext, initializeSystemUserContext } from '@loomcore/common/models';
+import { IBaseApiConfig } from '../models/index.js';
+
 
 export let config: IBaseApiConfig;
 let isConfigSet = false;
+let isSystemUserContextSet = false;
 
 // Utility function to pick only IBaseApiConfig properties. We ignore any extended properties that are not in IBaseApiConfig.
 function copyOnlyBaseApiConfigProperties<T extends IBaseApiConfig>(obj: T): IBaseApiConfig {
@@ -18,5 +22,33 @@ export function setBaseApiConfig(apiConfig: IBaseApiConfig) {
     isConfigSet = true;
   } else if (config.env !== 'test') {
     console.warn('BaseApiConfig data has already been set. Ignoring subsequent calls to setBaseApiConfig.');
+  }
+}
+
+export async function initSystemUserContext(db: Db) {
+  if (!isConfigSet) {
+    throw new Error('BaseApiConfig has not been set. Call setBaseApiConfig first.');
+  }
+
+  if (!isSystemUserContextSet) {
+    // Handle computed/configured properties
+    const systemEmail = config.email.systemEmailAddress || 'system@example.com';
+    let metaOrgId = undefined;
+    
+    if (config.app.isMultiTenant) {
+      // Import OrganizationService only when needed to avoid circular dependencies
+      const { OrganizationService } = await import('../services/organization.service.js');
+      const organizationService = new OrganizationService(db);
+      // Fetch orgId from database
+      const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+      metaOrgId = metaOrg._id;
+    }
+    
+    // Initialize the SystemUserContext
+    initializeSystemUserContext(systemEmail, metaOrgId);
+    isSystemUserContextSet = true;
+  }
+  else if (config.env !== 'test') {
+    console.warn('SystemUserContext has already been set. Ignoring subsequent calls to initSystemUserContext.');
   }
 }

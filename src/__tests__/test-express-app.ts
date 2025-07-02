@@ -7,7 +7,7 @@ import { MongoClient, Db } from 'mongodb';
 import { initializeTypeBox } from '@loomcore/common/validation';
 
 import testUtils from './common-test.utils.js';
-import { setBaseApiConfig } from '../config/base-api-config.js';
+import { setBaseApiConfig, initSystemUserContext } from '../config/base-api-config.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
 
@@ -96,7 +96,11 @@ export class TestExpressApp {
       this.db = this.client.db();
       testUtils.initialize(this.db);
       await testUtils.createIndexes(this.db);
+      
+      // Create meta org before initializing system user context
+      await testUtils.createMetaOrg();
     }
+    await initSystemUserContext(this.db);
     
     // Set up Express app if not already done
     if (!this.app) {
@@ -131,6 +135,9 @@ export class TestExpressApp {
    * Clean up resources
    */
   static async cleanup(): Promise<void> {
+    // Clean up test data first
+    await testUtils.cleanup();
+    
     if (this.client) {
       await this.client.close();
     }

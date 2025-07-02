@@ -2,7 +2,7 @@ import {Db, InsertOneResult, AnyError, ObjectId, Collection, UpdateResult} from 
 import {Request, Response} from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
-import {IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse} from '@loomcore/common/models';
+import {IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext} from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
 import {BadRequestError, DuplicateKeyError, ServerError} from '../errors/index.js';
@@ -69,7 +69,7 @@ export class AuthService extends GenericApiService<IUser> {
 			};
 
 			// Update lastLoggedIn in a non-blocking way
-			this.updateLastLoggedIn(userContext.user._id!.toString())
+			this.updateLastLoggedIn(userContext.user._id!)
 				.catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
 			
 			this.transformSingle(userContext.user);
@@ -429,7 +429,9 @@ export class AuthService extends GenericApiService<IUser> {
 			// Pass ISO string so TypeBox can decode it to Date per TypeboxIsoDate transform
 			const updates = { _lastLoggedIn: moment().utc().toISOString() };
 			
-			await this.partialUpdateById(EmptyUserContext, userId, updates as unknown as Partial<IUser>);
+			// Use system user context to allow updating system properties
+			const systemUserContext = getSystemUserContext();
+			await this.partialUpdateById(systemUserContext, userId, updates as unknown as Partial<IUser>);
 		} catch (error) {
 			// Log error but don't throw to ensure non-blocking behavior
 			console.log(`Failed to update lastLoggedIn for user ${userId}: ${error}`);

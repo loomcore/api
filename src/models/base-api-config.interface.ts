@@ -30,5 +30,6 @@ export interface IBaseApiConfig {
   email: {
     sendGridApiKey?: string;
     fromAddress?: string;
+    systemEmailAddress?: string;
   }
 }

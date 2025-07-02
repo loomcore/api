@@ -55,9 +55,50 @@ async function createIndexes(db: Db) {
   });
 }
     
+async function createMetaOrg() {
+  if (!db || !collections.organizations) {
+    throw new Error('Database not initialized. Call initialize() first.');
+  }
+  
+  try {
+    // Create a meta organization (required for system user context)
+    const existingMetaOrg = await collections.organizations.findOne({ isMetaOrg: true });
+    if (!existingMetaOrg) {
+      const metaOrgInsertResult = await collections.organizations.insertOne({ 
+        _id: new ObjectId(),
+        name: 'Meta Organization',
+        isMetaOrg: true,
+        _created: new Date(),
+        _createdBy: 'system',
+        _updated: new Date(),
+        _updatedBy: 'system'
+      });
+    }
+  }
+  catch (error: any) {
+    console.log('Error in createMetaOrg:', error);
+    throw error;
+  }
+}
+
+async function deleteMetaOrg() {
+  if (!collections.organizations) {
+    return Promise.resolve();
+  }
+  
+  try {
+    await collections.organizations.deleteOne({ isMetaOrg: true });
+  }
+  catch (error: any) {
+    console.log('Error deleting meta org:', error);
+    // Don't throw - cleanup should be non-blocking
+  }
+}
+    
 async function setupTestUser() {
   try {
-    const result = await deleteTestUser();
+    // Clean up any existing test data, then create fresh test user
+    await deleteTestUser();
     return createTestUser();
   }
   catch (error: any) {
@@ -119,11 +160,19 @@ async function createTestUser() {
 }
 
 function deleteTestUser() {
-  let promise = Promise.resolve(null);
+  let promises: Promise<any>[] = [];
+  
+  // Delete test user
   if (testUser) {
-    promise = collections.users.deleteOne({_id: testUser._id});
+    promises.push(collections.users.deleteOne({_id: testUser._id}));
   }
-  return promise;
+  
+  // Delete test organization (regular org only, not meta)
+  if (collections.organizations) {
+    promises.push(collections.organizations.deleteOne({_id: new ObjectId(testOrgId)}));
+  }
+  
+  return Promise.all(promises);
 }
   
 /**
@@ -241,10 +290,24 @@ async function loginWithTestUser(agent: any) {
   return authorizationHeaderValue;
 }
 
+async function cleanup() {
+  try {
+    await deleteTestUser();
+    await deleteMetaOrg();
+  }
+  catch (error: any) {
+    console.log('Error during cleanup:', error);
+    // Don't throw - cleanup should be non-blocking
+  }
+}
+
 const testUtils = {
+  cleanup,
   configureJwtSecret,
   constDeviceIdCookie,
   createIndexes,
+  createMetaOrg,
+  deleteMetaOrg,
   deleteTestUser,
   getAuthToken,
   getTestUser,
