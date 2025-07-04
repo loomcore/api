@@ -423,4 +423,280 @@ describe('ApiController - Integration Tests', () => {
       expect(response.status).toBe(401);
     });
   });
+
+  describe('Validation and Data Preparation Integration', () => {
+    it('should strip properties not defined in the schema while preserving system properties', async () => {
+      // Create an entity with extra properties not defined in the schema
+      const testEntity = {
+        name: 'Entity with extra props',
+        value: 42,
+        extraProperty: 'This property is not in the schema',
+        anotherExtraProperty: 999,
+        nestedExtra: { foo: 'bar' }
+      };
+      
+      // Act - Create via controller endpoint
+      const response = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send(testEntity);
+      
+      // Assert
+      expect(response.status).toBe(201);
+      const createdEntity = response.body.data;
+      
+      expect(createdEntity).toBeDefined();
+      expect(createdEntity.name).toBe(testEntity.name);
+      expect(createdEntity.value).toBe(testEntity.value);
+      
+      // Check that extra properties were stripped out
+      expect(createdEntity.extraProperty).toBeUndefined();
+      expect(createdEntity.anotherExtraProperty).toBeUndefined();
+      expect(createdEntity.nestedExtra).toBeUndefined();
+      
+      // Check that system properties were preserved/added
+      expect(createdEntity._id).toBeDefined();
+      expect(createdEntity._created).toBeDefined();
+      expect(createdEntity._createdBy).toBeDefined();
+      expect(createdEntity._updated).toBeDefined();
+      expect(createdEntity._updatedBy).toBeDefined();
+    });
+
+    it('should reject invalid entities with proper validation errors', async () => {
+      // Try to create an entity missing required fields
+      const invalidEntity = {
+        // Missing required 'name' field
+        value: 42,
+        extraProperty: 'Extra'
+      };
+      
+      // Act & Assert
+      const response = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send(invalidEntity);
+      
+      expect(response.status).toBe(400); // Should be a validation error
+    });
+
+    it('should reject partial updates with invalid data', async () => {
+      // First create a valid entity
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send({ name: 'Valid Item', value: 100 });
+      
+      expect(createResponse.status).toBe(201);
+      const itemId = createResponse.body.data._id;
+      
+      // Try to update with invalid data
+      const invalidUpdate = {
+        name: '', // Empty string should fail validation
+        value: 'not a number' // Wrong type
+      };
+      
+      const response = await testAgent
+        .patch(`/api/test-items/${itemId}`)
+        .set('Authorization', authToken)
+        .send(invalidUpdate);
+      
+      expect(response.status).toBe(400); // Should be a validation error
+    });
+
+    it('should handle partial updates correctly with valid partial data', async () => {
+      // First create an entity
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send({ name: 'Original Item', value: 100 });
+      
+      expect(createResponse.status).toBe(201);
+      const originalItem = createResponse.body.data;
+      const itemId = originalItem._id;
+      
+      // Update only the value field
+      const partialUpdate = {
+        value: 200
+        // name should remain unchanged
+      };
+      
+      const response = await testAgent
+        .patch(`/api/test-items/${itemId}`)
+        .set('Authorization', authToken)
+        .send(partialUpdate);
+      
+      expect(response.status).toBe(200);
+      const updatedItem = response.body.data;
+      
+      // Verify partial update worked correctly
+      expect(updatedItem.name).toBe(originalItem.name); // Unchanged
+      expect(updatedItem.value).toBe(200); // Updated
+      expect(updatedItem._created).toEqual(originalItem._created); // Preserved
+      expect(updatedItem._updated).not.toEqual(originalItem._updated); // Updated
+    });
+  });
+
+  describe('Comprehensive Audit Functionality Integration', () => {
+    it('should add all auditable properties on creation', async () => {
+      const entity = { name: 'AuditTest', value: 42 };
+      
+      const response = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send(entity);
+      
+      expect(response.status).toBe(201);
+      const result = response.body.data;
+      
+      expect(result).toBeDefined();
+      expect(result._created).toBeDefined();
+      expect(result._createdBy).toBe(userId);
+      expect(result._updated).toBeDefined();
+      expect(result._updatedBy).toBe(userId);
+      expect(new Date(result._created)).toBeInstanceOf(Date);
+      expect(new Date(result._updated)).toBeInstanceOf(Date);
+    });
+
+    it('should not allow client to override audit properties on create', async () => {
+      const hackDate = new Date(2020, 1, 1).toISOString();
+      
+      // Try to create with tampered audit properties
+      const entity = { 
+        name: 'TamperTest',
+        value: 42,
+        _created: hackDate,
+        _createdBy: 'hacker',
+        _updated: hackDate,
+        _updatedBy: 'hacker'
+      };
+      
+      const response = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send(entity);
+      
+      expect(response.status).toBe(201);
+      const result = response.body.data;
+      
+      expect(result).toBeDefined();
+      expect(result._created).not.toEqual(hackDate);
+      expect(result._createdBy).not.toEqual('hacker');
+      expect(result._updated).not.toEqual(hackDate);
+      expect(result._updatedBy).not.toEqual('hacker');
+      expect(result._createdBy).toEqual(userId);
+      expect(result._updatedBy).toEqual(userId);
+    });
+
+    it('should update _updated and _updatedBy on update but preserve _created and _createdBy', async () => {
+      // First create an entity
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send({ name: 'UpdateTest', value: 100 });
+      
+      expect(createResponse.status).toBe(201);
+      const createdItem = createResponse.body.data;
+      
+      const originalCreated = createdItem._created;
+      const originalCreatedBy = createdItem._createdBy;
+      const itemId = createdItem._id;
+      
+      // Wait a moment to ensure timestamps differ
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Update the entity
+      const updateResponse = await testAgent
+        .patch(`/api/test-items/${itemId}`)
+        .set('Authorization', authToken)
+        .send({ name: 'Updated Test' });
+      
+      expect(updateResponse.status).toBe(200);
+      const updatedItem = updateResponse.body.data;
+      
+      // Check audit fields
+      expect(updatedItem._created).toEqual(originalCreated);
+      expect(updatedItem._createdBy).toEqual(originalCreatedBy);
+      expect(updatedItem._updated).not.toEqual(createdItem._updated);
+      expect(updatedItem._updatedBy).toEqual(userId);
+    });
+
+    it('should handle full updates (PUT) with proper audit trail', async () => {
+      // Create initial entity
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send({ name: 'PUT Test', value: 50 });
+      
+      expect(createResponse.status).toBe(201);
+      const createdItem = createResponse.body.data;
+      const itemId = createdItem._id;
+      
+      // Wait to ensure timestamp difference
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Full update with PUT
+      const updateResponse = await testAgent
+        .put(`/api/test-items/${itemId}`)
+        .set('Authorization', authToken)
+        .send({ name: 'PUT Updated', value: 75 });
+      
+      expect(updateResponse.status).toBe(200);
+      const updatedItem = updateResponse.body.data;
+      
+      // Verify audit properties
+      expect(updatedItem._created).toEqual(createdItem._created);
+      expect(updatedItem._createdBy).toEqual(createdItem._createdBy);
+      expect(updatedItem._updated).not.toEqual(createdItem._updated);
+      expect(updatedItem._updatedBy).toEqual(userId);
+      expect(updatedItem.name).toBe('PUT Updated');
+      expect(updatedItem.value).toBe(75);
+    });
+
+    it('should handle bulk operations with audit properties', async () => {
+      // Create multiple entities to test bulk behavior
+      const entities = [
+        { name: 'Bulk Item 1', value: 10 },
+        { name: 'Bulk Item 2', value: 20 },
+        { name: 'Bulk Item 3', value: 30 }
+      ];
+      
+      const createPromises = entities.map(entity => 
+        testAgent
+          .post('/api/test-items')
+          .set('Authorization', authToken)
+          .send(entity)
+      );
+      
+      const responses = await Promise.all(createPromises);
+      
+      // Verify all were created successfully
+      responses.forEach((response, index) => {
+        expect(response.status).toBe(201);
+        const item = response.body.data;
+        expect(item.name).toBe(entities[index].name);
+        expect(item.value).toBe(entities[index].value);
+        expect(item._created).toBeDefined();
+        expect(item._createdBy).toBe(userId);
+        expect(item._updated).toBeDefined();
+        expect(item._updatedBy).toBe(userId);
+      });
+      
+      // Verify via list endpoint
+      const listResponse = await testAgent
+        .get('/api/test-items')
+        .set('Authorization', authToken);
+      
+      expect(listResponse.status).toBe(200);
+      const pagedResult = listResponse.body.data;
+      expect(pagedResult.entities.length).toBeGreaterThanOrEqual(3);
+      
+      // Check that all returned entities have audit properties
+      pagedResult.entities.forEach((item: any) => {
+        expect(item._created).toBeDefined();
+        expect(item._createdBy).toBeDefined();
+        expect(item._updated).toBeDefined();
+        expect(item._updatedBy).toBeDefined();
+      });
+    });
+  });
 }); 

@@ -126,8 +126,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Act
-      const createdEntity = await service.create(userContext, testEntity as TestEntity);
-
+      const createdEntity = await service.create(userContext, testEntity);
       const retrievedEntity = await service.getById(userContext, createdEntity!._id.toString());
       
       // Assert
@@ -175,7 +174,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Create the entity first
-      const createdEntity = await service.create(userContext, initialEntity as TestEntity);
+      const createdEntity = await service.create(userContext, initialEntity);
       
       // Act - Update the entity
       const updateData: Partial<TestEntity> = {
@@ -205,7 +204,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Create the entity first
-      const createdEntity = await service.create(userContext, testEntity as TestEntity);
+      const createdEntity = await service.create(userContext, testEntity);
       
       // Act
       const deleteResult = await service.deleteById(
@@ -221,6 +220,36 @@ describe('GenericApiService - Integration Tests', () => {
         userContext, 
         createdEntity!._id.toString()
       )).rejects.toThrow(IdNotFoundError);
+    });
+    
+    it('should accept a partial update with only some fields', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Initial Entity',
+        description: 'Initial description',
+        isActive: true
+      };
+      
+      // Create the entity first
+      const createdEntity = await service.create(userContext, initialEntity);
+      
+      // Act - Only update description
+      const updateData: Partial<TestEntity> = {
+        description: 'Updated description only'
+      };
+      
+      const updatedEntity = await service.partialUpdateById(
+        userContext, 
+        createdEntity!._id.toString(), 
+        updateData
+      );
+      
+      // Assert
+      expect(updatedEntity).toBeDefined();
+      expect(updatedEntity.name).toBe('Initial Entity'); // Unchanged
+      expect(updatedEntity.description).toBe('Updated description only');
+      expect(updatedEntity.isActive).toBe(true); // Unchanged
     });
   });
   
@@ -318,104 +347,80 @@ describe('GenericApiService - Integration Tests', () => {
     });
   });
   
-  describe('Validation', () => {
-    it('should reject an entity that fails validation', async () => {
+  describe('Validation Methods', () => {
+    it('should validate and return errors for invalid entity', () => {
       // Arrange
-      const userContext = createUserContext();
-      const invalidEntity: Partial<TestEntity> = {
+      const invalidEntity = {
         // Missing required 'name' field
         description: 'This entity is invalid'
       };
       
-      // Act & Assert
-      await expect(
-        service.create(userContext, invalidEntity as TestEntity)
-      ).rejects.toThrow();
-    });
-    
-    it('should accept a valid entity', async () => {
-      // Arrange
-      const userContext = createUserContext();
-      const validEntity: Partial<TestEntity> = {
-        name: 'Valid Entity'
-      };
-      
       // Act
-      const result = await service.create(userContext, validEntity as TestEntity);
+      const validationErrors = service.validate(invalidEntity);
       
       // Assert
-      expect(result).toBeDefined();
-      expect(result!.name).toBe('Valid Entity');
+      expect(validationErrors).not.toBeNull();
+      expect(validationErrors!.length).toBeGreaterThan(0);
+      expect(validationErrors!.some(error => error.path === '/name')).toBe(true);
     });
     
-    it('should accept a partial update with only some fields', async () => {
+    it('should validate and return null for valid entity', () => {
       // Arrange
-      const userContext = createUserContext();
-      const initialEntity: Partial<TestEntity> = {
-        name: 'Initial Entity',
-        description: 'Initial description',
+      const validEntity = {
+        name: 'Valid Entity',
+        description: 'This is valid',
         isActive: true
       };
       
-      // Create the entity first
-      const createdEntity = await service.create(userContext, initialEntity as TestEntity);
-      
-      // Act - Only update description
-      const updateData: Partial<TestEntity> = {
-        description: 'Updated description only'
-      };
-      
-      const updatedEntity = await service.partialUpdateById(
-        userContext, 
-        createdEntity!._id.toString(), 
-        updateData
-      );
+      // Act
+      const validationErrors = service.validate(validEntity);
       
       // Assert
-      expect(updatedEntity).toBeDefined();
-      expect(updatedEntity.name).toBe('Initial Entity'); // Unchanged
-      expect(updatedEntity.description).toBe('Updated description only');
-      expect(updatedEntity.isActive).toBe(true); // Unchanged
+      expect(validationErrors).toBeNull();
     });
     
-    it('should strip properties not defined in the schema while preserving system properties', async () => {
+    it('should validate partial entity for updates', () => {
       // Arrange
-      const userContext = createUserContext();
-      
-      // Create an entity with an extra property not defined in the schema
-      const testEntity: any = {
-        name: 'Entity with extra props',
-        extraProperty: 'This property is not in the schema',
-        anotherExtraProperty: 42,
-        nestedExtra: { foo: 'bar' }
+      const partialEntity = {
+        description: 'Updated description'
+        // name is not required for partial updates
       };
       
       // Act
-      const createdEntity = await service.create(userContext, testEntity as TestEntity);
-      const retrievedEntity = await service.getById(userContext, createdEntity!._id.toString());
+      const validationErrors = service.validate(partialEntity, true);
       
       // Assert
-      expect(createdEntity).toBeDefined();
-      expect(createdEntity!.name).toBe(testEntity.name);
+      expect(validationErrors).toBeNull();
+    });
+    
+    it('should validate multiple entities', () => {
+      // Arrange
+      const entities = [
+        { name: 'Valid Entity 1' },
+        { description: 'Invalid - missing name' }, // Invalid
+        { name: 'Valid Entity 2' }
+      ];
       
-      // Check that extra properties were stripped out
-      expect((createdEntity as any).extraProperty).toBeUndefined();
-      expect((createdEntity as any).anotherExtraProperty).toBeUndefined();
-      expect((createdEntity as any).nestedExtra).toBeUndefined();
+      // Act
+      const validationErrors = service.validateMany(entities);
       
-      // Check that they're also not present when retrieving
-      expect((retrievedEntity as any).extraProperty).toBeUndefined();
-      expect((retrievedEntity as any).anotherExtraProperty).toBeUndefined();
-      expect((retrievedEntity as any).nestedExtra).toBeUndefined();
+      // Assert
+      expect(validationErrors).not.toBeNull();
+      expect(validationErrors!.length).toBeGreaterThan(0);
+    });
+    
+    it('should return null when all entities in array are valid', () => {
+      // Arrange
+      const entities = [
+        { name: 'Valid Entity 1' },
+        { name: 'Valid Entity 2' }
+      ];
       
-      // Check that system properties were preserved
-      expect(retrievedEntity._id).toBeDefined();
-      if (entityUtils.isAuditable(retrievedEntity)) {
-        expect((retrievedEntity as any)._created).toBeDefined();
-        expect((retrievedEntity as any)._createdBy).toBeDefined();
-        expect((retrievedEntity as any)._updated).toBeDefined();
-        expect((retrievedEntity as any)._updatedBy).toBeDefined();
-      }
+      // Act
+      const validationErrors = service.validateMany(entities);
+      
+      // Assert
+      expect(validationErrors).toBeNull();
     });
   });
   
@@ -453,7 +458,8 @@ describe('GenericApiService - Integration Tests', () => {
       const entity1: Partial<TestEntity> = {
         name: 'Unique Name'
       };
-      await service.create(userContext, entity1 as TestEntity);
+      
+      await service.create(userContext, entity1);
       
       // Try to create second entity with same name
       const entity2: Partial<TestEntity> = {
@@ -462,71 +468,97 @@ describe('GenericApiService - Integration Tests', () => {
       
       // Act & Assert
       await expect(
-        service.create(userContext, entity2 as TestEntity)
+        service.create(userContext, entity2)
       ).rejects.toThrow(DuplicateKeyError);
     });
   });
   
-  describe('auditable functionality', () => {
-    it('should add all auditable properties on creation when model is auditable', async () => {
-      // Arrange
-      const entity: Partial<TestEntity> = { name: 'AuditTest' };
-      
-      // Act
-      const result = await service.create(testUserContext, entity as TestEntity);
-      
-      // Assert
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(result._created).toBeDefined();
-        expect(result._createdBy).toBe(testUserContext.user._id.toString());
-        expect(result._updated).toBeDefined();
-        expect(result._updatedBy).toBe(testUserContext.user._id.toString());
-      }
-    });
-
-    it('should not add auditable properties when model is not auditable', async () => {
-      // Create a non-auditable service
-      const nonAuditableModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: false });
-      const nonAuditableService = new GenericApiService<TestEntity>(
-        db,
-        'testEntities',
-        'testEntity',
-        nonAuditableModelSpec
-      );
-      
-      // Arrange
-      const entity: Partial<TestEntity> = { name: 'NonAuditTest' };
-      
-      // Act
-      const result = await nonAuditableService.create(testUserContext, entity as TestEntity);
-      
-      // Assert
-      expect(result).not.toBeNull();
-      if (result) {
-        // @ts-ignore - We're checking for the absence of these properties
-        expect(result._created).toBeUndefined();
-        // @ts-ignore
-        expect(result._createdBy).toBeUndefined();
-        // @ts-ignore
-        expect(result._updated).toBeUndefined();
-        // @ts-ignore
-        expect(result._updatedBy).toBeUndefined();
-      }
-    });
-
-    it('should update _updated and _updatedBy on update but preserve _created and _createdBy', async () => {
-      // First create an entity
-      const entity: Partial<TestEntity> = { name: 'UpdateTest' };
-      const createdEntity = await service.create(testUserContext, entity as TestEntity);
-      expect(createdEntity).not.toBeNull();
-      
-      if (createdEntity) {
-        const originalCreated = createdEntity._created;
-        const originalCreatedBy = createdEntity._createdBy;
-        const originalUpdated = createdEntity._updated;
+  describe('Data Preparation', () => {
+    describe('Basic Preparation', () => {
+      it('should strip properties not defined in the schema', async () => {
+        // Arrange
+        const userContext = createUserContext();
+        const entityWithExtraProps: any = {
+          name: 'Entity with extra props',
+          extraProperty: 'This property is not in the schema',
+          anotherExtraProperty: 42,
+          nestedExtra: { foo: 'bar' }
+        };
         
-        // Create a new user context for the update
+        // Act
+        const preparedEntity = await service.prepareDataForDb(userContext, entityWithExtraProps, true);
+        
+        // Assert
+        expect(preparedEntity.name).toBe('Entity with extra props');
+        expect((preparedEntity as any).extraProperty).toBeUndefined();
+        expect((preparedEntity as any).anotherExtraProperty).toBeUndefined();
+        expect((preparedEntity as any).nestedExtra).toBeUndefined();
+      });
+      
+      it('should preserve valid properties defined in the schema', async () => {
+        // Arrange
+        const userContext = createUserContext();
+        const validEntity = {
+          name: 'Valid Entity',
+          description: 'Valid description',
+          isActive: true,
+          tags: ['tag1', 'tag2'],
+          count: 42
+        };
+        
+        // Act
+        const preparedEntity = await service.prepareDataForDb(userContext, validEntity, true) as TestEntity;
+        
+        // Assert
+        expect(preparedEntity.name).toBe(validEntity.name);
+        expect(preparedEntity.description).toBe(validEntity.description);
+        expect(preparedEntity.isActive).toBe(validEntity.isActive);
+        expect(preparedEntity.tags).toEqual(validEntity.tags);
+        expect(preparedEntity.count).toBe(validEntity.count);
+      });
+    });
+    
+    describe('prepareDataForDb', () => {
+      it('should add audit properties on creation when model is auditable', async () => {
+        // Arrange
+        const entity = { name: 'AuditTest' };
+        
+        // Act
+        const preparedEntity = await service.prepareDataForDb(testUserContext, entity, true) as TestEntity;
+        
+        // Assert
+        expect(preparedEntity._created).toBeDefined();
+        expect(preparedEntity._createdBy).toBe(testUserContext.user._id.toString());
+        expect(preparedEntity._updated).toBeDefined();
+        expect(preparedEntity._updatedBy).toBe(testUserContext.user._id.toString());
+      });
+
+      it('should not add audit properties when model is not auditable', async () => {
+        // Create a non-auditable service
+        const nonAuditableModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: false });
+        const nonAuditableService = new GenericApiService<TestEntity>(
+          db,
+          'testEntities',
+          'testEntity',
+          nonAuditableModelSpec
+        );
+        
+        // Arrange
+        const entity = { name: 'NonAuditTest' };
+        
+        // Act
+        const preparedEntity = await nonAuditableService.prepareDataForDb(testUserContext, entity, true) as TestEntity;
+        
+        // Assert
+        expect((preparedEntity as any)._created).toBeUndefined();
+        expect((preparedEntity as any)._createdBy).toBeUndefined();
+        expect((preparedEntity as any)._updated).toBeUndefined();
+        expect((preparedEntity as any)._updatedBy).toBeUndefined();
+      });
+
+      it('should add update audit properties for updates', async () => {
+        // Arrange
+        const updateData = { name: 'Updated Test' };
         const updaterUserContext: IUserContext = {
           user: {
             _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0e').toString(),
@@ -540,270 +572,205 @@ describe('GenericApiService - Integration Tests', () => {
           _orgId: '67e8e19b149f740323af93d7'
         };
         
-        // Wait a moment to ensure timestamps differ
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Act
+        const preparedEntity = await service.prepareDataForDb(updaterUserContext, updateData, false) as Partial<TestEntity>;
         
-        // Update the entity
-        const updatedEntity = await service.partialUpdateById(
-          updaterUserContext, 
-          createdEntity._id.toString(), 
-          { name: 'Updated Test' }
-        );
-        
-        // Check audit fields
-        expect(updatedEntity._created).toEqual(createdEntity._created);
-        expect(updatedEntity._createdBy).toEqual(createdEntity._createdBy);
-        expect(updatedEntity._updated).not.toEqual(createdEntity._updated);
-        expect(updatedEntity._updatedBy).toEqual(updaterUserContext.user._id.toString());
-        
-        // Verify that the original created values were preserved
-        expect(updatedEntity._created).toEqual(originalCreated);
-        expect(updatedEntity._createdBy).toEqual(originalCreatedBy);
-      }
-    });
+        // Assert
+        expect(preparedEntity._updated).toBeDefined();
+        expect(preparedEntity._updatedBy).toBe(updaterUserContext.user._id.toString());
+        // Should not have creation audit properties for updates
+        expect(preparedEntity._created).toBeUndefined();
+        expect(preparedEntity._createdBy).toBeUndefined();
+      });
 
-    it('should not allow client to override audit properties on create', async () => {
-      const hackDate = moment().subtract(1, 'year').toDate();
-      
-      // TypeScript will complain about these properties, but we're explicitly testing to ensure
-      // they are ignored by the API service
-      const entity = { 
-        name: 'TamperTest',
-        _created: hackDate,
-        _createdBy: 'hacker',
-        _updated: hackDate,
-        _updatedBy: 'hacker'
-      } as any; // Use 'any' to bypass TypeScript checks on purpose
-      
-      const result = await service.create(testUserContext, entity);
-      
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(result._created).not.toEqual(hackDate);
-        expect(result._createdBy).not.toEqual('hacker');
-        expect(result._updated).not.toEqual(hackDate);
-        expect(result._updatedBy).not.toEqual('hacker');
-        expect(result._createdBy).toEqual(testUserContext.user._id.toString());
-      }
-    });
-
-    it('should not allow client to override audit properties on update', async () => {
-      // First create an entity
-      const entity: Partial<TestEntity> = { name: 'TamperUpdateTest' };
-      const createdEntity = await service.create(testUserContext, entity as TestEntity);
-      expect(createdEntity).not.toBeNull();
-      
-      if (createdEntity) {
-        // Wait a moment to ensure timestamps differ
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Try to tamper with audit properties during update
+      it('should strip client-provided audit properties on create', async () => {
+        // Arrange
         const hackDate = moment().subtract(1, 'year').toDate();
+        const entityWithHackedAudit = { 
+          name: 'TamperTest',
+          _created: hackDate,
+          _createdBy: 'hacker',
+          _updated: hackDate,
+          _updatedBy: 'hacker'
+        };
         
-        // Use 'any' to bypass TypeScript checks for audit properties
+        // Act
+        const preparedEntity = await service.prepareDataForDb(testUserContext, entityWithHackedAudit, true) as TestEntity;
+        
+        // Assert
+        expect(preparedEntity._created).not.toEqual(hackDate);
+        expect(preparedEntity._createdBy).not.toEqual('hacker');
+        expect(preparedEntity._updated).not.toEqual(hackDate);
+        expect(preparedEntity._updatedBy).not.toEqual('hacker');
+        expect(preparedEntity._createdBy).toEqual(testUserContext.user._id.toString());
+      });
+
+      it('should strip client-provided audit properties on update', async () => {
+        // Arrange
+        const hackDate = moment().subtract(1, 'year').toDate();
         const tamperedUpdate = {
           name: 'Updated Name',
           _created: hackDate,
           _createdBy: 'hacker',
           _updated: hackDate,
           _updatedBy: 'hacker'
-        } as any;
+        };
         
-        const updatedEntity = await service.partialUpdateById(
-          testUserContext,
-          createdEntity._id.toString(),
-          tamperedUpdate
-        );
+        // Act
+        const preparedEntity = await service.prepareDataForDb(testUserContext, tamperedUpdate, false) as Partial<TestEntity>;
         
-        // Verify audit properties were not tampered with
-        expect(updatedEntity._created).toEqual(createdEntity._created);
-        expect(updatedEntity._createdBy).toEqual(createdEntity._createdBy);
-        expect(updatedEntity._updated).not.toEqual(createdEntity._updated); // Should be updated with current timestamp
-        expect(updatedEntity._updatedBy).toEqual(testUserContext.user._id.toString());
-      }
-    });
+        // Assert
+        expect(preparedEntity.name).toBe('Updated Name'); // Valid property preserved
+        expect(preparedEntity._created).toBeUndefined(); // Stripped (shouldn't be in updates anyway)
+        expect(preparedEntity._createdBy).toBeUndefined(); // Stripped
+        expect(preparedEntity._updated).not.toEqual(hackDate); // Should be current timestamp
+        expect(preparedEntity._updatedBy).toEqual(testUserContext.user._id.toString()); // Should be real user
+      });
 
-    it('should handle system updates without a user context', async () => {
-      // Create with user context
-      const entity: Partial<TestEntity> = { name: 'SystemUpdateTest' };
-      const createdEntity = await service.create(testUserContext, entity as TestEntity);
-      expect(createdEntity).not.toBeNull();
-      
-      if (createdEntity) {
-        // Update without user context (system update)
-        const updatedEntity = await service.partialUpdateById(
-          EmptyUserContext, 
-          createdEntity._id.toString(),
-          { name: 'System Updated' }
+      it('should handle system updates', async () => {
+        // Arrange
+        const updateData = { name: 'System Updated' };
+        
+        // Act
+        const preparedEntity = await service.prepareDataForDb(EmptyUserContext, updateData, false) as Partial<TestEntity>;
+        
+        // Assert
+        expect(preparedEntity._updated).toBeDefined();
+        expect(preparedEntity._updatedBy).toEqual('system');
+      });
+    });
+    
+    describe('Type Conversion', () => {
+      it('should convert ISO date strings to Date objects', async () => {
+        // Arrange
+        const userContext = createUserContext();
+        const testDate = new Date();
+        const isoDateString = testDate.toISOString();
+        
+        // Create a schema with eventDate defined as Date type
+        const DateSchema = Type.Object({
+          name: Type.String({ minLength: 1 }),
+          eventDate: TypeboxIsoDate({ title: 'Event Date' })
+        });
+        
+        const dateModelSpec = entityUtils.getModelSpec(DateSchema, { isAuditable: true });
+        const dateService = new GenericApiService<any>(
+          db,
+          'dateEntities',
+          'dateEntity',
+          dateModelSpec
         );
         
-        // Verify system is recorded as updater
-        expect(updatedEntity._updated).toBeDefined();
-        expect(updatedEntity._updatedBy).toEqual('system');
-        expect(updatedEntity._created).toEqual(createdEntity._created);
-        expect(updatedEntity._createdBy).toEqual(createdEntity._createdBy);
-      }
-    });
-  });
-  
-  describe('Type Conversion', () => {
-    it('should preserve string IDs based on schema definition', async () => {
-      // Arrange
-      const userContext = createUserContext();
-      
-      // Create a schema with refId defined as TypeboxObjectId type (which is actually a string schema with objectid format)
-      const ObjectIdSchema = Type.Object({
-        name: Type.String({ minLength: 1 }),
-        // Use TypeboxObjectId for proper transformation
-        refId: TypeboxObjectId({ title: 'Reference ID' })
+        // Entity with date as string (simulating JSON from API)
+        const entityWithDateString = {
+          name: 'Entity with date string',
+          eventDate: isoDateString // ISO date string from API
+        };
+        
+        // Act
+        const preparedEntity = await dateService.prepareDataForDb(userContext, entityWithDateString, true) as any;
+        
+        // Assert
+        expect(preparedEntity.eventDate instanceof Date).toBe(true);
+        expect(preparedEntity.eventDate.toISOString()).toBe(isoDateString);
       });
       
-      const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
-      
-      // Create a service with this schema
-      const objectIdService = new GenericApiService<any>(
-        db,
-        'objectIdToStringTest',
-        'objectIdEntity',
-        objectIdModelSpec
-      );
-      
-      // Create an entity with a string ID (simulating JSON from API)
-      const stringIdEntity = {
-        name: 'Entity with string ID reference',
-        refId: new ObjectId().toString() // String ID from client
-      };
-      
-      // Act - Create the entity through the service
-      const createdEntity = await objectIdService.create(userContext, stringIdEntity);
-      
-      // Retrieve the entity
-      const retrievedEntity = await objectIdService.getById(userContext, createdEntity!._id.toString());
-      
-      // Assert - the refId should remain a string according to our architecture
-      expect(retrievedEntity).toBeDefined();
-      expect(retrievedEntity.refId).toBeDefined();
-      expect(typeof retrievedEntity.refId).toBe('string');
-      expect(retrievedEntity.refId).toBe(stringIdEntity.refId);
-    });
-    
-    it('should convert ISO date strings to Date objects based on schema definition', async () => {
-      // Arrange
-      const userContext = createUserContext();
-      
-      // Create a test date and its ISO string representation
-      const testDate = new Date();
-      const isoDateString = testDate.toISOString();
-      
-      // Create a schema with eventDate defined as Date type
-      const DateSchema = Type.Object({
-        name: Type.String({ minLength: 1 }),
-        eventDate: TypeboxIsoDate({ title: 'Event Date' })
+      it('should convert string IDs to ObjectIds for database storage', async () => {
+        // Arrange
+        const userContext = createUserContext();
+        const ObjectIdSchema = Type.Object({
+          name: Type.String({ minLength: 1 }),
+          refId: TypeboxObjectId({ title: 'Reference ID' })
+        });
+        
+        const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
+        const objectIdService = new GenericApiService<any>(
+          db,
+          'objectIdToStringTest',
+          'objectIdEntity',
+          objectIdModelSpec
+        );
+        
+        // Entity with string ID (simulating JSON from API)
+        const stringIdEntity = {
+          name: 'Entity with string ID reference',
+          refId: new ObjectId().toString() // String ID from client
+        };
+        
+        // Act
+        const preparedEntity = await objectIdService.prepareDataForDb(userContext, stringIdEntity, true);
+        
+        // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
+        expect(preparedEntity.refId instanceof ObjectId).toBe(true);
+        expect(preparedEntity.refId.toString()).toBe(stringIdEntity.refId);
       });
       
-      const dateModelSpec = entityUtils.getModelSpec(DateSchema, { isAuditable: true });
-      
-      // Create a service with this schema
-      const dateService = new GenericApiService<any>(
-        db,
-        'dateEntities',
-        'dateEntity',
-        dateModelSpec
-      );
-      
-      // Create entity with a date as string (simulating JSON from API)
-      const entityWithDateString = {
-        name: 'Entity with date string',
-        eventDate: isoDateString // ISO date string from API
-      };
-      
-      // Act - Create the entity through the service
-      const createdEntity = await dateService.create(userContext, entityWithDateString);
-      
-      // Retrieve the entity
-      const retrievedEntity = await dateService.getById(userContext, createdEntity!._id.toString());
-      
-      // Assert - the eventDate should be converted to a Date object by the schema
-      expect(retrievedEntity).toBeDefined();
-      expect(retrievedEntity.eventDate).toBeDefined();
-      expect(retrievedEntity.eventDate instanceof Date).toBe(true);
-      expect(retrievedEntity.eventDate.toISOString()).toBe(isoDateString);
-    });
-    
-    it('should handle nested objects with string IDs and Date objects based on schema definition', async () => {
-      // Arrange
-      const userContext = createUserContext();
-      const testDate = new Date();
-      const refIdString = new ObjectId().toString();
-      
-      // Create a schema for a complex entity with nested objects
-      const ComplexSchema = Type.Object({
-        name: Type.String(),
-        nested: Type.Object({
-          refId: TypeboxObjectId({ title: 'Reference ID' }), // Using TypeboxObjectId for proper transformation
-          timestamp: TypeboxIsoDate({ title: 'Timestamp' }), // Using TypeboxIsoDate for proper transformation
-          deeplyNested: Type.Object({
-            anotherRefId: TypeboxObjectId({ title: 'Another Reference ID' })
-          })
-        }),
-        items: Type.Array(
-          Type.Object({
-            itemRefId: TypeboxObjectId({ title: 'Item Reference ID' }),
-            eventDate: TypeboxIsoDate({ title: 'Event Date' })
-          })
-        )
+      it('should handle nested objects with proper type conversion to database types', async () => {
+        // Arrange
+        const userContext = createUserContext();
+        const testDate = new Date();
+        const refIdString = new ObjectId().toString();
+        
+        const ComplexSchema = Type.Object({
+          name: Type.String(),
+          nested: Type.Object({
+            refId: TypeboxObjectId({ title: 'Reference ID' }),
+            timestamp: TypeboxIsoDate({ title: 'Timestamp' }),
+            deeplyNested: Type.Object({
+              anotherRefId: TypeboxObjectId({ title: 'Another Reference ID' })
+            })
+          }),
+          items: Type.Array(
+            Type.Object({
+              itemRefId: TypeboxObjectId({ title: 'Item Reference ID' }),
+              eventDate: TypeboxIsoDate({ title: 'Event Date' })
+            })
+          )
+        });
+        
+        const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
+        const complexService = new GenericApiService<any>(
+          db,
+          'complexEntities',
+          'complexEntity',
+          complexModelSpec
+        );
+        
+        // Entity with nested objects containing string IDs and ISO date strings
+        const complexJsonEntity = {
+          name: 'Complex Entity',
+          nested: {
+            refId: refIdString,
+            timestamp: testDate.toISOString(),
+            deeplyNested: {
+              anotherRefId: refIdString
+            }
+          },
+          items: [
+            { itemRefId: refIdString, eventDate: testDate.toISOString() },
+            { itemRefId: new ObjectId().toString(), eventDate: new Date().toISOString() }
+          ]
+        };
+        
+        // Act
+        const preparedEntity = await complexService.prepareDataForDb(userContext, complexJsonEntity, true);
+        
+        // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
+        expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
+        expect(preparedEntity.nested.deeplyNested.anotherRefId instanceof ObjectId).toBe(true);
+        expect(preparedEntity.items[0].itemRefId instanceof ObjectId).toBe(true);
+        expect(preparedEntity.items[1].itemRefId instanceof ObjectId).toBe(true);
+        
+        // Dates should be Date objects
+        expect(preparedEntity.nested.timestamp instanceof Date).toBe(true);
+        expect(preparedEntity.items[0].eventDate instanceof Date).toBe(true);
+        expect(preparedEntity.items[1].eventDate instanceof Date).toBe(true);
+        
+        // Verify values match original input
+        expect(preparedEntity.nested.refId.toString()).toBe(refIdString);
+        expect(preparedEntity.nested.timestamp.toISOString()).toBe(testDate.toISOString());
+        expect(preparedEntity.nested.deeplyNested.anotherRefId.toString()).toBe(refIdString);
       });
-      
-      const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
-      
-      // Create a service with this schema
-      const complexService = new GenericApiService<any>(
-        db,
-        'complexEntities',
-        'complexEntity',
-        complexModelSpec
-      );
-      
-      // Create an entity with nested objects containing string IDs and ISO date strings (simulating JSON from API)
-      const complexJsonEntity = {
-        name: 'Complex Entity',
-        nested: {
-          refId: refIdString, // String ID from client
-          timestamp: testDate.toISOString(), // ISO date string from client
-          deeplyNested: {
-            anotherRefId: refIdString // String ID from client
-          }
-        },
-        items: [
-          { itemRefId: refIdString, eventDate: testDate.toISOString() },
-          { itemRefId: new ObjectId().toString(), eventDate: new Date().toISOString() }
-        ]
-      };
-      
-      // Act - Create the entity through the service
-      const createdEntity = await complexService.create(userContext, complexJsonEntity);
-      
-      // Retrieve the entity
-      const retrievedEntity = await complexService.getById(userContext, createdEntity!._id.toString());
-      
-      // Assert - check that IDs remain strings and date strings are converted to Date objects
-      expect(retrievedEntity).toBeDefined();
-      
-      // IDs should be strings
-      expect(typeof retrievedEntity.nested.refId).toBe('string');
-      expect(typeof retrievedEntity.nested.deeplyNested.anotherRefId).toBe('string');
-      expect(typeof retrievedEntity.items[0].itemRefId).toBe('string');
-      expect(typeof retrievedEntity.items[1].itemRefId).toBe('string');
-      
-      // Dates should be Date objects
-      expect(retrievedEntity.nested.timestamp instanceof Date).toBe(true);
-      expect(retrievedEntity.items[0].eventDate instanceof Date).toBe(true);
-      expect(retrievedEntity.items[1].eventDate instanceof Date).toBe(true);
-      
-      // Verify the values match the original input
-      expect(retrievedEntity.nested.refId).toBe(refIdString);
-      expect(retrievedEntity.nested.timestamp.toISOString()).toBe(testDate.toISOString());
-      expect(retrievedEntity.nested.deeplyNested.anotherRefId).toBe(refIdString);
     });
   });
 }); 

@@ -9,8 +9,10 @@ import {
   IUserContext, 
   UserSpec, 
   PublicUserSchema, 
-  UserContextSpec
+  UserContextSpec,
+  passwordValidator
 } from '@loomcore/common/models';
+import {entityUtils} from '@loomcore/common/utils';
 
 import {BadRequestError, NotFoundError, UnauthenticatedError} from '../errors/index.js';
 import {isAuthenticated} from '../middleware/index.js';
@@ -52,8 +54,15 @@ export class AuthController {
     const userContext = req.userContext;
     const body = req.body;
     
-    // we're not handling errors here anymore because createUser throws errors and middleware handles them
-    const user = await this.authService.createUser(userContext!, body);
+    // Validate the incoming JSON
+    const validationErrors = this.authService.validate(body);
+    entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
+    
+    // Prepare the data for database (convert JSON to typed objects)
+    const preparedUser = await this.authService.prepareDataForDb(userContext!, body, true);
+    
+    // we're not handling errors here because createUser throws errors and middleware handles them
+    const user = await this.authService.createUser(userContext!, preparedUser);
     
     apiUtils.apiResponse<IUser>(res, 201, {data: user || undefined}, UserSpec, PublicUserSchema);
   }
@@ -62,8 +71,7 @@ export class AuthController {
     let tokens: ITokenResponse | null = await this.authService.requestTokenUsingRefreshToken(req);
 
     if (tokens) {
-      //return res.status(200).json(tokens);
-	    apiUtils.apiResponse<ITokenResponse>(res, 200, {data: tokens}, TokenResponseSpec);
+      apiUtils.apiResponse<ITokenResponse>(res, 200, {data: tokens}, TokenResponseSpec);
     }
     else {
 			throw new UnauthenticatedError();
@@ -84,8 +92,11 @@ export class AuthController {
 		const userContext = req.userContext!;
 		const body = req.body;
 
+		// Validate password in controller using the correct passwordValidator
+		const validationErrors = entityUtils.validate(passwordValidator, { password: body.password });
+		entityUtils.handleValidationResult(validationErrors, 'AuthController.changePassword');
+
 		const updateResult = await this.authService.changeLoggedInUsersPassword(userContext, body);
-		//return res.status(200).json(user);
 		apiUtils.apiResponse<UpdateResult>(res, 200, {data: updateResult});
 	}
 

@@ -38,9 +38,9 @@ describe('UsersController', () => {
 			
 			const response = await testAgent
 				.get(apiEndpoint)
-				.set('Authorization', authorizationHeaderValue)
-				.expect(200);
+				.set('Authorization', authorizationHeaderValue);
 
+			expect(response.status).toBe(200);
 			expect(response.body?.data?.email).toEqual(testUtils.testUserEmail);
 			expect(response.body?.data?.password).toBeUndefined();
 		});

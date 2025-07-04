@@ -269,6 +269,7 @@ function configureJwtSecret(): void {
   };
 }
 
+// actually login with the test user, using controller, etc
 async function loginWithTestUser(agent: any) {
   // Set deviceId cookie first
   agent.set('Cookie', [`deviceId=${deviceIdCookie}`]);

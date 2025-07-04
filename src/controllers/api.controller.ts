@@ -1,7 +1,8 @@
 import {Application, NextFunction, Request, Response} from 'express';
 import {DeleteResult, UpdateResult} from 'mongodb';
 import { TSchema } from '@sinclair/typebox';
-import {IEntity, IPagedResult, IModelSpec} from '@loomcore/common/models';
+import {IEntity, IPagedResult, IModelSpec, IUserContext} from '@loomcore/common/models';
+import {entityUtils} from '@loomcore/common/utils';
 
 import {IGenericApiService} from '../services/index.js';
 import {isAuthenticated} from '../middleware/index.js';
@@ -81,6 +82,41 @@ export abstract class ApiController<T extends IEntity> {
     // app.delete(`/api/${this.slug}/:id`, this.deleteById.bind(this));
   }
 
+  /**
+   * Validates a single entity using the service's validation logic
+   * @param entity The entity to validate
+   * @param isPartial Whether to use partial validation (for PATCH operations)
+   */
+  protected validate(entity: any, isPartial: boolean = false): void {
+    const validationErrors = this.service.validate(entity, isPartial);
+    entityUtils.handleValidationResult(validationErrors, `ApiController.validate for ${this.slug}`);
+  }
+
+  /**
+   * Validates multiple entities using the service's validation logic
+   * @param entities Array of entities to validate
+   * @param isPartial Whether to use partial validation
+   */
+  protected validateMany(entities: any[], isPartial: boolean = false): void {
+    const validationErrors = this.service.validateMany(entities, isPartial);
+    entityUtils.handleValidationResult(validationErrors, `ApiController.validateMany for ${this.slug}`);
+  }
+
+  /**
+   * Prepares data for database storage by calling the service's preparation logic
+   * @param userContext The user context for the operation
+   * @param entity The entity or array of entities to prepare
+   * @param isCreate Whether this is for a create operation
+   * @returns The prepared entity or entities
+   */
+  protected async prepareDataForDb(userContext: IUserContext, entity: T, isCreate?: boolean): Promise<T>;
+  protected async prepareDataForDb(userContext: IUserContext, entity: Partial<T>, isCreate?: boolean): Promise<Partial<T>>;
+  protected async prepareDataForDb(userContext: IUserContext, entity: T[], isCreate?: boolean): Promise<T[]>;
+  protected async prepareDataForDb(userContext: IUserContext, entity: Partial<T>[], isCreate?: boolean): Promise<Partial<T>[]>;
+  protected async prepareDataForDb(userContext: IUserContext, entity: T | Partial<T> | T[] | Partial<T>[], isCreate: boolean = false): Promise<T | Partial<T> | T[] | Partial<T>[]> {
+    return await this.service.prepareDataForDb(userContext, entity as any, isCreate);
+  }
+
   async getAll(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const entities = await this.service.getAll(req.userContext!);
@@ -114,19 +150,34 @@ export abstract class ApiController<T extends IEntity> {
 
   async create(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    const entity = await this.service.create(req.userContext!, req.body);
+    
+    // Validate and prepare the entity
+    this.validate(req.body);
+    const preparedEntity = await this.prepareDataForDb(req.userContext!, req.body, true); // calls prepareEntity, which uses Typebox to decode (json->typed object)
+    
+    const entity = await this.service.create(req.userContext!, preparedEntity);
     apiUtils.apiResponse<T>(res, 201, {data: entity || undefined}, this.modelSpec, this.publicSchema);
   }
 
   async fullUpdateById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    const updateResult = await this.service.fullUpdateById(req.userContext!, req.params.id, req.body);
+    
+    // Validate and prepare the entity
+    this.validate(req.body);
+    const preparedEntity = await this.prepareDataForDb(req.userContext!, req.body, false);
+    
+    const updateResult = await this.service.fullUpdateById(req.userContext!, req.params.id, preparedEntity);
     apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
   }
 
 	async partialUpdateById(req: Request, res: Response, next: NextFunction) {
 		res.set('Content-Type', 'application/json');
-		const updateResult = await this.service.partialUpdateById(req.userContext!, req.params.id, req.body);
+		
+    // Validate and prepare the entity (using partial validation for PATCH operations)
+    this.validate(req.body, true);
+    const preparedEntity = await this.prepareDataForDb(req.userContext!, req.body, false);
+    
+		const updateResult = await this.service.partialUpdateById(req.userContext!, req.params.id, preparedEntity);
 		apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
 	}
 

@@ -324,8 +324,8 @@ describe('MultiTenantApiService', () => {
   
   describe('create', () => {
     it('should call prepareEntity and pass the preparedEntity to insertOne', async () => {
-      // Spy on the protected method
-      const spy = vi.spyOn(service as any, 'prepareEntity')
+      // Spy on the onBeforeCreate method which is called by create
+      const spy = vi.spyOn(service as any, 'onBeforeCreate')
         .mockResolvedValue({ ...testEntity, _orgId: testOrgId });
       
       // Arrange
@@ -336,15 +336,15 @@ describe('MultiTenantApiService', () => {
       await service.create(userContext, entity);
       
       // Assert
-      expect(spy).toHaveBeenCalledWith(userContext, entity, true);
+      expect(spy).toHaveBeenCalledWith(userContext, entity);
       expect(mockCollection.insertOne).toHaveBeenCalled();
     });
   });
   
   describe('partialUpdateById', () => {
     it('should call prepareEntity and prepareQuery', async () => {
-      // Spy on protected methods
-      const prepareEntitySpy = vi.spyOn(service as any, 'prepareEntity')
+      // Spy on onBeforeUpdate which is called by partialUpdateById
+      const onBeforeUpdateSpy = vi.spyOn(service as any, 'onBeforeUpdate')
         .mockResolvedValue({ ...testEntity, _orgId: testOrgId });
       const prepareQuerySpy = vi.spyOn(service as any, 'prepareQuery');
       
@@ -356,7 +356,7 @@ describe('MultiTenantApiService', () => {
       await service.partialUpdateById(userContext, validObjectIdString, entity);
       
       // Assert
-      expect(prepareEntitySpy).toHaveBeenCalled();
+      expect(onBeforeUpdateSpy).toHaveBeenCalled();
       expect(prepareQuerySpy).toHaveBeenCalled();
       expect(mockCollection.findOneAndUpdate).toHaveBeenCalled();
     });
@@ -366,8 +366,8 @@ describe('MultiTenantApiService', () => {
       const userContext = testUtils.testUserContext;
       const entity: TestEntity = { ...testEntity };
       
-      // Mock prepareEntity to avoid issues with async behavior
-      vi.spyOn(service as any, 'prepareEntity')
+      // Mock onBeforeUpdate to avoid issues with async behavior
+      vi.spyOn(service as any, 'onBeforeUpdate')
         .mockResolvedValue({ ...entity, _orgId: testOrgId });
       
       // Mock findOneAndUpdate to simulate not finding the entity

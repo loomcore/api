@@ -158,9 +158,6 @@ export class AuthService extends GenericApiService<IUser> {
 	// }
 
 	async changeLoggedInUsersPassword(userContext: IUserContext, body: any) {
-		const validationResult = entityUtils.validate(passwordValidator, { password: body.password });
-		entityUtils.handleValidationResult(validationResult, 'AuthService.changePassword');
-
 		const queryObject = {_id: new ObjectId(userContext.user._id!)};
 		const result = await this.changePassword(userContext, queryObject, body.password);
 		return result;
@@ -426,8 +423,8 @@ export class AuthService extends GenericApiService<IUser> {
 				throw new BadRequestError('userId is not a valid ObjectId');
 			}
 
-			// Pass ISO string so TypeBox can decode it to Date per TypeboxIsoDate transform
-			const updates = { _lastLoggedIn: moment().utc().toISOString() };
+			// Use Date object so it's consistent with other date fields
+			const updates = { _lastLoggedIn: moment().utc().toDate() };
 			
 			// Use system user context to allow updating system properties
 			const systemUserContext = getSystemUserContext();
