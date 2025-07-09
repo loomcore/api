@@ -80,8 +80,8 @@ export class AuthController {
 
   async getUserContext(req: Request, res: Response, next: NextFunction) {
     const userContext = req.userContext;
-    const clientUserContext = {user: userContext!.user};
-    apiUtils.apiResponse<IUserContext>(res, 200, {data: clientUserContext}, UserContextSpec);
+    //const clientUserContext = {user: userContext!.user};
+    apiUtils.apiResponse<IUserContext>(res, 200, {data: userContext}, UserContextSpec);
   }
 
   afterAuth(req: Request, res: Response, loginResponse: any) {
