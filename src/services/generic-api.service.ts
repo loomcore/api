@@ -2,7 +2,7 @@ import { Db, Collection, ObjectId, DeleteResult, Document, FindOptions } from 'm
 import moment from 'moment';
 import _ from 'lodash';
 import { ValueError } from '@sinclair/typebox/errors';
-import { IUserContext, IEntity, QueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
+import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
 import { IGenericApiService } from './generic-api-service.interface.js';
@@ -89,29 +89,38 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * Creates a basic aggregation pipeline with optional query options.
    * Includes any additional stages from getAdditionalPipelineStages().
    */
-  protected createAggregationPipeline(userContext: IUserContext, query: any, queryOptions?: QueryOptions): any[] {
+  protected createAggregationPipeline(userContext: IUserContext, query: any, queryOptions?: IQueryOptions): any[] {
     //{ $match: { categoryId: { $eq: "6773166188e8d5785a072f8a"} } },
-    const match = { $match: query };
-    const additionalStages = this.getAdditionalPipelineStages();
+    const pipeline = [
+		{ $match: query },
+		{ $facet: {
+			data: (() => {
+				const resultStages = [];
+				if (queryOptions) {
+					if (queryOptions.orderBy) {
+						resultStages.push({
+							$sort: {
+								[queryOptions.orderBy]: queryOptions.sortDirection === 'asc' ? 1 : -1
+							}
+						});
+					}
+					
+					if (queryOptions.page && queryOptions.pageSize) {
+						resultStages.push({ $skip: (queryOptions.page - 1) * queryOptions.pageSize });
+						resultStages.push({ $limit: queryOptions.pageSize });
+					}
+				}
+				return resultStages;
+			})(),
+			count: [{ $count: 'total' }]
+		}},
+		{ $project: {
+			data: 1,
+			total: { $arrayElemAt: ['$count.total', 0] }
+		}}
+	];
 
-    let resultStages: any[] = [...additionalStages];
-
-    if (queryOptions) {
-      if (queryOptions.orderBy) {
-        resultStages.push({
-          $sort: {
-            [queryOptions.orderBy]: queryOptions.sortDirection === 'asc' ? 1 : -1
-          }
-        });
-      }
-
-      if (queryOptions.page && queryOptions.pageSize) {
-        resultStages.push({ $skip: (queryOptions.page - 1) * queryOptions.pageSize });
-        resultStages.push({ $limit: queryOptions.pageSize });
-      }
-    }
-
-    return [match, ...resultStages];
+	return pipeline;
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
@@ -133,12 +142,11 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.transformList(entities);
   }
 
-  async get(userContext: IUserContext, queryOptions: QueryOptions = new QueryOptions()): Promise<IPagedResult<T>> {
-    // Apply query options preparation hook
+  async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
+    // Prepare query options (allow subclasses to modify)
     const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
 
-    // Construct the query object
-    // this is supposed to be the fastest way to perform a query AND get the total documents count in MongoDb
+    // Build match conditions from query options
     const match = dbUtils.buildMongoMatchFromQueryOptions(preparedOptions);
 
     // Create results array with additional pipeline stages
@@ -659,13 +667,12 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   /**
-   * Prepares query options before executing database operations.
-   * This is a hook method that can be overridden by derived classes to modify query options (e.g. add tenantId).
-   * @param userContext The user context for the operation
+   * Prepare query options before using them. Subclasses can override this to apply tenant filters, etc.
+   * @param userContext The user context
    * @param queryOptions The original query options
-   * @returns The potentially modified query options
+   * @returns The prepared query options
    */
-  protected prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: QueryOptions): QueryOptions {
+  protected prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
     return queryOptions;
   }
 }

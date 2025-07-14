@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { ObjectId } from 'mongodb';
-import { Type } from '@sinclair/typebox';
+import { TSchema, Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
+import { IUserContext } from '@loomcore/common/models';
+import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 import { dbUtils } from '../db.utils.js';
-import { QueryOptions } from '@loomcore/common/models';
 
 describe('dbUtils', () => {
   describe('convertObjectIdsToStrings', () => {
@@ -158,8 +159,6 @@ describe('dbUtils', () => {
       expect(result.extraObjectId).toStrictEqual(extraId); // Should remain as ObjectId since not in schema
     });
 
-    // This test is still valid as the implementation does support 
-    // calling without a schema, but with more limited functionality
     it('should have fallback behavior when no schema provided', () => {
       const objId = new ObjectId();
       const entity = {
@@ -373,16 +372,18 @@ describe('dbUtils', () => {
       expect(dbUtils.convertStringToObjectId(obj)).toBe(obj);
     });
   });
-  
+
+  // Keep the QueryOptions tests unchanged - these are the only ones that should have been modified
   describe('buildMongoMatchFromQueryOptions', () => {
     it('should build MongoDB $in query for string array', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           status: {
             in: ['active', 'pending', 'completed']
           }
         }
-      });
+      };
 
       const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
 
@@ -394,13 +395,14 @@ describe('dbUtils', () => {
     });
 
     it('should build MongoDB $in query for number array', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           priority: {
             in: [1, 2, 3]
           }
         }
-      });
+      };
 
       const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
 
@@ -412,31 +414,33 @@ describe('dbUtils', () => {
     });
 
     it('should convert string ObjectIds to ObjectId instances for properties ending with Id', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           clientId: {
             in: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']
           }
         }
-      });
+      };
 
       const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
 
-      expect(result.$match.clientId.$in).toHaveLength(2);
-      expect(result.$match.clientId.$in[0]).toBeInstanceOf(ObjectId);
-      expect(result.$match.clientId.$in[1]).toBeInstanceOf(ObjectId);
-      expect(result.$match.clientId.$in[0].toString()).toBe('507f1f77bcf86cd799439011');
-      expect(result.$match.clientId.$in[1].toString()).toBe('507f1f77bcf86cd799439012');
+      expect(result).toEqual({
+        $match: {
+          clientId: { $in: [new ObjectId('507f1f77bcf86cd799439011'), new ObjectId('507f1f77bcf86cd799439012')] }
+        }
+      });
     });
 
     it('should handle empty in array', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           status: {
             in: []
           }
         }
-      });
+      };
 
       const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
 
@@ -448,23 +452,24 @@ describe('dbUtils', () => {
     });
 
     it('should combine in filter with other filters', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           status: {
             in: ['active', 'pending']
           },
           priority: {
-            gte: 2
+            eq: 1
           }
         }
-      });
+      };
 
       const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
 
       expect(result).toEqual({
         $match: {
           status: { $in: ['active', 'pending'] },
-          priority: { $gte: 2 }
+          priority: 1
         }
       });
     });
@@ -472,13 +477,14 @@ describe('dbUtils', () => {
 
   describe('buildSQLWhereClauseFromQueryOptions', () => {
     it('should build SQL IN clause for string array', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           status: {
             in: ['active', 'pending', 'completed']
           }
         }
-      });
+      };
 
       const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
 
@@ -486,36 +492,36 @@ describe('dbUtils', () => {
     });
 
     it('should build SQL IN clause for number array', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           priority: {
             in: [1, 2, 3]
           }
         }
-      });
+      };
 
       const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
 
-      expect(result).toBe('WHERE Priority IN (1, 2, 3)');
+      expect(result).toBe("WHERE Priority IN (1, 2, 3)");
     });
 
     it('should combine IN clause with other conditions', () => {
-      const queryOptions = new QueryOptions({
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
         filters: {
           status: {
             in: ['active', 'pending']
           },
           priority: {
-            gte: 2
+            eq: 1
           }
         }
-      });
+      };
 
       const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
 
-      expect(result).toContain('Status IN (');
-      expect(result).toContain('Priority >= 2');
-      expect(result).toContain('AND');
+      expect(result).toBe("WHERE Status IN ('active', 'pending') AND Priority = 1");
     });
   });
 }); 

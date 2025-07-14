@@ -1,7 +1,7 @@
 import { Db } from 'mongodb';
-import { IUserContext, IEntity, QueryOptions, IModelSpec } from '@loomcore/common/models';
+import { IUserContext, IEntity, IQueryOptions, IModelSpec } from '@loomcore/common/models';
 import { GenericApiService } from './generic-api.service.js';
-import { TenantQueryDecorator } from './tenant-query-decorator.js';
+import { TenantQueryDecorator, ITenantQueryOptions } from './tenant-query-decorator.js';
 import { BadRequestError } from '../errors/bad-request.error.js';
 import { config } from '../config/base-api-config.js';
 
@@ -47,7 +47,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
   /**
    * Override the query options preparation hook to add tenant filtering
    */
-  protected override prepareQueryOptions(userContext: IUserContext, queryOptions: QueryOptions): QueryOptions {
+  protected override prepareQueryOptions(userContext: IUserContext, queryOptions: IQueryOptions): IQueryOptions {
     if (!config?.app?.isMultiTenant) {
       return super.prepareQueryOptions(userContext, queryOptions);
     }

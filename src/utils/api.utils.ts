@@ -5,7 +5,7 @@ import {
 	IQueryOptions,
 	IError,
   Filter,
-  QueryOptions,
+  DefaultQueryOptions,
   IPagedResult,
   IModelSpec
 } from '@loomcore/common/models';
@@ -66,25 +66,26 @@ function apiResponse<T>(
 	return response.status(status!).json(apiResponse);
 }
 
-function getQueryOptionsFromRequest(request: Request): QueryOptions {
+function getQueryOptionsFromRequest(request: Request): IQueryOptions {
 	const queryOptions: IQueryOptions = {
+		...DefaultQueryOptions,
 		orderBy: request.query.orderBy as string,
 		sortDirection: request.query.sortDirection as SortDirection,
-		page: request.query.page ? parseInt(request.query.page as string) : 1,
-		pageSize: request.query.pageSize ? parseInt(request.query.pageSize as string) : 100,
+		page: request.query.page ? parseInt(request.query.page as string) : DefaultQueryOptions.page,
+		pageSize: request.query.pageSize ? parseInt(request.query.pageSize as string) : DefaultQueryOptions.pageSize,
 		filters: request.query.filters as { [key: string]: Filter } | undefined
 	};
 
-	return new QueryOptions(queryOptions);
+	return queryOptions;
 }
 
-function getPagedResult<T>(entities: T[], totalRows: number, queryOptions: QueryOptions): IPagedResult<T> {
+function getPagedResult<T>(entities: T[], totalRows: number, queryOptions: IQueryOptions): IPagedResult<T> {
 	const pagedResult = {
 		entities,
 		total: totalRows,
-		page: queryOptions.page,
-		pageSize: queryOptions.pageSize,
-		totalPages: Math.ceil(totalRows / queryOptions.pageSize),
+		page: queryOptions.page || DefaultQueryOptions.page,
+		pageSize: queryOptions.pageSize || DefaultQueryOptions.pageSize,
+		totalPages: Math.ceil(totalRows / (queryOptions.pageSize || DefaultQueryOptions.pageSize!)),
 	};
 	return pagedResult;
 }

@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { IUserContext, QueryOptions, IEntity } from '@loomcore/common/models';
-
+import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TenantQueryDecorator, ITenantQueryOptions, DEFAULT_TENANT_OPTIONS } from '../tenant-query-decorator.js';
 import { ServerError } from '../../errors/index.js';
 import { ObjectId } from 'mongodb';
@@ -29,6 +28,18 @@ describe('TenantQueryDecorator', () => {
       _updatedBy: 'system'
     },
     ...(includeOrgId ? { _orgId:orgId } : {})
+  });
+
+  const createUserContextWithoutOrgId = () => ({
+    user: { 
+      _id: new ObjectId().toHexString(), 
+      email: 'test@example.com',
+      password: '',
+      _created: new Date(),
+      _createdBy: 'system',
+      _updated: new Date(),
+      _updatedBy: 'system'
+    }
   });
   
   const collectionName = 'testCollection';
@@ -138,76 +149,86 @@ describe('TenantQueryDecorator', () => {
     it('should add orgId filter to query options', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
-      const queryOptions = new QueryOptions();
-      queryOptions.filters = { name: { eq: 'Test' } };
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: { name: { eq: 'Test' } }
+      };
+
       // Act
       const result = decorator.applyTenantToQueryOptions(createUserContext(), queryOptions, collectionName);
-      
+
       // Assert
-      expect(result.filters).toEqual({
-        name: { eq: 'Test' },
-        _orgId: { eq: orgId }
-      });
+      expect(result.filters).toBeDefined();
+      expect(result.filters!['_orgId']).toEqual({ eq: orgId });
+      expect(result.filters!['name']).toEqual({ eq: 'Test' });
     });
-    
+
     it('should not modify query options for excluded collections', () => {
       // Arrange
       const customOptions: ITenantQueryOptions = {
-        excludedCollections: [excludedCollectionName]
+        orgIdField: '_orgId',
+        excludedCollections: ['users']
       };
       const decorator = new TenantQueryDecorator(customOptions);
-      const queryOptions = new QueryOptions();
-      queryOptions.filters = { name: { eq: 'Test' } };
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: { name: { eq: 'Test' } }
+      };
+
       // Act
-      const result = decorator.applyTenantToQueryOptions(createUserContext(), queryOptions, excludedCollectionName);
-      
+      const result = decorator.applyTenantToQueryOptions(createUserContext(), queryOptions, 'users');
+
       // Assert
-      expect(result).toEqual(queryOptions);
+      expect(result.filters).toBeDefined();
+      expect(result.filters!['_orgId']).toBeUndefined();
+      expect(result.filters!['name']).toEqual({ eq: 'Test' });
     });
-    
+
     it('should use custom orgId field name when specified', () => {
       // Arrange
       const customOptions: ITenantQueryOptions = {
-        orgIdField: 'tenantId'
+        orgIdField: 'organizationId'
       };
       const decorator = new TenantQueryDecorator(customOptions);
-      const queryOptions = new QueryOptions();
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions
+      };
+
       // Act
       const result = decorator.applyTenantToQueryOptions(createUserContext(), queryOptions, collectionName);
-      
+
       // Assert
-      expect(result.filters).toEqual({
-        tenantId: { eq: orgId }
-      });
+      expect(result.filters).toBeDefined();
+      expect(result.filters!['organizationId']).toEqual({ eq: orgId });
     });
-    
+
     it('should throw ServerError if userContext has no orgId', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
-      const queryOptions = new QueryOptions();
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions
+      };
+
       // Act & Assert
       expect(() => {
-        decorator.applyTenantToQueryOptions(createUserContext(false), queryOptions, collectionName);
-      }).toThrow(ServerError);
+        decorator.applyTenantToQueryOptions(createUserContextWithoutOrgId(), queryOptions, collectionName);
+      }).toThrow('userContext must have an _orgId property to apply tenant filtering');
     });
-    
+
     it('should create filters object if it does not exist', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
-      const queryOptions = new QueryOptions();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions
+      };
       // Note: not setting queryOptions.filters
-      
+
       // Act
       const result = decorator.applyTenantToQueryOptions(createUserContext(), queryOptions, collectionName);
-      
+
       // Assert
-      expect(result.filters).toEqual({
-        _orgId: { eq: orgId }
-      });
+      expect(result.filters).toBeDefined();
+      expect(result.filters!['_orgId']).toEqual({ eq: orgId });
     });
   });
   

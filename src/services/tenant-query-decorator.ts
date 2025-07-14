@@ -1,4 +1,4 @@
-import { IUserContext, QueryOptions, Filter, IEntity } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, Filter, IEntity } from '@loomcore/common/models';
 import { ServerError } from '../errors/index.js';
 
 export interface ITenantQueryOptions {
@@ -62,38 +62,33 @@ export class TenantQueryDecorator {
   }
 
   /**
-   * Applies tenant filtering to a QueryOptions object
+   * Decorates query options with tenant filtering
    * @param userContext The user context containing the org ID
    * @param queryOptions The original query options
    * @param collectionName Collection name to check for exclusion
-   * @returns A new QueryOptions object with tenant filtering added
+   * @returns The modified query options with tenant filtering added
    */
-  applyTenantToQueryOptions(userContext: IUserContext, queryOptions: QueryOptions, collectionName: string): QueryOptions {
-    let result = queryOptions;
+  applyTenantToQueryOptions(userContext: IUserContext, queryOptions: IQueryOptions, collectionName: string): IQueryOptions {
+    const result = { ...queryOptions };
     
     const shouldApplyTenantFilter = 
-      !this.options.excludedCollections?.includes(collectionName) &&
-      userContext?._orgId;
+      !this.options.excludedCollections?.includes(collectionName);
     
     if (shouldApplyTenantFilter) {
-      // Clone the query options to avoid modifying the original
-      const modifiedQueryOptions = new QueryOptions(queryOptions);
-      
-      // Add tenant filter to the filters object
-      if (!modifiedQueryOptions.filters) {
-        modifiedQueryOptions.filters = {};
+      if (!userContext._orgId) {
+        throw new ServerError('userContext must have an _orgId property to apply tenant filtering');
       }
       
-      // Add orgId filter
-      const orgIdField = this.options.orgIdField || '_orgId';
-      modifiedQueryOptions.filters[orgIdField] = { eq: userContext._orgId };
+      // Initialize filters if they don't exist
+      if (!result.filters) {
+        result.filters = {};
+      }
       
-      result = modifiedQueryOptions;
-    } 
-    else if (!userContext?._orgId) {
-      throw new ServerError('No _orgId found in userContext');
+      // Add or replace the orgId filter
+      const orgIdField = this.getOrgIdField();
+      result.filters[orgIdField] = { eq: userContext._orgId };
     }
-
+    
     return result;
   }
 

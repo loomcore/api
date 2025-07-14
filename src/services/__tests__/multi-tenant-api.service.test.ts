@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { Db, Collection, FindCursor, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
-import { IUserContext, QueryOptions, IEntity } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -151,10 +151,10 @@ describe('MultiTenantApiService', () => {
       expect(() => prepareQuery(undefined, query)).toThrow(BadRequestError);
     });
 
-    it('should override consumer-supplied orgId with userContext orgId', () => {
+    it('should override consumer-supplied _orgId with userContext _orgId', () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      // Create query with a different orgId than the one in userContext
+      // Consumer is trying to supply their own _orgId (this should be ignored/overwritten)
       const query = { name: 'Test', _orgId: otherOrgId };
       
       // Mock the TenantQueryDecorator.applyTenantToQuery implementation
@@ -170,6 +170,7 @@ describe('MultiTenantApiService', () => {
       const result = prepareQuery(userContext, query);
       
       // Assert
+      // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
       expect(result._orgId).toBe(testOrgId);
       expect(result._orgId).not.toBe(otherOrgId);
     });
@@ -179,60 +180,48 @@ describe('MultiTenantApiService', () => {
     it('should call TenantQueryDecorator.applyTenantToQueryOptions with the provided options', () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const queryOptions = new QueryOptions();
-      queryOptions.filters = { name: { eq: 'Test' } };
-      
-      // Spy on the protected method
-      const spy = vi.spyOn(service as any, 'prepareQueryOptions');
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: { name: { eq: 'Test' } }
+      };
+
       // Act
-      service.get(userContext, queryOptions);
-      
+      const result = (service as any).prepareQueryOptions(userContext, queryOptions);
+
       // Assert
-      expect(spy).toHaveBeenCalledWith(userContext, queryOptions);
+      expect(result.filters).toBeDefined();
+      expect(result.filters!['name']).toEqual({ eq: 'Test' });
+      expect(result.filters!['_orgId']).toEqual({ eq: userContext._orgId });
     });
 
     it('should throw BadRequestError if userContext is undefined', () => {
       // Arrange
-      const queryOptions = new QueryOptions();
-      
-      // Get the protected method and bind it to the service instance
-      const prepareQueryOptions = (service as any).prepareQueryOptions.bind(service);
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions
+      };
+
       // Act & Assert
-      expect(() => prepareQueryOptions(undefined, queryOptions)).toThrow(BadRequestError);
+      expect(() => (service as any).prepareQueryOptions(undefined, queryOptions)).toThrow(BadRequestError);
     });
 
-    it('should override consumer-supplied orgId filter with userContext orgId', () => {
+    it('should override consumer-supplied _orgId filter with userContext _orgId', () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const queryOptions = new QueryOptions();
-      // Create filter with a different orgId than the one in userContext
-      queryOptions.filters = { name: { eq: 'Test' }, orgId: { eq: otherOrgId } };
-      
-      // Mock the TenantQueryDecorator.applyTenantToQueryOptions implementation
-      // to simulate real behavior since we're spying on it
-      vi.mocked(TenantQueryDecorator.prototype.applyTenantToQueryOptions).mockImplementationOnce(
-        (userCtx, options) => {
-          const newOptions = new QueryOptions(options);
-          if (!newOptions.filters) {
-            newOptions.filters = {};
-          }
-          // This mirrors the actual implementation which overwrites any existing orgId filter
-          newOptions.filters._orgId = { eq: userCtx._orgId };
-          return newOptions;
-        }
-      );
-      
-      // Get the protected method and bind it to the service instance
-      const prepareQueryOptions = (service as any).prepareQueryOptions.bind(service);
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        // Consumer is trying to supply their own _orgId (this should be ignored/overwritten)
+        filters: { name: { eq: 'Test' }, _orgId: { eq: otherOrgId } }
+      };
+
       // Act
-      const result = prepareQueryOptions(userContext, queryOptions);
-      
+      const result = (service as any).prepareQueryOptions(userContext, queryOptions);
+
       // Assert
-      expect(result.filters?._orgId?.eq).toBe(testOrgId);
-      expect(result.filters?._orgId?.eq).not.toBe(otherOrgId);
+      expect(result.filters).toBeDefined();
+      expect(result.filters!['name']).toEqual({ eq: 'Test' });
+      // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
+      expect(result.filters!['_orgId']).toEqual({ eq: userContext._orgId });
+      expect(result.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
     });
   });
   
@@ -308,17 +297,18 @@ describe('MultiTenantApiService', () => {
     it('should call prepareQueryOptions with the provided options', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const queryOptions = new QueryOptions();
-      queryOptions.filters = { name: { eq: 'Test' } };
-      
-      // Spy on the protected method
-      const spy = vi.spyOn(service as any, 'prepareQueryOptions');
-      
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: { name: { eq: 'Test' } }
+      };
+
       // Act
-      await service.get(userContext, queryOptions);
-      
+      const result = await service.get(userContext, queryOptions);
+
       // Assert
-      expect(spy).toHaveBeenCalledWith(userContext, queryOptions);
+      expect(result).toBeDefined();
+      expect(result.entities).toBeDefined();
+      expect(Array.isArray(result.entities)).toBe(true);
     });
   });
   

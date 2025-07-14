@@ -3,7 +3,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Db, MongoClient, Collection, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import moment from 'moment';
-import { IUserContext, QueryOptions, IEntity, IAuditable, EmptyUserContext } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, EmptyUserContext } from '@loomcore/common/models';
 import { TypeboxIsoDate, TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -282,9 +282,11 @@ describe('GenericApiService - Integration Tests', () => {
     it('should get entities with pagination', async () => {
       // Arrange
       const userContext = createUserContext();
-      const queryOptions = new QueryOptions();
-      queryOptions.page = 1;
-      queryOptions.pageSize = 2;
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        page: 1,
+        pageSize: 2
+      };
       
       // Act
       const pagedResult = await service.get(userContext, queryOptions);
@@ -301,9 +303,11 @@ describe('GenericApiService - Integration Tests', () => {
     it('should get entities with sorting', async () => {
       // Arrange
       const userContext = createUserContext();
-      const queryOptions = new QueryOptions();
-      queryOptions.orderBy = 'name';
-      queryOptions.sortDirection = 'desc';
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        orderBy: 'name',
+        sortDirection: 'desc'
+      };
       
       // Act
       const pagedResult = await service.get(userContext, queryOptions);
@@ -319,9 +323,11 @@ describe('GenericApiService - Integration Tests', () => {
     it('should get entities with filtering', async () => {
       // Arrange
       const userContext = createUserContext();
-      const queryOptions = new QueryOptions();
-      queryOptions.filters = {
-        isActive: { eq: true }
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          isActive: { eq: true }
+        }
       };
       
       // Act
