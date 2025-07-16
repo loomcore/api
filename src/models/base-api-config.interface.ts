@@ -28,7 +28,8 @@ export interface IBaseApiConfig {
     passwordResetTokenExpirationInMinutes: number;
   },
   email: {
-    sendGridApiKey?: string;
+    emailApiKey?: string;
+    emailApiSecret?: string;
     fromAddress?: string;
     systemEmailAddress?: string;
   }

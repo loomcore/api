@@ -73,7 +73,8 @@ export class TestExpressApp {
       },
       email: {
         // These can be empty/undefined in tests as specified by the interface
-        sendGridApiKey: 'SG.WeDontHaveAKeyYet',
+        emailApiKey: 'WeDontHaveAKeyYet',
+        emailApiSecret: 'WeDontHaveASecretYet',
         fromAddress: undefined
       }
     });

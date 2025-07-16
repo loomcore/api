@@ -40,8 +40,8 @@
     "./utils": "./dist/utils/index.js"
   },
   "dependencies": {
-    "@sendgrid/mail": "^8.1.4",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "node-mailjet": "^6.0.8"
   },
   "peerDependencies": {
     "@loomcore/common": "^0.0.13",
