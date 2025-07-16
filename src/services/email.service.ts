@@ -1,16 +1,16 @@
-import { Client } from 'node-mailjet';
+import * as Mailjet from 'node-mailjet';
 import {ServerError} from '../errors/index.js';
 import {config} from '../config/index.js';
 
 export class EmailService {
-	private mailjet: any;
+	private mailjet: Mailjet.Client;
 
 	constructor() {
 		// Initialize Mailjet client with API credentials from config
-		this.mailjet = Client.apiConnect(
-			config.email.emailApiKey || '',
-			config.email.emailApiSecret || ''
-		);
+		this.mailjet = new (Mailjet as any).default({
+			apiKey: config.email.emailApiKey || '',
+			apiSecret: config.email.emailApiSecret || ''
+		});
 	}
 
 	async sendHtmlEmail(emailAddress: string, subject: string, body: string) {
