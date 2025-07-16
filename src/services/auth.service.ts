@@ -165,7 +165,8 @@ export class AuthService extends GenericApiService<IUser> {
 
 	async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
 		// queryObject will either be {_id: someUserId} for loggedInUser change or {email: someEmail} from forgotPassword
-		const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
+		const hashedPassword = await passwordUtils.hashPassword(password);
+		const updates = { password: hashedPassword, _lastPasswordChange: moment().utc().toDate() };
 		const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
 
 		const result: UpdateResult = {
@@ -290,6 +291,10 @@ export class AuthService extends GenericApiService<IUser> {
 		if (retrievedPasswordResetToken.token !== passwordResetToken || retrievedPasswordResetToken.expiresOn < Date.now()) {
 			throw new BadRequestError('Invalid password reset token');
 		}
+
+		// Validate password before attempting to change it
+		const validationErrors = entityUtils.validate(passwordValidator, { password: password });
+		entityUtils.handleValidationResult(validationErrors, 'AuthService.resetPassword');
 
 		// update user password
 		const result = await this.changePassword(EmptyUserContext, {email: lowerCaseEmail}, password);

@@ -86,6 +86,7 @@ export class TestExpressApp {
     if (!this.db) {
       this.mongoServer = await MongoMemoryServer.create({
         instance: {
+          ip: '127.0.0.1', // Use localhost to avoid permission issues
           port: 0, // Use dynamic port allocation
         },
         binary: {
