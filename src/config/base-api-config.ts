@@ -41,6 +41,11 @@ export async function initSystemUserContext(db: Db) {
       const organizationService = new OrganizationService(db);
       // Fetch orgId from database
       const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+
+      if (!metaOrg) {
+        throw new Error('Meta organization not found. Please create an organization with isMetaOrg=true before starting the API.');
+      }
+
       metaOrgId = metaOrg._id;
     }
     
