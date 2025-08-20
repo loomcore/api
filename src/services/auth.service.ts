@@ -30,6 +30,8 @@ export class AuthService extends GenericApiService<IUser> {
 	async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
 		const lowerCaseEmail = email.toLowerCase();
 		const user = await this.getUserByEmail(lowerCaseEmail);
+
+		console.log(`In attemptLogin, user: ${JSON.stringify(user)}`); // todo: delete me
 		
 		// Basic validation to prevent errors with undefined user
 		if (!user) {
@@ -45,6 +47,8 @@ export class AuthService extends GenericApiService<IUser> {
 			user: user, 
 			_orgId: user._orgId 
 		};
+
+		console.log(`In attemptLogin, userContext: ${JSON.stringify(userContext)}`); // todo: delete me
 
 		const deviceId = this.getAndSetDeviceIdCookie(req, res);
 		const loginResponse = await this.logUserIn(userContext, deviceId);
@@ -72,7 +76,8 @@ export class AuthService extends GenericApiService<IUser> {
 			this.updateLastLoggedIn(userContext.user._id!)
 				.catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
 			
-			this.transformSingle(userContext.user);
+			userContext.user = this.transformSingle(userContext.user);
+			console.log(`In logUserIn, userContext: ${JSON.stringify(userContext)}`); // todo: delete me
 			loginResponse = {tokens: tokenResponse, userContext };
 		}
 
