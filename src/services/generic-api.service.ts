@@ -202,7 +202,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     // Check if we have additional pipeline stages
     if (this.getAdditionalPipelineStages().length > 0) {
-      const pipeline = this.createAggregationPipeline(userContext, query);
+      const pipeline = [
+        { $match: query },
+        ...this.getAdditionalPipelineStages()
+      ];
       entity = await this.collection.aggregate(pipeline).next();
     } 
     else {

@@ -1,12 +1,17 @@
 import { Collection, Db, ObjectId } from 'mongodb';
-import { Request, Response } from 'express';
+import { Request, Response, Application, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUser, IUserContext } from '@loomcore/common/models';
+import { IUser, IUserContext, IEntity, IAuditable } from '@loomcore/common/models';
+import { Type } from '@sinclair/typebox';
 
 import { JwtService } from '../services/jwt.service.js';
 import { passwordUtils } from '../utils/password.utils.js';
 import { AuthService } from '../services/auth.service.js';
+import { GenericApiService } from '../services/generic-api.service.js';
+import { ApiController } from '../controllers/api.controller.js';
+import { apiUtils } from '../utils/index.js';
+import { entityUtils } from '@loomcore/common/utils';
 
 let db: Db;
 let collections: any = {};
@@ -248,6 +253,106 @@ function getAuthToken(): string {
  */
 function verifyToken(token: string): any {
   return JwtService.verify(token, JWT_SECRET);
+}
+
+// Mock models for testing aggregation
+export interface ICategory extends IEntity {
+  name: string;
+}
+
+export interface IProduct extends IEntity, IAuditable {
+  name: string;
+  internalNumber?: string; // a sensitive property
+  categoryId: string;
+  category?: ICategory;
+}
+
+export const CategorySchema = Type.Object({
+  name: Type.String(),
+});
+export const CategorySpec = entityUtils.getModelSpec(CategorySchema);
+
+
+export const ProductSchema = Type.Object({
+  name: Type.String(),
+  internalNumber: Type.Optional(Type.String()),
+  categoryId: Type.String({ format: 'objectid' }),
+});
+export const ProductSpec = entityUtils.getModelSpec(ProductSchema, { isAuditable: true });
+
+// Create a public schema for products that omits the sensitive internalNumber
+export const PublicProductSchema = Type.Omit(ProductSpec.fullSchema, ['internalNumber']);
+
+// Service that does NOT use aggregation
+export class CategoryService extends GenericApiService<ICategory> {
+  constructor(db: Db) {
+    super(db, 'categories', 'category', CategorySpec);
+  }
+}
+
+// Controller for the service that does NOT use aggregation
+export class CategoryController extends ApiController<ICategory> {
+  constructor(app: Application, db: Db) {
+    const categoryService = new CategoryService(db);
+    super('categories', app, categoryService, 'category', CategorySpec);
+  }
+}
+
+// Test service with aggregation pipeline
+export class ProductService extends GenericApiService<IProduct> {
+  constructor(db: Db) {
+    super(db, 'products', 'product', ProductSpec);
+  }
+
+  protected override getAdditionalPipelineStages(): any[] {
+    return [
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'categoryId',
+          foreignField: '_id',
+          as: 'category'
+        }
+      },
+      {
+        $unwind: {
+          path: '$category',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ];
+  }
+
+  override transformSingle(single: any): any {
+    if (single && single.category) {
+      const categoryService = new CategoryService(this.db);
+      single.category = categoryService.transformSingle(single.category);
+    }
+    return super.transformSingle(single);
+  }
+}
+
+// Controller that uses aggregation and overrides get/getById to handle it
+export class ProductsController extends ApiController<IProduct> {
+  constructor(app: Application, db: Db) {
+    const productService = new ProductService(db);
+
+    // 1. Define the full shape of the aggregated data, including the joined category.
+    const AggregatedProductSchema = Type.Intersect([
+      ProductSpec.fullSchema,
+      Type.Partial(Type.Object({
+        category: CategorySpec.fullSchema
+      }))
+    ]);
+    
+    // 2. Create a public version of the aggregated schema by omitting sensitive fields.
+    const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
+
+    // 3. Pass the base ProductSpec for validation, and our new, more accurate public schema
+    //    for client-facing responses. The updated apiUtils.apiResponse will use this
+    //    public schema to correctly encode the final shape.
+    super('products', app, productService, 'product', ProductSpec, PublicAggregatedProductSchema);
+  }
 }
 
 function getTestUser(): Partial<IUser> {

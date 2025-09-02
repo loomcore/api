@@ -1,5 +1,6 @@
 import {Request, Response} from 'express';
 import { TSchema } from '@sinclair/typebox';
+import { entityUtils } from '@loomcore/common/utils';
 import {
   IApiResponse,
 	IQueryOptions,
@@ -27,22 +28,26 @@ function apiResponse<T>(
 	const success = status! >= 200 && status! < 300;
 	let apiResponse: IApiResponse<T>;
 
-	// Encode data if modelSpec is provided
-	if (modelSpec && options.data) {
+	// If a specific public schema is provided, it takes precedence for defining the response shape.
+	// Otherwise, we use the base modelSpec.
+	const specForEncoding = publicSchema ? entityUtils.getModelSpec(publicSchema) : modelSpec;
+
+	// Encode data if a spec is available
+	if (specForEncoding && options.data) {
 		if (Array.isArray(options.data)) {
 			// For arrays, encode each item
-			options.data = options.data.map((item: any) => modelSpec.encode(item, publicSchema)) as T;
+			options.data = options.data.map((item: any) => specForEncoding.encode(item)) as T;
 		} 
 		// Special handling for paged results (objects with 'entities' property)
 		else if (typeof options.data === 'object' && options.data !== null && 'entities' in options.data && Array.isArray((options.data as any).entities)) {
 			const pagedResult = options.data as any;
 			// Encode just the entities array, not the whole paged result
-			pagedResult.entities = pagedResult.entities.map((item: any) => modelSpec.encode(item, publicSchema));
+			pagedResult.entities = pagedResult.entities.map((item: any) => specForEncoding.encode(item));
 			options.data = pagedResult as T;
 		} 
 		else {
 			// For single entity
-			options.data = modelSpec.encode(options.data, publicSchema) as T;
+			options.data = specForEncoding.encode(options.data) as T;
 		}
 	}
 
