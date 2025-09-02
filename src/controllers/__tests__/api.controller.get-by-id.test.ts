@@ -65,6 +65,8 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
     expect(responseData._id).toBe(productId.toHexString());
     expect(responseData.category).toBeDefined();
     expect(responseData.category.name).toBe('Test Category');
+    // Verify that the full category object was joined, not just a part of it.
+    expect(responseData.category._id).toBe(categoryId.toHexString());
     // Crucially, assert that the sensitive field has been removed
     expect(responseData.internalNumber).toBeUndefined();
   });
