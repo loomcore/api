@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { IUser, IUserContext, IEntity, IAuditable } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
+import { TypeboxObjectId } from '@loomcore/common/validation';
 
 import { JwtService } from '../services/jwt.service.js';
 import { passwordUtils } from '../utils/password.utils.js';
@@ -269,16 +270,18 @@ export interface IProduct extends IEntity, IAuditable {
 }
 
 export const CategorySchema = Type.Object({
+  _id: Type.Optional(TypeboxObjectId()),
   name: Type.String(),
 });
 export const CategorySpec = entityUtils.getModelSpec(CategorySchema);
 
 
 export const ProductSchema = Type.Object({
+  _id: Type.Optional(TypeboxObjectId()),
   name: Type.String(),
   description: Type.Optional(Type.String()),
   internalNumber: Type.Optional(Type.String()),
-  categoryId: Type.String({ format: 'objectid' }),
+  categoryId: TypeboxObjectId({ title: 'Category ID' }),
 });
 export const ProductSpec = entityUtils.getModelSpec(ProductSchema, { isAuditable: true });
 

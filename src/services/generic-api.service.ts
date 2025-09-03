@@ -714,6 +714,13 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     let cleanedEntity = preparedEntity;
     if (this.modelSpec) {
+      let entityId = null;
+      if (allowId) {
+        console.log(`_id is present and equals ${preparedEntity._id}`); // todo: delete me
+        // If allowId is true, we need to preserve _id before decoding, as decode will strip properties not in the schema
+        entityId = (preparedEntity as any)._id;
+      }
+      
       /**
        * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming 
        *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the 
@@ -726,6 +733,12 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
        *   importing MongoDb, which we definitely don't want in a shared model library.
        */
       cleanedEntity = this.modelSpec.decode(preparedEntity);
+
+      if (allowId && entityId) {
+        console.log(`after decode, restoring _id to ${entityId}`); // todo: delete me
+        // Restore _id if it was present
+        (cleanedEntity as any)._id = entityId;
+      }
     }
 
     // Require a modelSpec for conversion - without a schema we can't properly convert
