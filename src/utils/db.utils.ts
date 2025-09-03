@@ -123,6 +123,11 @@ function convertStringsToObjectIds(entity: any, schema: TSchema): any {
 	
 	// Create a deep clone to avoid modifying the original
 	const clone = _.cloneDeep(entity);
+
+	// Manually check for and convert _id at the root level, as it's not part of the schema properties
+	if (clone._id && typeof clone._id === 'string' && entityUtils.isValidObjectId(clone._id)) {
+		clone._id = new ObjectId(clone._id);
+	}
 	
 	// Extract object id fields from schema and process the entity
 	const processEntity = (obj: any, subSchema: TSchema, path: string[] = []): any => {
