@@ -684,6 +684,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns The prepared entities
    */
   async prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
+    console.log('--- DIAGNOSTICS: Executing prepareDataForBatchUpdate ---');
     return Promise.all(entities.map(item => this.prepareEntity(userContext, item, false, true)));
   }
 
