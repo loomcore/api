@@ -2,6 +2,7 @@ import {Application, NextFunction, Request, Response} from 'express';
 import {DeleteResult, UpdateResult} from 'mongodb';
 import { TSchema } from '@sinclair/typebox';
 import {IEntity, IPagedResult, IModelSpec, IUserContext} from '@loomcore/common/models';
+import {BadRequestError} from '../errors/index.js';
 import {entityUtils} from '@loomcore/common/utils';
 
 import {IGenericApiService} from '../services/index.js';
@@ -67,6 +68,7 @@ export abstract class ApiController<T extends IEntity> {
 	  app.get(`/api/${this.slug}/count`, isAuthenticated, this.getCount.bind(this));
 	  app.get(`/api/${this.slug}/:id`, isAuthenticated, this.getById.bind(this));
 	  app.post(`/api/${this.slug}`, isAuthenticated, this.create.bind(this));
+    app.patch(`/api/${this.slug}/batch`, isAuthenticated, this.batchUpdate.bind(this));
 	  app.put(`/api/${this.slug}/:id`, isAuthenticated, this.fullUpdateById.bind(this));
 		app.patch(`/api/${this.slug}/:id`, isAuthenticated, this.partialUpdateById.bind(this));
     app.delete(`/api/${this.slug}/:id`, isAuthenticated, this.deleteById.bind(this));
@@ -157,6 +159,24 @@ export abstract class ApiController<T extends IEntity> {
     
     const entity = await this.service.create(req.userContext!, preparedEntity);
     apiUtils.apiResponse<T>(res, 201, {data: entity || undefined}, this.modelSpec, this.publicSchema);
+  }
+
+  async batchUpdate(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+    
+    const entities = req.body as Partial<T>[];
+
+    if (!Array.isArray(entities)) {
+      // Using apiUtils to send a standardized error response would be better if available
+      throw new BadRequestError('Request body must be an array of entities.');
+    }
+
+    // Validate and prepare entities (using partial validation for PATCH operations)
+    this.validateMany(entities, true);
+    const preparedEntities = await this.service.prepareDataForBatchUpdate(req.userContext!, entities);
+    
+    const updatedEntities = await this.service.batchUpdate(req.userContext!, preparedEntities);
+    apiUtils.apiResponse<T[]>(res, 200, {data: updatedEntities}, this.modelSpec, this.publicSchema);
   }
 
   async fullUpdateById(req: Request, res: Response, next: NextFunction) {

@@ -228,17 +228,17 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return count;
   }
 
-  async create(userContext: IUserContext, entity: T | Partial<T>): Promise<T | null> {
+  async create(userContext: IUserContext, preparedEntity: T | Partial<T>): Promise<T | null> {
     let createdEntity = null;
     try {
-      const preparedEntity = await this.onBeforeCreate(userContext, entity);
+      const entity = await this.onBeforeCreate(userContext, preparedEntity);
       // Need to use "as any" to bypass TypeScript's strict type checking
       // This is necessary because we're changing _id from string to ObjectId
-      const insertResult = await this.collection.insertOne(preparedEntity as any);
+      const insertResult = await this.collection.insertOne(entity as any);
       
       if (insertResult.insertedId) {
         // mongoDb mutates the entity passed into insertOne to have an _id property
-        createdEntity = this.transformSingle(preparedEntity);
+        createdEntity = this.transformSingle(entity);
       }
       
       if (createdEntity) {
@@ -261,20 +261,20 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @param entities Array of entities to create
    * @returns The created entities with IDs
    */
-  async createMany(userContext: IUserContext, entities: T[]): Promise<T[]> {
+  async createMany(userContext: IUserContext, preparedEntities: T[]): Promise<T[]> {
     let createdEntities: T[] = [];
 
-    if (entities.length) {
+    if (preparedEntities.length) {
       try {
         // Call onBeforeCreate once with the array of entities
-        const preparedEntities = await this.onBeforeCreate(userContext, entities);
+        const entities = await this.onBeforeCreate(userContext, preparedEntities);
 
         // Insert all prepared entities - use "as any" to bypass TypeScript's strict checks
-        const insertResult = await this.collection.insertMany(preparedEntities as any);
+        const insertResult = await this.collection.insertMany(entities as any);
 
         if (insertResult.insertedIds) {
           // Transform all entities to have friendly IDs
-          createdEntities = this.transformList(preparedEntities);
+          createdEntities = this.transformList(entities);
         }
 
         // Call onAfterCreate once with all created entities
@@ -291,7 +291,59 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return createdEntities;
   }
 
-  async fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T> {
+  /**
+   * Updates multiple entities at once.
+   * Each entity in the array must have a valid `_id`.
+   * @param userContext The user context for the operation
+   * @param entities Array of partial entities to update
+   * @returns The updated entities with all their fields
+   */
+  async batchUpdate(userContext: IUserContext, preparedEntities: Partial<T>[]): Promise<T[]> {
+    if (!preparedEntities || preparedEntities.length === 0) {
+      return [];
+    }
+    
+    // This is a bulk operation, so we call onBeforeUpdate once with the array
+    const entities = await this.onBeforeUpdate(userContext, preparedEntities);
+
+    const operations = [];
+    const entityIds: ObjectId[] = [];
+
+    for (const entity of entities) {
+      // The entity should have been prepared by prepareDataForDb, which converts string _id to ObjectId
+      const { _id, ...updateData } = entity as any;
+
+      if (!_id || !(_id instanceof ObjectId)) {
+        throw new BadRequestError('Each entity in a batch update must have a valid _id that has been converted to an ObjectId.');
+      }
+      
+      entityIds.push(_id);
+
+      operations.push({
+        updateOne: {
+          filter: { _id },
+          update: { $set: updateData },
+        },
+      });
+    }
+
+    if (operations.length > 0) {
+      await this.collection.bulkWrite(operations);
+    }
+
+    const query = this.prepareQuery(userContext, { _id: { $in: entityIds } });
+    const rawUpdatedEntities = await this.collection.find(query).toArray();
+    const updatedEntities = this.transformList(rawUpdatedEntities);
+    
+    // Call onAfterUpdate with all updated entities
+    if (updatedEntities.length > 0) {
+      await this.onAfterUpdate(userContext, updatedEntities);
+    }
+
+    return updatedEntities;
+  }
+
+  async fullUpdateById(userContext: IUserContext, id: string, preparedEntity: T): Promise<T> {
     // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
     //  existing entity, updates using the supplied entity, then retrieves the entity again. We could avoid the final
     //  fetch if we manually crafted the returned entity, but that seems presumptuous, especially
@@ -316,17 +368,17 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     };
 
     // Call onBeforeUpdate once with the entity
-    const preparedEntity = await this.onBeforeUpdate(userContext, entity);
+    const entity = await this.onBeforeUpdate(userContext, preparedEntity);
 
     // Merge audit properties back into the clone
-    Object.assign(preparedEntity, auditProperties);
+    Object.assign(entity, auditProperties);
 
-    const mongoUpdateResult = await this.collection.replaceOne(query, preparedEntity);
+    const mongoUpdateResult = await this.collection.replaceOne(query, entity);
 
     if (mongoUpdateResult?.matchedCount <= 0) {
       throw new IdNotFoundError();
     }
-    await this.onAfterUpdate(userContext, preparedEntity);
+    await this.onAfterUpdate(userContext, entity);
 
     // return the updated entity
     const updatedEntity = await this.collection.findOne(query);
@@ -334,12 +386,12 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.transformSingle(updatedEntity);
   }
 
-  async partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T> {
+  async partialUpdateById(userContext: IUserContext, id: string, preparedEntity: Partial<T>): Promise<T> {
     if (!entityUtils.isValidObjectId(id)) {
       throw new BadRequestError('id is not a valid ObjectId');
     }
 
-    const preparedEntity = await this.onBeforeUpdate(userContext, entity);
+    const entity = await this.onBeforeUpdate(userContext, preparedEntity);
 
     // Use ObjectId conversion for query
     const baseQuery = { _id: new ObjectId(id) };
@@ -347,7 +399,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     
     const updatedEntity = await this.collection.findOneAndUpdate(
       query,
-      { $set: preparedEntity },
+      { $set: entity },
       { returnDocument: 'after' }
     );
     
@@ -364,7 +416,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.transformSingle(updatedEntity);
   }
 
-  async partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T> {
+  async partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, preparedEntity: T): Promise<T> {
     if (!entityUtils.isValidObjectId(id)) {
       throw new BadRequestError('id is not a valid ObjectId');
     }
@@ -376,7 +428,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     // $set causes mongo to only update the properties provided, without it, it will delete any properties not provided
     const modifyResult = await this.collection.findOneAndUpdate(
       query,
-      { $set: entity },
+      { $set: preparedEntity },
       { returnDocument: 'after' }
     );
 
@@ -396,19 +448,19 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.transformSingle(updatedEntity);
   }
 
-  async update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
-    const preparedEntity = await this.onBeforeUpdate(userContext, entity);
+  async update(userContext: IUserContext, queryObject: any, preparedEntity: Partial<T>): Promise<T[]> {
+    const entity = await this.onBeforeUpdate(userContext, preparedEntity);
 
     // Apply query preparation hook
     const query = this.prepareQuery(userContext, queryObject);
 
     // $set causes mongo to only update the properties provided, without it, it will delete any properties not provided
-    const mongoUpdateResult = await this.collection.updateMany(query, { $set: preparedEntity });
+    const mongoUpdateResult = await this.collection.updateMany(query, { $set: entity });
 
     if (mongoUpdateResult?.matchedCount <= 0) {
       throw new NotFoundError('No records found matching update query');
     }
-    await this.onAfterUpdate(userContext, preparedEntity);
+    await this.onAfterUpdate(userContext, entity);
 
     // return the updated entities
     const updatedEntities = await this.collection.find(query).toArray();
@@ -571,7 +623,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return transformedEntity;
   }
 
-  private stripSenderProvidedSystemProperties(userContext: IUserContext,doc: any) {
+  private stripSenderProvidedSystemProperties(userContext: IUserContext, doc: any, allowId: boolean = false) {
     // Allow system properties if this is a system-initiated action
     const isSystemUser = userContext.user?._id === 'system';
     if (isSystemUser) {
@@ -582,6 +634,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     for (const key in doc) {
       // todo: seriously consider removing the _orgId check once we handle user creation properly (when there is no more register endpoint)
       if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_') && key !== '_orgId') {
+        if (allowId && key === '_id') {
+          continue;
+        }
         delete doc[key];
       }
     }
@@ -610,19 +665,31 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   /**
+   * Prepares an array of entities for a batch update operation.
+   * This method ensures that `_id` is preserved while other system properties are stripped.
+   * @param userContext The user context for the operation
+   * @param entities The array of partial entities to prepare
+   * @returns The prepared entities
+   */
+  async prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
+    return Promise.all(entities.map(item => this.prepareEntity(userContext, item, false, true)));
+  }
+
+  /**
    * Prepares a single entity before database operations.
    * This contains the core logic for entity preparation that's applied to each entity.
    * @param userContext The user context for the operation
    * @param entity The original entity object
    * @param isCreate Whether this is for a create operation (true) or update operation (false)
+   * @param allowId Whether to allow the _id property to be supplied by the caller
    * @returns The potentially modified entity
    */
-  protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean): Promise<T | Partial<T>> {
+  protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<T | Partial<T>> {
     // Clone the entity to avoid modifying the original
     const preparedEntity = _.clone(entity);
 
     // Strip out any system properties sent by the client
-    this.stripSenderProvidedSystemProperties(userContext, preparedEntity);
+    this.stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
 
     // Apply appropriate auditing based on operation type if the entity is auditable
     if (this.modelSpec?.isAuditable) {

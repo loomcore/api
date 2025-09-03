@@ -16,12 +16,14 @@ export interface IGenericApiService<T extends IEntity> {
   prepareDataForDb(userContext: IUserContext, entity: Partial<T>, isCreate?: boolean): Promise<Partial<T>>;
   prepareDataForDb(userContext: IUserContext, entity: T[], isCreate?: boolean): Promise<T[]>;
   prepareDataForDb(userContext: IUserContext, entity: Partial<T>[], isCreate?: boolean): Promise<Partial<T>[]>;
+  prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]>;
   getAll(userContext: IUserContext): Promise<T[]>;
   get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;
   getById(userContext: IUserContext, id: string): Promise<T>;
   getCount(userContext: IUserContext): Promise<number>;
   create(userContext: IUserContext, entity: T | Partial<T>): Promise<T | null>;
   createMany(userContext: IUserContext, entities: T[]): Promise<T[]>;
+  batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
   fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T>;
   partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T>;
   partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T>;

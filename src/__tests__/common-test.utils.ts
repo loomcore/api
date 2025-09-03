@@ -262,6 +262,7 @@ export interface ICategory extends IEntity {
 
 export interface IProduct extends IEntity, IAuditable {
   name: string;
+  description?: string;
   internalNumber?: string; // a sensitive property
   categoryId: string;
   category?: ICategory;
@@ -275,6 +276,7 @@ export const CategorySpec = entityUtils.getModelSpec(CategorySchema);
 
 export const ProductSchema = Type.Object({
   name: Type.String(),
+  description: Type.Optional(Type.String()),
   internalNumber: Type.Optional(Type.String()),
   categoryId: Type.String({ format: 'objectid' }),
 });
