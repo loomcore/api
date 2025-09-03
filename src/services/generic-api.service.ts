@@ -309,6 +309,18 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const operations = [];
     const entityIds: ObjectId[] = [];
 
+    // --- Start Diagnostics ---
+    console.log('--- DIAGNOSTICS: Entities received in batchUpdate ---');
+    entities.forEach((entity, index) => {
+      const entityWithId = entity as T & { _id?: any };
+      if (entityWithId && entityWithId._id) {
+        console.log(`  [${index}]: ID is ${entityWithId._id.toString()}, Type is ${entityWithId._id.constructor.name}`);
+      } else {
+        console.log(`  [${index}]: Entity has no _id or is null.`);
+      }
+    });
+    // --- End Diagnostics ---
+
     for (const entity of entities) {
       // The entity should have been prepared by prepareDataForDb, which converts string _id to ObjectId
       const { _id, ...updateData } = entity as any;
@@ -722,7 +734,18 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     }
     
     // Only use schema-driven conversion
-    return dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
+    const finalEntity = dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
+
+    // --- Start Diagnostics ---
+    const finalEntityWithId = finalEntity as T & { _id?: any };
+    if (finalEntityWithId && finalEntityWithId._id) {
+      console.log(`--- DIAGNOSTICS: In prepareEntity, after conversion, ID is ${finalEntityWithId._id.toString()}, Type is ${finalEntityWithId._id.constructor.name} ---`);
+    } else {
+      console.log('--- DIAGNOSTICS: In prepareEntity, after conversion, entity has no _id or is null. ---');
+    }
+    // --- End Diagnostics ---
+
+    return finalEntity;
   }
 
   /**
