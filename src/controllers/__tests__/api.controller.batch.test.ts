@@ -34,21 +34,28 @@ describe('ApiController Batch Update', () => {
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
 
-    // 1. Arrange: Create initial products
+    // 1. Arrange: Create initial products using known string IDs for a more realistic test
     const productsCollection = db.collection('products');
     const categoryCollection = db.collection('categories');
 
     const categoryResult = await categoryCollection.insertOne({ name: 'Test Category' });
     const categoryId = categoryResult.insertedId;
 
-    const initialProducts = [
-      { name: 'Product A', description: 'Description A', categoryId },
-      { name: 'Product B', description: 'Description B', categoryId },
-      { name: 'Product C', description: 'Description C', categoryId },
+    // Use predefined string IDs to ensure the conversion logic is tested
+    productIds = [
+      '68b7205972257807a03b9093',
+      '68b8b98fddd4af2b60ae7e08',
+      '68b8b98fddd4af2b60ae7e09'
     ];
-    const insertResult = await productsCollection.insertMany(initialProducts);
-    insertedProductObjectIds = Object.values(insertResult.insertedIds);
-    productIds = insertedProductObjectIds.map(id => id.toString());
+    insertedProductObjectIds = productIds.map(id => new ObjectId(id));
+
+    const initialProductsForDb = [
+      { _id: insertedProductObjectIds[0], name: 'Product A', description: 'Description A', categoryId },
+      { _id: insertedProductObjectIds[1], name: 'Product B', description: 'Description B', categoryId },
+      { _id: insertedProductObjectIds[2], name: 'Product C', description: 'Description C', categoryId },
+    ];
+
+    await productsCollection.insertMany(initialProductsForDb);
   });
 
   it('should partially update multiple products in a single batch request', async () => {
