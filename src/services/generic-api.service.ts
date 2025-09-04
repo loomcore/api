@@ -35,8 +35,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     this.singularResourceName = singularResourceName;
     this.collection = db.collection(pluralResourceName);
     this.modelSpec = modelSpec;
-    // if (this.modelSpec)
-    // console.log(``); //todo: delete me
   }
 
   /**
@@ -694,7 +692,11 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    */
   async prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
     console.log('--- DIAGNOSTICS: Executing prepareDataForBatchUpdate ---');
-    return Promise.all(entities.map(item => this.prepareEntity(userContext, item, false, true)));
+    return Promise.all(entities.map(item => {
+      const allowId = true;
+      console.log(`in prepareDataForBatchUpdate, item is ${JSON.stringify(item)}, and allowId is ${allowId}`); // todo: delete me
+      return this.prepareEntity(userContext, item, false, allowId);
+    }));
   }
 
   /**
