@@ -67,16 +67,16 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the individual entity preparation hook to add tenant ID
    * This will be called for both create and update operations
    */
-  protected override async prepareEntity(userContext: IUserContext, entity: T, isCreate: boolean): Promise<T | Partial<T>> {
+  protected override async prepareEntity(userContext: IUserContext, entity: T, isCreate: boolean, allowId: boolean = false): Promise<T | Partial<T>> {
     if (!config?.app?.isMultiTenant) {
-      return super.prepareEntity(userContext, entity, isCreate);
+      return super.prepareEntity(userContext, entity, isCreate, allowId);
     }
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareEntity');
     }
     
     // First call the base class implementation to handle standard entity preparation
-    const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
+    const preparedEntity = await super.prepareEntity(userContext, entity, isCreate, allowId);
     
     // Then apply tenant ID
     const orgIdField = this.tenantDecorator!.getOrgIdField();
