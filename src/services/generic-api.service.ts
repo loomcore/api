@@ -705,15 +705,13 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       }
     }
 
+    // Require a modelSpec for decode and conversion - without a schema we can't do either
+    if (!this.modelSpec?.fullSchema) {
+      throw new ServerError(`Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`);
+    }
+
     let cleanedEntity = preparedEntity;
     if (this.modelSpec) {
-      let entityId = null;
-      if (allowId) {
-        // If allowId is true, we need to preserve _id before decoding, as decode will strip properties not in the schema
-        entityId = (preparedEntity as any)._id;
-      }
-      console.log(`preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
-      
       /**
        * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming 
        *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the 
@@ -726,19 +724,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
        *   importing MongoDb, which we definitely don't want in a shared model library.
        */
       cleanedEntity = this.modelSpec.decode(preparedEntity);
-      console.log(`cleanedEntity is ${JSON.stringify(cleanedEntity)}`); // todo: delete me
-
-      if (allowId && entityId) {
-        // Restore _id if it was present
-        (cleanedEntity as any)._id = entityId;
-      }
     }
 
-    // Require a modelSpec for conversion - without a schema we can't properly convert
-    if (!this.modelSpec?.fullSchema) {
-      throw new ServerError(`Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`);
-    }
-    
     // Only use schema-driven conversion
     return dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
   }
