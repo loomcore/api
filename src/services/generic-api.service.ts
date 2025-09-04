@@ -35,6 +35,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     this.singularResourceName = singularResourceName;
     this.collection = db.collection(pluralResourceName);
     this.modelSpec = modelSpec;
+    // if (this.modelSpec)
+    // console.log(``); //todo: delete me
   }
 
   /**
@@ -700,9 +702,14 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<T | Partial<T>> {
     // Clone the entity to avoid modifying the original
     const preparedEntity = _.clone(entity);
-
+    console.log(`in prepareEntity, pluralResourceName is ${this.pluralResourceName}`); // todo: delete me
+    console.log(`before stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
+    console.log(`modelSpec is ${JSON.stringify(this.modelSpec)}`); // todo: delete me
+    
     // Strip out any system properties sent by the client
     this.stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
+
+    console.log(`after stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
 
     // Apply appropriate auditing based on operation type if the entity is auditable
     if (this.modelSpec?.isAuditable) {
