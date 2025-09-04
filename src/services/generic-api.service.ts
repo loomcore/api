@@ -309,18 +309,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const operations = [];
     const entityIds: ObjectId[] = [];
 
-    // --- Start Diagnostics ---
-    console.log('--- DIAGNOSTICS: Entities received in batchUpdate ---');
-    entities.forEach((entity, index) => {
-      const entityWithId = entity as T & { _id?: any };
-      if (entityWithId && entityWithId._id) {
-        console.log(`  [${index}]: ID is ${entityWithId._id.toString()}, Type is ${entityWithId._id.constructor.name}`);
-      } else {
-        console.log(`  [${index}]: Entity has no _id or is null.`);
-      }
-    });
-    // --- End Diagnostics ---
-
     for (const entity of entities) {
       // The entity should have been prepared by prepareDataForDb, which converts string _id to ObjectId
       const { _id, ...updateData } = entity as any;
@@ -636,8 +624,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   private stripSenderProvidedSystemProperties(userContext: IUserContext, doc: any, allowId: boolean = false) {
-    console.log(`in stripSenderProvidedSystemProperties, allowId is ${allowId}`); // todo: delete me
-    
     // Allow system properties if this is a system-initiated action
     const isSystemUser = userContext.user?._id === 'system';
     if (isSystemUser) {
@@ -691,12 +677,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns The prepared entities
    */
   async prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
-    console.log('--- DIAGNOSTICS: Executing prepareDataForBatchUpdate ---');
-    return Promise.all(entities.map(item => {
-      const allowId = true;
-      console.log(`in prepareDataForBatchUpdate, item is ${JSON.stringify(item)}, and allowId is ${allowId}`); // todo: delete me
-      return this.prepareEntity(userContext, item, false, allowId);
-    }));
+    return Promise.all(entities.map(item => this.prepareEntity(userContext, item, false, true)));
   }
 
   /**
@@ -709,17 +690,11 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns The potentially modified entity
    */
   protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<T | Partial<T>> {
-    console.log(`ENTRY: prepareEntity called with allowId = ${allowId}`); // todo: delete me
     // Clone the entity to avoid modifying the original
     const preparedEntity = _.clone(entity);
-    console.log(`in prepareEntity, pluralResourceName is ${this.pluralResourceName}`); // todo: delete me
-    console.log(`before stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
-    console.log(`allowId is ${allowId}`); // todo: delete me
 
     // Strip out any system properties sent by the client
     this.stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
-
-    console.log(`after stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
 
     // Apply appropriate auditing based on operation type if the entity is auditable
     if (this.modelSpec?.isAuditable) {
@@ -734,10 +709,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     if (this.modelSpec) {
       let entityId = null;
       if (allowId) {
-        console.log(`_id is present and equals ${preparedEntity._id}`); // todo: delete me
         // If allowId is true, we need to preserve _id before decoding, as decode will strip properties not in the schema
         entityId = (preparedEntity as any)._id;
       }
+      console.log(`preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
       
       /**
        * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming 
@@ -751,9 +726,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
        *   importing MongoDb, which we definitely don't want in a shared model library.
        */
       cleanedEntity = this.modelSpec.decode(preparedEntity);
+      console.log(`cleanedEntity is ${JSON.stringify(cleanedEntity)}`); // todo: delete me
 
       if (allowId && entityId) {
-        console.log(`after decode, restoring _id to ${entityId}`); // todo: delete me
         // Restore _id if it was present
         (cleanedEntity as any)._id = entityId;
       }
@@ -765,18 +740,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     }
     
     // Only use schema-driven conversion
-    const finalEntity = dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
-
-    // --- Start Diagnostics ---
-    const finalEntityWithId = finalEntity as T & { _id?: any };
-    if (finalEntityWithId && finalEntityWithId._id) {
-      console.log(`--- DIAGNOSTICS: In prepareEntity, after conversion, ID is ${finalEntityWithId._id.toString()}, Type is ${finalEntityWithId._id.constructor.name} ---`);
-    } else {
-      console.log('--- DIAGNOSTICS: In prepareEntity, after conversion, entity has no _id or is null. ---');
-    }
-    // --- End Diagnostics ---
-
-    return finalEntity;
+    return dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
   }
 
   /**
