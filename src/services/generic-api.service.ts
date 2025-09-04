@@ -717,6 +717,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     console.log(`allowId is ${allowId}`); // todo: delete me
 
     // Strip out any system properties sent by the client
+    console.log(`About to call stripSenderProvidedSystemProperties with allowId = ${allowId}`);
     this.stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
 
     console.log(`after stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
