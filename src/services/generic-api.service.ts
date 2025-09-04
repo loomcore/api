@@ -709,6 +709,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns The potentially modified entity
    */
   protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<T | Partial<T>> {
+    console.log(`ENTRY: prepareEntity called with allowId = ${allowId}`); // todo: delete me
     // Clone the entity to avoid modifying the original
     const preparedEntity = _.clone(entity);
     console.log(`in prepareEntity, pluralResourceName is ${this.pluralResourceName}`); // todo: delete me
@@ -717,7 +718,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     console.log(`allowId is ${allowId}`); // todo: delete me
 
     // Strip out any system properties sent by the client
-    console.log(`About to call stripSenderProvidedSystemProperties with allowId = ${allowId}`);
     this.stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
 
     console.log(`after stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
