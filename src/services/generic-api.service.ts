@@ -638,6 +638,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   private stripSenderProvidedSystemProperties(userContext: IUserContext, doc: any, allowId: boolean = false) {
+    console.log(`in stripSenderProvidedSystemProperties, allowId is ${allowId}`); // todo: delete me
+    
     // Allow system properties if this is a system-initiated action
     const isSystemUser = userContext.user?._id === 'system';
     if (isSystemUser) {
@@ -645,12 +647,17 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     }
 
     // we don't allow users to provide/overwrite any system properties
+    // todo: seriously consider removing the _orgId check once we handle user creation properly (when there is no more register endpoint)
+    const propertiesToIgnore = ['_orgId'];
+
+    // Add '_id' to ignore list if allowId is true
+    if (allowId) {
+      propertiesToIgnore.push('_id');
+    }
+
+    // Remove properties that start with '_' except those in the ignore list
     for (const key in doc) {
-      // todo: seriously consider removing the _orgId check once we handle user creation properly (when there is no more register endpoint)
-      if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_') && key !== '_orgId') {
-        if (allowId && key === '_id') {
-          continue;
-        }
+      if (Object.prototype.hasOwnProperty.call(doc, key) && key.startsWith('_') && !propertiesToIgnore.includes(key)) {
         delete doc[key];
       }
     }
@@ -704,8 +711,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const preparedEntity = _.clone(entity);
     console.log(`in prepareEntity, pluralResourceName is ${this.pluralResourceName}`); // todo: delete me
     console.log(`before stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
-    console.log(`modelSpec is ${JSON.stringify(this.modelSpec)}`); // todo: delete me
-    
+    console.log(`modelSpec is present = ${this.modelSpec !== undefined}`); // todo: delete me
+    console.log(`allowId is ${allowId}`); // todo: delete me
+
     // Strip out any system properties sent by the client
     this.stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
 
