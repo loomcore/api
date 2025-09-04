@@ -714,7 +714,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const preparedEntity = _.clone(entity);
     console.log(`in prepareEntity, pluralResourceName is ${this.pluralResourceName}`); // todo: delete me
     console.log(`before stripping system properties, preparedEntity is ${JSON.stringify(preparedEntity)}`); // todo: delete me
-    console.log(`modelSpec is present = ${this.modelSpec !== undefined}`); // todo: delete me
     console.log(`allowId is ${allowId}`); // todo: delete me
 
     // Strip out any system properties sent by the client
