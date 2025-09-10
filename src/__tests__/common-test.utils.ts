@@ -13,6 +13,7 @@ import { GenericApiService } from '../services/generic-api.service.js';
 import { ApiController } from '../controllers/api.controller.js';
 import { apiUtils } from '../utils/index.js';
 import { entityUtils } from '@loomcore/common/utils';
+import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 
 let db: Db;
 let collections: any = {};
@@ -357,6 +358,58 @@ export class ProductsController extends ApiController<IProduct> {
     //    for client-facing responses. The updated apiUtils.apiResponse will use this
     //    public schema to correctly encode the final shape.
     super('products', app, productService, 'product', ProductSpec, PublicAggregatedProductSchema);
+  }
+}
+
+// Service that uses MultiTenantApiService
+export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
+  constructor(db: Db) {
+    super(db, 'products', 'product', ProductSpec);
+  }
+
+  protected override getAdditionalPipelineStages(): any[] {
+    return [
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'categoryId',
+          foreignField: '_id',
+          as: 'category'
+        }
+      },
+      {
+        $unwind: {
+          path: '$category',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ];
+  }
+
+  override transformSingle(single: any): any {
+    if (single && single.category) {
+      const categoryService = new CategoryService(this.db);
+      single.category = categoryService.transformSingle(single.category);
+    }
+    return super.transformSingle(single);
+  }
+}
+
+// Controller that uses the multi-tenant service
+export class MultiTenantProductsController extends ApiController<IProduct> {
+  constructor(app: Application, db: Db) {
+    const productService = new MultiTenantProductService(db);
+
+    const AggregatedProductSchema = Type.Intersect([
+      ProductSpec.fullSchema,
+      Type.Partial(Type.Object({
+        category: CategorySpec.fullSchema
+      }))
+    ]);
+    
+    const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
+
+    super('multi-tenant-products', app, productService, 'product', ProductSpec, PublicAggregatedProductSchema);
   }
 }
 

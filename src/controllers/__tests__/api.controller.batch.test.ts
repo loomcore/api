@@ -3,7 +3,7 @@ import supertest from 'supertest';
 import { Application } from 'express';
 import { Db, ObjectId } from 'mongodb';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import testUtils, { IProduct, ProductsController, CategoryController } from '../../__tests__/common-test.utils.js';
+import testUtils, { IProduct, ProductsController, CategoryController, MultiTenantProductsController } from '../../__tests__/common-test.utils.js';
 
 describe('ApiController Batch Update', () => {
   let app: Application;
@@ -23,6 +23,7 @@ describe('ApiController Batch Update', () => {
     // Instantiate controllers to map routes
     new ProductsController(app, db);
     new CategoryController(app, db);
+    new MultiTenantProductsController(app, db);
 
     await TestExpressApp.setupErrorHandling();
   });
@@ -96,5 +97,31 @@ describe('ApiController Batch Update', () => {
 
     const productBFromDb = await productsCollection.findOne({ _id: insertedProductObjectIds[1] });
     expect(productBFromDb!.description).toBe('Description B Updated');
+  });
+
+  it('should partially update multiple products for a multi-tenant service', async () => {
+    // 2. Act: Define the batch update payload and send the request
+    const batchUpdatePayload = [
+      { _id: productIds[0], name: 'Product A Updated' },
+      { _id: productIds[1], description: 'Description B Updated' },
+      { _id: productIds[2], name: 'Product C Updated', description: 'Description C also Updated' },
+    ];
+
+    const response = await agent
+      .patch('/api/multi-tenant-products/batch')
+      .set('Authorization', authorizationHeader)
+      .send(batchUpdatePayload);
+
+    // 3. Assert: Check the response and the database state
+    expect(response.status).toBe(200);
+    expect(response.body.data).toBeInstanceOf(Array);
+    expect(response.body.data.length).toBe(3);
+
+    const updatedProductA = response.body.data.find((p: IProduct) => p._id === productIds[0]);
+    expect(updatedProductA!.name).toBe('Product A Updated');
+
+    const productsCollection = db.collection('products');
+    const productAFromDb = await productsCollection.findOne({ _id: insertedProductObjectIds[0] });
+    expect(productAFromDb!.name).toBe('Product A Updated');
   });
 });
