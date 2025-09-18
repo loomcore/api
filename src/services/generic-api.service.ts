@@ -190,6 +190,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async getById(userContext: IUserContext, id: string): Promise<T> {
+    console.log(`--- GenericApiService.getById ENTER ---`); // todo: delete - AI diagnostic
+    console.log(`ID received: ${id}`); // todo: delete - AI diagnostic
     if (!entityUtils.isValidObjectId(id)) {
       throw new BadRequestError('id is not a valid ObjectId');
     }
@@ -197,26 +199,35 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     // Apply query preparation hook with ObjectId conversion
     const baseQuery = { _id: new ObjectId(id) };
     const query = this.prepareQuery(userContext, baseQuery);
+    console.log('Constructed query:', JSON.stringify(query, null, 2)); // todo: delete - AI diagnostic
 
     let entity = null;
 
     // Check if we have additional pipeline stages
     if (this.getAdditionalPipelineStages().length > 0) {
+      console.log('Branch: Executing with aggregation pipeline.'); // todo: delete - AI diagnostic
       const pipeline = [
         { $match: query },
         ...this.getAdditionalPipelineStages()
       ];
+      console.log('Aggregation Pipeline:', JSON.stringify(pipeline, null, 2)); // todo: delete - AI diagnostic
       entity = await this.collection.aggregate(pipeline).next();
     } 
     else {
+      console.log('Branch: Executing with findOne.'); // todo: delete - AI diagnostic
       // Use existing simple findOne approach if no additional stages
       entity = await this.collection.findOne(query);
     }
+    console.log('IMMEDIATE DB RESULT (entity):', JSON.stringify(entity, null, 2)); // todo: delete - AI diagnostic
 
     if (!entity) {
+      console.log('Entity not found, throwing IdNotFoundError.'); // todo: delete - AI diagnostic
       throw new IdNotFoundError();
     }
 
+    console.log('Entity before transformSingle:', JSON.stringify(entity, null, 2)); // todo: delete - AI diagnostic
+    console.log(`--- GenericApiService.getById EXIT ---`); // todo: delete - AI diagnostic
+    
     return this.transformSingle(entity);
   }
 
@@ -611,6 +622,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns Transformed entity with string IDs
    */
   transformSingle(single: any): T {
+    console.log('Starting base class transformSingle, entity:', JSON.stringify(single, null, 2)); // todo: delete - AI diagnostic
     if (!single) return single;
   
     // Require a modelSpec for conversion - without a schema we can't properly convert
@@ -620,6 +632,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     
     // Only use schema-driven conversion
     const transformedEntity = dbUtils.convertObjectIdsToStrings<T>(single, this.modelSpec.fullSchema);
+    console.log('Leaving base class transformSingle, transformedEntity:', JSON.stringify(transformedEntity, null, 2)); // todo: delete - AI diagnostic
     return transformedEntity;
   }
 
