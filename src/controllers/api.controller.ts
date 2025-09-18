@@ -138,8 +138,10 @@ export abstract class ApiController<T extends IEntity> {
 	}
 
   async getById(req: Request, res: Response, next: NextFunction) {
+    console.log('Starting getById, id:', req.params?.id); // todo: delete
     let id = req.params?.id;
     res.set('Content-Type', 'application/json');
+    console.log('Calling this.service.getById()'); // todo: delete
     const entity = await this.service.getById(req.userContext!, id);
     apiUtils.apiResponse<T>(res, 200, {data: entity}, this.modelSpec, this.publicSchema);
   }

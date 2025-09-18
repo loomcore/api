@@ -124,6 +124,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
+    console.log('In GenericApiService.getAll'); // todo: delete
     // Apply query preparation hook
     const query = this.prepareQuery(userContext, {});
     let entities: any[] = [];
@@ -143,6 +144,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
+    console.log('In GenericApiService.get'); // todo: delete
     // Prepare query options (allow subclasses to modify)
     const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
 
