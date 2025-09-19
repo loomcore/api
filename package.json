@@ -44,8 +44,8 @@
     "node-mailjet": "^6.0.8"
   },
   "peerDependencies": {
-    "@loomcore/common": "^0.0.13",
-    "@sinclair/typebox": "^0.34.31",
+    "@loomcore/common": "^0.0.14",
+    "@sinclair/typebox": "0.34.33",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^5.1.0",
