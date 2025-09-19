@@ -4,6 +4,7 @@ import { GenericApiService } from './generic-api.service.js';
 import { TenantQueryDecorator, ITenantQueryOptions } from './tenant-query-decorator.js';
 import { BadRequestError } from '../errors/bad-request.error.js';
 import { config } from '../config/base-api-config.js';
+import { UnauthorizedError } from '../errors/unauthorized.error.js';
 
 /**
  * Decorates the GenericApiService with multi-tenancy behavior.
@@ -47,20 +48,17 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
   /**
    * Override the query options preparation hook to add tenant filtering
    */
-  protected override prepareQueryOptions(userContext: IUserContext, queryOptions: IQueryOptions): IQueryOptions {
-    if (!config?.app?.isMultiTenant) {
-      return super.prepareQueryOptions(userContext, queryOptions);
-    }
-    if (!userContext || !userContext._orgId) {
-      throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareQueryOptions');
+  protected override prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
+    if (!userContext?.orgId) {
+      throw new UnauthorizedError('User context is missing organization ID');
     }
     
-    // Apply tenant filtering to the query options
-    return this.tenantDecorator!.applyTenantToQueryOptions(
-      userContext, 
-      queryOptions, 
-      this.pluralResourceName
-    );
+    // Use the TenantQueryDecorator to add the orgId to the filters
+    const tenantQueryOptions = TenantQueryDecorator.for(queryOptions)
+      .withOrgId(userContext.orgId)
+      .build();
+      
+    return tenantQueryOptions;
   }
 
   /**

@@ -293,6 +293,10 @@ function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, modelSpec?
 	const filters = queryOptions.filters || {};
 	const schema = modelSpec?.fullSchema;
 	let match: any = {};
+  console.log('--- Building Mongo Match ---');
+  console.log('Received queryOptions.filters:', JSON.stringify(filters, null, 2));
+  console.log('Received modelSpec:', !!modelSpec);
+
 	for (const [key, value] of Object.entries(filters)) {
 		if (value) {
 			const propSchema = schema ? getPropertySchema(key, schema) : undefined;
@@ -352,6 +356,8 @@ function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, modelSpec?
 		}
 	}
 
+  console.log('Constructed $match object:', JSON.stringify(match, null, 2));
+  console.log('--------------------------');
 	return { $match: match };
 }
 
