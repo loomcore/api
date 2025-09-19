@@ -4,6 +4,7 @@ import { Server } from "http";
 import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import cors from "cors";
+import qs from 'qs';
 
 import { NotFoundError } from "../errors/not-found.error.js";
 import { errorHandler } from "../middleware/error-handler.js";
@@ -29,6 +30,13 @@ type RouteSetupFunction = (app: Application, db: Db, config: IBaseApiConfig) => 
 
 function setupExpressApp(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetupFunction): Application {
   const app: Application = express();
+
+  // Use the 'qs' library for parsing query strings which allows for nested objects
+  app.set('query parser', (str: string) => {
+    return qs.parse(str, {
+      // You can configure qs options here if needed
+    });
+  });
 
   // Add early request logging before any middleware
   app.use((req, res, next) => {
