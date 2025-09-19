@@ -49,9 +49,6 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the query options preparation hook to add tenant filtering
    */
   protected override prepareQueryOptions(userContext: IUserContext, queryOptions: IQueryOptions): IQueryOptions {
-    console.log('--- MultiTenantApiService.prepareQueryOptions ---');
-    console.log('Initial queryOptions.filters:', JSON.stringify(queryOptions.filters, null, 2));
-
     if (!config?.app?.isMultiTenant) {
       return super.prepareQueryOptions(userContext, queryOptions);
     }
@@ -60,15 +57,11 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     }
     
     // Apply tenant filtering to the query options
-    const newQueryOptions = this.tenantDecorator!.applyTenantToQueryOptions(
+    return this.tenantDecorator!.applyTenantToQueryOptions(
       userContext, 
       queryOptions, 
       this.pluralResourceName
     );
-
-    console.log('Final queryOptions.filters:', JSON.stringify(newQueryOptions.filters, null, 2));
-    console.log('-------------------------------------------------');
-    return newQueryOptions;
   }
 
   /**
