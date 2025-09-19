@@ -147,7 +147,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
 
     // Build match conditions from query options
-    const match = dbUtils.buildMongoMatchFromQueryOptions(preparedOptions);
+    const match = dbUtils.buildMongoMatchFromQueryOptions(preparedOptions, this.modelSpec);
 
     // Create results array with additional pipeline stages
     const additionalStages = this.getAdditionalPipelineStages();

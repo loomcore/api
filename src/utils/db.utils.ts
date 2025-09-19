@@ -1,12 +1,37 @@
 import {ObjectId} from 'mongodb';
 import { TSchema, Type } from '@sinclair/typebox';
 import _ from 'lodash';
-import {IQueryOptions, Filter} from '@loomcore/common/models';
+import {IQueryOptions, Filter, IModelSpec} from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
 import {stringUtils} from './string.utils.js';
 
 // todo: split this into separate files based on db (mongo, sql, etc)
+
+/**
+ * Retrieves the schema for a specific property from a TypeBox schema, handling compositions like 'allOf'.
+ * @param key The name of the property
+ * @param schema The TypeBox schema to search within
+ * @returns The schema for the property, or undefined if not found
+ */
+function getPropertySchema(key: string, schema: TSchema): TSchema | undefined {
+	if (!schema || typeof schema !== 'object') return undefined;
+
+	// Handle 'allOf' for schema compositions (e.g., Type.Intersect)
+	if (schema.allOf && Array.isArray(schema.allOf)) {
+		for (const nestedSchema of schema.allOf) {
+			const propSchema = getPropertySchema(key, nestedSchema);
+			if (propSchema) return propSchema;
+		}
+	}
+
+	// Check for property in the current schema level
+	if (schema.type === 'object' && schema.properties) {
+		return schema.properties[key] as TSchema | undefined;
+	}
+
+	return undefined;
+}
 
 /**
  * List of property names that should not be converted to ObjectIds, even if they end with 'Id'
@@ -259,36 +284,42 @@ function convertStringToObjectId(value: any): ObjectId | any {
 	return value;
 }
 
-function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions) {
+function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, modelSpec?: IModelSpec) {
 	// {
 	// 	$match: {
 	// 		categoryId: ObjectId("67777e98f48cf88db44efb27")
 	// 	}
 	// }
 	const filters = queryOptions.filters || {};
+	const schema = modelSpec?.fullSchema;
 	let match: any = {};
 	for (const [key, value] of Object.entries(filters)) {
 		if (value) {
+			const propSchema = schema ? getPropertySchema(key, schema) : undefined;
+
 			if (value.eq !== undefined) {
-				//if (!ignoredProperties.includes(key) && key.endsWith('Id') && doc[key]) {
-				if (typeof value.eq === 'string' 
-					&& key.endsWith('Id') 
-					&& !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key) 
-					&& entityUtils.isValidObjectId(value.eq)) {
-					match[key] = new ObjectId(value.eq)
+				const isObjectIdField = propSchema?.format === 'objectid';
+				const valueToCompare = value.eq;
+				
+				// Use schema to check for ObjectId, otherwise fall back to name-based check
+				if ((isObjectIdField || (!schema && key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) 
+					&& typeof valueToCompare === 'string' && entityUtils.isValidObjectId(valueToCompare)) {
+					match[key] = new ObjectId(valueToCompare);
 				}
 				// Convert numeric strings to numbers
-				else if (typeof value.eq === 'string' && !isNaN(Number(value.eq))) {
-					match[key] = Number(value.eq);
+				else if (typeof valueToCompare === 'string' && !isNaN(Number(valueToCompare))) {
+					match[key] = Number(valueToCompare);
 				}
 				else {
-					match[key] = value.eq;
+					match[key] = valueToCompare;
 				}
 			}
 		  else if (value.in !== undefined && Array.isArray(value.in)) {
-				// Handle $in operator
-				if (key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)) {
-					// Convert string values to ObjectIds for properties ending with 'Id'
+				const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
+				
+				// Use schema to check for ObjectId array, otherwise fall back to name-based check
+				if (isObjectIdArray || (!schema && (key.endsWith('Id') || key.endsWith('Ids')) && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) {
+					// Convert string values to ObjectIds
 					const objectIds = value.in
 						.filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))
 						.map(val => new ObjectId(val as string));
