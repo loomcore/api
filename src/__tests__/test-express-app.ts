@@ -21,14 +21,14 @@ export class TestExpressApp {
   private static client: MongoClient;
   private static db: Db;
   private static initPromise: Promise<{ app: Application, db: Db, agent: any }> | null = null;
-  
+
   /**
    * Initialize the Express application with a MongoDB memory server
    * @returns Promise resolving to an object with the app, db, and supertest agent
    */
-  static async init(): Promise<{ 
-    app: Application, 
-    db: Db, 
+  static async init(): Promise<{
+    app: Application,
+    db: Db,
     agent: any  // Using any type for supertest agent to avoid type issues
   }> {
     // Return existing promise if initialization is already in progress
@@ -41,9 +41,9 @@ export class TestExpressApp {
     return this.initPromise;
   }
 
-  private static async _performInit(): Promise<{ 
-    app: Application, 
-    db: Db, 
+  private static async _performInit(): Promise<{
+    app: Application,
+    db: Db,
     agent: any
   }> {
     // Set up a fake clientSecret for authentication
@@ -53,8 +53,10 @@ export class TestExpressApp {
       hostName: 'localhost',
       appName: 'test-app',
       clientSecret: 'test-secret',
-      mongoDbUrl: '',
-      databaseName: '',
+      database: {
+        type: 'mongoDb',
+        name: '',
+      },
       externalPort: 4000,
       internalPort: 8083,
       corsAllowedOrigins: ['*'],
@@ -81,7 +83,7 @@ export class TestExpressApp {
 
     // Initialize TypeBox format validators
     initializeTypeBox();
-    
+
     // Set up MongoDB memory server if not already done
     if (!this.db) {
       this.mongoServer = await MongoMemoryServer.create({
@@ -98,30 +100,30 @@ export class TestExpressApp {
       this.db = this.client.db();
       testUtils.initialize(this.db);
       await testUtils.createIndexes(this.db);
-      
+
       // Create meta org before initializing system user context
       await testUtils.createMetaOrg();
     }
     await initSystemUserContext(this.db);
-    
+
     // Set up Express app if not already done
     if (!this.app) {
       this.app = express();
       this.app.use(bodyParser.json());
       this.app.use(cookieParser());  // Add cookie-parser middleware
       this.app.use(ensureUserContext);
-      
+
       // Add diagnostic middleware to log all requests
       this.app.use((req, res, next) => {
         next();
       });
     }
-    
+
     // Create a supertest agent for making test requests
     const agent = supertest.agent(this.app);
-    
-    return { 
-      app: this.app, 
+
+    return {
+      app: this.app,
       db: this.db,
       agent
     };
@@ -132,14 +134,14 @@ export class TestExpressApp {
     // Add the same error handling middleware used in the real app
     this.app.use(errorHandler);
   }
-  
+
   /**
    * Clean up resources
    */
   static async cleanup(): Promise<void> {
     // Clean up test data first
     await testUtils.cleanup();
-    
+
     if (this.client) {
       await this.client.close();
     }
@@ -153,7 +155,7 @@ export class TestExpressApp {
     this.client = undefined as any;
     this.mongoServer = undefined as any;
   }
-  
+
   /**
    * Clear all collections in the database
    */
@@ -161,7 +163,7 @@ export class TestExpressApp {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
-    
+
     const collections = await this.db.collections();
     for (const collection of collections) {
       await collection.deleteMany({});

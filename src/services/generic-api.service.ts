@@ -1,4 +1,4 @@
-import { Db, Collection, ObjectId, DeleteResult, Document, FindOptions } from 'mongodb';
+import { Db, Collection, ObjectId, Document, FindOptions } from 'mongodb';
 import moment from 'moment';
 import _ from 'lodash';
 import { ValueError } from '@sinclair/typebox/errors';
@@ -7,7 +7,8 @@ import {entityUtils} from '@loomcore/common/utils';
 
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError, ServerError } from '../errors/index.js';
-import { apiUtils, dbUtils } from '../utils/index.js';
+import { apiUtils, buildMongoMatchFromQueryOptions, convertObjectIdsToStrings, convertStringsToObjectIds } from '../utils/index.js';
+import { DeleteResult } from '../models/types/deleteResult.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected db: Db;
@@ -25,7 +26,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   protected modelSpec?: IModelSpec;
 
   constructor(
-    db: Db, 
+    db: Db,
     pluralResourceName: string, 
     singularResourceName: string,
     modelSpec?: IModelSpec
@@ -147,7 +148,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
 
     // Build match conditions from query options
-    const match = dbUtils.buildMongoMatchFromQueryOptions(preparedOptions, this.modelSpec);
+    const match = buildMongoMatchFromQueryOptions(preparedOptions, this.modelSpec);
 
     // Create results array with additional pipeline stages
     const additionalStages = this.getAdditionalPipelineStages();
@@ -488,7 +489,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     await this.onAfterDelete(userContext, query);
 
-    return deleteResult; // ignore the result of onAfter and return what the deleteOne call returned
+    return new DeleteResult(
+      deleteResult.acknowledged,
+      deleteResult.deletedCount
+    );
   }
 
   /**
@@ -504,8 +508,11 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const deleteResult = await this.collection.deleteMany(query);
 
     await this.onAfterDelete(userContext, query);
-    return deleteResult;
-  }
+    return new DeleteResult(
+      deleteResult.acknowledged,
+      deleteResult.deletedCount
+    );
+    }
 
   async find(userContext: IUserContext, mongoQueryObject: any, options?: FindOptions<Document> | undefined): Promise<T[]> {
     // Apply query preparation hook
@@ -619,7 +626,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     }
     
     // Only use schema-driven conversion
-    const transformedEntity = dbUtils.convertObjectIdsToStrings<T>(single, this.modelSpec.fullSchema);
+    const transformedEntity = convertObjectIdsToStrings<T>(single, this.modelSpec.fullSchema);
     return transformedEntity;
   }
 
@@ -727,7 +734,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     }
 
     // Only use schema-driven conversion
-    return dbUtils.convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
+    return convertStringsToObjectIds(cleanedEntity, this.modelSpec.fullSchema);
   }
 
   /**
