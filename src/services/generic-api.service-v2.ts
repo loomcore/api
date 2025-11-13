@@ -1,6 +1,7 @@
 import _ from 'lodash';
 import { ValueError } from '@sinclair/typebox/errors';
 import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
 
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { IDatabase } from '../models/database/database.interface.js';
@@ -81,11 +82,38 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     return this.database.transformSingle(single, this.modelSpec);
   }
 
-  validate(doc: any, isPartial?: boolean): ValueError[] | null {
-    throw new Error('Method not implemented.');
+  /**
+   * Validates a document against the schema using TypeBox
+   * @param doc The document to validate
+   * @param isPartial Whether to use the partial schema (for PATCH operations)
+   * @returns null if valid, or an array of ValueError objects if invalid
+   */
+  validate(doc: any, isPartial: boolean = false): ValueError[] | null {
+    const validator = isPartial ? this.modelSpec.partialValidator : this.modelSpec.validator;
+    
+    // Use centralized validation function
+    return entityUtils.validate(validator, doc);
   }
-  validateMany(docs: any[], isPartial?: boolean): ValueError[] | null {
-    throw new Error('Method not implemented.');
+
+  /**
+   * Validates multiple documents against the schema using TypeBox
+   * @param docs Array of documents to validate
+   * @param isPartial Whether to use the partial schema (for PATCH operations)
+   * @returns null if all valid, or an array of ValueError objects if any are invalid
+   */
+  validateMany(docs: any[], isPartial: boolean = false): ValueError[] | null {
+    const validator = isPartial ? this.modelSpec.partialValidator : this.modelSpec.validator;
+    let allErrors: ValueError[] = [];
+
+    for (const doc of docs) {
+      const errors = entityUtils.validate(validator, doc);
+      if (errors && errors.length > 0) {
+        allErrors.push(...errors);
+      }
+    }
+    
+    // Return null if no errors found, otherwise return the accumulated errors
+    return allErrors.length > 0 ? allErrors : null;
   }
   async prepareDataForDb(userContext: IUserContext, entity: T, isCreate?: boolean): Promise<T>;
   async prepareDataForDb(userContext: IUserContext, entity: Partial<T>, isCreate?: boolean): Promise<Partial<T>>;

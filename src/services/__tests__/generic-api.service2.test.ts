@@ -312,4 +312,123 @@ describe('GenericApiService2 - Integration Tests', () => {
       ).rejects.toThrow(DuplicateKeyError);
     });
   });
+
+  describe('Validation Methods', () => {
+    it('should validate and return errors for invalid entity', () => {
+      // Arrange
+      const invalidEntity = {
+        // Missing required 'name' field
+        description: 'This entity is invalid'
+      };
+      
+      // Act
+      const validationErrors = service.validate(invalidEntity);
+      
+      // Assert
+      expect(validationErrors).not.toBeNull();
+      expect(validationErrors!.length).toBeGreaterThan(0);
+      expect(validationErrors!.some(error => error.path === '/name')).toBe(true);
+    });
+    
+    it('should validate and return null for valid entity', () => {
+      // Arrange
+      const validEntity = {
+        name: 'Valid Entity',
+        description: 'This is valid',
+        isActive: true
+      };
+      
+      // Act
+      const validationErrors = service.validate(validEntity);
+      
+      // Assert
+      expect(validationErrors).toBeNull();
+    });
+    
+    it('should validate partial entity for updates', () => {
+      // Arrange
+      const partialEntity = {
+        description: 'Updated description'
+        // name is not required for partial updates
+      };
+      
+      // Act
+      const validationErrors = service.validate(partialEntity, true);
+      
+      // Assert
+      expect(validationErrors).toBeNull();
+    });
+    
+    it('should validate multiple entities and return errors for invalid ones', () => {
+      // Arrange
+      const entities = [
+        { name: 'Valid Entity 1' },
+        { description: 'Invalid - missing name' }, // Invalid
+        { name: 'Valid Entity 2' }
+      ];
+      
+      // Act
+      const validationErrors = service.validateMany(entities);
+      
+      // Assert
+      if (!validationErrors) {
+        throw new Error('Validation errors are null');
+      }
+      console.log(validationErrors);
+      // Should have errors for the missing name and it not being a string
+      expect(validationErrors.length).toBe(2);
+      // Should have errors for the invalid entity
+      expect(validationErrors.every(error => error.path === '/name')).toBe(true);
+    });
+    
+    it('should return null when all entities in array are valid', () => {
+      // Arrange
+      const entities = [
+        { name: 'Valid Entity 1' },
+        { name: 'Valid Entity 2' },
+        { name: 'Valid Entity 3', description: 'With description' }
+      ];
+      
+      // Act
+      const validationErrors = service.validateMany(entities);
+      
+      // Assert
+      expect(validationErrors).toBeNull();
+    });
+
+    it('should validate multiple entities with partial validation', () => {
+      // Arrange
+      const entities = [
+        { description: 'Partial update 1' }, // Valid for partial
+        { isActive: false }, // Valid for partial
+        { name: 'Full entity' } // Valid for partial
+      ];
+      
+      // Act
+      const validationErrors = service.validateMany(entities, true);
+      
+      // Assert
+      expect(validationErrors).toBeNull();
+    });
+
+    it('should accumulate errors from multiple invalid entities', () => {
+      // Arrange
+      const entities = [
+        { description: 'Invalid - missing name' }, // Invalid
+        { name: 'Valid Entity' }, // Valid
+        { description: 'Another invalid - missing name' }, // Invalid
+        { name: '' } // Invalid - empty string doesn't meet minLength
+      ];
+      
+      // Act
+      const validationErrors = service.validateMany(entities);
+      
+      // Assert
+      expect(validationErrors).not.toBeNull();
+      expect(validationErrors!.length).toBeGreaterThan(0);
+      // Should have multiple errors from the invalid entities
+      const nameErrors = validationErrors!.filter(error => error.path === '/name');
+      expect(nameErrors.length).toBeGreaterThan(0);
+    });
+  });
 }); 
