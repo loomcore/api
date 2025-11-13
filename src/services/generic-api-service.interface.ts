@@ -1,6 +1,6 @@
-import { DeleteResult } from 'mongodb';
 import { ValueError } from '@sinclair/typebox/errors';
 import {IUserContext, IEntity, IPagedResult, IQueryOptions} from '@loomcore/common/models';
+import { DeleteResult } from '../models/types/deleteResult.js';
 
 export interface IGenericApiService<T extends IEntity> {
   validate(doc: any, isPartial?: boolean): ValueError[] | null;

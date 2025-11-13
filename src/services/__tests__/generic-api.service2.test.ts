@@ -7,8 +7,8 @@ import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, 
 import { TypeboxIsoDate, TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
-import { GenericApiService } from '../generic-api.service.js';
 import { IdNotFoundError, DuplicateKeyError, BadRequestError } from '../../errors/index.js';
+import { GenericApiService2 } from '../generic-api.service-v2.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -51,11 +51,11 @@ const createUserContext = (): IUserContext => ({
   _orgId: '67e8e19b149f740323af93d7'
 });
 
-describe('GenericApiService - Integration Tests', () => {
+describe('GenericApiService2 - Integration Tests', () => {
   let mongoServer: MongoMemoryServer;
   let mongoClient: MongoClient;
   let db: Db;
-  let service: GenericApiService<TestEntity>;
+  let service: GenericApiService2<TestEntity>;
   let collection: Collection;
   let testUserContext: IUserContext;
   
@@ -68,7 +68,7 @@ describe('GenericApiService - Integration Tests', () => {
     db = mongoClient.db('test-db');
     
     // Create service with auditable model spec
-    service = new GenericApiService<TestEntity>(
+    service = new GenericApiService2<TestEntity>(
       db,
       'testEntities',
       'testEntity',
@@ -543,7 +543,7 @@ describe('GenericApiService - Integration Tests', () => {
       it('should not add audit properties when model is not auditable', async () => {
         // Create a non-auditable service
         const nonAuditableModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: false });
-        const nonAuditableService = new GenericApiService<TestEntity>(
+        const nonAuditableService = new GenericApiService2<TestEntity>(
           db,
           'testEntities',
           'testEntity',
@@ -661,7 +661,7 @@ describe('GenericApiService - Integration Tests', () => {
         });
         
         const dateModelSpec = entityUtils.getModelSpec(DateSchema, { isAuditable: true });
-        const dateService = new GenericApiService<any>(
+        const dateService = new GenericApiService2<any>(
           db,
           'dateEntities',
           'dateEntity',
@@ -691,7 +691,7 @@ describe('GenericApiService - Integration Tests', () => {
         });
         
         const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
-        const objectIdService = new GenericApiService<any>(
+        const objectIdService = new GenericApiService2<any>(
           db,
           'objectIdToStringTest',
           'objectIdEntity',
@@ -736,7 +736,7 @@ describe('GenericApiService - Integration Tests', () => {
         });
         
         const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
-        const complexService = new GenericApiService<any>(
+        const complexService = new GenericApiService2<any>(
           db,
           'complexEntities',
           'complexEntity',

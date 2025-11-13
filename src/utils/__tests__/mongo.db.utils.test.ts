@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { ObjectId } from 'mongodb';
-import { TSchema, Type } from '@sinclair/typebox';
+import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
-import { IUserContext } from '@loomcore/common/models';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { dbUtils } from '../db.utils.js';
+import { buildMongoMatchFromQueryOptions, convertObjectIdsToStrings, convertStringsToObjectIds, convertStringToObjectId } from '../mongo/index.js';
 
-describe('dbUtils', () => {
+describe('mongoUtils', () => {
   describe('convertObjectIdsToStrings', () => {
     // Define a test schema
     const TestSchema = Type.Object({
@@ -35,7 +34,7 @@ describe('dbUtils', () => {
         name: 'Test Entity'
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(result._id).toBe(objId.toString());
       expect(typeof result._id).toBe('string');
@@ -58,7 +57,7 @@ describe('dbUtils', () => {
         normalField: 'Another Normal Value'
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(result._id).toBe(mainId.toString());
       expect(result.simpleId).toBe(simpleId.toString());
@@ -80,7 +79,7 @@ describe('dbUtils', () => {
         arrayOfIds: [id1, id2, id3]
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(Array.isArray(result.arrayOfIds)).toBe(true);
       expect(result.arrayOfIds).toHaveLength(3);
@@ -101,7 +100,7 @@ describe('dbUtils', () => {
         ]
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(Array.isArray(result.arrayOfObjects)).toBe(true);
       expect(result.arrayOfObjects).toHaveLength(2);
@@ -119,7 +118,7 @@ describe('dbUtils', () => {
         _orgId: orgId
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(result._orgId).toBe(orgId);
       expect(typeof result._orgId).toBe('string');
@@ -135,7 +134,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(typeof result._id).toBe('string');
       expect(result.simpleId).toBeNull();
@@ -152,7 +151,7 @@ describe('dbUtils', () => {
         extraObjectId: extraId // Not in schema but is an ObjectId
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity, TestSchema);
       
       expect(result._id).toBe(idString); // Should remain as string
       expect(result.extraField).toBe('Extra Value');
@@ -166,7 +165,7 @@ describe('dbUtils', () => {
         name: 'Test Entity'
       };
 
-      const result = dbUtils.convertObjectIdsToStrings(entity);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(result._id).toBe(objId.toString());
       expect(typeof result._id).toBe('string');
@@ -202,7 +201,7 @@ describe('dbUtils', () => {
         name: 'Test Entity'
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result._id.toString()).toBe(idString);
@@ -225,7 +224,7 @@ describe('dbUtils', () => {
         normalField: 'Another Normal Value'
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result._id.toString()).toBe(mainId);
@@ -252,7 +251,7 @@ describe('dbUtils', () => {
         arrayOfIds: [id1, id2, id3]
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(Array.isArray(result.arrayOfIds)).toBe(true);
       expect(result.arrayOfIds).toHaveLength(3);
@@ -274,7 +273,7 @@ describe('dbUtils', () => {
         ]
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(Array.isArray(result.arrayOfObjects)).toBe(true);
       expect(result.arrayOfObjects).toHaveLength(2);
@@ -294,7 +293,7 @@ describe('dbUtils', () => {
         _orgId: orgId
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(result._orgId).toBe(orgId);
       expect(typeof result._orgId).toBe('string');
@@ -312,7 +311,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result.simpleId).toBeNull();
@@ -327,7 +326,7 @@ describe('dbUtils', () => {
         simpleId: invalidId // Invalid
       };
 
-      const result = dbUtils.convertStringsToObjectIds(entity, TestSchema);
+      const result = convertStringsToObjectIds(entity, TestSchema);
       
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result.simpleId).toBe(invalidId); // Should remain as string
@@ -337,7 +336,7 @@ describe('dbUtils', () => {
   describe('convertStringToObjectId', () => {
     it('should convert a valid string to ObjectId', () => {
       const idString = new ObjectId().toString();
-      const result = dbUtils.convertStringToObjectId(idString);
+      const result = convertStringToObjectId(idString);
       
       expect(result).toBeInstanceOf(ObjectId);
       expect(result.toString()).toBe(idString);
@@ -345,19 +344,19 @@ describe('dbUtils', () => {
 
     it('should return the original ObjectId if one is passed', () => {
       const objId = new ObjectId();
-      const result = dbUtils.convertStringToObjectId(objId);
+      const result = convertStringToObjectId(objId);
       
       expect(result).toBe(objId);
     });
 
     it('should return null/undefined if null/undefined is passed', () => {
-      expect(dbUtils.convertStringToObjectId(null)).toBeNull();
-      expect(dbUtils.convertStringToObjectId(undefined)).toBeUndefined();
+      expect(convertStringToObjectId(null)).toBeNull();
+      expect(convertStringToObjectId(undefined)).toBeUndefined();
     });
 
     it('should return the original value for invalid ObjectId strings', () => {
       const invalidId = 'not-an-objectid';
-      const result = dbUtils.convertStringToObjectId(invalidId);
+      const result = convertStringToObjectId(invalidId);
       
       expect(result).toBe(invalidId);
     });
@@ -367,9 +366,9 @@ describe('dbUtils', () => {
       const bool = true;
       const obj = { test: 'value' };
       
-      expect(dbUtils.convertStringToObjectId(number)).toBe(number);
-      expect(dbUtils.convertStringToObjectId(bool)).toBe(bool);
-      expect(dbUtils.convertStringToObjectId(obj)).toBe(obj);
+      expect(convertStringToObjectId(number)).toBe(number);
+      expect(convertStringToObjectId(bool)).toBe(bool);
+      expect(convertStringToObjectId(obj)).toBe(obj);
     });
   });
 
@@ -385,7 +384,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildMongoMatchFromQueryOptions(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -404,7 +403,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildMongoMatchFromQueryOptions(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -423,7 +422,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildMongoMatchFromQueryOptions(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -442,7 +441,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildMongoMatchFromQueryOptions(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -464,7 +463,7 @@ describe('dbUtils', () => {
         }
       };
 
-      const result = dbUtils.buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildMongoMatchFromQueryOptions(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -472,56 +471,6 @@ describe('dbUtils', () => {
           priority: 1
         }
       });
-    });
-  });
-
-  describe('buildSQLWhereClauseFromQueryOptions', () => {
-    it('should build SQL IN clause for string array', () => {
-      const queryOptions: IQueryOptions = {
-        ...DefaultQueryOptions,
-        filters: {
-          status: {
-            in: ['active', 'pending', 'completed']
-          }
-        }
-      };
-
-      const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
-
-      expect(result).toBe("WHERE Status IN ('active', 'pending', 'completed')");
-    });
-
-    it('should build SQL IN clause for number array', () => {
-      const queryOptions: IQueryOptions = {
-        ...DefaultQueryOptions,
-        filters: {
-          priority: {
-            in: [1, 2, 3]
-          }
-        }
-      };
-
-      const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
-
-      expect(result).toBe("WHERE Priority IN (1, 2, 3)");
-    });
-
-    it('should combine IN clause with other conditions', () => {
-      const queryOptions: IQueryOptions = {
-        ...DefaultQueryOptions,
-        filters: {
-          status: {
-            in: ['active', 'pending']
-          },
-          priority: {
-            eq: 1
-          }
-        }
-      };
-
-      const result = dbUtils.buildSQLWhereClauseFromQueryOptions(queryOptions, {});
-
-      expect(result).toBe("WHERE Status IN ('active', 'pending') AND Priority = 1");
     });
   });
 }); 

@@ -1,10 +1,14 @@
+import { DatabaseType } from "./types/databaseTypes.js";
+
 export interface IBaseApiConfig {
   appName: string;
   env: string;
   hostName: string;
   clientSecret: string;
-  mongoDbUrl?: string;
-  databaseName?: string;
+  database: {
+    type: DatabaseType,
+    name?: string;
+  },
   externalPort?: number;
   internalPort?: number;
   corsAllowedOrigins: string[];
