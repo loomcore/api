@@ -9,6 +9,9 @@ import { Operation } from '../models/operations/operations.js';
 import { MongoDBDatabase } from '../models/database/database.mongo.js';
 import { Database } from '../models/database/database.js';
 import { DeleteResult } from '../models/types/deleteResult.js';
+import { stripSenderProvidedSystemProperties } from './utils/stripSenderProvidedSystemProperties.js';
+import { auditForCreate } from './utils/auditForCreate.js';
+import { auditForUpdate } from './utils/auditForUpdate.js';
 
 export class GenericApiService2<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -65,7 +68,17 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     if (!list) return [];
 
     // Map each item through transformSingle instead of using forEach
-    return list.map(item => this.database.transformSingle(item, this.modelSpec));
+    return list.map(item => this.transformSingle(item));
+  }
+
+  /**
+   * Transforms a single entity after retrieving from the database.
+   * @param single Entity retrieved from database
+   * @returns Transformed entity
+   */
+  transformSingle(single: any): T {
+    if (!single) return single;
+    return this.database.transformSingle(single, this.modelSpec);
   }
 
   validate(doc: any, isPartial?: boolean): ValueError[] | null {
@@ -74,16 +87,54 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
   validateMany(docs: any[], isPartial?: boolean): ValueError[] | null {
     throw new Error('Method not implemented.');
   }
-  prepareDataForDb(userContext: IUserContext, entity: T, isCreate?: boolean): Promise<T>;
-  prepareDataForDb(userContext: IUserContext, entity: Partial<T>, isCreate?: boolean): Promise<Partial<T>>;
-  prepareDataForDb(userContext: IUserContext, entity: T[], isCreate?: boolean): Promise<T[]>;
-  prepareDataForDb(userContext: IUserContext, entity: Partial<T>[], isCreate?: boolean): Promise<Partial<T>[]>;
-  prepareDataForDb(userContext: unknown, entity: unknown, isCreate?: unknown): Promise<T[]> | Promise<T> | Promise<Partial<T>> | Promise<Partial<T>[]> {
-    throw new Error('Method not implemented.');
+  async prepareDataForDb(userContext: IUserContext, entity: T, isCreate?: boolean): Promise<T>;
+  async prepareDataForDb(userContext: IUserContext, entity: Partial<T>, isCreate?: boolean): Promise<Partial<T>>;
+  async prepareDataForDb(userContext: IUserContext, entity: T[], isCreate?: boolean): Promise<T[]>;
+  async prepareDataForDb(userContext: IUserContext, entity: Partial<T>[], isCreate?: boolean): Promise<Partial<T>[]>;
+  async prepareDataForDb(userContext: IUserContext, entity: T | Partial<T> | T[] | Partial<T>[], isCreate: boolean = false): Promise<T | Partial<T> | T[] | Partial<T>[]> {
+    if (Array.isArray(entity)) {
+      // Handle array of entities
+      return await Promise.all(entity.map(item => this.prepareEntity(userContext, item, isCreate)));
+    } else {
+      // Handle single entity
+      return await this.prepareEntity(userContext, entity, isCreate);
+    } 
   }
+
   prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
     throw new Error('Method not implemented.');
   }
+
+  /**
+   * Prepares a single entity before database operations.
+   * This contains the core logic for entity preparation that's applied to each entity.
+   * @param userContext The user context for the operation
+   * @param entity The original entity object
+   * @param isCreate Whether this is for a create operation (true) or update operation (false)
+   * @param allowId Whether to allow the _id property to be supplied by the caller
+   * @returns The potentially modified entity
+   */
+  protected async prepareEntity(userContext: IUserContext, entity: T | Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<T | Partial<T>> {
+    // Clone the entity to avoid modifying the original
+    let preparedEntity = _.clone(entity);
+
+    // Strip out any system properties sent by the client
+    stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
+
+    // Apply appropriate auditing based on operation type if the entity is auditable
+    if (this.modelSpec.isAuditable) {
+      if (isCreate) {
+        auditForCreate(userContext, preparedEntity);
+      } else {
+        auditForUpdate(userContext, preparedEntity);
+      }
+    }
+    // Database-specific preparation
+    preparedEntity = await this.database.prepareEntity(preparedEntity);
+
+    return preparedEntity;
+  }
+
   get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>> {
     throw new Error('Method not implemented.');
   }
@@ -93,11 +144,45 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
   getCount(userContext: IUserContext): Promise<number> {
     throw new Error('Method not implemented.');
   }
-  create(userContext: IUserContext, entity: T | Partial<T>): Promise<T | null> {
-    throw new Error('Method not implemented.');
+
+  async create(userContext: IUserContext, preparedEntity: T | Partial<T>): Promise<T | null> {
+    let createdEntity = null;
+    const entity = await this.onBeforeCreate(userContext, preparedEntity);
+    const insertResult = await this.database.create(entity);
+    
+    if (insertResult.insertedId) {
+      createdEntity = this.transformSingle(insertResult.entity);
+    }
+    
+    if (createdEntity) {
+      await this.onAfterCreate(userContext, createdEntity);
+    }
+    
+    return createdEntity;
   }
-  createMany(userContext: IUserContext, entities: T[]): Promise<T[]> {
-    throw new Error('Method not implemented.');
+  
+  async createMany(userContext: IUserContext, entities: T[]): Promise<T[]> {
+    let createdEntities: T[] = [];
+
+    if (entities.length) {
+      // Call onBeforeCreate once with the array of entities
+      const preparedEntities = await this.onBeforeCreate(userContext, entities);
+      
+      // Insert all prepared entities
+      const insertResult = await this.database.createMany(preparedEntities);
+
+      if (insertResult.insertedIds) {
+        // Transform all entities to have friendly IDs
+        createdEntities = this.transformList(insertResult.entities);
+      }
+
+      // Call onAfterCreate once with all created entities
+      if (createdEntities.length > 0) {
+        await this.onAfterCreate(userContext, createdEntities);
+      }
+    }
+
+    return createdEntities;
   }
   batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
     throw new Error('Method not implemented.');
@@ -125,5 +210,29 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
   }
   findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T> {
     throw new Error('Method not implemented.');
+  }
+
+  /**
+   * Called once before creating entities in the database.
+   * Hook for operations that should happen once before any entities are created.
+   * Entity-specific modifications should be done in prepareEntity.
+   * @param userContext The user context for the operation
+   * @param entities Entity or array of entities to be created
+   * @returns The prepared entity or entities
+   */
+  async onBeforeCreate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
+    // Hook for derived classes to override
+    return Promise.resolve(entities);
+  }
+
+  /**
+   * Called once after entities have been created in the database.
+   * Hook for operations that should happen once after creation.
+   * @param userContext The user context for the operation
+   * @param entities Entity or array of entities that were created
+   * @returns The entities after post-processing
+   */
+  async onAfterCreate<E extends T | T[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
+    return Promise.resolve(entities);
   }
 }
