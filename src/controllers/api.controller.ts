@@ -1,5 +1,4 @@
 import {Application, NextFunction, Request, Response} from 'express';
-import {DeleteResult, UpdateResult} from 'mongodb';
 import { TSchema } from '@sinclair/typebox';
 import {IEntity, IPagedResult, IModelSpec, IUserContext} from '@loomcore/common/models';
 import {BadRequestError} from '../errors/index.js';
@@ -8,6 +7,7 @@ import {entityUtils} from '@loomcore/common/utils';
 import {IGenericApiService} from '../services/index.js';
 import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
+import { DeleteResult } from '../models/types/deleteResult.js';
 
 export abstract class ApiController<T extends IEntity> {
   protected app: Application;

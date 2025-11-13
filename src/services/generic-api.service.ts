@@ -9,6 +9,8 @@ import { IGenericApiService } from './generic-api-service.interface.js';
 import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError, ServerError } from '../errors/index.js';
 import { apiUtils, buildMongoMatchFromQueryOptions, convertObjectIdsToStrings, convertStringsToObjectIds } from '../utils/index.js';
 import { DeleteResult } from '../models/types/deleteResult.js';
+import { auditForCreate } from './utils/auditForCreate.js';
+import { auditForUpdate } from './utils/auditForUpdate.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected db: Db;
@@ -533,20 +535,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.transformSingle(entity);
   }
 
-  auditForCreate(userContext: IUserContext, doc: any) {
-    const now = moment().utc().toDate();
-    const userId = userContext.user?._id?.toString() ?? 'system';
-    doc._created = now;
-    doc._createdBy = userId;
-    doc._updated = now;
-    doc._updatedBy = userId;
-  }
-
-  auditForUpdate(userContext: IUserContext, doc: any) {
-    const userId = userContext.user?._id?.toString() ?? 'system';
-    doc._updated = moment().utc().toDate();
-    doc._updatedBy = userId;
-  }
 
   /**
    * Called once before creating entities in the database.
@@ -706,9 +694,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     // Apply appropriate auditing based on operation type if the entity is auditable
     if (this.modelSpec?.isAuditable) {
       if (isCreate) {
-        this.auditForCreate(userContext, preparedEntity);
+        auditForCreate(userContext, preparedEntity);
       } else {
-        this.auditForUpdate(userContext, preparedEntity);
+        auditForUpdate(userContext, preparedEntity);
       }
     }
 
