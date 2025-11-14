@@ -4,7 +4,7 @@ import { Operation } from "../operations/operations.js";
 export interface IDatabase {
   getAll<T>(operations: Operation[]): Promise<T[]>;
   get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec): Promise<IPagedResult<T>>;
-  transformSingle<T>(single: any, modelSpec: IModelSpec): T;
+  transformSingle<T>(single: T, modelSpec: IModelSpec): T;
   create<T>(entity: any): Promise<{ insertedId: any; entity: any }>;
   createMany<T>(entities: any[]): Promise<{ insertedIds: any; entities: any[] }>;
   prepareEntity<T>(entity: T): Promise<T>;

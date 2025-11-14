@@ -134,6 +134,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
       // Act
       const createdEntities = await service.createMany(userContext, preparedEntities);
+
+      console.log('createdEntities', createdEntities);
       const allEntities = await service.getAll(userContext);
       // Assert
       expect(allEntities).toHaveLength(3);

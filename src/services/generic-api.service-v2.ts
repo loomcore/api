@@ -48,7 +48,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     // Allow derived classes to provide operations to the request
     const operations = this.prepareQuery(userContext, []);
 
-    const entities = await this.database.getAll(operations);
+    const entities = await this.database.getAll<T>(operations);
     
     // Allow derived classes to transform the result
     return this.transformList(entities);
@@ -65,11 +65,11 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     return operations;
   }
 
-  transformList(list: any[]): T[] {
+  transformList<T>(list: T[]): T[] {
     if (!list) return [];
 
     // Map each item through transformSingle instead of using forEach
-    return list.map(item => this.transformSingle(item));
+    return list.map(item => this.transformSingle<T>(item));
   }
 
   /**
@@ -77,7 +77,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
    * @param single Entity retrieved from database
    * @returns Transformed entity
    */
-  transformSingle(single: any): T {
+  transformSingle<T>(single: T): T {
     if (!single) return single;
     return this.database.transformSingle(single, this.modelSpec);
   }
@@ -205,7 +205,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const insertResult = await this.database.create(entity);
     
     if (insertResult.insertedId) {
-      createdEntity = this.transformSingle(insertResult.entity);
+      createdEntity = this.transformSingle<T>(insertResult.entity);
     }
     
     if (createdEntity) {
