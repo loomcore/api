@@ -7,7 +7,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 
 	operations.forEach(operation => {
 		if (operation instanceof Join) {
-			pipeline.push([{
+			pipeline.push({
 				$lookup: {
 					from: operation.from,
 					localField: operation.localField,
@@ -30,7 +30,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 				$project: {
 					[`${operation.as}Arr`]: 0
 				}
-			}]);
+			});
 		}
 	});
 
