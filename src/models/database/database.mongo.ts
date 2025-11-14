@@ -1,12 +1,13 @@
-import { Collection, Db, InsertOneResult, InsertManyResult, Document } from "mongodb";
+import { Collection, Db, InsertOneResult, InsertManyResult, Document, FindCursor, WithId } from "mongodb";
 import { IDatabase } from "./database.interface.js";
 import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../operations/operations.js";
 import { ServerError } from "../../errors/server.error.js";
 import { BadRequestError, DuplicateKeyError } from "../../errors/index.js";
-import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, buildMongoMatchFromQueryOptions, convertQueryOptionsToPipeline } from "../../utils/mongo/index.js";
+import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, convertQueryOptionsToPipeline } from "../../utils/mongo/index.js";
 import { apiUtils } from "../../utils/api.utils.js";
 import utils from 'util';
+import Pipeline from "./mongoDb/pipeline.js";
 export class MongoDBDatabase implements IDatabase {
     private collection: Collection;
     private pluralResourceName: string;
@@ -19,39 +20,35 @@ export class MongoDBDatabase implements IDatabase {
         this.pluralResourceName = pluralResourceName;
     }
 
-    async getAll(operations: Operation[]): Promise<any[]> {
-        const pipeline = convertOperationsToPipeline(operations);
-        return await this.collection.aggregate(pipeline).toArray();
+    async getAll<T>(operations: Operation[]): Promise<T[]> {
+        const pipeline = new Pipeline()
+            .addOperations(operations)
+            .build();
+
+        let aggregateResult: Document[];
+
+        if (pipeline.length === 0) {
+            // Use existing simple find approach if no additional stages
+            // This is more efficient than using aggregate for simple queries
+            const cursor = this.collection.find();
+            aggregateResult = await cursor.toArray();
+        } else {
+            const cursor = this.collection.aggregate(pipeline);
+            aggregateResult = await cursor.toArray();
+        }
+        return aggregateResult as T[];
     }
 
     async get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec): Promise<IPagedResult<T>> {
-        let pipeline: Document[] = [];
-        // Convert operations to pipeline stages (e.g., joins)
-        const operationsDocuments = convertOperationsToPipeline(operations);
-        // Build match conditions from query options
-        const matchDocument = buildMongoMatchFromQueryOptions(queryOptions, modelSpec);
-        // Build query options pipeline stages (e.g., sorting, pagination)
-        const queryOptionsDocuments = convertQueryOptionsToPipeline(queryOptions);
-        
-
-        // Combine all pipeline stages into a single pipeline
-        if (matchDocument) {
-            pipeline.push(matchDocument);
-        }
-        if (operationsDocuments.length > 0) {
-            pipeline = pipeline.concat(operationsDocuments);
-        }
-        if (queryOptionsDocuments.length > 0) {
-            pipeline = pipeline.concat(queryOptionsDocuments);
-        }
-
-        console.log('pipeline', utils.inspect(pipeline, false, null, true));
-        
-        // Execute the aggregation
+        const pipeline = new Pipeline()
+            .addMatch(queryOptions, modelSpec)
+            .addOperations(operations)
+            .addPagination(queryOptions)
+            .build();
+                
         const cursor = this.collection.aggregate(pipeline);
         const aggregateResult = await cursor.next();
         
-        // Build the paged result
         let pagedResult: IPagedResult<T> = apiUtils.getPagedResult<T>([], 0, queryOptions);
         
         if (aggregateResult) {
