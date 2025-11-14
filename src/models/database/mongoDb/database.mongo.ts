@@ -1,13 +1,13 @@
-import { Collection, Db, InsertOneResult, InsertManyResult, Document, FindCursor, WithId } from "mongodb";
-import { IDatabase } from "./database.interface.js";
+import { Collection, Db, InsertOneResult, InsertManyResult, Document, FindCursor, WithId, ObjectId } from "mongodb";
+import { IDatabase } from "../database.interface.js";
 import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@loomcore/common/models";
-import { Operation } from "../operations/operations.js";
-import { ServerError } from "../../errors/server.error.js";
-import { BadRequestError, DuplicateKeyError } from "../../errors/index.js";
-import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, convertQueryOptionsToPipeline } from "../../utils/mongo/index.js";
-import { apiUtils } from "../../utils/api.utils.js";
+import { Operation } from "../../operations/operations.js";
+import { ServerError } from "../../../errors/server.error.js";
+import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
+import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, convertQueryOptionsToPipeline } from "../../../utils/mongo/index.js";
+import { apiUtils } from "../../../utils/api.utils.js";
 import utils from 'util';
-import Pipeline from "./mongoDb/pipeline.js";
+import Pipeline from "./pipeline.js";
 export class MongoDBDatabase implements IDatabase {
     private collection: Collection;
     private pluralResourceName: string;
@@ -61,6 +61,41 @@ export class MongoDBDatabase implements IDatabase {
         }
         
         return pagedResult;
+    }
+
+    async getById<T>(operations: Operation[], id: string): Promise<T | null> {
+        const objectId = new ObjectId(id);
+        const baseQuery = { _id: objectId };
+        
+        // Convert operations to pipeline stages
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        let entity: Document | null = null;
+        
+        if (operationsDocuments.length > 0) {
+            // Use aggregation pipeline if there are operations
+            const pipeline = [
+                { $match: baseQuery },
+                ...operationsDocuments
+            ];
+            entity = await this.collection.aggregate(pipeline).next();
+        } else {
+            // Use simple findOne if no operations
+            entity = await this.collection.findOne(baseQuery);
+        }
+        
+        return entity as T | null;
+    }
+
+    async getCount(operations: Operation[]): Promise<number> {
+        const pipeline = new Pipeline()
+            .addOperations(operations)
+            .build();
+        
+        console.log('pipeline', pipeline);
+        const result = await this.collection.aggregate(pipeline).toArray();
+        console.log('result', result);
+        return result.length;
     }
 
     async prepareEntity<T>(entity: T): Promise<T> {

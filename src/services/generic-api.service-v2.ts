@@ -7,12 +7,13 @@ import { IGenericApiService } from './generic-api-service.interface.js';
 import { IDatabase } from '../models/database/database.interface.js';
 import { Db } from 'mongodb';
 import { Operation } from '../models/operations/operations.js';
-import { MongoDBDatabase } from '../models/database/database.mongo.js';
+import { MongoDBDatabase } from '../models/database/mongoDb/database.mongo.js';
 import { Database } from '../models/database/database.js';
 import { DeleteResult } from '../models/types/deleteResult.js';
 import { stripSenderProvidedSystemProperties } from './utils/stripSenderProvidedSystemProperties.js';
 import { auditForCreate } from './utils/auditForCreate.js';
 import { auditForUpdate } from './utils/auditForUpdate.js';
+import { BadRequestError, IdNotFoundError } from '../errors/index.js';
 
 export class GenericApiService2<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -192,11 +193,31 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
   protected prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
     return queryOptions;
   }
-  getById(userContext: IUserContext, id: string): Promise<T> {
-    throw new Error('Method not implemented.');
+
+  async getById(userContext: IUserContext, id: string): Promise<T> {
+    if (!entityUtils.isValidObjectId(id)) {
+      throw new BadRequestError('id is not a valid ObjectId');
+    }
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Get entity from database
+    const entity = await this.database.getById<T>(operations, id);
+
+    if (!entity) {
+      throw new IdNotFoundError();
+    }
+
+    // Transform and return the entity
+    return this.transformSingle<T>(entity);
   }
-  getCount(userContext: IUserContext): Promise<number> {
-    throw new Error('Method not implemented.');
+  async getCount(userContext: IUserContext): Promise<number> {
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Get count from database
+    return await this.database.getCount(operations);
   }
 
   async create(userContext: IUserContext, preparedEntity: T | Partial<T>): Promise<T | null> {
