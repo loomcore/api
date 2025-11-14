@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Db, MongoClient, Collection, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
-import { IUserContext, IEntity, IAuditable } from '@loomcore/common/models';
+import { IUserContext, IEntity, IAuditable, IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 import { initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -374,7 +374,6 @@ describe('GenericApiService2 - Integration Tests', () => {
       if (!validationErrors) {
         throw new Error('Validation errors are null');
       }
-      console.log(validationErrors);
       // Should have errors for the missing name and it not being a string
       expect(validationErrors.length).toBe(2);
       // Should have errors for the invalid entity
@@ -429,6 +428,275 @@ describe('GenericApiService2 - Integration Tests', () => {
       // Should have multiple errors from the invalid entities
       const nameErrors = validationErrors!.filter(error => error.path === '/name');
       expect(nameErrors.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Query Operations', () => {
+    // Create test data
+    beforeEach(async () => {
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', tags: ['tag1', 'tag2'], count: 10, isActive: true },
+        { name: 'Entity B', tags: ['tag2', 'tag3'], count: 20, isActive: false },
+        { name: 'Entity C', tags: ['tag1', 'tag3'], count: 30, isActive: true },
+        { name: 'Entity D', tags: ['tag4'], count: 40, isActive: false },
+        { name: 'Entity E', tags: ['tag1', 'tag4'], count: 50, isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+    });
+
+    
+    it('should get all entities with default query options', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Act
+      const pagedResult = await service.get(userContext);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(5);
+      expect(pagedResult.total).toBe(5);
+      expect(pagedResult.page).toBeDefined();
+      expect(pagedResult.pageSize).toBeDefined();
+      expect(pagedResult.totalPages).toBeDefined();
+    });
+    
+    it('should get entities with pagination', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        page: 1,
+        pageSize: 2
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(2);
+      expect(pagedResult.total).toBe(5);
+      expect(pagedResult.page).toBe(1);
+      expect(pagedResult.pageSize).toBe(2);
+      expect(pagedResult.totalPages).toBe(3);
+    });
+
+    it('should get entities with pagination on second page', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        page: 2,
+        pageSize: 2
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(2);
+      expect(pagedResult.total).toBe(5);
+      expect(pagedResult.page).toBe(2);
+      expect(pagedResult.pageSize).toBe(2);
+      expect(pagedResult.totalPages).toBe(3);
+    });
+    
+    it('should get entities with sorting ascending', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        orderBy: 'name',
+        sortDirection: 'asc'
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(5);
+      expect(pagedResult.entities![0].name).toBe('Entity A');
+      expect(pagedResult.entities![1].name).toBe('Entity B');
+      expect(pagedResult.entities![2].name).toBe('Entity C');
+    });
+    
+    it('should get entities with sorting descending', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        orderBy: 'name',
+        sortDirection: 'desc'
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(5);
+      expect(pagedResult.entities![0].name).toBe('Entity E');
+      expect(pagedResult.entities![1].name).toBe('Entity D');
+      expect(pagedResult.entities![2].name).toBe('Entity C');
+    });
+    
+    it('should get entities with filtering by boolean field', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          isActive: { eq: true }
+        }
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(3);
+      expect(pagedResult.total).toBe(3);
+      expect(pagedResult.entities!.every((e: TestEntity) => e.isActive === true)).toBe(true);
+    });
+
+    it('should get entities with filtering by number field', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          count: { gte: 30 }
+        }
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(3);
+      expect(pagedResult.total).toBe(3);
+      expect(pagedResult.entities!.every((e: TestEntity) => (e.count || 0) >= 30)).toBe(true);
+    });
+
+    it('should get entities with filtering by string field', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          name: { eq: 'Entity A' }
+        }
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(1);
+      expect(pagedResult.total).toBe(1);
+      expect(pagedResult.entities![0].name).toBe('Entity A');
+    });
+
+    it('should get entities with combined filtering and pagination', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          isActive: { eq: true }
+        },
+        page: 1,
+        pageSize: 2
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(2);
+      expect(pagedResult.total).toBe(3); // Total matching the filter
+      expect(pagedResult.page).toBe(1);
+      expect(pagedResult.pageSize).toBe(2);
+      expect(pagedResult.totalPages).toBe(2);
+      expect(pagedResult.entities!.every((e: TestEntity) => e.isActive === true)).toBe(true);
+    });
+
+    it('should get entities with combined sorting and pagination', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        orderBy: 'name',
+        sortDirection: 'desc',
+        page: 1,
+        pageSize: 2
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(2);
+      expect(pagedResult.total).toBe(5);
+      expect(pagedResult.entities![0].name).toBe('Entity E');
+      expect(pagedResult.entities![1].name).toBe('Entity D');
+    });
+
+    it('should get entities with combined filtering, sorting, and pagination', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          isActive: { eq: true }
+        },
+        orderBy: 'count',
+        sortDirection: 'desc',
+        page: 1,
+        pageSize: 2
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(2);
+      expect(pagedResult.total).toBe(3);
+      expect(pagedResult.entities!.every((e: TestEntity) => e.isActive === true)).toBe(true);
+      // Should be sorted by count descending
+      expect(pagedResult.entities![0].count).toBeGreaterThanOrEqual(pagedResult.entities![1].count || 0);
+    });
+
+    it('should return empty result when filter matches nothing', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          name: { eq: 'Non-existent Entity' }
+        }
+      };
+      
+      // Act
+      const pagedResult = await service.get(userContext, queryOptions);
+      
+      // Assert
+      expect(pagedResult.entities).toBeDefined();
+      expect(pagedResult.entities!.length).toBe(0);
+      expect(pagedResult.total).toBe(0);
+      expect(pagedResult.totalPages).toBe(0);
     });
   });
 }); 

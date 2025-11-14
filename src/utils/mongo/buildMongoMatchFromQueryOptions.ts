@@ -1,11 +1,11 @@
 import { IQueryOptions, IModelSpec } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 import { TSchema } from '@sinclair/typebox';
-import { ObjectId } from 'mongodb';
+import { Document, ObjectId } from 'mongodb';
 import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from './constants.js';
 import { getPropertySchema } from './getPropertySchema.js';
 
-export function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, modelSpec?: IModelSpec) {
+export function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, modelSpec?: IModelSpec): Document {
 	const filters = queryOptions.filters || {};
 	const schema = modelSpec?.fullSchema;
 	let match: any = {};

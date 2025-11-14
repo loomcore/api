@@ -4,11 +4,11 @@ import { Document } from 'mongodb';
 export function convertQueryOptionsToPipeline(queryOptions: IQueryOptions): Document[] {
 	let pipeline: Document[] = [];
 
-	pipeline.push([
+	pipeline.push(
 		{
 			$facet: {
 				data: (() => {
-					const resultStages = [];
+					const resultStages: Document[] = [];
 					if (queryOptions) {
 						if (queryOptions.orderBy) {
 							resultStages.push({
@@ -34,6 +34,6 @@ export function convertQueryOptionsToPipeline(queryOptions: IQueryOptions): Docu
 				total: { $arrayElemAt: ['$count.total', 0] }
 			}
 		}
-	]);
+	);
 	return pipeline;
 }
