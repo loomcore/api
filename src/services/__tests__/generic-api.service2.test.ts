@@ -6,7 +6,7 @@ import { IUserContext, IEntity, IAuditable, IQueryOptions, DefaultQueryOptions }
 import { initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
-import { DuplicateKeyError } from '../../errors/index.js';
+import { DuplicateKeyError, BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { GenericApiService2 } from '../generic-api.service-v2.js';
 
 // Initialize TypeBox before running any tests
@@ -135,7 +135,6 @@ describe('GenericApiService2 - Integration Tests', () => {
       // Act
       const createdEntities = await service.createMany(userContext, preparedEntities);
 
-      console.log('createdEntities', createdEntities);
       const allEntities = await service.getAll(userContext);
       // Assert
       expect(allEntities).toHaveLength(3);
@@ -234,9 +233,221 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(createdEntities).toHaveLength(0);
       expect(Array.isArray(createdEntities)).toBe(true);
     });
+
+    it('should retrieve an entity by ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Test Entity for GetById',
+        description: 'This entity will be retrieved by ID',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const retrievedEntity = await service.getById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(retrievedEntity).toBeDefined();
+      expect(retrievedEntity._id).toBe(createdEntity._id);
+      expect(retrievedEntity.name).toBe(testEntity.name);
+      expect(retrievedEntity.description).toBe(testEntity.description);
+      expect(retrievedEntity.isActive).toBe(testEntity.isActive);
+    });
+
+    it('should retrieve entity by ID with all properties', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Complete Entity',
+        description: 'Entity with all properties',
+        isActive: true,
+        tags: ['tag1', 'tag2', 'tag3'],
+        count: 42
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const retrievedEntity = await service.getById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(retrievedEntity).toBeDefined();
+      expect(retrievedEntity._id).toBe(createdEntity._id);
+      expect(retrievedEntity.name).toBe(testEntity.name);
+      expect(retrievedEntity.description).toBe(testEntity.description);
+      expect(retrievedEntity.isActive).toBe(testEntity.isActive);
+      expect(retrievedEntity.tags).toEqual(testEntity.tags);
+      expect(retrievedEntity.count).toBe(testEntity.count);
+    });
+
+    it('should transform entity ID from ObjectId to string when retrieving by ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity for ID transformation test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const retrievedEntity = await service.getById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(retrievedEntity).toBeDefined();
+      expect(retrievedEntity._id).toBeDefined();
+      // ID should be a string (transformed from ObjectId)
+      expect(typeof retrievedEntity._id).toBe('string');
+      expect(retrievedEntity._id).toBe(createdEntity._id);
+    });
+
+    it('should retrieve correct entity when multiple entities exist', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', description: 'First entity' },
+        { name: 'Entity 2', description: 'Second entity' },
+        { name: 'Entity 3', description: 'Third entity' }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      if (createdEntities.length < 2 || !createdEntities[1]._id) {
+        throw new Error('Entities not created properly');
+      }
+      
+      const targetId = createdEntities[1]._id;
+      
+      // Act
+      const retrievedEntity = await service.getById(userContext, targetId);
+      
+      // Assert
+      expect(retrievedEntity).toBeDefined();
+      expect(retrievedEntity._id).toBe(targetId);
+      expect(retrievedEntity.name).toBe('Entity 2');
+      expect(retrievedEntity.description).toBe('Second entity');
+    });
+
+    it('should preserve audit fields when retrieving entity by ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity with audit fields'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Verify audit fields are set on creation
+      expect(createdEntity._created).toBeDefined();
+      expect(createdEntity._createdBy).toBeDefined();
+      expect(createdEntity._updated).toBeDefined();
+      expect(createdEntity._updatedBy).toBeDefined();
+      
+      // Act
+      const retrievedEntity = await service.getById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(retrievedEntity).toBeDefined();
+      expect(retrievedEntity._created).toBeDefined();
+      expect(retrievedEntity._createdBy).toBeDefined();
+      expect(retrievedEntity._updated).toBeDefined();
+      expect(retrievedEntity._updatedBy).toBeDefined();
+      // Audit fields should match the created entity
+      expect(retrievedEntity._created).toEqual(createdEntity._created);
+      expect(retrievedEntity._createdBy).toBe(createdEntity._createdBy);
+    });
   });
   
   describe('Error Handling', () => {
+    it('should throw BadRequestError when getById is called with invalid ObjectId', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const invalidId = 'invalid-object-id';
+      
+      // Act & Assert
+      await expect(
+        service.getById(userContext, invalidId)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw BadRequestError when getById is called with empty string', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const emptyId = '';
+      
+      // Act & Assert
+      await expect(
+        service.getById(userContext, emptyId)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw BadRequestError when getById is called with non-hexadecimal string', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const invalidId = '12345678901234567890123g'; // 'g' is not a valid hex character
+      
+      // Act & Assert
+      await expect(
+        service.getById(userContext, invalidId)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw IdNotFoundError when getById is called with non-existent ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const nonExistentId = new ObjectId().toString();
+      
+      // Act & Assert
+      await expect(
+        service.getById(userContext, nonExistentId)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should throw IdNotFoundError when entity is deleted before retrieval', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to be deleted'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Delete the entity directly from the collection
+      await collection.deleteOne({ _id: new ObjectId(createdEntity._id) });
+      
+      // Act & Assert
+      await expect(
+        service.getById(userContext, createdEntity._id)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
     it('should throw DuplicateKeyError when creating entity with duplicate unique key', async () => {
       // Arrange
       const userContext = createUserContext();
@@ -699,6 +910,117 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(pagedResult.entities!.length).toBe(0);
       expect(pagedResult.total).toBe(0);
       expect(pagedResult.totalPages).toBe(0);
+    });
+  });
+
+  describe('Count Operations', () => {
+    it('should return count of zero when no entities exist', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Act
+      const count = await service.getCount(userContext);
+      
+      // Assert
+      expect(count).toBe(0);
+    });
+
+    it('should return correct count after creating entities', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Count Entity 1', isActive: true },
+        { name: 'Count Entity 2', isActive: false },
+        { name: 'Count Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act
+      const count = await service.getCount(userContext);
+      
+      // Assert
+      expect(count).toBe(3);
+    });
+
+    it('should return count that matches getAll length', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Count Match Entity 1' },
+        { name: 'Count Match Entity 2' },
+        { name: 'Count Match Entity 3' },
+        { name: 'Count Match Entity 4' },
+        { name: 'Count Match Entity 5' }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act
+      const count = await service.getCount(userContext);
+      const allEntities = await service.getAll(userContext);
+      
+      // Assert
+      expect(count).toBe(5);
+      expect(allEntities.length).toBe(5);
+      expect(count).toBe(allEntities.length);
+    });
+
+    it('should return correct count after creating single entity', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Single Count Entity'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      await service.create(userContext, preparedEntity);
+      
+      // Act
+      const count = await service.getCount(userContext);
+      
+      // Assert
+      expect(count).toBe(1);
+    });
+
+    it('should return updated count after multiple create operations', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Initial count should be 0
+      let count = await service.getCount(userContext);
+      expect(count).toBe(0);
+      
+      // Create first entity
+      const entity1: Partial<TestEntity> = { name: 'Entity 1' };
+      const prepared1 = await service.prepareDataForDb(userContext, entity1, true);
+      await service.create(userContext, prepared1);
+      
+      count = await service.getCount(userContext);
+      expect(count).toBe(1);
+      
+      // Create second entity
+      const entity2: Partial<TestEntity> = { name: 'Entity 2' };
+      const prepared2 = await service.prepareDataForDb(userContext, entity2, true);
+      await service.create(userContext, prepared2);
+      
+      count = await service.getCount(userContext);
+      expect(count).toBe(2);
+      
+      // Create multiple entities at once
+      const entities: Partial<TestEntity>[] = [
+        { name: 'Entity 3' },
+        { name: 'Entity 4' },
+        { name: 'Entity 5' }
+      ];
+      const preparedEntities = await service.prepareDataForDb(userContext, entities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Final count should be 5
+      count = await service.getCount(userContext);
+      expect(count).toBe(5);
     });
   });
 }); 
