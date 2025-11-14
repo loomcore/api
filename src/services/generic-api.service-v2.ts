@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { ValueError } from '@sinclair/typebox/errors';
-import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
+import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { IGenericApiService } from './generic-api-service.interface.js';
@@ -163,8 +163,34 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     return preparedEntity;
   }
 
-  get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>> {
-    throw new Error('Method not implemented.');
+  async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
+    // Prepare query options (allow subclasses to modify)
+    const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Get paged result from database
+    const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec);
+
+    // Transform the entities in the result
+    const transformedEntities = this.transformList(pagedResult.entities || []);
+
+    // Return paged result with transformed entities
+    return {
+      ...pagedResult,
+      entities: transformedEntities
+    };
+  }
+
+  /**
+   * Prepare query options before using them. Subclasses can override this to apply tenant filters, etc.
+   * @param userContext The user context
+   * @param queryOptions The original query options
+   * @returns The prepared query options
+   */
+  protected prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
+    return queryOptions;
   }
   getById(userContext: IUserContext, id: string): Promise<T> {
     throw new Error('Method not implemented.');

@@ -1,11 +1,12 @@
-import { Collection, Db, InsertOneResult, InsertManyResult } from "mongodb";
+import { Collection, Db, InsertOneResult, InsertManyResult, Document } from "mongodb";
 import { IDatabase } from "./database.interface.js";
-import { IModelSpec } from "@loomcore/common/models";
+import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../operations/operations.js";
 import { ServerError } from "../../errors/server.error.js";
 import { BadRequestError, DuplicateKeyError } from "../../errors/index.js";
-import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId } from "../../utils/mongo/index.js";
-
+import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, buildMongoMatchFromQueryOptions, convertQueryOptionsToPipeline } from "../../utils/mongo/index.js";
+import { apiUtils } from "../../utils/api.utils.js";
+import utils from 'util';
 export class MongoDBDatabase implements IDatabase {
     private collection: Collection;
     private pluralResourceName: string;
@@ -21,6 +22,48 @@ export class MongoDBDatabase implements IDatabase {
     async getAll(operations: Operation[]): Promise<any[]> {
         const pipeline = convertOperationsToPipeline(operations);
         return await this.collection.aggregate(pipeline).toArray();
+    }
+
+    async get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec): Promise<IPagedResult<T>> {
+        let pipeline: Document[] = [];
+        // Convert operations to pipeline stages (e.g., joins)
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        // Build match conditions from query options
+        const matchDocument = buildMongoMatchFromQueryOptions(queryOptions, modelSpec);
+        // Build query options pipeline stages (e.g., sorting, pagination)
+        const queryOptionsDocuments = convertQueryOptionsToPipeline(queryOptions);
+        
+
+        // Combine all pipeline stages into a single pipeline
+        if (matchDocument) {
+            pipeline.push(matchDocument);
+        }
+        if (operationsDocuments.length > 0) {
+            pipeline = pipeline.concat(operationsDocuments);
+        }
+        if (queryOptionsDocuments.length > 0) {
+            pipeline = pipeline.concat(queryOptionsDocuments);
+        }
+
+        console.log('pipeline', utils.inspect(pipeline, false, null, true));
+        
+        // Execute the aggregation
+        const cursor = this.collection.aggregate(pipeline);
+        const aggregateResult = await cursor.next();
+        
+        // Build the paged result
+        let pagedResult: IPagedResult<T> = apiUtils.getPagedResult<T>([], 0, queryOptions);
+        
+        if (aggregateResult) {
+            let total = 0;
+            if (aggregateResult.total && aggregateResult.total.length > 0) {
+                total = aggregateResult.total[0].total;
+            }
+            const entities = aggregateResult.results || [];
+            pagedResult = apiUtils.getPagedResult<T>(entities, total, queryOptions);
+        }
+        
+        return pagedResult;
     }
 
     async prepareEntity<T>(entity: T): Promise<T> {
