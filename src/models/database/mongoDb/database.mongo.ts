@@ -3,11 +3,11 @@ import { IDatabase } from "../database.interface.js";
 import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../../operations/operations.js";
 import { ServerError } from "../../../errors/server.error.js";
-import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
+import { BadRequestError, DuplicateKeyError, IdNotFoundError } from "../../../errors/index.js";
 import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, convertQueryOptionsToPipeline } from "../../../utils/mongo/index.js";
 import { apiUtils } from "../../../utils/api.utils.js";
 import utils from 'util';
-import Pipeline from "./pipeline.js";
+import NoSqlPipeline from "./noSqlPipeline.js";
 export class MongoDBDatabase implements IDatabase {
     private collection: Collection;
     private pluralResourceName: string;
@@ -21,7 +21,7 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async getAll<T>(operations: Operation[]): Promise<T[]> {
-        const pipeline = new Pipeline()
+        const pipeline = new NoSqlPipeline()
             .addOperations(operations)
             .build();
 
@@ -40,7 +40,7 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec): Promise<IPagedResult<T>> {
-        const pipeline = new Pipeline()
+        const pipeline = new NoSqlPipeline()
             .addMatch(queryOptions, modelSpec)
             .addOperations(operations)
             .addPagination(queryOptions)
@@ -88,7 +88,7 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async getCount(operations: Operation[]): Promise<number> {
-        const pipeline = new Pipeline()
+        const pipeline = new NoSqlPipeline()
             .addOperations(operations)
             .build();
         
@@ -209,5 +209,42 @@ export class MongoDBDatabase implements IDatabase {
         }
 
         return updatedEntities as T[];
+    }
+
+    async fullUpdateById<T>(operations: Operation[], id: string, entity: any): Promise<T> {
+        const objectId = new ObjectId(id);
+        const baseQuery = { _id: objectId };
+        
+        // Convert operations to pipeline stages for query building
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        // Build the query filter - operations might modify the query, but for replaceOne we use the base query
+        // The operations are used when retrieving the updated entity
+        const replaceResult = await this.collection.replaceOne(baseQuery, entity);
+        
+        if (replaceResult.matchedCount <= 0) {
+            throw new IdNotFoundError();
+        }
+        
+        // Retrieve the updated entity using the same pattern as getById
+        let updatedEntity: Document | null = null;
+        
+        if (operationsDocuments.length > 0) {
+            // Use aggregation pipeline if there are operations
+            const pipeline = [
+                { $match: baseQuery },
+                ...operationsDocuments
+            ];
+            updatedEntity = await this.collection.aggregate(pipeline).next();
+        } else {
+            // Use simple findOne if no operations
+            updatedEntity = await this.collection.findOne(baseQuery);
+        }
+        
+        if (!updatedEntity) {
+            throw new IdNotFoundError();
+        }
+        
+        return updatedEntity as T;
     }
 };

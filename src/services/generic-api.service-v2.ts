@@ -299,8 +299,50 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
 
     return updatedEntities;
   }
-  fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T> {
-    throw new Error('Method not implemented.');
+  async fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T> {
+    // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
+    //  existing entity, updates using the supplied entity, then retrieves the entity again. We could avoid the final
+    //  fetch if we manually crafted the returned entity, but that seems presumptuous, especially
+    //  as the update process gets more complex. PREFER using partialUpdateById.
+    if (!entityUtils.isValidObjectId(id)) {
+      throw new BadRequestError('id is not a valid ObjectId');
+    }
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Get existing entity to preserve audit properties
+    const existingEntity = await this.database.getById<T>(operations, id);
+    if (!existingEntity) {
+      throw new IdNotFoundError();
+    }
+
+    // Preserve system properties that should not be updated
+    const auditProperties = {
+      _created: (existingEntity as any)._created,
+      _createdBy: (existingEntity as any)._createdBy,
+    };
+
+    // Call onBeforeUpdate once with the entity
+    const entityAfterBefore = await this.onBeforeUpdate(userContext, entity);
+
+    // Prepare the entity for database (convert string IDs to ObjectIds, etc.)
+    // This will strip system properties, so we need to merge audit properties after
+    const preparedEntity = await this.prepareDataForDb(userContext, entityAfterBefore as T, false);
+
+    // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
+    Object.assign(preparedEntity, auditProperties);
+
+    // Perform full update through database
+    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity);
+
+    // Transform the entity
+    const updatedEntity = this.transformSingle<T>(rawUpdatedEntity);
+
+    // Call onAfterUpdate with the updated entity
+    await this.onAfterUpdate(userContext, updatedEntity);
+
+    return updatedEntity;
   }
   partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T> {
     throw new Error('Method not implemented.');
