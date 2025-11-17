@@ -1547,4 +1547,338 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(updatedEntity._id).toBe(createdEntity._id);
     });
   });
+
+  describe('Partial Update Operations', () => {
+    it('should partially update an entity by ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Initial Name',
+        description: 'Initial description',
+        isActive: true,
+        tags: ['tag1', 'tag2'],
+        count: 10
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Partial update with only some fields
+      const updateEntity: Partial<TestEntity> = {
+        name: 'Updated Name',
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert
+      expect(updatedEntity).toBeDefined();
+      expect(updatedEntity._id).toBe(createdEntity._id);
+      expect(updatedEntity.name).toBe('Updated Name');
+      expect(updatedEntity.description).toBe('Updated description');
+      // Unchanged fields should be preserved
+      expect(updatedEntity.isActive).toBe(true);
+      expect(updatedEntity.tags).toEqual(['tag1', 'tag2']);
+      expect(updatedEntity.count).toBe(10);
+    });
+
+    it('should preserve unchanged fields when partially updating', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Original Name',
+        description: 'Original description',
+        isActive: true,
+        tags: ['tag1', 'tag2'],
+        count: 100
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Update only description
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated description only'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert - All other fields should be preserved
+      expect(updatedEntity.name).toBe('Original Name');
+      expect(updatedEntity.description).toBe('Updated description only');
+      expect(updatedEntity.isActive).toBe(true);
+      expect(updatedEntity.tags).toEqual(['tag1', 'tag2']);
+      expect(updatedEntity.count).toBe(100);
+    });
+
+    it('should preserve audit properties (_created, _createdBy) on partial update', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity for audit preservation test',
+        description: 'Original description'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Store original audit properties
+      const originalCreated = createdEntity._created;
+      const originalCreatedBy = createdEntity._createdBy;
+      
+      // Wait a bit to ensure _updated timestamp changes
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Act - Partial update
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert - Audit properties should be preserved
+      expect(updatedEntity._created).toEqual(originalCreated);
+      expect(updatedEntity._createdBy).toBe(originalCreatedBy);
+      // Updated properties should be set
+      expect(updatedEntity._updated).toBeDefined();
+      expect(updatedEntity._updatedBy).toBeDefined();
+      // _updated should be different from original
+      expect(updatedEntity._updated).not.toEqual(createdEntity._updated);
+    });
+
+    it('should update audit properties (_updated, _updatedBy) on partial update', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity for audit update test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      const originalUpdated = createdEntity._updated;
+      const originalUpdatedBy = createdEntity._updatedBy;
+      
+      // Wait to ensure timestamp difference
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Act
+      const updateEntity: Partial<TestEntity> = {
+        description: 'New description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert
+      expect(updatedEntity._updated).toBeDefined();
+      expect(updatedEntity._updatedBy).toBeDefined();
+      expect(updatedEntity._updated).not.toEqual(originalUpdated);
+      expect(updatedEntity._updatedBy).toBe(userContext.user._id);
+    });
+
+    it('should throw BadRequestError when partialUpdateById is called with invalid ObjectId', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const invalidId = 'invalid-object-id';
+      const updateEntity: Partial<TestEntity> = {
+        name: 'Updated Name'
+      };
+      
+      // Act & Assert
+      await expect(
+        service.partialUpdateById(userContext, invalidId, updateEntity)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw IdNotFoundError when partialUpdateById is called with non-existent ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const nonExistentId = new ObjectId().toString();
+      const updateEntity: Partial<TestEntity> = {
+        name: 'Updated Name'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      
+      // Act & Assert
+      await expect(
+        service.partialUpdateById(userContext, nonExistentId, preparedUpdate)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should update multiple fields in a single partial update', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Original Name',
+        description: 'Original description',
+        isActive: true,
+        count: 10
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Update multiple fields
+      const updateEntity: Partial<TestEntity> = {
+        name: 'Updated Name',
+        isActive: false,
+        count: 20,
+        tags: ['newtag']
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert
+      expect(updatedEntity.name).toBe('Updated Name');
+      expect(updatedEntity.isActive).toBe(false);
+      expect(updatedEntity.count).toBe(20);
+      expect(updatedEntity.tags).toEqual(['newtag']);
+      // Unchanged field should be preserved
+      expect(updatedEntity.description).toBe('Original description');
+    });
+
+    it('should transform entity ID from ObjectId to string in partial update result', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity for ID transformation test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert
+      expect(updatedEntity._id).toBeDefined();
+      expect(typeof updatedEntity._id).toBe('string');
+      expect(updatedEntity._id).toBe(createdEntity._id);
+    });
+
+    it('should handle partial update with single field', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Original Name',
+        description: 'Original description',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Update only one field
+      const updateEntity: Partial<TestEntity> = {
+        isActive: false
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert
+      expect(updatedEntity.isActive).toBe(false);
+      expect(updatedEntity.name).toBe('Original Name');
+      expect(updatedEntity.description).toBe('Original description');
+    });
+
+    it('should update nested array fields in partial update', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity with tags',
+        tags: ['tag1', 'tag2']
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Update tags
+      const updateEntity: Partial<TestEntity> = {
+        tags: ['tag3', 'tag4', 'tag5']
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.partialUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate
+      );
+      
+      // Assert
+      expect(updatedEntity.tags).toEqual(['tag3', 'tag4', 'tag5']);
+      expect(updatedEntity.name).toBe('Entity with tags');
+    });
+  });
 }); 
