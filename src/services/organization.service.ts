@@ -1,10 +1,10 @@
 import {Db, DeleteResult, Document, FindOptions, ObjectId} from 'mongodb';
 import _ from 'lodash';
 
-import {GenericApiService} from './generic-api.service.js';
+import { GenericApiService2 } from './generic-api.service-v2.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
 
-export class OrganizationService extends GenericApiService<IOrganization> {
+export class OrganizationService extends GenericApiService2<IOrganization> {
 	constructor(db: Db) {
 		super(db, 'organizations', 'organization', OrganizationSpec);
 	}
