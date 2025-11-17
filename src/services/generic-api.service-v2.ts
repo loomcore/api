@@ -5,7 +5,7 @@ import { entityUtils } from '@loomcore/common/utils';
 
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { IDatabase } from '../models/database/database.interface.js';
-import { Db } from 'mongodb';
+import { Db, ObjectId } from 'mongodb';
 import { Operation } from '../models/operations/operations.js';
 import { MongoDBDatabase } from '../models/database/mongoDb/database.mongo.js';
 import { Database } from '../models/database/database.js';
@@ -13,7 +13,7 @@ import { DeleteResult } from '../models/types/deleteResult.js';
 import { stripSenderProvidedSystemProperties } from './utils/stripSenderProvidedSystemProperties.js';
 import { auditForCreate } from './utils/auditForCreate.js';
 import { auditForUpdate } from './utils/auditForUpdate.js';
-import { BadRequestError, IdNotFoundError } from '../errors/index.js';
+import { BadRequestError, IdNotFoundError, NotFoundError } from '../errors/index.js';
 import { convertStringsToObjectIds } from '../utils/mongo/convertStringsToObjectIds.js';
 
 export class GenericApiService2<T extends IEntity> implements IGenericApiService<T> {
@@ -65,6 +65,17 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
    */
   protected prepareQuery(userContext: IUserContext | undefined, operations: Operation[]): Operation[] {
     return operations;
+  }
+
+  /**
+   * Prepares a query object before executing database operations.
+   * This is a hook method that can be overridden by derived classes to modify queries (e.g. add tenantId).
+   * @param userContext The user context for the operation
+   * @param queryObject The original query object
+   * @returns The potentially modified query object
+   */
+  protected prepareQueryObject(userContext: IUserContext | undefined, queryObject: any): any {
+    return queryObject;
   }
 
   transformList<T>(list: T[]): T[] {
@@ -372,8 +383,82 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
   partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
-    throw new Error('Method not implemented.');
+  async update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
+    // Call onBeforeUpdate once with the entity
+    const entityAfterBefore = await this.onBeforeUpdate(userContext, entity);
+
+    // Prepare the entity for database (convert string IDs to ObjectIds, apply audit fields, etc.)
+    const preparedEntity = await this.prepareDataForDb(userContext, entityAfterBefore as Partial<T>, false);
+
+    // Prepare the query object (allow subclasses to modify, e.g. add tenant filtering)
+    const preparedQuery = this.prepareQueryObject(userContext, queryObject);
+
+    // Convert string IDs in query object to ObjectIds if needed
+    // This is a simplified conversion - for complex queries, this might need enhancement
+    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Perform update through database
+    const rawUpdatedEntities = await this.database.update<T>(convertedQuery, preparedEntity, operations);
+
+    // Transform the entities
+    const updatedEntities = this.transformList(rawUpdatedEntities);
+
+    // Call onAfterUpdate with all updated entities
+    if (updatedEntities.length > 0) {
+      await this.onAfterUpdate(userContext, updatedEntities);
+    }
+
+    return updatedEntities;
+  }
+
+  /**
+   * Converts string IDs in a query object to ObjectIds where appropriate.
+   * This is a helper method for preparing query objects.
+   * @param queryObject The query object to convert
+   * @returns The query object with string IDs converted to ObjectIds
+   */
+  protected convertQueryObjectIds(queryObject: any): any {
+    if (!queryObject || typeof queryObject !== 'object') {
+      return queryObject;
+    }
+
+    const converted: any = {};
+
+    for (const [key, value] of Object.entries(queryObject)) {
+      if (key === '_id' && typeof value === 'string' && entityUtils.isValidObjectId(value)) {
+        converted[key] = new ObjectId(value);
+      } else if (key === '_id' && value && typeof value === 'object') {
+        // Handle _id with operators like $in, $ne, etc.
+        const convertedId: any = {};
+        for (const [op, opValue] of Object.entries(value as any)) {
+          if (op === '$in' && Array.isArray(opValue)) {
+            convertedId[op] = opValue.map((v: any) => 
+              typeof v === 'string' && entityUtils.isValidObjectId(v) 
+                ? new ObjectId(v) 
+                : v
+            );
+          } else if (typeof opValue === 'string' && entityUtils.isValidObjectId(opValue)) {
+            convertedId[op] = new ObjectId(opValue);
+          } else {
+            convertedId[op] = opValue;
+          }
+        }
+        converted[key] = convertedId;
+      } else if (key.endsWith('Id') && typeof value === 'string' && entityUtils.isValidObjectId(value)) {
+        // Convert fields ending with 'Id' to ObjectId if they're valid ObjectId strings
+        converted[key] = new ObjectId(value);
+      } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
+        // Recursively convert nested objects
+        converted[key] = this.convertQueryObjectIds(value);
+      } else {
+        converted[key] = value;
+      }
+    }
+
+    return converted;
   }
   deleteById(userContext: IUserContext, id: string): Promise<DeleteResult> {
     throw new Error('Method not implemented.');
