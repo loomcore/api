@@ -460,8 +460,36 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
 
     return converted;
   }
-  deleteById(userContext: IUserContext, id: string): Promise<DeleteResult> {
-    throw new Error('Method not implemented.');
+  async deleteById(userContext: IUserContext, id: string): Promise<DeleteResult> {
+    if (!entityUtils.isValidObjectId(id)) {
+      throw new BadRequestError('id is not a valid ObjectId');
+    }
+
+    // Prepare query object with ObjectId conversion
+    const baseQuery = { _id: new ObjectId(id) };
+    const preparedQuery = this.prepareQueryObject(userContext, baseQuery);
+
+    // Call onBeforeDelete hook
+    await this.onBeforeDelete(userContext, preparedQuery);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Perform delete through database
+    const deleteResult = await this.database.deleteById(operations, id);
+
+    // Check if entity was found and deleted
+    if (deleteResult.deletedCount <= 0) {
+      throw new IdNotFoundError();
+    }
+
+    // Call onAfterDelete hook
+    await this.onAfterDelete(userContext, preparedQuery);
+
+    return new DeleteResult(
+      deleteResult.acknowledged,
+      deleteResult.deletedCount
+    );
   }
   deleteMany(userContext: IUserContext, queryObject: any): Promise<DeleteResult> {
     throw new Error('Method not implemented.');
@@ -519,5 +547,27 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
    */
   async onAfterUpdate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
     return Promise.resolve(entities);
+  }
+
+  /**
+   * Called before deleting entities from the database.
+   * Hook for operations that should happen before deletion.
+   * @param userContext The user context for the operation
+   * @param queryObject The query object used for deletion
+   * @returns The query object after pre-processing
+   */
+  async onBeforeDelete(userContext: IUserContext, queryObject: any): Promise<any> {
+    return Promise.resolve(queryObject);
+  }
+
+  /**
+   * Called after deleting entities from the database.
+   * Hook for operations that should happen after deletion.
+   * @param userContext The user context for the operation
+   * @param queryObject The query object used for deletion
+   * @returns The query object after post-processing
+   */
+  async onAfterDelete(userContext: IUserContext, queryObject: any): Promise<any> {
+    return Promise.resolve(queryObject);
   }
 }

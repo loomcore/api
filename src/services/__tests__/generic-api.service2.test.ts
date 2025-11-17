@@ -2162,4 +2162,212 @@ describe('GenericApiService2 - Integration Tests', () => {
       });
     });
   });
+
+  describe('Delete Operations', () => {
+    it('should delete an entity by ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to Delete',
+        description: 'This entity will be deleted',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const deleteResult = await service.deleteById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(deleteResult).toBeDefined();
+      expect(deleteResult.count).toBe(1);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify the entity is deleted by trying to retrieve it
+      await expect(
+        service.getById(userContext, createdEntity._id)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should throw BadRequestError when deleteById is called with invalid ObjectId', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const invalidId = 'invalid-object-id';
+      
+      // Act & Assert
+      await expect(
+        service.deleteById(userContext, invalidId)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw IdNotFoundError when deleteById is called with non-existent ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const nonExistentId = new ObjectId().toString();
+      
+      // Act & Assert
+      await expect(
+        service.deleteById(userContext, nonExistentId)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should delete entity and verify it is removed from collection', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to be deleted',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Verify entity exists before deletion
+      const beforeDelete = await service.getById(userContext, createdEntity._id);
+      expect(beforeDelete).toBeDefined();
+      expect(beforeDelete._id).toBe(createdEntity._id);
+      
+      // Act
+      const deleteResult = await service.deleteById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(deleteResult.count).toBe(1);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify entity no longer exists
+      await expect(
+        service.getById(userContext, createdEntity._id)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should delete entity and verify count decreases', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true },
+        { name: 'Entity 3', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Verify initial count
+      const initialCount = await service.getCount(userContext);
+      expect(initialCount).toBe(3);
+      
+      if (!createdEntities[0] || !createdEntities[0]._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const deleteResult = await service.deleteById(userContext, createdEntities[0]._id);
+      
+      // Assert
+      expect(deleteResult.count).toBe(1);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify count decreased
+      const finalCount = await service.getCount(userContext);
+      expect(finalCount).toBe(2);
+    });
+
+    it('should delete entity and verify other entities remain', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', description: 'First entity' },
+        { name: 'Entity B', description: 'Second entity' },
+        { name: 'Entity C', description: 'Third entity' }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      if (!createdEntities[1] || !createdEntities[1]._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      const entityToDeleteId = createdEntities[1]._id;
+      
+      // Act
+      const deleteResult = await service.deleteById(userContext, entityToDeleteId);
+      
+      // Assert
+      expect(deleteResult.count).toBe(1);
+      
+      // Verify deleted entity is gone
+      await expect(
+        service.getById(userContext, entityToDeleteId)
+      ).rejects.toThrow(IdNotFoundError);
+      
+      // Verify other entities still exist
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(2);
+      expect(remainingEntities.find(e => e.name === 'Entity A')).toBeDefined();
+      expect(remainingEntities.find(e => e.name === 'Entity C')).toBeDefined();
+      expect(remainingEntities.find(e => e.name === 'Entity B')).toBeUndefined();
+    });
+
+    it('should handle delete operation with valid ObjectId string', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity for delete test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Verify ID is a string
+      expect(typeof createdEntity._id).toBe('string');
+      
+      // Act
+      const deleteResult = await service.deleteById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(deleteResult.count).toBe(1);
+      expect(deleteResult.success).toBe(true);
+    });
+
+    it('should return correct DeleteResult structure', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity for DeleteResult test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const deleteResult = await service.deleteById(userContext, createdEntity._id);
+      
+      // Assert
+      expect(deleteResult).toBeDefined();
+      expect(deleteResult).toHaveProperty('success');
+      expect(deleteResult).toHaveProperty('count');
+      expect(typeof deleteResult.success).toBe('boolean');
+      expect(typeof deleteResult.count).toBe('number');
+      expect(deleteResult.success).toBe(true);
+      expect(deleteResult.count).toBe(1);
+    });
+  });
 }); 
