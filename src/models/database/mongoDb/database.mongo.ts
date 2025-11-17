@@ -328,4 +328,18 @@ export class MongoDBDatabase implements IDatabase {
             deletedCount: deleteResult.deletedCount
         };
     }
+
+    async deleteMany(queryObject: any, operations: Operation[]): Promise<{ acknowledged: boolean; deletedCount: number }> {
+        // Convert operations to pipeline stages for query building
+        // For deleteMany, we use the queryObject directly
+        // Operations might be used for additional filtering in the future
+        
+        // Perform deleteMany operation
+        const deleteResult = await this.collection.deleteMany(queryObject);
+        
+        return {
+            acknowledged: deleteResult.acknowledged,
+            deletedCount: deleteResult.deletedCount
+        };
+    }
 };

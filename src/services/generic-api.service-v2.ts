@@ -491,8 +491,29 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
       deleteResult.deletedCount
     );
   }
-  deleteMany(userContext: IUserContext, queryObject: any): Promise<DeleteResult> {
-    throw new Error('Method not implemented.');
+  async deleteMany(userContext: IUserContext, queryObject: any): Promise<DeleteResult> {
+    // Prepare the query object (allow subclasses to modify, e.g. add tenant filtering)
+    const preparedQuery = this.prepareQueryObject(userContext, queryObject);
+
+    // Convert string IDs in query object to ObjectIds if needed
+    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+
+    // Call onBeforeDelete hook
+    await this.onBeforeDelete(userContext, convertedQuery);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Perform deleteMany through database
+    const deleteResult = await this.database.deleteMany(convertedQuery, operations);
+
+    // Call onAfterDelete hook
+    await this.onAfterDelete(userContext, convertedQuery);
+
+    return new DeleteResult(
+      deleteResult.acknowledged,
+      deleteResult.deletedCount
+    );
   }
   find(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T[]> {
     throw new Error('Method not implemented.');

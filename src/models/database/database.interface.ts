@@ -15,4 +15,5 @@ export interface IDatabase {
   partialUpdateById<T>(operations: Operation[], id: string, entity: Partial<any>): Promise<T>;
   update<T>(queryObject: any, entity: Partial<any>, operations: Operation[]): Promise<T[]>;
   deleteById(operations: Operation[], id: string): Promise<{ acknowledged: boolean; deletedCount: number }>;
+  deleteMany(queryObject: any, operations: Operation[]): Promise<{ acknowledged: boolean; deletedCount: number }>;
 }
