@@ -92,9 +92,7 @@ export class MongoDBDatabase implements IDatabase {
             .addOperations(operations)
             .build();
         
-        console.log('pipeline', pipeline);
         const result = await this.collection.aggregate(pipeline).toArray();
-        console.log('result', result);
         return result.length;
     }
 
