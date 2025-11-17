@@ -2634,4 +2634,513 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(remainingEntities.find(e => e.name === 'Entity 4')).toBeUndefined();
     });
   });
+
+  describe('Find Operations', () => {
+    it('should find entities matching a query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: false, count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find all active entities
+      const queryObject = { isActive: true };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toBeDefined();
+      expect(foundEntities).toHaveLength(2);
+      foundEntities.forEach(entity => {
+        expect(entity.isActive).toBe(true);
+      });
+    });
+
+    it('should find all entities when query is empty', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find all entities (empty query)
+      const queryObject = {};
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(3);
+    });
+
+    it('should find entities matching query with multiple conditions', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: true, count: 30 },
+        { name: 'Entity 4', isActive: false, count: 40 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find entities that are active AND have count >= 20
+      const queryObject = { isActive: true, count: { $gte: 20 } };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+      foundEntities.forEach(entity => {
+        expect(entity.isActive).toBe(true);
+        expect((entity.count || 0) >= 20).toBe(true);
+      });
+    });
+
+    it('should find entities by _id', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to find',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Find by _id
+      const queryObject = { _id: createdEntity._id };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(1);
+      expect(foundEntities[0]._id).toBe(createdEntity._id);
+      expect(foundEntities[0].name).toBe('Entity to find');
+    });
+
+    it('should find entities using $in operator with _id', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
+      
+      // Act - Find specific entities by _id using $in
+      const queryObject = { _id: { $in: targetIds } };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+      const foundIds = foundEntities.map(e => e._id).sort();
+      const expectedIds = targetIds.sort();
+      expect(foundIds).toEqual(expectedIds);
+    });
+
+    it('should return empty array when no entities match the query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find entities that don't exist
+      const queryObject = { name: 'Non-existent Entity' };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toBeDefined();
+      expect(foundEntities).toHaveLength(0);
+      expect(Array.isArray(foundEntities)).toBe(true);
+    });
+
+    it('should transform entity IDs from ObjectId to string in find results', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act
+      const queryObject = { isActive: true };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+      foundEntities.forEach(entity => {
+        expect(entity._id).toBeDefined();
+        expect(typeof entity._id).toBe('string');
+      });
+    });
+
+    it('should find entities with count condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', count: 10 },
+        { name: 'Entity 2', count: 20 },
+        { name: 'Entity 3', count: 30 },
+        { name: 'Entity 4', count: 40 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find entities with count >= 30
+      const queryObject = { count: { $gte: 30 } };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+      foundEntities.forEach(entity => {
+        expect((entity.count || 0) >= 30).toBe(true);
+      });
+    });
+
+    it('should find entities with string field condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', description: 'First' },
+        { name: 'Entity B', description: 'Second' },
+        { name: 'Entity C', description: 'First' }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find entities with specific description
+      const queryObject = { description: 'First' };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+      foundEntities.forEach(entity => {
+        expect(entity.description).toBe('First');
+      });
+    });
+
+    it('should handle find with options parameter', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', count: 10 },
+        { name: 'Entity 2', count: 20 },
+        { name: 'Entity 3', count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find with limit option
+      const queryObject = {};
+      const options = { limit: 2 };
+      const foundEntities = await service.find(userContext, queryObject, options);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+    });
+
+    it('should find entities with boolean field condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true },
+        { name: 'Entity 4', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find inactive entities
+      const queryObject = { isActive: false };
+      const foundEntities = await service.find(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntities).toHaveLength(2);
+      foundEntities.forEach(entity => {
+        expect(entity.isActive).toBe(false);
+      });
+    });
+  });
+
+  describe('FindOne Operations', () => {
+    it('should find one entity matching a query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: false, count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one active entity
+      const queryObject = { isActive: true };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity.isActive).toBe(true);
+      expect(['Entity 1', 'Entity 2']).toContain(foundEntity.name);
+    });
+
+    it('should find one entity by _id', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to find',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Find by _id
+      const queryObject = { _id: createdEntity._id };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity._id).toBe(createdEntity._id);
+      expect(foundEntity.name).toBe('Entity to find');
+    });
+
+    it('should find one entity matching query with multiple conditions', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: true, count: 30 },
+        { name: 'Entity 4', isActive: false, count: 40 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one entity that is active AND has count = 20
+      const queryObject = { isActive: true, count: 20 };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity.isActive).toBe(true);
+      expect(foundEntity.count).toBe(20);
+      expect(foundEntity.name).toBe('Entity 2');
+    });
+
+    it('should throw NotFoundError when no entity matches the query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act & Assert - Find entity that doesn't exist
+      const queryObject = { name: 'Non-existent Entity' };
+      await expect(
+        service.findOne(userContext, queryObject)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should transform entity ID from ObjectId to string in findOne result', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity 1',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const queryObject = { _id: createdEntity._id };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity._id).toBeDefined();
+      expect(typeof foundEntity._id).toBe('string');
+      expect(foundEntity._id).toBe(createdEntity._id);
+    });
+
+    it('should find one entity with count condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', count: 10 },
+        { name: 'Entity 2', count: 20 },
+        { name: 'Entity 3', count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one entity with count >= 20
+      const queryObject = { count: { $gte: 20 } };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect((foundEntity.count || 0) >= 20).toBe(true);
+      expect(['Entity 2', 'Entity 3']).toContain(foundEntity.name);
+    });
+
+    it('should find one entity with string field condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', description: 'First' },
+        { name: 'Entity B', description: 'Second' },
+        { name: 'Entity C', description: 'First' }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one entity with specific description
+      const queryObject = { description: 'First' };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity.description).toBe('First');
+      expect(['Entity A', 'Entity C']).toContain(foundEntity.name);
+    });
+
+    it('should find one entity with boolean field condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one inactive entity
+      const queryObject = { isActive: false };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity.isActive).toBe(false);
+      expect(foundEntity.name).toBe('Entity 2');
+    });
+
+    it('should handle findOne with options parameter', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', count: 10 },
+        { name: 'Entity 2', count: 20 },
+        { name: 'Entity 3', count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one with sort option (descending by count)
+      const queryObject = {};
+      const options = { sort: { count: -1 } };
+      const foundEntity = await service.findOne(userContext, queryObject, options);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity.count).toBe(30);
+      expect(foundEntity.name).toBe('Entity 3');
+    });
+
+    it('should find one entity when multiple entities match but only first is returned', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Find one active entity (multiple match)
+      const queryObject = { isActive: true };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity.isActive).toBe(true);
+      expect(['Entity 1', 'Entity 2', 'Entity 3']).toContain(foundEntity.name);
+    });
+
+    it('should find one entity by _id using string ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to find',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Find by _id using string (should be converted to ObjectId)
+      const queryObject = { _id: createdEntity._id };
+      const foundEntity = await service.findOne(userContext, queryObject);
+      
+      // Assert
+      expect(foundEntity).toBeDefined();
+      expect(foundEntity._id).toBe(createdEntity._id);
+      expect(foundEntity.name).toBe('Entity to find');
+    });
+  });
 }); 

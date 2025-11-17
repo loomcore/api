@@ -515,11 +515,41 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
       deleteResult.deletedCount
     );
   }
-  find(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T[]> {
-    throw new Error('Method not implemented.');
+  async find(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T[]> {
+    // Prepare the query object (allow subclasses to modify, e.g. add tenant filtering)
+    const preparedQuery = this.prepareQueryObject(userContext, mongoQueryObject);
+
+    // Convert string IDs in query object to ObjectIds if needed
+    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Perform find through database
+    const rawEntities = await this.database.find<T>(convertedQuery, operations, options);
+
+    // Transform the entities
+    return this.transformList(rawEntities);
   }
-  findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T> {
-    throw new Error('Method not implemented.');
+  async findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T> {
+    // Prepare the query object (allow subclasses to modify, e.g. add tenant filtering)
+    const preparedQuery = this.prepareQueryObject(userContext, mongoQueryObject);
+
+    // Convert string IDs in query object to ObjectIds if needed
+    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Perform findOne through database
+    const rawEntity = await this.database.findOne<T>(convertedQuery, operations, options);
+
+    if (!rawEntity) {
+      throw new NotFoundError('Entity not found');
+    }
+
+    // Transform the entity
+    return this.transformSingle<T>(rawEntity);
   }
 
   /**

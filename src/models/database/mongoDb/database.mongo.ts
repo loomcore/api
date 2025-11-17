@@ -342,4 +342,47 @@ export class MongoDBDatabase implements IDatabase {
             deletedCount: deleteResult.deletedCount
         };
     }
+
+    async find<T>(queryObject: any, operations: Operation[], options?: any): Promise<T[]> {
+        // Convert operations to pipeline stages
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        let entities: Document[];
+        
+        if (operationsDocuments.length > 0) {
+            // Use aggregation pipeline if there are operations
+            const pipeline = [
+                { $match: queryObject },
+                ...operationsDocuments
+            ];
+            entities = await this.collection.aggregate(pipeline, options).toArray();
+        } else {
+            // Use simple find if no operations
+            const cursor = this.collection.find(queryObject, options);
+            entities = await cursor.toArray();
+        }
+        
+        return entities as T[];
+    }
+
+    async findOne<T>(queryObject: any, operations: Operation[], options?: any): Promise<T | null> {
+        // Convert operations to pipeline stages
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        let entity: Document | null;
+        
+        if (operationsDocuments.length > 0) {
+            // Use aggregation pipeline if there are operations
+            const pipeline = [
+                { $match: queryObject },
+                ...operationsDocuments
+            ];
+            entity = await this.collection.aggregate(pipeline, options).next();
+        } else {
+            // Use simple findOne if no operations
+            entity = await this.collection.findOne(queryObject, options);
+        }
+        
+        return entity as T | null;
+    }
 };
