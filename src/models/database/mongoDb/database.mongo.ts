@@ -311,4 +311,21 @@ export class MongoDBDatabase implements IDatabase {
         
         return updatedEntities as T[];
     }
+
+    async deleteById(operations: Operation[], id: string): Promise<{ acknowledged: boolean; deletedCount: number }> {
+        const objectId = new ObjectId(id);
+        const baseQuery = { _id: objectId };
+        
+        // Convert operations to pipeline stages for query building
+        // For delete operations, we typically use the base query directly
+        // Operations might be used for additional filtering in the future
+        
+        // Perform delete operation
+        const deleteResult = await this.collection.deleteOne(baseQuery);
+        
+        return {
+            acknowledged: deleteResult.acknowledged,
+            deletedCount: deleteResult.deletedCount
+        };
+    }
 };
