@@ -14,6 +14,7 @@ import { stripSenderProvidedSystemProperties } from './utils/stripSenderProvided
 import { auditForCreate } from './utils/auditForCreate.js';
 import { auditForUpdate } from './utils/auditForUpdate.js';
 import { BadRequestError, IdNotFoundError } from '../errors/index.js';
+import { convertStringsToObjectIds } from '../utils/mongo/convertStringsToObjectIds.js';
 
 export class GenericApiService2<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -130,8 +131,8 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     } 
   }
 
-  prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
-    throw new Error('Method not implemented.');
+  async prepareDataForBatchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<Partial<T>[]> {
+    return Promise.all(entities.map(item => this.prepareEntity(userContext, item, false, true)));
   }
 
   /**
@@ -158,8 +159,14 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
         auditForUpdate(userContext, preparedEntity);
       }
     }
-    // Database-specific preparation
-    preparedEntity = await this.database.prepareEntity(preparedEntity);
+
+    // Require a modelSpec for conversion - without a schema we can't convert
+    if (!this.modelSpec.fullSchema) {
+      throw new BadRequestError(`Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`);
+    }
+
+    // Convert string IDs to ObjectIds based on schema
+    preparedEntity = convertStringsToObjectIds(preparedEntity, this.modelSpec.fullSchema);
 
     return preparedEntity;
   }
@@ -259,8 +266,38 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
 
     return createdEntities;
   }
-  batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
-    throw new Error('Method not implemented.');
+  
+  async batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
+    if (!entities || entities.length === 0) {
+      return [];
+    }
+    
+    // This is a bulk operation, so we call onBeforeUpdate once with the array
+    const onBeforeResult = await this.onBeforeUpdate(userContext, entities);
+    // Ensure we have an array (onBeforeUpdate can return E | E[], but for batchUpdate it should be an array)
+    // When passing an array to onBeforeUpdate, it should return an array
+    const entitiesAfterBefore: Partial<T>[] = Array.isArray(onBeforeResult) 
+      ? (onBeforeResult as Partial<T>[])
+      : [onBeforeResult as Partial<T>];
+
+    // Prepare entities for database (convert string IDs to ObjectIds, apply audit fields, etc.)
+    const preparedEntities = await this.prepareDataForBatchUpdate(userContext, entitiesAfterBefore);
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Perform batch update through database
+    const rawUpdatedEntities = await this.database.batchUpdate(preparedEntities, operations);
+    
+    // Transform the entities
+    const updatedEntities = this.transformList(rawUpdatedEntities);
+    
+    // Call onAfterUpdate with all updated entities
+    if (updatedEntities.length > 0) {
+      await this.onAfterUpdate(userContext, updatedEntities);
+    }
+
+    return updatedEntities;
   }
   fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T> {
     throw new Error('Method not implemented.');
@@ -308,6 +345,30 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
    * @returns The entities after post-processing
    */
   async onAfterCreate<E extends T | T[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
+    return Promise.resolve(entities);
+  }
+
+  /**
+   * Called once before updating entities in the database.
+   * Hook for operations that should happen once before any entities are updated.
+   * Entity-specific modifications should be done in prepareEntity.
+   * @param userContext The user context for the operation
+   * @param entities Entity or array of entities to be updated
+   * @returns The prepared entity or entities
+   */
+  async onBeforeUpdate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
+    // Hook for derived classes to override
+    return Promise.resolve(entities);
+  }
+
+  /**
+   * Called once after entities have been updated in the database.
+   * Hook for operations that should happen once after update.
+   * @param userContext The user context for the operation
+   * @param entities Entity or array of entities that were updated
+   * @returns The entities after post-processing
+   */
+  async onAfterUpdate<E extends T | T[] | Partial<T> | Partial<T>[]>(userContext: IUserContext, entities: E): Promise<E | E[]> {
     return Promise.resolve(entities);
   }
 }
