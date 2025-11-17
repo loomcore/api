@@ -10,4 +10,5 @@ export interface IDatabase {
   create<T>(entity: any): Promise<{ insertedId: any; entity: any }>;
   createMany<T>(entities: any[]): Promise<{ insertedIds: any; entities: any[] }>;
   prepareEntity<T>(entity: T): Promise<T>;
+  batchUpdate<T>(entities: Partial<T>[], operations: Operation[]): Promise<T[]>;
 }

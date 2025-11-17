@@ -157,4 +157,57 @@ export class MongoDBDatabase implements IDatabase {
             throw new BadRequestError(`Error creating ${this.pluralResourceName}`);
         }
     }
+
+    async batchUpdate<T>(entities: Partial<T>[], operations: Operation[]): Promise<T[]> {
+        if (!entities || entities.length === 0) {
+            return [];
+        }
+
+        const bulkOperations = [];
+        const entityIds: ObjectId[] = [];
+
+        for (const entity of entities) {
+            // The entity should have been prepared by prepareDataForDb, which converts string _id to ObjectId
+            const { _id, ...updateData } = entity as any;
+
+            if (!_id || !(_id instanceof ObjectId)) {
+                throw new BadRequestError('Each entity in a batch update must have a valid _id that has been converted to an ObjectId.');
+            }
+            
+            entityIds.push(_id);
+
+            bulkOperations.push({
+                updateOne: {
+                    filter: { _id },
+                    update: { $set: updateData },
+                },
+            });
+        }
+
+        if (bulkOperations.length > 0) {
+            await this.collection.bulkWrite(bulkOperations);
+        }
+
+        // Build query to retrieve updated entities
+        const baseQuery = { _id: { $in: entityIds } };
+        
+        // Convert operations to pipeline stages
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        let updatedEntities: Document[];
+        
+        if (operationsDocuments.length > 0) {
+            // Use aggregation pipeline if there are operations
+            const pipeline = [
+                { $match: baseQuery },
+                ...operationsDocuments
+            ];
+            updatedEntities = await this.collection.aggregate(pipeline).toArray();
+        } else {
+            // Use simple find if no operations
+            updatedEntities = await this.collection.find(baseQuery).toArray();
+        }
+
+        return updatedEntities as T[];
+    }
 };

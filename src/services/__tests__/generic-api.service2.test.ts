@@ -1023,4 +1023,259 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(count).toBe(5);
     });
   });
+
+  describe('Batch Update Operations', () => {
+    it('should update multiple entities at once using batchUpdate', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Create initial entities
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', description: 'Original description 1', isActive: true },
+        { name: 'Entity 2', description: 'Original description 2', isActive: false },
+        { name: 'Entity 3', description: 'Original description 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Prepare update entities with IDs
+      const updateEntities: Partial<TestEntity>[] = [
+        { _id: createdEntities[0]._id, description: 'Updated description 1', isActive: false },
+        { _id: createdEntities[1]._id, description: 'Updated description 2', isActive: true },
+        { _id: createdEntities[2]._id, description: 'Updated description 3', count: 100 }
+      ];
+      
+      // Prepare entities for batch update
+      const preparedUpdates = await service.prepareDataForBatchUpdate(userContext, updateEntities);
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, preparedUpdates);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(3);
+      expect(updatedEntities[0].description).toBe('Updated description 1');
+      expect(updatedEntities[0].isActive).toBe(false);
+      expect(updatedEntities[1].description).toBe('Updated description 2');
+      expect(updatedEntities[1].isActive).toBe(true);
+      expect(updatedEntities[2].description).toBe('Updated description 3');
+      expect(updatedEntities[2].count).toBe(100);
+      
+      // Verify IDs are preserved
+      expect(updatedEntities[0]._id).toBe(createdEntities[0]._id);
+      expect(updatedEntities[1]._id).toBe(createdEntities[1]._id);
+      expect(updatedEntities[2]._id).toBe(createdEntities[2]._id);
+    });
+
+    it('should return empty array when batchUpdate is called with empty array', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const emptyEntities: Partial<TestEntity>[] = [];
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, emptyEntities);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(0);
+      expect(Array.isArray(updatedEntities)).toBe(true);
+    });
+
+    it('should update audit fields when batch updating entities', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Create initial entity
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity for audit test',
+        description: 'Original description'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Store original audit fields
+      const originalCreated = createdEntity._created;
+      const originalCreatedBy = createdEntity._createdBy;
+      
+      // Wait a bit to ensure _updated timestamp changes
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Prepare update
+      const updateEntity: Partial<TestEntity> = {
+        _id: createdEntity._id,
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0]._created).toEqual(originalCreated);
+      expect(updatedEntities[0]._createdBy).toBe(originalCreatedBy);
+      expect(updatedEntities[0]._updated).toBeDefined();
+      expect(updatedEntities[0]._updatedBy).toBeDefined();
+      // _updated should be different from original
+      expect(updatedEntities[0]._updated).not.toEqual(createdEntity._updated);
+    });
+
+    it('should preserve unchanged fields when batch updating', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Create initial entity with multiple fields
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity with multiple fields',
+        description: 'Original description',
+        isActive: true,
+        tags: ['tag1', 'tag2'],
+        count: 42
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Update only description
+      const updateEntity: Partial<TestEntity> = {
+        _id: createdEntity._id,
+        description: 'Updated description only'
+      };
+      
+      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0].description).toBe('Updated description only');
+      expect(updatedEntities[0].name).toBe('Entity with multiple fields');
+      expect(updatedEntities[0].isActive).toBe(true);
+      expect(updatedEntities[0].tags).toEqual(['tag1', 'tag2']);
+      expect(updatedEntities[0].count).toBe(42);
+    });
+
+    it('should transform entity IDs from ObjectId to string in batch update results', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Create initial entity
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity for ID transformation test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Prepare update
+      const updateEntity: Partial<TestEntity> = {
+        _id: createdEntity._id,
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0]._id).toBeDefined();
+      expect(typeof updatedEntities[0]._id).toBe('string');
+      expect(updatedEntities[0]._id).toBe(createdEntity._id);
+    });
+
+    it('should update multiple entities with different field combinations', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Create initial entities
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', isActive: true, count: 10 },
+        { name: 'Entity B', isActive: false, count: 20 },
+        { name: 'Entity C', isActive: true, count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Prepare updates with different field combinations
+      const updateEntities: Partial<TestEntity>[] = [
+        { _id: createdEntities[0]._id, isActive: false }, // Only update isActive
+        { _id: createdEntities[1]._id, count: 25, tags: ['new', 'tags'] }, // Update count and add tags
+        { _id: createdEntities[2]._id, name: 'Entity C Updated', description: 'New description' } // Update name and description
+      ];
+      
+      const preparedUpdates = await service.prepareDataForBatchUpdate(userContext, updateEntities);
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, preparedUpdates);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(3);
+      
+      // Verify first entity
+      expect(updatedEntities[0].isActive).toBe(false);
+      expect(updatedEntities[0].count).toBe(10); // Should be preserved
+      
+      // Verify second entity
+      expect(updatedEntities[1].count).toBe(25);
+      expect(updatedEntities[1].tags).toEqual(['new', 'tags']);
+      expect(updatedEntities[1].isActive).toBe(false); // Should be preserved
+      
+      // Verify third entity
+      expect(updatedEntities[2].name).toBe('Entity C Updated');
+      expect(updatedEntities[2].description).toBe('New description');
+      expect(updatedEntities[2].count).toBe(30); // Should be preserved
+    });
+
+    it('should handle batch update with single entity', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      
+      // Create initial entity
+      const testEntity: Partial<TestEntity> = {
+        name: 'Single entity for batch update',
+        description: 'Original'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Prepare update
+      const updateEntity: Partial<TestEntity> = {
+        _id: createdEntity._id,
+        description: 'Updated via batch'
+      };
+      
+      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
+      
+      // Act
+      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0]._id).toBe(createdEntity._id);
+      expect(updatedEntities[0].description).toBe('Updated via batch');
+      expect(updatedEntities[0].name).toBe('Single entity for batch update');
+    });
+  });
 }); 
