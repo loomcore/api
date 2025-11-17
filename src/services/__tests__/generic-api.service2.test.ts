@@ -2370,4 +2370,268 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(deleteResult.count).toBe(1);
     });
   });
+
+  describe('Delete Many Operations', () => {
+    it('should delete multiple entities matching a query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true },
+        { name: 'Entity 3', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Verify initial count
+      const initialCount = await service.getCount(userContext);
+      expect(initialCount).toBe(3);
+      
+      // Act - Delete all active entities
+      const queryObject = { isActive: true };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult).toBeDefined();
+      expect(deleteResult.count).toBe(2);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify count decreased
+      const finalCount = await service.getCount(userContext);
+      expect(finalCount).toBe(1);
+      
+      // Verify only inactive entity remains
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(1);
+      expect(remainingEntities[0].isActive).toBe(false);
+    });
+
+    it('should delete all entities when query matches all', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Verify initial count
+      const initialCount = await service.getCount(userContext);
+      expect(initialCount).toBe(3);
+      
+      // Act - Delete all entities (empty query matches all)
+      const queryObject = {};
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(3);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify all entities are deleted
+      const finalCount = await service.getCount(userContext);
+      expect(finalCount).toBe(0);
+      
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(0);
+    });
+
+    it('should delete entities matching query with multiple conditions', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: true, count: 30 },
+        { name: 'Entity 4', isActive: false, count: 40 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Delete entities that are active AND have count >= 20
+      const queryObject = { isActive: true, count: { $gte: 20 } };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(2);
+      
+      // Verify remaining entities
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(2);
+      
+      // Entity 1 should remain (active but count < 20)
+      expect(remainingEntities.find(e => e.name === 'Entity 1')).toBeDefined();
+      // Entity 4 should remain (inactive)
+      expect(remainingEntities.find(e => e.name === 'Entity 4')).toBeDefined();
+      // Entity 2 and 3 should be deleted
+      expect(remainingEntities.find(e => e.name === 'Entity 2')).toBeUndefined();
+      expect(remainingEntities.find(e => e.name === 'Entity 3')).toBeUndefined();
+    });
+
+    it('should delete entities matching query with _id using $in', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
+      
+      // Act - Delete specific entities by _id using $in
+      const queryObject = { _id: { $in: targetIds } };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(2);
+      
+      // Verify only Entity 2 remains
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(1);
+      expect(remainingEntities[0].name).toBe('Entity 2');
+    });
+
+    it('should return zero count when no entities match the query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Delete entities that don't exist
+      const queryObject = { name: 'Non-existent Entity' };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(0);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify all entities still exist
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(2);
+    });
+
+    it('should delete entities and verify they are removed from collection', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', description: 'First', isActive: true },
+        { name: 'Entity B', description: 'Second', isActive: true },
+        { name: 'Entity C', description: 'Third', isActive: false }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Verify entities exist before deletion
+      const beforeDelete = await service.getAll(userContext);
+      expect(beforeDelete).toHaveLength(3);
+      
+      // Act
+      const queryObject = { isActive: true };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(2);
+      
+      // Verify entities are removed
+      const afterDelete = await service.getAll(userContext);
+      expect(afterDelete).toHaveLength(1);
+      expect(afterDelete[0].name).toBe('Entity C');
+    });
+
+    it('should handle deleteMany with string _id in query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntity: Partial<TestEntity> = {
+        name: 'Entity to delete',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Delete using string _id
+      const queryObject = { _id: createdEntity._id };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(1);
+      
+      // Verify entity is deleted
+      await expect(
+        service.getById(userContext, createdEntity._id)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should return correct DeleteResult structure for deleteMany', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act
+      const queryObject = { isActive: true };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult).toBeDefined();
+      expect(deleteResult).toHaveProperty('success');
+      expect(deleteResult).toHaveProperty('count');
+      expect(typeof deleteResult.success).toBe('boolean');
+      expect(typeof deleteResult.count).toBe('number');
+      expect(deleteResult.success).toBe(true);
+      expect(deleteResult.count).toBe(2);
+    });
+
+    it('should delete entities matching query with count condition', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const testEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', count: 10 },
+        { name: 'Entity 2', count: 20 },
+        { name: 'Entity 3', count: 30 },
+        { name: 'Entity 4', count: 40 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Delete entities with count >= 30
+      const queryObject = { count: { $gte: 30 } };
+      const deleteResult = await service.deleteMany(userContext, queryObject);
+      
+      // Assert
+      expect(deleteResult.count).toBe(2);
+      
+      // Verify remaining entities
+      const remainingEntities = await service.getAll(userContext);
+      expect(remainingEntities).toHaveLength(2);
+      expect(remainingEntities.find(e => e.name === 'Entity 1')).toBeDefined();
+      expect(remainingEntities.find(e => e.name === 'Entity 2')).toBeDefined();
+      expect(remainingEntities.find(e => e.name === 'Entity 3')).toBeUndefined();
+      expect(remainingEntities.find(e => e.name === 'Entity 4')).toBeUndefined();
+    });
+  });
 }); 
