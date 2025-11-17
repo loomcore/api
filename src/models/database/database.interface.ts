@@ -12,4 +12,5 @@ export interface IDatabase {
   prepareEntity<T>(entity: T): Promise<T>;
   batchUpdate<T>(entities: Partial<T>[], operations: Operation[]): Promise<T[]>;
   fullUpdateById<T>(operations: Operation[], id: string, entity: any): Promise<T>;
+  partialUpdateById<T>(operations: Operation[], id: string, entity: Partial<any>): Promise<T>;
 }

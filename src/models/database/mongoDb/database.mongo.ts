@@ -247,4 +247,40 @@ export class MongoDBDatabase implements IDatabase {
         
         return updatedEntity as T;
     }
+
+    async partialUpdateById<T>(operations: Operation[], id: string, entity: Partial<any>): Promise<T> {
+        const objectId = new ObjectId(id);
+        const baseQuery = { _id: objectId };
+        
+        // Convert operations to pipeline stages for query building
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        // For partial update, we use findOneAndUpdate with $set
+        // The operations are used when retrieving the updated entity
+        const updatedEntity = await this.collection.findOneAndUpdate(
+            baseQuery,
+            { $set: entity },
+            { returnDocument: 'after' }
+        );
+        
+        if (!updatedEntity) {
+            throw new IdNotFoundError();
+        }
+        
+        // If there are operations, we need to apply them to the retrieved entity
+        // by fetching it again through the pipeline
+        if (operationsDocuments.length > 0) {
+            const pipeline = [
+                { $match: baseQuery },
+                ...operationsDocuments
+            ];
+            const entityWithOperations = await this.collection.aggregate(pipeline).next();
+            if (!entityWithOperations) {
+                throw new IdNotFoundError();
+            }
+            return entityWithOperations as T;
+        }
+        
+        return updatedEntity as T;
+    }
 };

@@ -344,8 +344,30 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
 
     return updatedEntity;
   }
-  partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T> {
-    throw new Error('Method not implemented.');
+  async partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T> {
+    if (!entityUtils.isValidObjectId(id)) {
+      throw new BadRequestError('id is not a valid ObjectId');
+    }
+
+    // Allow derived classes to provide operations to the request
+    const operations = this.prepareQuery(userContext, []);
+
+    // Call onBeforeUpdate once with the entity
+    const entityAfterBefore = await this.onBeforeUpdate(userContext, entity);
+
+    // Prepare the entity for database (convert string IDs to ObjectIds, apply audit fields, etc.)
+    const preparedEntity = await this.prepareDataForDb(userContext, entityAfterBefore as Partial<T>, false);
+
+    // Perform partial update through database
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
+
+    // Transform the entity
+    const updatedEntity = this.transformSingle<T>(rawUpdatedEntity);
+
+    // Call onAfterUpdate with the updated entity
+    await this.onAfterUpdate(userContext, updatedEntity);
+
+    return updatedEntity;
   }
   partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T> {
     throw new Error('Method not implemented.');
