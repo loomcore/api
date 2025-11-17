@@ -78,11 +78,11 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     return queryObject;
   }
 
-  transformList<T>(list: T[]): T[] {
+  transformList(list: T[]): T[] {
     if (!list) return [];
 
     // Map each item through transformSingle instead of using forEach
-    return list.map(item => this.transformSingle<T>(item));
+    return list.map(item => this.transformSingle(item));
   }
 
   /**
@@ -90,7 +90,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
    * @param single Entity retrieved from database
    * @returns Transformed entity
    */
-  transformSingle<T>(single: T): T {
+  transformSingle(single: T): T {
     if (!single) return single;
     return this.database.transformSingle(single, this.modelSpec);
   }
@@ -228,7 +228,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     }
 
     // Transform and return the entity
-    return this.transformSingle<T>(entity);
+    return this.transformSingle(entity);
   }
   async getCount(userContext: IUserContext): Promise<number> {
     // Allow derived classes to provide operations to the request
@@ -244,7 +244,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const insertResult = await this.database.create(entity);
     
     if (insertResult.insertedId) {
-      createdEntity = this.transformSingle<T>(insertResult.entity);
+      createdEntity = this.transformSingle(insertResult.entity);
     }
     
     if (createdEntity) {
@@ -348,7 +348,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity);
 
     // Transform the entity
-    const updatedEntity = this.transformSingle<T>(rawUpdatedEntity);
+    const updatedEntity = this.transformSingle(rawUpdatedEntity);
 
     // Call onAfterUpdate with the updated entity
     await this.onAfterUpdate(userContext, updatedEntity);
@@ -373,7 +373,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
 
     // Transform the entity
-    const updatedEntity = this.transformSingle<T>(rawUpdatedEntity);
+    const updatedEntity = this.transformSingle(rawUpdatedEntity);
 
     // Call onAfterUpdate with the updated entity
     await this.onAfterUpdate(userContext, updatedEntity);
@@ -396,7 +396,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
 
     // Transform the entity
-    return this.transformSingle<T>(rawUpdatedEntity);
+    return this.transformSingle(rawUpdatedEntity);
   }
   async update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
     // Call onBeforeUpdate once with the entity
@@ -564,7 +564,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     }
 
     // Transform the entity
-    return this.transformSingle<T>(rawEntity);
+    return this.transformSingle(rawEntity);
   }
 
   /**
