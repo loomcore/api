@@ -3,7 +3,7 @@ import { IDatabase } from "../database.interface.js";
 import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../../operations/operations.js";
 import { ServerError } from "../../../errors/server.error.js";
-import { BadRequestError, DuplicateKeyError, IdNotFoundError } from "../../../errors/index.js";
+import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError } from "../../../errors/index.js";
 import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, convertQueryOptionsToPipeline } from "../../../utils/mongo/index.js";
 import { apiUtils } from "../../../utils/api.utils.js";
 import utils from 'util';
@@ -282,5 +282,33 @@ export class MongoDBDatabase implements IDatabase {
         }
         
         return updatedEntity as T;
+    }
+
+    async update<T>(queryObject: any, entity: Partial<any>, operations: Operation[]): Promise<T[]> {
+        // Use updateMany with $set to update all matching entities
+        const updateResult = await this.collection.updateMany(queryObject, { $set: entity });
+        
+        if (updateResult.matchedCount <= 0) {
+            throw new NotFoundError('No records found matching update query');
+        }
+        
+        // Convert operations to pipeline stages for retrieving updated entities
+        const operationsDocuments = convertOperationsToPipeline(operations);
+        
+        let updatedEntities: Document[];
+        
+        if (operationsDocuments.length > 0) {
+            // Use aggregation pipeline if there are operations
+            const pipeline = [
+                { $match: queryObject },
+                ...operationsDocuments
+            ];
+            updatedEntities = await this.collection.aggregate(pipeline).toArray();
+        } else {
+            // Use simple find if no operations
+            updatedEntities = await this.collection.find(queryObject).toArray();
+        }
+        
+        return updatedEntities as T[];
     }
 };

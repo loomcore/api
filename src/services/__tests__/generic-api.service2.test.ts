@@ -6,7 +6,7 @@ import { IUserContext, IEntity, IAuditable, IQueryOptions, DefaultQueryOptions }
 import { initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
-import { DuplicateKeyError, BadRequestError, IdNotFoundError } from '../../errors/index.js';
+import { DuplicateKeyError, BadRequestError, IdNotFoundError, NotFoundError } from '../../errors/index.js';
 import { GenericApiService2 } from '../generic-api.service-v2.js';
 
 // Initialize TypeBox before running any tests
@@ -1879,6 +1879,287 @@ describe('GenericApiService2 - Integration Tests', () => {
       // Assert
       expect(updatedEntity.tags).toEqual(['tag3', 'tag4', 'tag5']);
       expect(updatedEntity.name).toBe('Entity with tags');
+    });
+  });
+
+  describe('Update Operations', () => {
+    it('should update multiple entities matching a query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: false, count: 30 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Update all active entities
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated description for active entities'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { isActive: true };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(2);
+      updatedEntities.forEach(entity => {
+        expect(entity.isActive).toBe(true);
+        expect(entity.description).toBe('Updated description for active entities');
+      });
+      
+      // Verify unchanged fields are preserved
+      expect(updatedEntities[0].name).toBe('Entity 1');
+      expect(updatedEntities[0].count).toBe(10);
+      expect(updatedEntities[1].name).toBe('Entity 2');
+      expect(updatedEntities[1].count).toBe(20);
+    });
+
+    it('should update entities matching query with _id', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity to update',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Update by _id
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated via query'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { _id: createdEntity._id };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0]._id).toBe(createdEntity._id);
+      expect(updatedEntities[0].description).toBe('Updated via query');
+      expect(updatedEntities[0].name).toBe('Entity to update');
+      expect(updatedEntities[0].isActive).toBe(true);
+    });
+
+    it('should preserve unchanged fields when updating multiple entities', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity A', description: 'Original A', isActive: true, count: 100 },
+        { name: 'Entity B', description: 'Original B', isActive: true, count: 200 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Update only description field (doesn't affect the query)
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { isActive: true };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert - Verify the update worked
+      expect(updatedEntities).toHaveLength(2);
+      updatedEntities.forEach(entity => {
+        expect(entity.description).toBe('Updated description');
+        expect(entity.isActive).toBe(true); // Should remain unchanged
+      });
+      
+      // Verify other fields are preserved
+      const entityA = updatedEntities.find(e => e.name === 'Entity A');
+      const entityB = updatedEntities.find(e => e.name === 'Entity B');
+      
+      expect(entityA).toBeDefined();
+      expect(entityA!.name).toBe('Entity A');
+      expect(entityA!.count).toBe(100);
+      expect(entityB).toBeDefined();
+      expect(entityB!.name).toBe('Entity B');
+      expect(entityB!.count).toBe(200);
+    });
+
+    it('should update audit properties on all updated entities', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      const originalUpdated1 = createdEntities[0]._updated;
+      const originalUpdated2 = createdEntities[1]._updated;
+      
+      // Wait to ensure timestamp difference
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Act
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated description'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { isActive: true };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(2);
+      updatedEntities.forEach(entity => {
+        expect(entity._updated).toBeDefined();
+        expect(entity._updatedBy).toBeDefined();
+        expect(entity._updatedBy).toBe(userContext.user._id);
+      });
+      
+      expect(updatedEntities[0]._updated).not.toEqual(originalUpdated1);
+      expect(updatedEntities[1]._updated).not.toEqual(originalUpdated2);
+    });
+
+    it('should throw NotFoundError when no entities match the query', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const updateEntity: Partial<TestEntity> = {
+        description: 'This should not update anything'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { name: 'Non-existent Entity' };
+      
+      // Act & Assert
+      await expect(
+        service.update(userContext, queryObject, preparedUpdate)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should handle query with multiple conditions', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true, count: 10 },
+        { name: 'Entity 2', isActive: true, count: 20 },
+        { name: 'Entity 3', isActive: true, count: 30 },
+        { name: 'Entity 4', isActive: false, count: 40 }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Update entities that are active AND have count >= 20
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated for active entities with count >= 20'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { isActive: true, count: { $gte: 20 } };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(2);
+      updatedEntities.forEach(entity => {
+        expect(entity.isActive).toBe(true);
+        expect((entity.count || 0) >= 20).toBe(true);
+        expect(entity.description).toBe('Updated for active entities with count >= 20');
+      });
+    });
+
+    it('should transform entity IDs from ObjectId to string in update results', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = { isActive: true };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(2);
+      updatedEntities.forEach(entity => {
+        expect(entity._id).toBeDefined();
+        expect(typeof entity._id).toBe('string');
+      });
+    });
+
+    it('should handle query with $in operator for _id', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Update specific entities by _id using $in
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated via $in query'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
+      const queryObject = { _id: { $in: targetIds } };
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(2);
+      const updatedIds = updatedEntities.map(e => e._id).sort();
+      const expectedIds = targetIds.sort();
+      expect(updatedIds).toEqual(expectedIds);
+      updatedEntities.forEach(entity => {
+        expect(entity.description).toBe('Updated via $in query');
+      });
+    });
+
+    it('should update all entities when query matches all', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntities: Partial<TestEntity>[] = [
+        { name: 'Entity 1', isActive: true },
+        { name: 'Entity 2', isActive: false },
+        { name: 'Entity 3', isActive: true }
+      ];
+      
+      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      
+      // Act - Update all entities (empty query matches all)
+      const updateEntity: Partial<TestEntity> = {
+        description: 'Updated all entities'
+      };
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const queryObject = {};
+      const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
+      
+      // Assert
+      expect(updatedEntities).toHaveLength(3);
+      updatedEntities.forEach(entity => {
+        expect(entity.description).toBe('Updated all entities');
+      });
     });
   });
 }); 
