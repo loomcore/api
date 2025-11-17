@@ -1278,4 +1278,273 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(updatedEntities[0].name).toBe('Single entity for batch update');
     });
   });
+
+  describe('Full Update Operations', () => {
+    it('should fully update an entity by ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Initial Name',
+        description: 'Initial description',
+        isActive: true,
+        tags: ['tag1', 'tag2'],
+        count: 10
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Full update with new entity
+      const updateEntity: TestEntity = {
+        name: 'Updated Name',
+        description: 'Updated description',
+        isActive: false,
+        tags: ['tag3'],
+        count: 20
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.fullUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate as TestEntity
+      );
+      
+      // Assert
+      expect(updatedEntity).toBeDefined();
+      expect(updatedEntity._id).toBe(createdEntity._id);
+      expect(updatedEntity.name).toBe('Updated Name');
+      expect(updatedEntity.description).toBe('Updated description');
+      expect(updatedEntity.isActive).toBe(false);
+      expect(updatedEntity.tags).toEqual(['tag3']);
+      expect(updatedEntity.count).toBe(20);
+    });
+
+    it('should preserve audit properties (_created, _createdBy) on full update', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity for audit preservation test',
+        description: 'Original description'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Store original audit properties
+      const originalCreated = createdEntity._created;
+      const originalCreatedBy = createdEntity._createdBy;
+      
+      // Wait a bit to ensure _updated timestamp changes
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Act - Full update
+      const updateEntity: TestEntity = {
+        name: 'Updated Name',
+        description: 'Updated description'
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.fullUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate as TestEntity
+      );
+      
+      // Assert - Audit properties should be preserved
+      expect(updatedEntity._created).toEqual(originalCreated);
+      expect(updatedEntity._createdBy).toBe(originalCreatedBy);
+      // Updated properties should be set
+      expect(updatedEntity._updated).toBeDefined();
+      expect(updatedEntity._updatedBy).toBeDefined();
+      // _updated should be different from original
+      expect(updatedEntity._updated).not.toEqual(createdEntity._updated);
+    });
+
+    it('should update audit properties (_updated, _updatedBy) on full update', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity for audit update test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      const originalUpdated = createdEntity._updated;
+      const originalUpdatedBy = createdEntity._updatedBy;
+      
+      // Wait to ensure timestamp difference
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Act
+      const updateEntity: TestEntity = {
+        name: 'Updated Name'
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.fullUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate as TestEntity
+      );
+      
+      // Assert
+      expect(updatedEntity._updated).toBeDefined();
+      expect(updatedEntity._updatedBy).toBeDefined();
+      expect(updatedEntity._updated).not.toEqual(originalUpdated);
+      expect(updatedEntity._updatedBy).toBe(userContext.user._id);
+    });
+
+    it('should throw BadRequestError when fullUpdateById is called with invalid ObjectId', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const invalidId = 'invalid-object-id';
+      const updateEntity: TestEntity = {
+        name: 'Updated Name'
+      } as TestEntity;
+      
+      // Act & Assert
+      await expect(
+        service.fullUpdateById(userContext, invalidId, updateEntity)
+      ).rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw IdNotFoundError when fullUpdateById is called with non-existent ID', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const nonExistentId = new ObjectId().toString();
+      const updateEntity: TestEntity = {
+        name: 'Updated Name'
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      
+      // Act & Assert
+      await expect(
+        service.fullUpdateById(userContext, nonExistentId, preparedUpdate as TestEntity)
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should fully replace all fields when updating', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Original Name',
+        description: 'Original description',
+        isActive: true,
+        tags: ['tag1', 'tag2'],
+        count: 100
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Full update with completely different fields
+      const updateEntity: TestEntity = {
+        name: 'Completely New Name',
+        description: 'Completely new description',
+        isActive: false,
+        tags: ['newtag'],
+        count: 200
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.fullUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate as TestEntity
+      );
+      
+      // Assert - All fields should be replaced
+      expect(updatedEntity.name).toBe('Completely New Name');
+      expect(updatedEntity.description).toBe('Completely new description');
+      expect(updatedEntity.isActive).toBe(false);
+      expect(updatedEntity.tags).toEqual(['newtag']);
+      expect(updatedEntity.count).toBe(200);
+    });
+
+    it('should transform entity ID from ObjectId to string in full update result', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Entity for ID transformation test'
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act
+      const updateEntity: TestEntity = {
+        name: 'Updated Name'
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.fullUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate as TestEntity
+      );
+      
+      // Assert
+      expect(updatedEntity._id).toBeDefined();
+      expect(typeof updatedEntity._id).toBe('string');
+      expect(updatedEntity._id).toBe(createdEntity._id);
+    });
+
+    it('should handle full update with minimal fields', async () => {
+      // Arrange
+      const userContext = createUserContext();
+      const initialEntity: Partial<TestEntity> = {
+        name: 'Original Name',
+        description: 'Original description',
+        isActive: true
+      };
+      
+      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const createdEntity = await service.create(userContext, preparedEntity);
+      
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+      
+      // Act - Full update with only required field
+      const updateEntity: TestEntity = {
+        name: 'Minimal Update'
+      } as TestEntity;
+      
+      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const updatedEntity = await service.fullUpdateById(
+        userContext,
+        createdEntity._id,
+        preparedUpdate as TestEntity
+      );
+      
+      // Assert
+      expect(updatedEntity.name).toBe('Minimal Update');
+      expect(updatedEntity.description).toBeUndefined();
+      expect(updatedEntity.isActive).toBeUndefined();
+      expect(updatedEntity._id).toBe(createdEntity._id);
+    });
+  });
 }); 

@@ -14,7 +14,7 @@ export interface IPipeline {
     build(): Document[];
 }
 
-class Pipeline implements IPipeline {
+class NoSqlPipeline implements IPipeline {
     private pipeline: Document[];
 
     constructor(pipeline: Document[] | null = null) {
@@ -25,17 +25,17 @@ class Pipeline implements IPipeline {
         }
     }
 
-    addStage(stage: Document): Pipeline {
+    addStage(stage: Document): NoSqlPipeline {
         this.pipeline.push(stage);
         return this;
     }
 
-    addStages(stages: Document[]): Pipeline {
+    addStages(stages: Document[]): NoSqlPipeline {
         this.pipeline = this.pipeline.concat(stages);
         return this;
     }
 
-    addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): Pipeline {
+    addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): NoSqlPipeline {
         const matchDocument = buildMongoMatchFromQueryOptions(queryOptions, modelSpec);
         if (matchDocument) {
             this.pipeline.push(matchDocument);
@@ -43,7 +43,7 @@ class Pipeline implements IPipeline {
         return this;
     }
 
-    addOperations(operations: Operation[]): Pipeline {
+    addOperations(operations: Operation[]): NoSqlPipeline {
         const operationsDocuments = convertOperationsToPipeline(operations);
         if (operationsDocuments.length > 0) {
             this.pipeline = this.pipeline.concat(operationsDocuments);
@@ -51,7 +51,7 @@ class Pipeline implements IPipeline {
         return this;
     }
 
-    addPagination(queryOptions: IQueryOptions): Pipeline {
+    addPagination(queryOptions: IQueryOptions): NoSqlPipeline {
         const paginationDocuments = buildPaginationPipeline(queryOptions);
         this.pipeline = this.pipeline.concat(paginationDocuments);
         return this;
@@ -62,4 +62,4 @@ class Pipeline implements IPipeline {
     }
 }
 
-export default Pipeline;
+export default NoSqlPipeline;
