@@ -16,4 +16,6 @@ export interface IDatabase {
   update<T>(queryObject: any, entity: Partial<any>, operations: Operation[]): Promise<T[]>;
   deleteById(operations: Operation[], id: string): Promise<{ acknowledged: boolean; deletedCount: number }>;
   deleteMany(queryObject: any, operations: Operation[]): Promise<{ acknowledged: boolean; deletedCount: number }>;
+  find<T>(queryObject: any, operations: Operation[], options?: any): Promise<T[]>;
+  findOne<T>(queryObject: any, operations: Operation[], options?: any): Promise<T | null>;
 }
