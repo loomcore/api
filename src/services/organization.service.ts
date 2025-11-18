@@ -3,6 +3,7 @@ import _ from 'lodash';
 
 import { GenericApiService2 } from './generic-api.service-v2.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
+import { NotFoundError } from '../errors/index.js';
 
 export class OrganizationService extends GenericApiService2<IOrganization> {
 	constructor(db: Db) {
@@ -15,16 +16,20 @@ export class OrganizationService extends GenericApiService2<IOrganization> {
 		return org ? org.authToken : null;
 	}
 
-	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string) {
+	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<string | null> {
 		// this is used to auth content-api calls - the orgCode is used in the api call hostname
 		const org = await this.findOne(userContext, { code: orgCode });
+
+		if (!org) {
+			return null;
+		}
 
 		const orgId = org.authToken === authToken ? org._id.toString() : null;
 
 		return orgId;
 	}
 
-	async getMetaOrg(userContext: IUserContext): Promise<IOrganization> {
+	async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
 		const org = await this.findOne(userContext, { isMetaOrg: true });
 		return org;
 	}

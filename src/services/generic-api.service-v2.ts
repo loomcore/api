@@ -15,6 +15,7 @@ import { auditForCreate } from './utils/auditForCreate.js';
 import { auditForUpdate } from './utils/auditForUpdate.js';
 import { BadRequestError, IdNotFoundError, NotFoundError } from '../errors/index.js';
 import { convertStringsToObjectIds } from '../utils/mongo/convertStringsToObjectIds.js';
+import { convertQueryObjectIds } from '../utils/mongo/convertQueryObjectIds.js';
 
 export class GenericApiService2<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -77,8 +78,9 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
   protected prepareQueryObject(userContext: IUserContext | undefined, queryObject: any): any {
     return queryObject;
   }
-
-  transformList(list: T[]): T[] {
+  
+  transformList<T>(list: T[]): T[];
+  transformList(list: (T | null)[]): (T | null)[] {
     if (!list) return [];
 
     // Map each item through transformSingle instead of using forEach
@@ -90,7 +92,8 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
    * @param single Entity retrieved from database
    * @returns Transformed entity
    */
-  transformSingle(single: T): T {
+  transformSingle<T>(single: T): T;
+  transformSingle(single: T | null): T | null {
     if (!single) return single;
     return this.database.transformSingle(single, this.modelSpec);
   }
@@ -410,7 +413,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
 
     // Convert string IDs in query object to ObjectIds if needed
     // This is a simplified conversion - for complex queries, this might need enhancement
-    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+    const convertedQuery = convertQueryObjectIds(preparedQuery);
 
     // Allow derived classes to provide operations to the request
     const operations = this.prepareQuery(userContext, []);
@@ -429,52 +432,6 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     return updatedEntities;
   }
 
-  /**
-   * Converts string IDs in a query object to ObjectIds where appropriate.
-   * This is a helper method for preparing query objects.
-   * @param queryObject The query object to convert
-   * @returns The query object with string IDs converted to ObjectIds
-   */
-  protected convertQueryObjectIds(queryObject: any): any {
-    if (!queryObject || typeof queryObject !== 'object') {
-      return queryObject;
-    }
-
-    const converted: any = {};
-
-    for (const [key, value] of Object.entries(queryObject)) {
-      if (key === '_id' && typeof value === 'string' && entityUtils.isValidObjectId(value)) {
-        converted[key] = new ObjectId(value);
-      } else if (key === '_id' && value && typeof value === 'object') {
-        // Handle _id with operators like $in, $ne, etc.
-        const convertedId: any = {};
-        for (const [op, opValue] of Object.entries(value as any)) {
-          if (op === '$in' && Array.isArray(opValue)) {
-            convertedId[op] = opValue.map((v: any) => 
-              typeof v === 'string' && entityUtils.isValidObjectId(v) 
-                ? new ObjectId(v) 
-                : v
-            );
-          } else if (typeof opValue === 'string' && entityUtils.isValidObjectId(opValue)) {
-            convertedId[op] = new ObjectId(opValue);
-          } else {
-            convertedId[op] = opValue;
-          }
-        }
-        converted[key] = convertedId;
-      } else if (key.endsWith('Id') && typeof value === 'string' && entityUtils.isValidObjectId(value)) {
-        // Convert fields ending with 'Id' to ObjectId if they're valid ObjectId strings
-        converted[key] = new ObjectId(value);
-      } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
-        // Recursively convert nested objects
-        converted[key] = this.convertQueryObjectIds(value);
-      } else {
-        converted[key] = value;
-      }
-    }
-
-    return converted;
-  }
   async deleteById(userContext: IUserContext, id: string): Promise<DeleteResult> {
     if (!entityUtils.isValidObjectId(id)) {
       throw new BadRequestError('id is not a valid ObjectId');
@@ -511,7 +468,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const preparedQuery = this.prepareQueryObject(userContext, queryObject);
 
     // Convert string IDs in query object to ObjectIds if needed
-    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+    const convertedQuery = convertQueryObjectIds(preparedQuery);
 
     // Call onBeforeDelete hook
     await this.onBeforeDelete(userContext, convertedQuery);
@@ -535,7 +492,7 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     const preparedQuery = this.prepareQueryObject(userContext, mongoQueryObject);
 
     // Convert string IDs in query object to ObjectIds if needed
-    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+    const convertedQuery = convertQueryObjectIds(preparedQuery);
 
     // Allow derived classes to provide operations to the request
     const operations = this.prepareQuery(userContext, []);
@@ -546,22 +503,18 @@ export class GenericApiService2<T extends IEntity> implements IGenericApiService
     // Transform the entities
     return this.transformList(rawEntities);
   }
-  async findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T> {
+  async findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T | null> {
     // Prepare the query object (allow subclasses to modify, e.g. add tenant filtering)
     const preparedQuery = this.prepareQueryObject(userContext, mongoQueryObject);
 
     // Convert string IDs in query object to ObjectIds if needed
-    const convertedQuery = this.convertQueryObjectIds(preparedQuery);
+    const convertedQuery = convertQueryObjectIds(preparedQuery);
 
     // Allow derived classes to provide operations to the request
     const operations = this.prepareQuery(userContext, []);
 
     // Perform findOne through database
     const rawEntity = await this.database.findOne<T>(convertedQuery, operations, options);
-
-    if (!rawEntity) {
-      throw new NotFoundError('Entity not found');
-    }
 
     // Transform the entity
     return this.transformSingle(rawEntity);

@@ -3196,8 +3196,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity.isActive).toBe(true);
-      expect(['Entity 1', 'Entity 2']).toContain(foundEntity.name);
+      expect(foundEntity?.isActive).toBe(true);
+      expect(['Entity 1', 'Entity 2']).toContain(foundEntity?.name);
     });
 
     it('should find one entity by _id', async () => {
@@ -3221,8 +3221,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity._id).toBe(createdEntity._id);
-      expect(foundEntity.name).toBe('Entity to find');
+      expect(foundEntity?._id).toBe(createdEntity._id);
+      expect(foundEntity?.name).toBe('Entity to find');
     });
 
     it('should find one entity matching query with multiple conditions', async () => {
@@ -3244,9 +3244,9 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity.isActive).toBe(true);
-      expect(foundEntity.count).toBe(20);
-      expect(foundEntity.name).toBe('Entity 2');
+      expect(foundEntity?.isActive).toBe(true);
+      expect(foundEntity?.count).toBe(20);
+      expect(foundEntity?.name).toBe('Entity 2');
     });
 
     it('should throw NotFoundError when no entity matches the query', async () => {
@@ -3262,9 +3262,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Act & Assert - Find entity that doesn't exist
       const queryObject = { name: 'Non-existent Entity' };
-      await expect(
-        service.findOne(userContext, queryObject)
-      ).rejects.toThrow(NotFoundError);
+      const entity = await service.findOne(userContext, queryObject);
+      expect(entity).toBeNull();
     });
 
     it('should transform entity ID from ObjectId to string in findOne result', async () => {
@@ -3287,9 +3286,9 @@ describe('GenericApiService2 - Integration Tests', () => {
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
-      expect(foundEntity._id).toBeDefined();
-      expect(typeof foundEntity._id).toBe('string');
-      expect(foundEntity._id).toBe(createdEntity._id);
+      expect(foundEntity?._id).toBeDefined();
+      expect(typeof foundEntity?._id).toBe('string');
+      expect(foundEntity?._id).toBe(createdEntity._id);
     });
 
     it('should find one entity with count condition', async () => {
@@ -3310,8 +3309,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect((foundEntity.count || 0) >= 20).toBe(true);
-      expect(['Entity 2', 'Entity 3']).toContain(foundEntity.name);
+      expect((foundEntity?.count || 0) >= 20).toBe(true);
+      expect(['Entity 2', 'Entity 3']).toContain(foundEntity?.name);
     });
 
     it('should find one entity with string field condition', async () => {
@@ -3332,8 +3331,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity.description).toBe('First');
-      expect(['Entity A', 'Entity C']).toContain(foundEntity.name);
+      expect(foundEntity?.description).toBe('First');
+      expect(['Entity A', 'Entity C']).toContain(foundEntity?.name);
     });
 
     it('should find one entity with boolean field condition', async () => {
@@ -3354,8 +3353,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity.isActive).toBe(false);
-      expect(foundEntity.name).toBe('Entity 2');
+      expect(foundEntity?.isActive).toBe(false);
+      expect(foundEntity?.name).toBe('Entity 2');
     });
 
     it('should handle findOne with options parameter', async () => {
@@ -3377,8 +3376,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity.count).toBe(30);
-      expect(foundEntity.name).toBe('Entity 3');
+      expect(foundEntity?.count).toBe(30);
+      expect(foundEntity?.name).toBe('Entity 3');
     });
 
     it('should find one entity when multiple entities match but only first is returned', async () => {
@@ -3399,8 +3398,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity.isActive).toBe(true);
-      expect(['Entity 1', 'Entity 2', 'Entity 3']).toContain(foundEntity.name);
+      expect(foundEntity?.isActive).toBe(true);
+      expect(['Entity 1', 'Entity 2', 'Entity 3']).toContain(foundEntity?.name);
     });
 
     it('should find one entity by _id using string ID', async () => {
@@ -3424,8 +3423,8 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Assert
       expect(foundEntity).toBeDefined();
-      expect(foundEntity._id).toBe(createdEntity._id);
-      expect(foundEntity.name).toBe('Entity to find');
+      expect(foundEntity?._id).toBe(createdEntity._id);
+      expect(foundEntity?.name).toBe('Entity to find');
     });
   });
 }); 
