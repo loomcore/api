@@ -179,15 +179,16 @@ describe('OrganizationService - Integration Tests', () => {
       expect(result).toBeNull();
     });
 
-    it('should throw NotFoundError when organization with code does not exist', async () => {
+    it('should return null when organization with code does not exist', async () => {
       // Arrange
       const nonExistentCode = 'non-existent-code';
       const authToken = 'some-auth-token';
 
-      // Act & Assert
-      await expect(
-        service.validateRepoAuthToken(testUserContext, nonExistentCode, authToken)
-      ).rejects.toThrow(NotFoundError);
+      // Act
+      const result = await service.validateRepoAuthToken(testUserContext, nonExistentCode, authToken);
+
+      // Assert
+      expect(result).toBeNull();
     });
 
     it('should handle case where organization exists but has no authToken', async () => {
@@ -237,7 +238,7 @@ describe('OrganizationService - Integration Tests', () => {
       expect(result!._id).toBe(createdOrg._id);
     });
 
-    it('should throw NotFoundError when meta organization does not exist', async () => {
+    it('should return null when meta organization does not exist', async () => {
       // Arrange
       // Create a regular organization (not meta)
       const regularOrgData: Partial<IOrganization> = {
@@ -250,9 +251,8 @@ describe('OrganizationService - Integration Tests', () => {
       await service.create(testUserContext, preparedOrg);
 
       // Act & Assert
-      await expect(
-        service.getMetaOrg(testUserContext)
-      ).rejects.toThrow(NotFoundError);
+      const result = await service.getMetaOrg(testUserContext);
+      expect(result).toBeNull();
     });
 
     it('should return the correct meta organization when multiple organizations exist', async () => {

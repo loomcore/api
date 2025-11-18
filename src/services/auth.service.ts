@@ -5,14 +5,14 @@ import crypto from 'crypto';
 import {IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext} from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
-import {BadRequestError, DuplicateKeyError, ServerError} from '../errors/index.js';
+import {BadRequestError, ServerError, NotFoundError} from '../errors/index.js';
 import {JwtService, EmailService} from './index.js';
-import {GenericApiService} from './generic-api.service.js';
+import { GenericApiService2 } from './generic-api.service-v2.js';
 import {PasswordResetTokenService} from './password-reset-token.service.js';
-import {conversionUtils, passwordUtils} from '../utils/index.js';
+import { passwordUtils} from '../utils/index.js';
 import {config} from '../config/index.js';
 
-export class AuthService extends GenericApiService<IUser> {
+export class AuthService extends GenericApiService2<IUser> {
 	private refreshTokensCollection: Collection;
 	private passwordResetTokenService: PasswordResetTokenService;
 	private emailService: EmailService;
@@ -165,8 +165,8 @@ export class AuthService extends GenericApiService<IUser> {
 
 	async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
 		// queryObject will either be {_id: someUserId} for loggedInUser change or {email: someEmail} from forgotPassword
-		const hashedPassword = await passwordUtils.hashPassword(password);
-		const updates = { password: hashedPassword, _lastPasswordChange: moment().utc().toDate() };
+		// Note: We pass the plain password here - prepareEntity will hash it
+		const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
 		const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
 
 		const result: UpdateResult = {
@@ -407,14 +407,6 @@ export class AuthService extends GenericApiService<IUser> {
 		
 		const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
 		return preparedEntity;
-	}
-	
-	override transformList(users: IUser[]) {
-		return super.transformList(users);
-	}
-
-	override transformSingle(user: IUser) {
-		return super.transformSingle(user);
 	}
 
 	/**

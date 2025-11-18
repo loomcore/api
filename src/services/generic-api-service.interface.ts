@@ -31,5 +31,5 @@ export interface IGenericApiService<T extends IEntity> {
   deleteById(userContext: IUserContext, id: string): Promise<DeleteResult>;
   deleteMany(userContext: IUserContext, queryObject: any): Promise<DeleteResult>;
   find(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T[]>;
-  findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T>;
+  findOne(userContext: IUserContext, mongoQueryObject: any, options?: any): Promise<T | null>;
 }
