@@ -1,6 +1,5 @@
 export * from './auth.service.js';
 export * from './email.service.js';
-export * from './generic-api-service/generic-api.service.js';
 export * from './generic-api-service/generic-api-service.interface.js';
 export * from './jwt.service.js';
 export * from './multi-tenant-api.service.js';

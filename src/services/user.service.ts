@@ -1,14 +1,13 @@
-import {Db} from 'mongodb';
 import {Value} from '@sinclair/typebox/value';
-
 import {IUser, IUserContext, UserSpec, PublicUserSchema} from '@loomcore/common/models';
 import {MultiTenantApiService} from '../services/index.js';
 import {ServerError} from '../errors/index.js';
+import { Database } from '../databases/database.js';
 
 
 export class UserService extends MultiTenantApiService<IUser> {
-  constructor(db: Db) {
-    super(db, 'users', 'user', UserSpec);
+  constructor(database: Database) {
+    super(database, 'users', 'user', UserSpec);
   }
 
 	// Can't full update a User. You can create, partial update, or explicitly change the password.
@@ -16,9 +15,9 @@ export class UserService extends MultiTenantApiService<IUser> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 
-	override async prepareEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
+	override async preprocessEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
 		// First, let the base class do its preparation
-		const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
+		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate);
 		
 		if (preparedEntity.email) {
 			preparedEntity.email = preparedEntity.email.toLowerCase();

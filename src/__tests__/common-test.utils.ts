@@ -1,4 +1,4 @@
-import { Collection, Db, ObjectId } from 'mongodb';
+import { Db, ObjectId } from 'mongodb';
 import { Request, Response, Application, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -321,12 +321,12 @@ export class ProductService extends GenericApiService<IProduct> {
     return super.prepareQuery(userContext, queryObject, newOperations);
   }
 
-  override processEntity(userContext: IUserContext, single: any): any {
+  override postprocessEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
       const categoryService = new CategoryService(db);
-      single.category = categoryService.processEntity(userContext, single.category);
+      single.category = categoryService.postprocessEntity(userContext, single.category);
     }
-    return super.processEntity(userContext, single);
+    return super.postprocessEntity(userContext, single);
   }
 }
 
@@ -368,12 +368,12 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
     return super.prepareQuery(userContext, queryObject, newOperations);
   }
 
-  override processEntity(userContext: IUserContext, single: any): any {
+  override postprocessEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
       const categoryService = new CategoryService(db);
-      single.category = categoryService.processEntity(userContext, single.category);
+      single.category = categoryService.postprocessEntity(userContext, single.category);
     }
-    return super.processEntity(userContext, single);
+    return super.postprocessEntity(userContext, single);
   }
 }
 

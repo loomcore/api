@@ -6,6 +6,7 @@ import { BadRequestError } from '../errors/bad-request.error.js';
 import { config } from '../config/base-api-config.js';
 import { Operation } from '../databases/operations/operation.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { Database } from '../databases/database.js';
 
 /**
  * Decorates the GenericApiService with multi-tenancy behavior.
@@ -16,12 +17,12 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
   private tenantDecorator?: TenantQueryDecorator;
   
   constructor(
-    db: Db, 
+    database: Database, 
     pluralResourceName: string, 
     singularResourceName: string,
     modelSpec: IModelSpec
   ) {
-    super(db, pluralResourceName, singularResourceName, modelSpec);
+    super(database, pluralResourceName, singularResourceName, modelSpec);
     if (config?.app?.isMultiTenant) {
       this.tenantDecorator = new TenantQueryDecorator();
     }
@@ -52,16 +53,16 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the individual entity preparation hook to add tenant ID
    * This will be called for both create and update operations
    */
-  override async prepareEntity<U extends T | Partial<T>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
+  override async preprocessEntity<U extends T | Partial<T>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
     if (!config?.app?.isMultiTenant) {
-      return super.prepareEntity(userContext, entity, isCreate, allowId);
+      return super.preprocessEntity(userContext, entity, isCreate, allowId);
     }
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareEntity');
     }
     
     // First call the base class implementation to handle standard entity preparation
-    const preparedEntity = await super.prepareEntity(userContext, entity, isCreate, allowId);
+    const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
     
     // Then apply tenant ID
     const orgIdField = this.tenantDecorator!.getOrgIdField();

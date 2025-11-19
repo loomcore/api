@@ -1,11 +1,11 @@
 import crypto from 'crypto';
 import {EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec} from '@loomcore/common/models';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
-import { Db } from 'mongodb';
+import { Database } from '../databases/database.js';
 
 export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
-	constructor(db: Db) {
-		super(db, 'passwordResetTokens', 'passwordResetToken', PasswordResetTokenSpec);
+	constructor(database: Database) {
+		super(database, 'passwordResetTokens', 'passwordResetToken', PasswordResetTokenSpec);
 	}
 
 	async createPasswordResetToken(email: string, expiresOn: number): Promise<IPasswordResetToken | null> {

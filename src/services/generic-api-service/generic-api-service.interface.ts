@@ -9,13 +9,13 @@ export interface IGenericApiService<T extends IEntity> {
   
   prepareQuery(userContext: IUserContext | undefined, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] };
 
-  prepareEntity(userContext: IUserContext, entity: T, isCreate: boolean, allowId: boolean): Promise<T>;
-  prepareEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean): Promise<Partial<T>>;
-  prepareEntities(userContext: IUserContext, entities: T[], isCreate: boolean, allowId: boolean): Promise<T[]>;
-  prepareEntities(userContext: IUserContext, entities: Partial<T>[], isCreate: boolean, allowId: boolean): Promise<Partial<T>[]>;
+  preprocessEntity(userContext: IUserContext, entity: T, isCreate: boolean, allowId: boolean): Promise<T>;
+  preprocessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean): Promise<Partial<T>>;
+  preprocessEntities(userContext: IUserContext, entities: T[], isCreate: boolean, allowId: boolean): Promise<T[]>;
+  preprocessEntities(userContext: IUserContext, entities: Partial<T>[], isCreate: boolean, allowId: boolean): Promise<Partial<T>[]>;
   
-  processEntity(userContext: IUserContext, entity: T): T;
-  processEntities(userContext: IUserContext, entities: T[]): T[];
+  postprocessEntity(userContext: IUserContext, entity: T): T;
+  postprocessEntities(userContext: IUserContext, entities: T[]): T[];
 
   getAll(userContext: IUserContext): Promise<T[]>;
   get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;

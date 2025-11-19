@@ -493,7 +493,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareEntity(userContext, entityWithExtraProps, true);
+        const preparedEntity = await service.preprocessEntity(userContext, entityWithExtraProps, true);
         
         // Assert
         expect(preparedEntity.name).toBe('Entity with extra props');
@@ -514,7 +514,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareEntity(userContext, validEntity, true);
+        const preparedEntity = await service.preprocessEntity(userContext, validEntity, true);
         
         // Assert
         expect(preparedEntity.name).toBe(validEntity.name);
@@ -531,7 +531,7 @@ describe('GenericApiService - Integration Tests', () => {
         const entity = { name: 'AuditTest' };
         
         // Act
-        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(testUserContext, entity, true);
+        const preparedEntity = await service.preprocessEntity<Partial<TestEntity>>(testUserContext, entity, true);
         
         // Assert
         expect(preparedEntity._created).toBeDefined();
@@ -554,7 +554,7 @@ describe('GenericApiService - Integration Tests', () => {
         const entity = { name: 'NonAuditTest' };
         
         // Act
-        const preparedEntity = await nonAuditableService.prepareEntity<Partial<TestEntity>>(testUserContext, entity, true);
+        const preparedEntity = await nonAuditableService.preprocessEntity<Partial<TestEntity>>(testUserContext, entity, true);
         
         // Assert
         expect((preparedEntity as any)._created).toBeUndefined();
@@ -580,7 +580,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(updaterUserContext, updateData, false);
+        const preparedEntity = await service.preprocessEntity<Partial<TestEntity>>(updaterUserContext, updateData, false);
         
         // Assert
         expect(preparedEntity._updated).toBeDefined();
@@ -602,7 +602,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(testUserContext, entityWithHackedAudit, true);
+        const preparedEntity = await service.preprocessEntity<Partial<TestEntity>>(testUserContext, entityWithHackedAudit, true);
         
         // Assert
         expect(preparedEntity._created).not.toEqual(hackDate);
@@ -624,7 +624,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(testUserContext, tamperedUpdate, false);
+        const preparedEntity = await service.preprocessEntity<Partial<TestEntity>>(testUserContext, tamperedUpdate, false);
         
         // Assert
         expect(preparedEntity.name).toBe('Updated Name'); // Valid property preserved
@@ -639,7 +639,7 @@ describe('GenericApiService - Integration Tests', () => {
         const updateData = { name: 'System Updated' };
         
         // Act
-        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(EmptyUserContext, updateData, false);
+        const preparedEntity = await service.preprocessEntity<Partial<TestEntity>>(EmptyUserContext, updateData, false);
         
         // Assert
         expect(preparedEntity._updated).toBeDefined();
@@ -675,7 +675,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await dateService.prepareEntity<any>(userContext, entityWithDateString, true);
+        const preparedEntity = await dateService.preprocessEntity<any>(userContext, entityWithDateString, true);
         
         // Assert
         expect(preparedEntity.eventDate instanceof Date).toBe(true);
@@ -705,7 +705,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await objectIdService.prepareEntity<any>(userContext, stringIdEntity, true);
+        const preparedEntity = await objectIdService.preprocessEntity<any>(userContext, stringIdEntity, true);
         
         // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
         expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -760,7 +760,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await complexService.prepareEntity<any>(userContext, complexJsonEntity, true);
+        const preparedEntity = await complexService.preprocessEntity<any>(userContext, complexJsonEntity, true);
         
         // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
         expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);

@@ -1,7 +1,6 @@
-import { IQueryOptions } from "@loomcore/common/models";
 import { Document } from "mongodb";
 
-export function buildPaginationPipeline(pipeline: Document[]): Document[] {
+export function buildNoSqlPaginationPipeline(pipeline: Document[]): Document[] {
     return [
         { 
             $facet: { 

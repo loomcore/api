@@ -1,13 +1,12 @@
-import {Db, DeleteResult, Document, FindOptions, ObjectId} from 'mongodb';
 import _ from 'lodash';
 
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
-import { NotFoundError } from '../errors/index.js';
+import { Database } from '../databases/database.js';
 
 export class OrganizationService extends GenericApiService<IOrganization> {
-	constructor(db: Db) {
-		super(db, 'organizations', 'organization', OrganizationSpec);
+	constructor(database: Database) {
+		super(database, 'organizations', 'organization', OrganizationSpec);
 	}
 
 	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string) {
