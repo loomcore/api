@@ -1,4 +1,4 @@
-import {Db, InsertOneResult, AnyError, ObjectId, Collection, UpdateResult} from 'mongodb';
+import {Db, ObjectId, Collection, UpdateResult} from 'mongodb';
 import {Request, Response} from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
@@ -17,6 +17,8 @@ export class AuthService extends GenericApiService<IUser> {
 	private passwordResetTokenService: PasswordResetTokenService;
 	private emailService: EmailService;
 
+
+	//TODO: Allow this to use IDatabase instead of Db
 	constructor(db: Db) {
 		super(db, 'users', 'user', UserSpec);
 
@@ -72,7 +74,7 @@ export class AuthService extends GenericApiService<IUser> {
 			this.updateLastLoggedIn(userContext.user._id!)
 				.catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
 			
-			userContext.user = this.processEntity(userContext, userContext.user);
+			userContext.user = this.postprocessEntity(userContext, userContext.user);
 			loginResponse = {tokens: tokenResponse, userContext };
 		}
 
@@ -389,7 +391,7 @@ export class AuthService extends GenericApiService<IUser> {
 		return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
 	}
 
-	override async prepareEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean): Promise<U> {
+	override async preprocessEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean): Promise<U> {
 		if (entity.email) {
 			// lowercase the email
 			entity.email = entity.email!.toLowerCase();
@@ -405,7 +407,7 @@ export class AuthService extends GenericApiService<IUser> {
 			entity.roles = ["user"];
 		}
 		
-		const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
+		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate);
 		return preparedEntity;
 	}
 

@@ -72,16 +72,6 @@ export abstract class ApiController<T extends IEntity> {
 	  app.put(`/api/${this.slug}/:id`, isAuthenticated, this.fullUpdateById.bind(this));
 		app.patch(`/api/${this.slug}/:id`, isAuthenticated, this.partialUpdateById.bind(this));
     app.delete(`/api/${this.slug}/:id`, isAuthenticated, this.deleteById.bind(this));
-    
-    // all of the above, just without the isAuthenticated middleware
-    // app.get(`/api/${this.slug}`, this.get.bind(this));
-	  // app.get(`/api/${this.slug}/all`, this.getAll.bind(this));
-	  // app.get(`/api/${this.slug}/count`, this.getCount.bind(this));
-	  // app.get(`/api/${this.slug}/:id`, this.getById.bind(this));
-	  // app.post(`/api/${this.slug}`, this.create.bind(this));
-	  // app.put(`/api/${this.slug}/:id`, this.fullUpdateById.bind(this));
-		// app.patch(`/api/${this.slug}/:id`, this.partialUpdateById.bind(this));
-    // app.delete(`/api/${this.slug}/:id`, this.deleteById.bind(this));
   }
 
   /**
@@ -138,7 +128,7 @@ export abstract class ApiController<T extends IEntity> {
   async create(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     
-    // Validate and prepare the entity
+    // Validate request body
     this.validate(req.body);
     
     const entity = await this.service.create(req.userContext!, req.body);

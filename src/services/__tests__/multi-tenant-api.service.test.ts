@@ -183,10 +183,10 @@ describe('MultiTenantApiService', () => {
       };
       
       // Get the protected method and bind it to the service instance
-      const prepareEntity = (service as any).prepareEntity.bind(service);
+      const preparedEntity = service.preprocessEntity.bind(service);
       
       // Act
-      const result = await prepareEntity(userContext, entity, true);
+      const result = await preparedEntity(userContext, entity, true);
       
       // Assert
       expect(result).toHaveProperty('_orgId', testOrgId);
@@ -199,10 +199,10 @@ describe('MultiTenantApiService', () => {
       };
       
       // Get the protected method and bind it to the service instance
-      const prepareEntity = (service as any).prepareEntity.bind(service);
+      const preparedEntity = service.preprocessEntity.bind(service);
       
       // Act & Assert
-      await expect(prepareEntity(undefined, entity, true)).rejects.toThrow(BadRequestError);
+      await expect(preparedEntity(undefined as unknown as IUserContext, entity, true)).rejects.toThrow(BadRequestError);
     });
     
     it('should throw BadRequestError if userContext has no orgId', async () => {
@@ -223,10 +223,10 @@ describe('MultiTenantApiService', () => {
       };
       
       // Get the protected method and bind it to the service instance
-      const prepareEntity = (service as any).prepareEntity.bind(service);
+      const preparedEntity = service.preprocessEntity.bind(service);
       
       // Act & Assert
-      await expect(prepareEntity(userContextWithoutOrg, entity, true)).rejects.toThrow(BadRequestError);
+      await expect(preparedEntity(userContextWithoutOrg, entity, true)).rejects.toThrow(BadRequestError);
     });
   });
   
