@@ -6,7 +6,7 @@ import { ObjectId } from 'mongodb';
  * @param value The value to convert
  * @returns ObjectId instance or the original value if conversion not possible
  */
-export function convertStringToObjectId(value: any): ObjectId | any {
+export function convertStringToObjectId(value: any): any {
 	// If it's already an ObjectId, return it
 	if (value instanceof ObjectId) {
 		return value;

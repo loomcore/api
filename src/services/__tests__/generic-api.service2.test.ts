@@ -7,7 +7,7 @@ import { initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { DuplicateKeyError, BadRequestError, IdNotFoundError, NotFoundError } from '../../errors/index.js';
-import { GenericApiService2 } from '../generic-api.service-v2.js';
+import { GenericApiService } from '../generic-api-service/generic-api.service.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -50,11 +50,11 @@ const createUserContext = (): IUserContext => ({
   _orgId: '67e8e19b149f740323af93d7'
 });
 
-describe('GenericApiService2 - Integration Tests', () => {
+describe('GenericApiService - Integration Tests', () => {
   let mongoServer: MongoMemoryServer;
   let mongoClient: MongoClient;
   let db: Db;
-  let service: GenericApiService2<TestEntity>;
+  let service: GenericApiService<TestEntity>;
   let collection: Collection;
   
   // Set up MongoDB Memory Server before all tests
@@ -66,7 +66,7 @@ describe('GenericApiService2 - Integration Tests', () => {
     db = mongoClient.db('test-db');
     
     // Create service with auditable model spec
-    service = new GenericApiService2<TestEntity>(
+    service = new GenericApiService<TestEntity>(
       db,
       'testEntities',
       'testEntity',
@@ -110,7 +110,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
 
       // Act
       const createdEntity = await service.create(userContext, preparedEntity);
@@ -131,7 +131,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true } as TestEntity
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true, true);
       // Act
       const createdEntities = await service.createMany(userContext, preparedEntities);
 
@@ -148,7 +148,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'This is a test entity',
         isActive: true
       };
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
 
       if (!createdEntity) {
@@ -170,7 +170,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       ];
       
       // Prepare entities before creating
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       
       // Act
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
@@ -206,7 +206,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       ];
       
       // Prepare entities before creating
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       
       // Act
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
@@ -243,7 +243,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -272,7 +272,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 42
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -299,7 +299,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for ID transformation test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -326,8 +326,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', description: 'Third entity' }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
-      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities);
       
       if (createdEntities.length < 2 || !createdEntities[1]._id) {
         throw new Error('Entities not created properly');
@@ -352,7 +352,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity with audit fields'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -432,7 +432,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity to be deleted'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -494,7 +494,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       ];
       
       // Prepare entities before creating
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       
       // Act & Assert
       await expect(
@@ -517,7 +517,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       ];
       
       // Prepare entities before creating
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       
       // Act & Assert
       await expect(
@@ -656,7 +656,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity E', tags: ['tag1', 'tag4'], count: 50, isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
     });
 
@@ -934,8 +934,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Count Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
-      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities);
       
       // Act
       const count = await service.getCount(userContext);
@@ -955,8 +955,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Count Match Entity 5' }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
-      await service.createMany(userContext, preparedEntities as TestEntity[]);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
+      await service.createMany(userContext, preparedEntities);
       
       // Act
       const count = await service.getCount(userContext);
@@ -975,7 +975,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Single Count Entity'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       await service.create(userContext, preparedEntity);
       
       // Act
@@ -995,7 +995,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Create first entity
       const entity1: Partial<TestEntity> = { name: 'Entity 1' };
-      const prepared1 = await service.prepareDataForDb(userContext, entity1, true);
+      const prepared1 = await service.prepareEntity(userContext, entity1, true);
       await service.create(userContext, prepared1);
       
       count = await service.getCount(userContext);
@@ -1003,7 +1003,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       
       // Create second entity
       const entity2: Partial<TestEntity> = { name: 'Entity 2' };
-      const prepared2 = await service.prepareDataForDb(userContext, entity2, true);
+      const prepared2 = await service.prepareEntity(userContext, entity2, true);
       await service.create(userContext, prepared2);
       
       count = await service.getCount(userContext);
@@ -1015,7 +1015,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4' },
         { name: 'Entity 5' }
       ];
-      const preparedEntities = await service.prepareDataForDb(userContext, entities, true);
+      const preparedEntities = await service.prepareEntities(userContext, entities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Final count should be 5
@@ -1036,7 +1036,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', description: 'Original description 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Prepare update entities with IDs
@@ -1046,11 +1046,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         { _id: createdEntities[2]._id, description: 'Updated description 3', count: 100 }
       ];
       
-      // Prepare entities for batch update
-      const preparedUpdates = await service.prepareDataForBatchUpdate(userContext, updateEntities);
-      
       // Act
-      const updatedEntities = await service.batchUpdate(userContext, preparedUpdates);
+      const updatedEntities = await service.batchUpdate(userContext, updateEntities);
       
       // Assert
       expect(updatedEntities).toHaveLength(3);
@@ -1090,7 +1087,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Original description'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1109,11 +1106,9 @@ describe('GenericApiService2 - Integration Tests', () => {
         _id: createdEntity._id,
         description: 'Updated description'
       };
-      
-      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
-      
+            
       // Act
-      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      const updatedEntities = await service.batchUpdate(userContext, [updateEntity]);
       
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1138,7 +1133,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 42
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1150,11 +1145,9 @@ describe('GenericApiService2 - Integration Tests', () => {
         _id: createdEntity._id,
         description: 'Updated description only'
       };
-      
-      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
-      
+
       // Act
-      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      const updatedEntities = await service.batchUpdate(userContext, [updateEntity]);
       
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1174,7 +1167,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for ID transformation test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1187,10 +1180,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       };
       
-      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
-      
       // Act
-      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      const updatedEntities = await service.batchUpdate(userContext, [updateEntity]);
       
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1210,7 +1201,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity C', isActive: true, count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Prepare updates with different field combinations
@@ -1219,11 +1210,9 @@ describe('GenericApiService2 - Integration Tests', () => {
         { _id: createdEntities[1]._id, count: 25, tags: ['new', 'tags'] }, // Update count and add tags
         { _id: createdEntities[2]._id, name: 'Entity C Updated', description: 'New description' } // Update name and description
       ];
-      
-      const preparedUpdates = await service.prepareDataForBatchUpdate(userContext, updateEntities);
-      
+            
       // Act
-      const updatedEntities = await service.batchUpdate(userContext, preparedUpdates);
+      const updatedEntities = await service.batchUpdate(userContext, updateEntities);
       
       // Assert
       expect(updatedEntities).toHaveLength(3);
@@ -1253,7 +1242,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Original'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1265,11 +1254,9 @@ describe('GenericApiService2 - Integration Tests', () => {
         _id: createdEntity._id,
         description: 'Updated via batch'
       };
-      
-      const preparedUpdate = await service.prepareDataForBatchUpdate(userContext, [updateEntity]);
-      
+            
       // Act
-      const updatedEntities = await service.batchUpdate(userContext, preparedUpdate);
+      const updatedEntities = await service.batchUpdate(userContext, [updateEntity]);
       
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1291,7 +1278,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 10
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1307,7 +1294,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 20
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         userContext,
         createdEntity._id,
@@ -1332,7 +1319,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Original description'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1352,7 +1339,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         userContext,
         createdEntity._id,
@@ -1376,7 +1363,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for audit update test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1394,7 +1381,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Updated Name'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         userContext,
         createdEntity._id,
@@ -1430,7 +1417,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Updated Name'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       
       // Act & Assert
       await expect(
@@ -1449,7 +1436,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 100
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1465,7 +1452,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 200
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         userContext,
         createdEntity._id,
@@ -1487,7 +1474,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for ID transformation test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1499,7 +1486,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Updated Name'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         userContext,
         createdEntity._id,
@@ -1521,7 +1508,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1533,7 +1520,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Minimal Update'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         userContext,
         createdEntity._id,
@@ -1560,7 +1547,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 10
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1573,7 +1560,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1602,7 +1589,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 100
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1614,7 +1601,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description only'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1637,7 +1624,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Original description'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1656,7 +1643,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1680,7 +1667,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for audit update test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1698,7 +1685,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'New description'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1734,7 +1721,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Updated Name'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       
       // Act & Assert
       await expect(
@@ -1752,7 +1739,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 10
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1767,7 +1754,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         tags: ['newtag']
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1790,7 +1777,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for ID transformation test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1802,7 +1789,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1824,7 +1811,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1836,7 +1823,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: false
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1857,7 +1844,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         tags: ['tag1', 'tag2']
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1869,7 +1856,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         tags: ['tag3', 'tag4', 'tag5']
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateById(
         userContext,
         createdEntity._id,
@@ -1894,7 +1881,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 10
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1907,7 +1894,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -1935,7 +1922,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 100
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1947,7 +1934,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'New description'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -1968,7 +1955,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for audit update test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -1986,7 +1973,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'New description'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -2022,7 +2009,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Updated Name'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       
       // Act & Assert
       await expect(
@@ -2037,7 +2024,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for ID transformation test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2049,7 +2036,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -2072,7 +2059,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 5
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2086,7 +2073,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         count: 15
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -2108,7 +2095,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         tags: ['tag1', 'tag2']
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2120,7 +2107,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         tags: ['tag3', 'tag4', 'tag5']
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -2141,7 +2128,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2153,7 +2140,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Minimal Update'
       } as TestEntity;
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
         userContext,
         createdEntity._id,
@@ -2177,7 +2164,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: false, count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Update all active entities
@@ -2185,8 +2172,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description for active entities'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
-      const queryObject = { isActive: true };
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
+      const queryObject = { filters: { isActive: { eq: true } } };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
       // Assert
@@ -2211,7 +2198,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, initialEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, initialEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2223,7 +2210,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated via query'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const queryObject = { _id: createdEntity._id };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
@@ -2243,7 +2230,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity B', description: 'Original B', isActive: true, count: 200 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Update only description field (doesn't affect the query)
@@ -2251,7 +2238,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const queryObject = { isActive: true };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
@@ -2282,7 +2269,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       const originalUpdated1 = createdEntities[0]._updated;
@@ -2296,7 +2283,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated description'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const queryObject = { isActive: true };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
@@ -2319,7 +2306,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'This should not update anything'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const queryObject = { name: 'Non-existent Entity' };
       
       // Act & Assert
@@ -2338,7 +2325,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Update entities that are active AND have count >= 20
@@ -2346,8 +2333,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated for active entities with count >= 20'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
-      const queryObject = { isActive: true, count: { $gte: 20 } };
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
+      const queryObject = { filters: { isActive: { eq: true }, count: { gte: 20 } } };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
       // Assert
@@ -2367,7 +2354,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act
@@ -2375,7 +2362,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const queryObject = { isActive: true };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
@@ -2396,7 +2383,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Update specific entities by _id using $in
@@ -2404,9 +2391,9 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated via $in query'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
-      const queryObject = { _id: { $in: targetIds } };
+      const queryObject = { filters: { _id: { in: targetIds } } };
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
       // Assert
@@ -2428,7 +2415,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, initialEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, initialEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Update all entities (empty query matches all)
@@ -2436,7 +2423,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         description: 'Updated all entities'
       };
       
-      const preparedUpdate = await service.prepareDataForDb(userContext, updateEntity, false);
+      const preparedUpdate = await service.prepareEntity(userContext, updateEntity, false);
       const queryObject = {};
       const updatedEntities = await service.update(userContext, queryObject, preparedUpdate);
       
@@ -2458,7 +2445,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2509,7 +2496,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2543,7 +2530,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Verify initial count
@@ -2575,8 +2562,8 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity C', description: 'Third entity' }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
-      const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
+      const createdEntities = await service.createMany(userContext, preparedEntities);
       
       if (!createdEntities[1] || !createdEntities[1]._id) {
         throw new Error('Entity not created or missing ID');
@@ -2610,7 +2597,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for delete test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2635,7 +2622,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         name: 'Entity for DeleteResult test'
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2666,7 +2653,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Verify initial count
@@ -2674,7 +2661,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(initialCount).toBe(3);
       
       // Act - Delete all active entities
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2701,7 +2688,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Verify initial count
@@ -2709,7 +2696,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(initialCount).toBe(3);
       
       // Act - Delete all entities (empty query matches all)
-      const queryObject = {};
+      const queryObject: IQueryOptions = { filters: {} };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2734,11 +2721,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Delete entities that are active AND have count >= 20
-      const queryObject = { isActive: true, count: { $gte: 20 } };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true }, count: { gte: 20 } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2766,13 +2753,13 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
       
       // Act - Delete specific entities by _id using $in
-      const queryObject = { _id: { $in: targetIds } };
+      const queryObject: IQueryOptions = { filters: { _id: { in: targetIds } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2792,11 +2779,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Delete entities that don't exist
-      const queryObject = { name: 'Non-existent Entity' };
+      const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2817,7 +2804,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity C', description: 'Third', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Verify entities exist before deletion
@@ -2825,7 +2812,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       expect(beforeDelete).toHaveLength(3);
       
       // Act
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2845,7 +2832,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -2853,7 +2840,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       }
       
       // Act - Delete using string _id
-      const queryObject = { _id: createdEntity._id };
+      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2873,11 +2860,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2900,11 +2887,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', count: 40 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Delete entities with count >= 30
-      const queryObject = { count: { $gte: 30 } };
+      const queryObject: IQueryOptions = { filters: { count: { gte: 30 } } };
       const deleteResult = await service.deleteMany(userContext, queryObject);
       
       // Assert
@@ -2930,11 +2917,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: false, count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find all active entities
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -2954,7 +2941,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find all entities (empty query)
@@ -2975,11 +2962,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find entities that are active AND have count >= 20
-      const queryObject = { isActive: true, count: { $gte: 20 } };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true }, count: { gte: 20 } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -2998,7 +2985,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -3006,7 +2993,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       }
       
       // Act - Find by _id
-      const queryObject = { _id: createdEntity._id };
+      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3024,13 +3011,13 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       const createdEntities = await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
       
       // Act - Find specific entities by _id using $in
-      const queryObject = { _id: { $in: targetIds } };
+      const queryObject: IQueryOptions = { filters: { _id: { in: targetIds } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3048,11 +3035,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find entities that don't exist
-      const queryObject = { name: 'Non-existent Entity' };
+      const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3069,11 +3056,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3094,11 +3081,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', count: 40 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find entities with count >= 30
-      const queryObject = { count: { $gte: 30 } };
+      const queryObject: IQueryOptions = { filters: { count: { gte: 30 } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3117,11 +3104,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity C', description: 'First' }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find entities with specific description
-      const queryObject = { description: 'First' };
+      const queryObject: IQueryOptions = { filters: { description: { eq: 'First' } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3140,13 +3127,12 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find with limit option
-      const queryObject = {};
-      const options = { limit: 2 };
-      const foundEntities = await service.find(userContext, queryObject, options);
+      const queryObject: IQueryOptions = { filters: {}, page: 1, pageSize: 2 };
+      const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -3162,11 +3148,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find inactive entities
-      const queryObject = { isActive: false };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: false } } };
       const foundEntities = await service.find(userContext, queryObject);
       
       // Assert
@@ -3187,11 +3173,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: false, count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one active entity
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3208,7 +3194,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -3216,7 +3202,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       }
       
       // Act - Find by _id
-      const queryObject = { _id: createdEntity._id };
+      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3235,11 +3221,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one entity that is active AND has count = 20
-      const queryObject = { isActive: true, count: 20 };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true }, count: { eq: 20 } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3257,11 +3243,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 2', isActive: false }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act & Assert - Find entity that doesn't exist
-      const queryObject = { name: 'Non-existent Entity' };
+      const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
       const entity = await service.findOne(userContext, queryObject);
       expect(entity).toBeNull();
     });
@@ -3274,7 +3260,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -3282,7 +3268,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       }
       
       // Act
-      const queryObject = { _id: createdEntity._id };
+      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3300,11 +3286,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one entity with count >= 20
-      const queryObject = { count: { $gte: 20 } };
+      const queryObject: IQueryOptions = { filters: { count: { gte: 20 } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3322,11 +3308,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity C', description: 'First' }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one entity with specific description
-      const queryObject = { description: 'First' };
+      const queryObject: IQueryOptions = { filters: { description: { eq: 'First' } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3344,11 +3330,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one inactive entity
-      const queryObject = { isActive: false };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: false } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3366,13 +3352,12 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one with sort option (descending by count)
-      const queryObject = {};
-      const options = { sort: { count: -1 } };
-      const foundEntity = await service.findOne(userContext, queryObject, options);
+      const queryObject: IQueryOptions = { filters: {}, orderBy: 'count', sortDirection: 'desc' };
+      const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
       expect(foundEntity).toBeDefined();
@@ -3389,11 +3374,11 @@ describe('GenericApiService2 - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.prepareDataForDb(userContext, testEntities, true);
+      const preparedEntities = await service.prepareEntities(userContext, testEntities, true);
       await service.createMany(userContext, preparedEntities as TestEntity[]);
       
       // Act - Find one active entity (multiple match)
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert
@@ -3410,7 +3395,7 @@ describe('GenericApiService2 - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.prepareDataForDb(userContext, testEntity, true);
+      const preparedEntity = await service.prepareEntity(userContext, testEntity, true);
       const createdEntity = await service.create(userContext, preparedEntity);
       
       if (!createdEntity || !createdEntity._id) {
@@ -3418,7 +3403,7 @@ describe('GenericApiService2 - Integration Tests', () => {
       }
       
       // Act - Find by _id using string (should be converted to ObjectId)
-      const queryObject = { _id: createdEntity._id };
+      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
       const foundEntity = await service.findOne(userContext, queryObject);
       
       // Assert

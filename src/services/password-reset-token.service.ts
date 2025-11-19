@@ -1,9 +1,7 @@
-import {Db, ObjectId} from 'mongodb';
 import crypto from 'crypto';
-import moment from 'moment';
 import {EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec} from '@loomcore/common/models';
-
-import {GenericApiService} from './generic-api.service.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { Db } from 'mongodb';
 
 export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
 	constructor(db: Db) {
@@ -12,7 +10,7 @@ export class PasswordResetTokenService extends GenericApiService<IPasswordResetT
 
 	async createPasswordResetToken(email: string, expiresOn: number): Promise<IPasswordResetToken | null> {
 		const lowerCaseEmail = email.toLowerCase();
-		await this.collection.deleteMany({email: lowerCaseEmail});
+		await this.deleteMany(EmptyUserContext, { filters: { email: { eq: lowerCaseEmail } } });
 
 		const passwordResetToken: Partial<IPasswordResetToken> = {
 			email: lowerCaseEmail,
@@ -24,6 +22,6 @@ export class PasswordResetTokenService extends GenericApiService<IPasswordResetT
 	}
 
 	async getByEmail(email: string): Promise<IPasswordResetToken | null> {
-		return  await super.findOne(EmptyUserContext, {email: email.toLowerCase()});
+		return  await super.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
 	}
 }

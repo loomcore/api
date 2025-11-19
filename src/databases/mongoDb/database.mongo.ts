@@ -1,13 +1,15 @@
-import { Collection, Db, InsertOneResult, InsertManyResult, Document, FindCursor, WithId, ObjectId } from "mongodb";
+import { Collection, Db, InsertOneResult, InsertManyResult, Document, FindCursor, WithId, ObjectId, DeleteResult, FindOptions } from "mongodb";
 import { IDatabase } from "../database.interface.js";
 import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@loomcore/common/models";
-import { Operation } from "../../operations/operations.js";
-import { ServerError } from "../../../errors/server.error.js";
-import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError } from "../../../errors/index.js";
-import { convertObjectIdsToStrings, convertOperationsToPipeline, convertStringToObjectId, convertQueryOptionsToPipeline } from "../../../utils/mongo/index.js";
-import { apiUtils } from "../../../utils/api.utils.js";
-import utils from 'util';
+import { Operation } from "../operations/operation.js";
+import { ServerError } from "../../errors/server.error.js";
+import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError } from "../../errors/index.js";
+import { convertObjectIdsToStrings, convertOperationsToPipeline, convertQueryOptionsToPipeline, convertStringsToObjectIds } from "../../utils/mongo/index.js";
+import { apiUtils } from "../../utils/api.utils.js";
 import NoSqlPipeline from "./noSqlPipeline.js";
+import { DeleteResult as GenericDeleteResult } from "../types/deleteResult.js";
+import { buildMongoMatchFromQueryOptions } from "../../utils/mongo/buildMongoMatchFromQueryOptions.js";
+import { TSchema } from "@sinclair/typebox";
 export class MongoDBDatabase implements IDatabase {
     private collection: Collection;
     private pluralResourceName: string;
@@ -43,23 +45,17 @@ export class MongoDBDatabase implements IDatabase {
         const pipeline = new NoSqlPipeline()
             .addMatch(queryOptions, modelSpec)
             .addOperations(operations)
-            .addPagination(queryOptions)
+            .addQueryOptions(queryOptions, true)
             .build();
                 
         const cursor = this.collection.aggregate(pipeline);
         const aggregateResult = await cursor.next();
-        
-        let pagedResult: IPagedResult<T> = apiUtils.getPagedResult<T>([], 0, queryOptions);
-        
-        if (aggregateResult) {
-            let total = 0;
-            if (aggregateResult.total && aggregateResult.total.length > 0) {
-                total = aggregateResult.total[0].total;
-            }
-            const entities = aggregateResult.results || [];
-            pagedResult = apiUtils.getPagedResult<T>(entities, total, queryOptions);
-        }
-        
+
+        const pagedResult = apiUtils.getPagedResult<T>(
+            aggregateResult?.data || [],
+            aggregateResult?.total || 0,
+            queryOptions
+        );
         return pagedResult;
     }
 
@@ -95,9 +91,9 @@ export class MongoDBDatabase implements IDatabase {
         const result = await this.collection.aggregate(pipeline).toArray();
         return result.length;
     }
-
-    async prepareEntity<T>(entity: T): Promise<T> {
-        return convertStringToObjectId(entity);
+    
+    prepareData<T>(entity: T, schema: TSchema): T {
+        return convertStringsToObjectIds(entity, schema);
     }
 
     /**
@@ -107,13 +103,10 @@ export class MongoDBDatabase implements IDatabase {
      * @param modelSpec Model specification
      * @returns Transformed entity with string IDs
      */
-    transformSingle<T>(single: T, modelSpec: IModelSpec): T {
+    processData<T>(single: T, schema: TSchema): T {
         if (!single) return single;
 
-        if (!modelSpec.fullSchema)
-            throw new ServerError(`Cannot transform entity: No model specification with schema provided for ${this.pluralResourceName}`);
-
-        return convertObjectIdsToStrings<T>(single, modelSpec.fullSchema);
+        return convertObjectIdsToStrings<T>(single, schema);
     }
 
     async create<T>(entity: any): Promise<{ insertedId: any; entity: any }> {
@@ -165,7 +158,6 @@ export class MongoDBDatabase implements IDatabase {
         const entityIds: ObjectId[] = [];
 
         for (const entity of entities) {
-            // The entity should have been prepared by prepareDataForDb, which converts string _id to ObjectId
             const { _id, ...updateData } = entity as any;
 
             if (!_id || !(_id instanceof ObjectId)) {
@@ -210,35 +202,21 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async fullUpdateById<T>(operations: Operation[], id: string, entity: any): Promise<T> {
-        const objectId = new ObjectId(id);
-        const baseQuery = { _id: objectId };
+        // Build match document and extract the filter object
+        const matchDocument = buildMongoMatchFromQueryOptions({ filters: { _id: { eq: id } } });
+        const filter = matchDocument.$match;
         
-        // Convert operations to pipeline stages for query building
-        const operationsDocuments = convertOperationsToPipeline(operations);
-        
-        // Build the query filter - operations might modify the query, but for replaceOne we use the base query
-        // The operations are used when retrieving the updated entity
-        const replaceResult = await this.collection.replaceOne(baseQuery, entity);
-        
+        const replaceResult = await this.collection.replaceOne(filter, entity);
         if (replaceResult.matchedCount <= 0) {
             throw new IdNotFoundError();
         }
         
-        // Retrieve the updated entity using the same pattern as getById
-        let updatedEntity: Document | null = null;
-        
-        if (operationsDocuments.length > 0) {
-            // Use aggregation pipeline if there are operations
-            const pipeline = [
-                { $match: baseQuery },
-                ...operationsDocuments
-            ];
-            updatedEntity = await this.collection.aggregate(pipeline).next();
-        } else {
-            // Use simple findOne if no operations
-            updatedEntity = await this.collection.findOne(baseQuery);
-        }
-        
+        const pipeline = new NoSqlPipeline()
+            .addMatch({ filters: { _id: { eq: id } } })
+            .addOperations(operations)
+            .build();
+            
+        const updatedEntity = await this.collection.aggregate(pipeline).next();
         if (!updatedEntity) {
             throw new IdNotFoundError();
         }
@@ -247,16 +225,14 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async partialUpdateById<T>(operations: Operation[], id: string, entity: Partial<any>): Promise<T> {
-        const objectId = new ObjectId(id);
-        const baseQuery = { _id: objectId };
-        
-        // Convert operations to pipeline stages for query building
-        const operationsDocuments = convertOperationsToPipeline(operations);
+        // Build match document and extract the filter object
+        const matchDocument = buildMongoMatchFromQueryOptions({ filters: { _id: { eq: id } } });
+        const filter = matchDocument.$match;
         
         // For partial update, we use findOneAndUpdate with $set
         // The operations are used when retrieving the updated entity
         const updatedEntity = await this.collection.findOneAndUpdate(
-            baseQuery,
+            filter,
             { $set: entity },
             { returnDocument: 'after' }
         );
@@ -265,122 +241,92 @@ export class MongoDBDatabase implements IDatabase {
             throw new IdNotFoundError();
         }
         
-        // If there are operations, we need to apply them to the retrieved entity
-        // by fetching it again through the pipeline
-        if (operationsDocuments.length > 0) {
-            const pipeline = [
-                { $match: baseQuery },
-                ...operationsDocuments
-            ];
-            const entityWithOperations = await this.collection.aggregate(pipeline).next();
-            if (!entityWithOperations) {
-                throw new IdNotFoundError();
-            }
-            return entityWithOperations as T;
-        }
+        const pipeline = new NoSqlPipeline()
+            .addMatch({ filters: { _id: { eq: id } } })
+            .addOperations(operations)
+            .build();
         
-        return updatedEntity as T;
+        const updatedEntityWithOperations = await this.collection.aggregate(pipeline).next();
+        if (!updatedEntityWithOperations) {
+            throw new IdNotFoundError();
+        }
+        return updatedEntityWithOperations as T;
     }
 
-    async update<T>(queryObject: any, entity: Partial<any>, operations: Operation[]): Promise<T[]> {
-        // Use updateMany with $set to update all matching entities
-        const updateResult = await this.collection.updateMany(queryObject, { $set: entity });
+    async update<T>(queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[]): Promise<T[]> {
+        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const filter = matchDocument.$match;
+        const updateResult = await this.collection.updateMany(filter, { $set: entity });
         
         if (updateResult.matchedCount <= 0) {
             throw new NotFoundError('No records found matching update query');
         }
         
-        // Convert operations to pipeline stages for retrieving updated entities
-        const operationsDocuments = convertOperationsToPipeline(operations);
+        // Build pipeline for retrieving updated entities (with operations)
+        const pipeline = new NoSqlPipeline()
+            .addMatch(queryObject)
+            .addOperations(operations)
+            .addQueryOptions(queryObject, false)
+            .build();
         
-        let updatedEntities: Document[];
-        
-        if (operationsDocuments.length > 0) {
-            // Use aggregation pipeline if there are operations
-            const pipeline = [
-                { $match: queryObject },
-                ...operationsDocuments
-            ];
-            updatedEntities = await this.collection.aggregate(pipeline).toArray();
-        } else {
-            // Use simple find if no operations
-            updatedEntities = await this.collection.find(queryObject).toArray();
-        }
+        const updatedEntities = await this.collection.aggregate(pipeline).toArray();
         
         return updatedEntities as T[];
     }
 
-    async deleteById(operations: Operation[], id: string): Promise<{ acknowledged: boolean; deletedCount: number }> {
+    async deleteById(id: string): Promise<GenericDeleteResult> {
         const objectId = new ObjectId(id);
         const baseQuery = { _id: objectId };
         
-        // Convert operations to pipeline stages for query building
-        // For delete operations, we typically use the base query directly
-        // Operations might be used for additional filtering in the future
-        
-        // Perform delete operation
         const deleteResult = await this.collection.deleteOne(baseQuery);
         
-        return {
-            acknowledged: deleteResult.acknowledged,
-            deletedCount: deleteResult.deletedCount
-        };
+        return new GenericDeleteResult(deleteResult.acknowledged, deleteResult.deletedCount);
     }
 
-    async deleteMany(queryObject: any, operations: Operation[]): Promise<{ acknowledged: boolean; deletedCount: number }> {
-        // Convert operations to pipeline stages for query building
-        // For deleteMany, we use the queryObject directly
-        // Operations might be used for additional filtering in the future
-        
-        // Perform deleteMany operation
-        const deleteResult = await this.collection.deleteMany(queryObject);
-        
-        return {
-            acknowledged: deleteResult.acknowledged,
-            deletedCount: deleteResult.deletedCount
-        };
+    async deleteMany(queryObject: IQueryOptions): Promise<GenericDeleteResult> {
+        // Build match document and extract the filter object
+        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const filter = matchDocument.$match;
+
+        const deleteResult = await this.collection.deleteMany(filter);
+        return new GenericDeleteResult(deleteResult.acknowledged, deleteResult.deletedCount);
     }
 
-    async find<T>(queryObject: any, operations: Operation[], options?: any): Promise<T[]> {
-        // Convert operations to pipeline stages
-        const operationsDocuments = convertOperationsToPipeline(operations);
-        
-        let entities: Document[];
-        
-        if (operationsDocuments.length > 0) {
-            // Use aggregation pipeline if there are operations
-            const pipeline = [
-                { $match: queryObject },
-                ...operationsDocuments
-            ];
-            entities = await this.collection.aggregate(pipeline, options).toArray();
-        } else {
-            // Use simple find if no operations
-            const cursor = this.collection.find(queryObject, options);
-            entities = await cursor.toArray();
-        }
-        
+    async find<T>(queryObject: IQueryOptions): Promise<T[]> {
+        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const filter = matchDocument.$match;
+
+        const options = buildFindOptions(queryObject);
+
+        const entities = await this.collection.find(filter, options).toArray();
+                
         return entities as T[];
     }
 
-    async findOne<T>(queryObject: any, operations: Operation[], options?: any): Promise<T | null> {
-        // Convert operations to pipeline stages
-        const operationsDocuments = convertOperationsToPipeline(operations);
-        
-        let entity: Document | null;
-        
-        if (operationsDocuments.length > 0) {
-            // Use aggregation pipeline if there are operations
-            const pipeline = [
-                { $match: queryObject },
-                ...operationsDocuments
-            ];
-            entity = await this.collection.aggregate(pipeline, options).next();
-        } else {
-            // Use simple findOne if no operations
-            entity = await this.collection.findOne(queryObject, options);
-        }
+    async findOne<T>(queryObject: IQueryOptions): Promise<T | null> {
+        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const filter = matchDocument.$match;
+        const options = buildFindOptions(queryObject);
+
+        const entity = await this.collection.findOne(filter, options);
         
         return entity as T | null;
     }
 };
+function buildFindOptions(queryOptions: IQueryOptions) {
+    let findOptions: FindOptions = {};
+    if (queryOptions) {
+		if (queryOptions.orderBy) {
+			findOptions.sort = {
+                [queryOptions.orderBy]: queryOptions.sortDirection === 'asc' ? 1 : -1
+			};
+		}
+
+		if (queryOptions.page && queryOptions.pageSize) {
+			findOptions.skip = (queryOptions.page - 1) * queryOptions.pageSize;
+			findOptions.limit = queryOptions.pageSize;
+		}
+	}
+    return findOptions;
+}
+

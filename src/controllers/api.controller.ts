@@ -7,7 +7,7 @@ import {entityUtils} from '@loomcore/common/utils';
 import {IGenericApiService} from '../services/index.js';
 import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
-import { DeleteResult } from '../models/types/deleteResult.js';
+import { DeleteResult } from '../databases/types/deleteResult.js';
 
 export abstract class ApiController<T extends IEntity> {
   protected app: Application;
@@ -104,21 +104,6 @@ export abstract class ApiController<T extends IEntity> {
     entityUtils.handleValidationResult(validationErrors, `ApiController.validateMany for ${this.slug}`);
   }
 
-  /**
-   * Prepares data for database storage by calling the service's preparation logic
-   * @param userContext The user context for the operation
-   * @param entity The entity or array of entities to prepare
-   * @param isCreate Whether this is for a create operation
-   * @returns The prepared entity or entities
-   */
-  protected async prepareDataForDb(userContext: IUserContext, entity: T, isCreate?: boolean): Promise<T>;
-  protected async prepareDataForDb(userContext: IUserContext, entity: Partial<T>, isCreate?: boolean): Promise<Partial<T>>;
-  protected async prepareDataForDb(userContext: IUserContext, entity: T[], isCreate?: boolean): Promise<T[]>;
-  protected async prepareDataForDb(userContext: IUserContext, entity: Partial<T>[], isCreate?: boolean): Promise<Partial<T>[]>;
-  protected async prepareDataForDb(userContext: IUserContext, entity: T | Partial<T> | T[] | Partial<T>[], isCreate: boolean = false): Promise<T | Partial<T> | T[] | Partial<T>[]> {
-    return await this.service.prepareDataForDb(userContext, entity as any, isCreate);
-  }
-
   async getAll(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const entities = await this.service.getAll(req.userContext!);
@@ -155,9 +140,8 @@ export abstract class ApiController<T extends IEntity> {
     
     // Validate and prepare the entity
     this.validate(req.body);
-    const preparedEntity = await this.prepareDataForDb(req.userContext!, req.body, true); // calls prepareEntity, which uses Typebox to decode (json->typed object)
     
-    const entity = await this.service.create(req.userContext!, preparedEntity);
+    const entity = await this.service.create(req.userContext!, req.body);
     apiUtils.apiResponse<T>(res, 201, {data: entity || undefined}, this.modelSpec, this.publicSchema);
   }
 
@@ -173,9 +157,8 @@ export abstract class ApiController<T extends IEntity> {
 
     // Validate and prepare entities (using partial validation for PATCH operations)
     this.validateMany(entities, true);
-    const preparedEntities = await this.service.prepareDataForBatchUpdate(req.userContext!, entities);
-    
-    const updatedEntities = await this.service.batchUpdate(req.userContext!, preparedEntities);
+
+    const updatedEntities = await this.service.batchUpdate(req.userContext!, entities);
     apiUtils.apiResponse<T[]>(res, 200, {data: updatedEntities}, this.modelSpec, this.publicSchema);
   }
 
@@ -184,9 +167,8 @@ export abstract class ApiController<T extends IEntity> {
     
     // Validate and prepare the entity
     this.validate(req.body);
-    const preparedEntity = await this.prepareDataForDb(req.userContext!, req.body, false);
-    
-    const updateResult = await this.service.fullUpdateById(req.userContext!, req.params.id, preparedEntity);
+
+    const updateResult = await this.service.fullUpdateById(req.userContext!, req.params.id, req.body);
     apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
   }
 
@@ -195,9 +177,8 @@ export abstract class ApiController<T extends IEntity> {
 		
     // Validate and prepare the entity (using partial validation for PATCH operations)
     this.validate(req.body, true);
-    const preparedEntity = await this.prepareDataForDb(req.userContext!, req.body, false);
-    
-		const updateResult = await this.service.partialUpdateById(req.userContext!, req.params.id, preparedEntity);
+
+		const updateResult = await this.service.partialUpdateById(req.userContext!, req.params.id, req.body);
 		apiUtils.apiResponse<T>(res, 200, {data: updateResult}, this.modelSpec, this.publicSchema);
 	}
 

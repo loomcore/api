@@ -86,7 +86,7 @@ describe('OrganizationService - Integration Tests', () => {
         authToken: authToken
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       const createdOrg = await service.create(testUserContext, preparedOrg);
       
       if (!createdOrg || !createdOrg._id) {
@@ -118,7 +118,7 @@ describe('OrganizationService - Integration Tests', () => {
         // authToken is intentionally omitted
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       const createdOrg = await service.create(testUserContext, preparedOrg);
       
       if (!createdOrg || !createdOrg._id) {
@@ -144,7 +144,7 @@ describe('OrganizationService - Integration Tests', () => {
         authToken: authToken
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       const createdOrg = await service.create(testUserContext, preparedOrg);
       
       if (!createdOrg || !createdOrg._id) {
@@ -169,7 +169,7 @@ describe('OrganizationService - Integration Tests', () => {
         authToken: validAuthToken
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       await service.create(testUserContext, preparedOrg);
 
       // Act
@@ -200,7 +200,7 @@ describe('OrganizationService - Integration Tests', () => {
         // authToken is intentionally omitted
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       await service.create(testUserContext, preparedOrg);
 
       // Act
@@ -220,7 +220,7 @@ describe('OrganizationService - Integration Tests', () => {
         isMetaOrg: true
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, metaOrgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, metaOrgData, true);
       const createdOrg = await service.create(testUserContext, preparedOrg);
       
       if (!createdOrg) {
@@ -247,7 +247,7 @@ describe('OrganizationService - Integration Tests', () => {
         isMetaOrg: false
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, regularOrgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, regularOrgData, true);
       await service.create(testUserContext, preparedOrg);
 
       // Act & Assert
@@ -275,9 +275,9 @@ describe('OrganizationService - Integration Tests', () => {
         isMetaOrg: true
       };
       
-      const preparedRegular1 = await service.prepareDataForDb(testUserContext, regularOrgData1, true);
-      const preparedRegular2 = await service.prepareDataForDb(testUserContext, regularOrgData2, true);
-      const preparedMeta = await service.prepareDataForDb(testUserContext, metaOrgData, true);
+      const preparedRegular1 = await service.prepareEntity(testUserContext, regularOrgData1, true);
+      const preparedRegular2 = await service.prepareEntity(testUserContext, regularOrgData2, true);
+      const preparedMeta = await service.prepareEntity(testUserContext, metaOrgData, true);
       
       await service.create(testUserContext, preparedRegular1);
       await service.create(testUserContext, preparedRegular2);
@@ -306,7 +306,7 @@ describe('OrganizationService - Integration Tests', () => {
         code: 'test-org'
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
 
       // Act
       const createdOrg = await service.create(testUserContext, preparedOrg);
@@ -325,7 +325,7 @@ describe('OrganizationService - Integration Tests', () => {
         code: 'test-org'
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       const createdOrg = await service.create(testUserContext, preparedOrg);
       
       if (!createdOrg || !createdOrg._id) {
@@ -350,16 +350,16 @@ describe('OrganizationService - Integration Tests', () => {
         code: orgCode
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       await service.create(testUserContext, preparedOrg);
 
       // Act
-      const foundOrg = await service.findOne(testUserContext, { code: orgCode });
+      const foundOrg = await service.findOne(testUserContext, { filters: { code: { eq: orgCode } } });
       
       // Assert
       expect(foundOrg).toBeDefined();
-      expect(foundOrg!.code).toBe(orgCode);
-      expect(foundOrg!.name).toBe('Test Organization');
+      expect(foundOrg?.code).toBe(orgCode);
+      expect(foundOrg?.name).toBe('Test Organization');
     });
 
     it('should update an organization', async () => {
@@ -369,8 +369,7 @@ describe('OrganizationService - Integration Tests', () => {
         code: 'test-org'
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
@@ -380,13 +379,13 @@ describe('OrganizationService - Integration Tests', () => {
         name: 'Updated Name'
       };
 
-      // Act - use partialUpdateById instead of update
+      // Act
       const updatedOrg = await service.partialUpdateById(testUserContext, createdOrg._id, updateData);
       
       // Assert
       expect(updatedOrg).toBeDefined();
-      expect(updatedOrg!.name).toBe('Updated Name');
-      expect(updatedOrg!.code).toBe(orgData.code); // Should remain unchanged
+      expect(updatedOrg?.name).toBe('Updated Name');
+      expect(updatedOrg?.code).toBe(orgData.code);
     });
 
     it('should delete an organization', async () => {
@@ -396,7 +395,7 @@ describe('OrganizationService - Integration Tests', () => {
         code: 'delete-org'
       };
       
-      const preparedOrg = await service.prepareDataForDb(testUserContext, orgData, true);
+      const preparedOrg = await service.prepareEntity(testUserContext, orgData, true);
       const createdOrg = await service.create(testUserContext, preparedOrg);
       
       if (!createdOrg || !createdOrg._id) {

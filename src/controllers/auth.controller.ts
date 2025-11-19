@@ -57,12 +57,9 @@ export class AuthController {
     // Validate the incoming JSON
     const validationErrors = this.authService.validate(body);
     entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
-    
-    // Prepare the data for database (convert JSON to typed objects)
-    const preparedUser = await this.authService.prepareDataForDb(userContext!, body, true);
-    
+        
     // we're not handling errors here because createUser throws errors and middleware handles them
-    const user = await this.authService.createUser(userContext!, preparedUser);
+    const user = await this.authService.createUser(userContext!, body);
     
     apiUtils.apiResponse<IUser>(res, 201, {data: user || undefined}, UserSpec, PublicUserSchema);
   }

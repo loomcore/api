@@ -7,8 +7,8 @@ import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, 
 import { TypeboxIsoDate, TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
-import { GenericApiService } from '../generic-api.service.js';
 import { IdNotFoundError, DuplicateKeyError, BadRequestError } from '../../errors/index.js';
+import { GenericApiService } from '../generic-api-service/generic-api.service.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -345,7 +345,7 @@ describe('GenericApiService - Integration Tests', () => {
       const userContext = createUserContext();
       
       // Act
-      const results = await service.find(userContext, { count: { $gt: 30 } });
+      const results = await service.find(userContext, { filters: { count: { gt: 30 } } });
       
       // Assert
       expect(results).toHaveLength(2);
@@ -493,7 +493,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(userContext, entityWithExtraProps, true);
+        const preparedEntity = await service.prepareEntity(userContext, entityWithExtraProps, true);
         
         // Assert
         expect(preparedEntity.name).toBe('Entity with extra props');
@@ -514,7 +514,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(userContext, validEntity, true) as TestEntity;
+        const preparedEntity = await service.prepareEntity(userContext, validEntity, true);
         
         // Assert
         expect(preparedEntity.name).toBe(validEntity.name);
@@ -531,7 +531,7 @@ describe('GenericApiService - Integration Tests', () => {
         const entity = { name: 'AuditTest' };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(testUserContext, entity, true) as TestEntity;
+        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(testUserContext, entity, true);
         
         // Assert
         expect(preparedEntity._created).toBeDefined();
@@ -554,7 +554,7 @@ describe('GenericApiService - Integration Tests', () => {
         const entity = { name: 'NonAuditTest' };
         
         // Act
-        const preparedEntity = await nonAuditableService.prepareDataForDb(testUserContext, entity, true) as TestEntity;
+        const preparedEntity = await nonAuditableService.prepareEntity<Partial<TestEntity>>(testUserContext, entity, true);
         
         // Assert
         expect((preparedEntity as any)._created).toBeUndefined();
@@ -580,7 +580,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(updaterUserContext, updateData, false) as Partial<TestEntity>;
+        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(updaterUserContext, updateData, false);
         
         // Assert
         expect(preparedEntity._updated).toBeDefined();
@@ -602,7 +602,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(testUserContext, entityWithHackedAudit, true) as TestEntity;
+        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(testUserContext, entityWithHackedAudit, true);
         
         // Assert
         expect(preparedEntity._created).not.toEqual(hackDate);
@@ -624,7 +624,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(testUserContext, tamperedUpdate, false) as Partial<TestEntity>;
+        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(testUserContext, tamperedUpdate, false);
         
         // Assert
         expect(preparedEntity.name).toBe('Updated Name'); // Valid property preserved
@@ -639,7 +639,7 @@ describe('GenericApiService - Integration Tests', () => {
         const updateData = { name: 'System Updated' };
         
         // Act
-        const preparedEntity = await service.prepareDataForDb(EmptyUserContext, updateData, false) as Partial<TestEntity>;
+        const preparedEntity = await service.prepareEntity<Partial<TestEntity>>(EmptyUserContext, updateData, false);
         
         // Assert
         expect(preparedEntity._updated).toBeDefined();
@@ -675,7 +675,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await dateService.prepareDataForDb(userContext, entityWithDateString, true) as any;
+        const preparedEntity = await dateService.prepareEntity<any>(userContext, entityWithDateString, true);
         
         // Assert
         expect(preparedEntity.eventDate instanceof Date).toBe(true);
@@ -705,7 +705,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await objectIdService.prepareDataForDb(userContext, stringIdEntity, true);
+        const preparedEntity = await objectIdService.prepareEntity<any>(userContext, stringIdEntity, true);
         
         // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
         expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -760,9 +760,9 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await complexService.prepareDataForDb(userContext, complexJsonEntity, true);
+        const preparedEntity = await complexService.prepareEntity<any>(userContext, complexJsonEntity, true);
         
-        // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
+        // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
         expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
         expect(preparedEntity.nested.deeplyNested.anotherRefId instanceof ObjectId).toBe(true);
         expect(preparedEntity.items[0].itemRefId instanceof ObjectId).toBe(true);

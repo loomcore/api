@@ -1,16 +1,17 @@
 import { Document } from "mongodb";
 import { IQueryOptions, IModelSpec } from "@loomcore/common/models";
-import { Operation } from "../../operations/operations.js";
-import { buildMongoMatchFromQueryOptions } from "../../../utils/mongo/buildMongoMatchFromQueryOptions.js";
-import { convertOperationsToPipeline } from "../../../utils/mongo/convertOperationsToPipeline.js";
+import { Operation } from "../operations/operation.js";
+import { buildMongoMatchFromQueryOptions } from "../../utils/mongo/buildMongoMatchFromQueryOptions.js";
+import { convertOperationsToPipeline } from "../../utils/mongo/convertOperationsToPipeline.js";
 import { buildPaginationPipeline } from "./buildPaginationPipeline.js";
+import { convertQueryOptionsToPipeline } from "../../utils/index.js";
 
 export interface IPipeline {
     addStage(stage: Document): IPipeline;
     addStages(stages: Document[]): IPipeline;
     addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): IPipeline;
     addOperations(operations: Operation[]): IPipeline;
-    addPagination(queryOptions: IQueryOptions): IPipeline;
+    addQueryOptions(queryOptions: IQueryOptions, pagination: boolean): IPipeline;
     build(): Document[];
 }
 
@@ -51,9 +52,10 @@ class NoSqlPipeline implements IPipeline {
         return this;
     }
 
-    addPagination(queryOptions: IQueryOptions): NoSqlPipeline {
-        const paginationDocuments = buildPaginationPipeline(queryOptions);
-        this.pipeline = this.pipeline.concat(paginationDocuments);
+
+    addQueryOptions(queryOptions: IQueryOptions, pagination: boolean): NoSqlPipeline {
+        const queryOptionsDocuments = convertQueryOptionsToPipeline(queryOptions, pagination);
+        this.pipeline = this.pipeline.concat(queryOptionsDocuments);
         return this;
     }
 

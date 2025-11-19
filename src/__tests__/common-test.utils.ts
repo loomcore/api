@@ -2,18 +2,20 @@ import { Collection, Db, ObjectId } from 'mongodb';
 import { Request, Response, Application, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUser, IUserContext, IEntity, IAuditable } from '@loomcore/common/models';
+import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 
 import { JwtService } from '../services/jwt.service.js';
 import { passwordUtils } from '../utils/password.utils.js';
 import { AuthService } from '../services/auth.service.js';
-import { GenericApiService } from '../services/generic-api.service.js';
 import { ApiController } from '../controllers/api.controller.js';
+import { GenericApiService } from '../services/generic-api-service/generic-api.service.js';
 import { apiUtils } from '../utils/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
+import { Operation } from '../databases/operations/operation.js';
+import { Join } from '../databases/operations/join.js';
 
 let db: Db;
 let collections: any = {};
@@ -310,31 +312,21 @@ export class ProductService extends GenericApiService<IProduct> {
     super(db, 'products', 'product', ProductSpec);
   }
 
-  protected override getAdditionalPipelineStages(): any[] {
-    return [
-      {
-        $lookup: {
-          from: 'categories',
-          localField: 'categoryId',
-          foreignField: '_id',
-          as: 'category'
-        }
-      },
-      {
-        $unwind: {
-          path: '$category',
-          preserveNullAndEmptyArrays: true
-        }
-      }
+  override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
+    const newOperations = [
+      ...operations,
+      new Join('categories', 'categoryId', '_id', 'category')
     ];
+
+    return super.prepareQuery(userContext, queryObject, newOperations);
   }
 
-  override transformSingle(single: any): any {
+  override processEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
-      const categoryService = new CategoryService(this.db);
-      single.category = categoryService.transformSingle(single.category);
+      const categoryService = new CategoryService(db);
+      single.category = categoryService.processEntity(userContext, single.category);
     }
-    return super.transformSingle(single);
+    return super.processEntity(userContext, single);
   }
 }
 
@@ -367,31 +359,21 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
     super(db, 'products', 'product', ProductSpec);
   }
 
-  protected override getAdditionalPipelineStages(): any[] {
-    return [
-      {
-        $lookup: {
-          from: 'categories',
-          localField: 'categoryId',
-          foreignField: '_id',
-          as: 'category'
-        }
-      },
-      {
-        $unwind: {
-          path: '$category',
-          preserveNullAndEmptyArrays: true
-        }
-      }
+  override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
+    const newOperations = [
+      ...operations,
+      new Join('categories', 'categoryId', '_id', 'category')
     ];
+
+    return super.prepareQuery(userContext, queryObject, newOperations);
   }
 
-  override transformSingle(single: any): any {
+  override processEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
-      const categoryService = new CategoryService(this.db);
-      single.category = categoryService.transformSingle(single.category);
+      const categoryService = new CategoryService(db);
+      single.category = categoryService.processEntity(userContext, single.category);
     }
-    return super.transformSingle(single);
+    return super.processEntity(userContext, single);
   }
 }
 

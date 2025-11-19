@@ -18,7 +18,8 @@ export function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, mod
 				const valueToCompare = value.eq;
 
 				// Use schema to check for ObjectId, otherwise fall back to name-based check
-				if ((isObjectIdField || (!schema && key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)))
+				// Special case for _id: always treat as ObjectId if it's a valid ObjectId string
+				if ((key === '_id' || isObjectIdField || (!schema && key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)))
 					&& typeof valueToCompare === 'string' && entityUtils.isValidObjectId(valueToCompare)) {
 					match[key] = new ObjectId(valueToCompare);
 				}
@@ -35,7 +36,8 @@ export function buildMongoMatchFromQueryOptions(queryOptions: IQueryOptions, mod
 				const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
 
 				// Use schema to check for ObjectId array, otherwise fall back to name-based check
-				if (isObjectIdArray || (!schema && (key.endsWith('Id') || key.endsWith('Ids')) && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) {
+				// Special case for _id: always treat as ObjectId array if values are valid ObjectId strings
+				if (key === '_id' || isObjectIdArray || (!schema && (key.endsWith('Id') || key.endsWith('Ids')) && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) {
 					// Convert string values to ObjectIds
 					const objectIds = value.in
 						.filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))

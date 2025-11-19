@@ -7,7 +7,7 @@ import { entityUtils } from '@loomcore/common/utils';
 import { initializeTypeBox } from '@loomcore/common/validation';
 
 import { MongoDBDatabase } from '../mongoDb/database.mongo.js';
-import { Join } from '../../operations/join.js';
+import { Join } from '../operations/join.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {

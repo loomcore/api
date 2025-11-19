@@ -39,7 +39,7 @@ export class TenantQueryDecorator {
    * @param collectionName Collection name to check for exclusion
    * @returns The modified query object with tenant filtering added
    */
-  applyTenantToQuery(userContext: IUserContext, queryObject: any, collectionName: string): any {
+  applyTenantToQuery(userContext: IUserContext, queryObject: IQueryOptions, collectionName: string): IQueryOptions {
     let result = queryObject;
     
     const shouldApplyTenantFilter = 
@@ -49,7 +49,7 @@ export class TenantQueryDecorator {
     if (shouldApplyTenantFilter) {
       // Create a new query object that includes the tenant filter
       const orgIdField = this.options.orgIdField || '_orgId';
-      result = { ...queryObject, [orgIdField]: userContext._orgId };
+      result = { ...queryObject, filters: { ...queryObject.filters, [orgIdField]: { eq: userContext._orgId } } };
     } 
     else if (!userContext?._orgId) {
       // Don't throw for excluded collections

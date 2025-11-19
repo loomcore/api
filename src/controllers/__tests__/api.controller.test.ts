@@ -6,10 +6,11 @@ import { IEntity, IAuditable } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { ApiController } from '../api.controller.js';
-import { GenericApiService } from '../../services/generic-api.service.js';
+import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
+import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 
 // Mock model for testing
 interface ITestItem extends IEntity, IAuditable {

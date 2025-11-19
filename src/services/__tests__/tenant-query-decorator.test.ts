@@ -88,15 +88,14 @@ describe('TenantQueryDecorator', () => {
     it('should add orgId to query for normal collection', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
-      const query = { name: 'Test' };
+      const query = { filters: { name: { eq: 'Test' } } };
       
       // Act
       const result = decorator.applyTenantToQuery(createUserContext(), query, collectionName);
       
       // Assert
       expect(result).toEqual({
-        name: 'Test',
-        _orgId: orgId
+        filters: { name: { eq: 'Test' }, _orgId: { eq: orgId } }
       });
     });
     
@@ -106,7 +105,7 @@ describe('TenantQueryDecorator', () => {
         excludedCollections: [excludedCollectionName]
       };
       const decorator = new TenantQueryDecorator(customOptions);
-      const query = { name: 'Test' };
+      const query = { filters: { name: { eq: 'Test' } } };
       
       // Act
       const result = decorator.applyTenantToQuery(createUserContext(), query, excludedCollectionName);
@@ -121,22 +120,21 @@ describe('TenantQueryDecorator', () => {
         orgIdField: 'tenantId'
       };
       const decorator = new TenantQueryDecorator(customOptions);
-      const query = { name: 'Test' };
+      const query = { filters: { name: { eq: 'Test' } } };
       
       // Act
       const result = decorator.applyTenantToQuery(createUserContext(), query, collectionName);
       
       // Assert
       expect(result).toEqual({
-        name: 'Test',
-        tenantId: orgId
+        filters: { name: { eq: 'Test' }, tenantId: { eq: orgId } }
       });
     });
     
     it('should throw ServerError if userContext has no orgId', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
-      const query = { name: 'Test' };
+      const query = { filters: { name: { eq: 'Test' } } };
       
       // Act & Assert
       expect(() => {

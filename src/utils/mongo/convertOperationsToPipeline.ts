@@ -1,6 +1,6 @@
 import { Document } from 'mongodb';
-import { Join } from '../../models/operations/join.js';
-import { Operation } from '../../models/operations/operations.js';
+import { Join } from '../../databases/operations/join.js';
+import { Operation } from '../../databases/operations/operation.js';
 
 export function convertOperationsToPipeline(operations: Operation[]): Document[] {
 	let pipeline: Document[] = [];
