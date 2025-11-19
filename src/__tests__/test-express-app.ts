@@ -54,8 +54,7 @@ export class TestExpressApp {
       appName: 'test-app',
       clientSecret: 'test-secret',
       database: {
-        type: 'mongoDb',
-        name: '',
+        name: 'test-database',
       },
       externalPort: 4000,
       internalPort: 8083,
