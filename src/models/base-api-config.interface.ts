@@ -1,4 +1,4 @@
-import { DatabaseType } from "./types/databaseTypes.js";
+import { DatabaseType } from "../databases/types/databaseType.js";
 
 export interface IBaseApiConfig {
   appName: string;

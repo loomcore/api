@@ -1,11 +1,11 @@
 import {Db, DeleteResult, Document, FindOptions, ObjectId} from 'mongodb';
 import _ from 'lodash';
 
-import { GenericApiService2 } from './generic-api.service-v2.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
 import { NotFoundError } from '../errors/index.js';
 
-export class OrganizationService extends GenericApiService2<IOrganization> {
+export class OrganizationService extends GenericApiService<IOrganization> {
 	constructor(db: Db) {
 		super(db, 'organizations', 'organization', OrganizationSpec);
 	}
@@ -18,7 +18,7 @@ export class OrganizationService extends GenericApiService2<IOrganization> {
 
 	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<string | null> {
 		// this is used to auth content-api calls - the orgCode is used in the api call hostname
-		const org = await this.findOne(userContext, { code: orgCode });
+		const org = await this.findOne(userContext, { filters: { code: { eq: orgCode } } });
 
 		if (!org) {
 			return null;
@@ -30,7 +30,7 @@ export class OrganizationService extends GenericApiService2<IOrganization> {
 	}
 
 	async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
-		const org = await this.findOne(userContext, { isMetaOrg: true });
+		const org = await this.findOne(userContext, { filters: { isMetaOrg: { eq: true } } });
 		return org;
 	}
 }

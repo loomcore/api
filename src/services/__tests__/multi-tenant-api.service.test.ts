@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { Db, Collection, FindCursor, ObjectId } from 'mongodb';
+import { Db, Collection, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
-import { TypeboxObjectId } from '@loomcore/common/validation';
+import { TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
@@ -10,6 +10,11 @@ import { TenantQueryDecorator } from '../tenant-query-decorator.js';
 import { BadRequestError, ServerError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
+
+// Initialize TypeBox before running any tests
+beforeAll(() => {
+  initializeTypeBox();
+});
 
 // Mock entity interface matching the service generic type
 interface TestEntity extends IEntity {
@@ -29,89 +34,39 @@ const TestEntitySchema = Type.Object({
 // Create a model spec for the test entity
 const TestEntityModelSpec = entityUtils.getModelSpec(TestEntitySchema);
 
-// Creates a valid MongoDB ObjectId string
-const createValidObjectId = () => new ObjectId().toString();
-
 describe('MultiTenantApiService', () => {
-  // Mock dependencies
   let db: Db;
-  let mockCollection: Collection;
-  let mockFindCursor: FindCursor;
   let service: MultiTenantApiService<TestEntity>;
+  let collection: Collection;
   
   // Test data
   const testOrgId = testUtils.testOrgId;
   const otherOrgId = 'org-456';
-  // Generate a valid ObjectId string for testing
-  const validObjectIdString = createValidObjectId();
-  const testEntity: TestEntity = {
-    _id: validObjectIdString, // Use string ID to match the model interface
-    name: 'Test Entity'
-  };
   
   // Set up the test environment once before all tests
   beforeAll(async () => {
     const setup = await TestExpressApp.init();
     db = setup.db;
+    
+    // Create service with real database
+    service = new MultiTenantApiService<TestEntity>(
+      db,
+      'testEntities',
+      'testEntity',
+      TestEntityModelSpec
+    );
   });
 
   afterAll(async () => {
     await TestExpressApp.cleanup();
   });
   
-  // Set up mocks before each test
+  // Set up before each test
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
     
-    // Mock MongoDB collection methods
-    mockFindCursor = {
-      toArray: vi.fn().mockResolvedValue([]),
-    } as unknown as FindCursor;
-    
-    mockCollection = {
-      find: vi.fn().mockReturnValue(mockFindCursor),
-      findOne: vi.fn().mockResolvedValue({
-        _id: new ObjectId(validObjectIdString), // MongoDB returns ObjectId
-        name: 'Original Name',
-        _orgId: testOrgId,
-        created: new Date(),
-        createdBy: 'test-user'
-      }),
-      findOneAndUpdate: vi.fn().mockResolvedValue({
-        ok: 1,
-        value: {
-          _id: new ObjectId(validObjectIdString), // MongoDB returns ObjectId
-          name: 'Updated Name',
-          _orgId: testOrgId,
-          created: new Date(),
-          createdBy: 'test-user',
-          updated: new Date(),
-          updatedBy: 'test-user'
-        }
-      }),
-      insertOne: vi.fn().mockResolvedValue({ insertedId: new ObjectId() }),
-      updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
-      deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
-      countDocuments: vi.fn().mockResolvedValue(0),
-      aggregate: vi.fn().mockReturnValue({
-        next: vi.fn().mockResolvedValue({
-          results: [],
-          total: [{ total: 0 }]
-        })
-      }),
-    } as unknown as Collection;
-    
-    const mockDb = {
-      collection: vi.fn().mockReturnValue(mockCollection),
-    } as unknown as Db;
-    
-    // Create the service to test with model spec
-    service = new MultiTenantApiService<TestEntity>(
-      mockDb,
-      'testEntities',
-      'testEntity',
-      TestEntityModelSpec
-    );
+    // Get the collection for direct database operations if needed
+    collection = db.collection('testEntities');
     
     // Spy on TenantQueryDecorator methods to verify they're called
     vi.spyOn(TenantQueryDecorator.prototype, 'applyTenantToQuery');
@@ -155,24 +110,18 @@ describe('MultiTenantApiService', () => {
       // Arrange
       const userContext = testUtils.testUserContext;
       // Consumer is trying to supply their own _orgId (this should be ignored/overwritten)
-      const query = { name: 'Test', _orgId: otherOrgId };
-      
-      // Mock the TenantQueryDecorator.applyTenantToQuery implementation
-      // to simulate real behavior since we're spying on it
-      vi.mocked(TenantQueryDecorator.prototype.applyTenantToQuery).mockImplementationOnce(
-        (userCtx, queryObj) => ({ ...queryObj, _orgId: userCtx._orgId })
-      );
-      
-      // Get the protected method and bind it to the service instance
-      const prepareQuery = (service as any).prepareQuery.bind(service);
+      const query: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: { name: { eq: 'Test' }, _orgId: { eq: otherOrgId } }
+      };
       
       // Act
-      const result = prepareQuery(userContext, query);
+      const result = service.prepareQuery(userContext, query, []);
       
       // Assert
       // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
-      expect(result._orgId).toBe(testOrgId);
-      expect(result._orgId).not.toBe(otherOrgId);
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: testOrgId });
+      expect(result.queryObject.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
     });
   });
   
@@ -186,12 +135,12 @@ describe('MultiTenantApiService', () => {
       };
 
       // Act
-      const result = (service as any).prepareQueryOptions(userContext, queryOptions);
+      const result = service.prepareQuery(userContext, queryOptions, []);
 
       // Assert
-      expect(result.filters).toBeDefined();
-      expect(result.filters!['name']).toEqual({ eq: 'Test' });
-      expect(result.filters!['_orgId']).toEqual({ eq: userContext._orgId });
+      expect(result.queryObject.filters).toBeDefined();
+      expect(result.queryObject.filters!['name']).toEqual({ eq: 'Test' });
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: userContext._orgId });
     });
 
     it('should throw BadRequestError if userContext is undefined', () => {
@@ -201,7 +150,7 @@ describe('MultiTenantApiService', () => {
       };
 
       // Act & Assert
-      expect(() => (service as any).prepareQueryOptions(undefined, queryOptions)).toThrow(BadRequestError);
+      expect(() => service.prepareQuery(undefined as unknown as IUserContext, queryOptions, [])).toThrow(BadRequestError);
     });
 
     it('should override consumer-supplied _orgId filter with userContext _orgId', () => {
@@ -214,14 +163,14 @@ describe('MultiTenantApiService', () => {
       };
 
       // Act
-      const result = (service as any).prepareQueryOptions(userContext, queryOptions);
+      const result = service.prepareQuery(userContext, queryOptions, []);
 
       // Assert
-      expect(result.filters).toBeDefined();
-      expect(result.filters!['name']).toEqual({ eq: 'Test' });
+      expect(result.queryObject.filters).toBeDefined();
+      expect(result.queryObject.filters!['name']).toEqual({ eq: 'Test' });
       // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
-      expect(result.filters!['_orgId']).toEqual({ eq: userContext._orgId });
-      expect(result.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: userContext._orgId });
+      expect(result.queryObject.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
     });
   });
   
@@ -229,7 +178,9 @@ describe('MultiTenantApiService', () => {
     it('should add tenant ID to entity', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const entity: TestEntity = { ...testEntity };
+      const entity: Partial<TestEntity> = {
+        name: 'Test Entity'
+      };
       
       // Get the protected method and bind it to the service instance
       const prepareEntity = (service as any).prepareEntity.bind(service);
@@ -243,7 +194,9 @@ describe('MultiTenantApiService', () => {
     
     it('should throw BadRequestError if userContext is undefined', async () => {
       // Arrange
-      const entity: TestEntity = { ...testEntity };
+      const entity: Partial<TestEntity> = {
+        name: 'Test Entity'
+      };
       
       // Get the protected method and bind it to the service instance
       const prepareEntity = (service as any).prepareEntity.bind(service);
@@ -265,7 +218,9 @@ describe('MultiTenantApiService', () => {
           _updatedBy: 'system'
         }
       };
-      const entity: TestEntity = { ...testEntity };
+      const entity: Partial<TestEntity> = {
+        name: 'Test Entity'
+      };
       
       // Get the protected method and bind it to the service instance
       const prepareEntity = (service as any).prepareEntity.bind(service);
@@ -277,19 +232,33 @@ describe('MultiTenantApiService', () => {
   
   // Test public methods
   describe('getAll', () => {
-    it('should call prepareQuery and pass the result to find', async () => {
+    it('should call prepareQuery and return entities', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
+      const testEntity: TestEntity = {
+        _id: new ObjectId().toString(),
+        name: 'Test Entity',
+        _orgId: testOrgId
+      };
+      
+      // Insert a test entity directly into the database
+      await collection.insertOne({
+        _id: new ObjectId(testEntity._id),
+        name: testEntity.name,
+        _orgId: testEntity._orgId
+      });
       
       // Spy on the protected method
       const spy = vi.spyOn(service as any, 'prepareQuery');
       
       // Act
-      await service.getAll(userContext);
+      const result = await service.getAll(userContext);
       
       // Assert
-      expect(spy).toHaveBeenCalledWith(userContext, {});
-      expect(mockCollection.find).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(userContext, {}, []);
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
     });
   });
   
@@ -313,89 +282,110 @@ describe('MultiTenantApiService', () => {
   });
   
   describe('create', () => {
-    it('should call prepareEntity and pass the preparedEntity to insertOne', async () => {
-      // Spy on the onBeforeCreate method which is called by create
-      const spy = vi.spyOn(service as any, 'onBeforeCreate')
-        .mockResolvedValue({ ...testEntity, _orgId: testOrgId });
-      
+    it('should create an entity with tenant ID', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const entity: TestEntity = { ...testEntity };
+      const entity: Partial<TestEntity> = {
+        name: 'Test Entity'
+      };
       
       // Act
-      await service.create(userContext, entity);
+      const created = await service.create(userContext, entity);
       
       // Assert
-      expect(spy).toHaveBeenCalledWith(userContext, entity);
-      expect(mockCollection.insertOne).toHaveBeenCalled();
+      expect(created).toBeDefined();
+      expect(created?._id).toBeDefined();
+      expect(created?.name).toBe('Test Entity');
+      expect(created?._orgId).toBe(testOrgId);
+      
+      // Verify it was actually inserted into the database
+      const dbEntity = await collection.findOne({ _id: new ObjectId(created!._id) });
+      expect(dbEntity).toBeDefined();
+      expect(dbEntity?.name).toBe('Test Entity');
+      expect(dbEntity?._orgId).toBe(testOrgId);
     });
   });
   
   describe('partialUpdateById', () => {
-    it('should call prepareEntity and prepareQuery', async () => {
-      // Spy on onBeforeUpdate which is called by partialUpdateById
-      const onBeforeUpdateSpy = vi.spyOn(service as any, 'onBeforeUpdate')
-        .mockResolvedValue({ ...testEntity, _orgId: testOrgId });
-      const prepareQuerySpy = vi.spyOn(service as any, 'prepareQuery');
-      
+    it('should update an entity by ID', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const entity: TestEntity = { ...testEntity };
+      const testEntityId = new ObjectId().toString();
+      
+      // Insert a test entity directly into the database
+      await collection.insertOne({
+        _id: new ObjectId(testEntityId),
+        name: 'Original Name',
+        _orgId: testOrgId
+      });
+      
+      const updateEntity: Partial<TestEntity> = {
+        name: 'Updated Name'
+      };
       
       // Act
-      await service.partialUpdateById(userContext, validObjectIdString, entity);
+      const updated = await service.partialUpdateById(userContext, testEntityId, updateEntity);
       
       // Assert
-      expect(onBeforeUpdateSpy).toHaveBeenCalled();
-      expect(prepareQuerySpy).toHaveBeenCalled();
-      expect(mockCollection.findOneAndUpdate).toHaveBeenCalled();
+      expect(updated).toBeDefined();
+      expect(updated._id).toBe(testEntityId);
+      expect(updated.name).toBe('Updated Name');
+      expect(updated._orgId).toBe(testOrgId);
     });
     
     it('should throw IdNotFoundError if entity not found', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const entity: TestEntity = { ...testEntity };
-      
-      // Mock onBeforeUpdate to avoid issues with async behavior
-      vi.spyOn(service as any, 'onBeforeUpdate')
-        .mockResolvedValue({ ...entity, _orgId: testOrgId });
-      
-      // Mock findOneAndUpdate to simulate not finding the entity
-      mockCollection.findOneAndUpdate = vi.fn().mockResolvedValue(null);
+      const nonExistentId = new ObjectId().toString();
+      const entity: Partial<TestEntity> = {
+        name: 'Updated Name'
+      };
       
       // Act & Assert
       await expect(
-        service.partialUpdateById(userContext, validObjectIdString, entity)
+        service.partialUpdateById(userContext, nonExistentId, entity)
       ).rejects.toThrow(IdNotFoundError);
     });
   });
   
   describe('deleteById', () => {
-    it('should call prepareQuery and pass the result to deleteOne', async () => {
-      // Spy on the prepareQuery method
-      const spy = vi.spyOn(service as any, 'prepareQuery');
-      
+    it('should delete an entity by ID', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
+      const testEntityId = new ObjectId().toString();
+      
+      // Insert a test entity directly into the database
+      await collection.insertOne({
+        _id: new ObjectId(testEntityId),
+        name: 'Test Entity',
+        _orgId: testOrgId
+      });
+      
+      // Verify it exists
+      const beforeDelete = await collection.findOne({ _id: new ObjectId(testEntityId) });
+      expect(beforeDelete).toBeDefined();
       
       // Act
-      await service.deleteById(userContext, validObjectIdString);
+      const deleteResult = await service.deleteById(userContext, testEntityId);
       
       // Assert
-      expect(spy).toHaveBeenCalled();
-      expect(mockCollection.deleteOne).toHaveBeenCalled();
+      expect(deleteResult).toBeDefined();
+      expect(deleteResult.count).toBe(1);
+      expect(deleteResult.success).toBe(true);
+      
+      // Verify it was actually deleted
+      const afterDelete = await collection.findOne({ _id: new ObjectId(testEntityId) });
+      expect(afterDelete).toBeNull();
     });
     
     it('should throw IdNotFoundError if no entity found', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      
-      // Mock deleteOne to return 0 deletedCount (no entity found)
-      mockCollection.deleteOne = vi.fn().mockResolvedValue({ deletedCount: 0 });
+      const nonExistentId = new ObjectId().toString();
       
       // Act & Assert
       await expect(
-        service.deleteById(userContext, validObjectIdString)
+        service.deleteById(userContext, nonExistentId)
       ).rejects.toThrow(IdNotFoundError);
     });
   });

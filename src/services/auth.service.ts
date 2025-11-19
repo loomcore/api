@@ -7,12 +7,12 @@ import {entityUtils} from '@loomcore/common/utils';
 
 import {BadRequestError, ServerError, NotFoundError} from '../errors/index.js';
 import {JwtService, EmailService} from './index.js';
-import { GenericApiService2 } from './generic-api.service-v2.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import {PasswordResetTokenService} from './password-reset-token.service.js';
 import { passwordUtils} from '../utils/index.js';
 import {config} from '../config/index.js';
 
-export class AuthService extends GenericApiService2<IUser> {
+export class AuthService extends GenericApiService<IUser> {
 	private refreshTokensCollection: Collection;
 	private passwordResetTokenService: PasswordResetTokenService;
 	private emailService: EmailService;
@@ -72,7 +72,7 @@ export class AuthService extends GenericApiService2<IUser> {
 			this.updateLastLoggedIn(userContext.user._id!)
 				.catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
 			
-			userContext.user = this.transformSingle(userContext.user);
+			userContext.user = this.processEntity(userContext, userContext.user);
 			loginResponse = {tokens: tokenResponse, userContext };
 		}
 
@@ -84,12 +84,12 @@ export class AuthService extends GenericApiService2<IUser> {
 			throw new BadRequestError('id is not a valid ObjectId');
 		}
 
-		const user = await this.findOne(EmptyUserContext, {_id: new ObjectId(id)});
+		const user = await this.findOne(EmptyUserContext, { filters: { _id: { eq: id } } });
 		return user;
 	}
 
 	async getUserByEmail(email: string): Promise<IUser | null> {
-		const user = await this.findOne(EmptyUserContext, {email: email.toLowerCase()});
+		const user = await this.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
 		return user;
 	}
 
@@ -389,7 +389,7 @@ export class AuthService extends GenericApiService2<IUser> {
 		return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
 	}
 
-	override async prepareEntity(userContext: IUserContext, entity: IUser | Partial<IUser>, isCreate: boolean): Promise<IUser | Partial<IUser>> {
+	override async prepareEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean): Promise<U> {
 		if (entity.email) {
 			// lowercase the email
 			entity.email = entity.email!.toLowerCase();

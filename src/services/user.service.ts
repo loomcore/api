@@ -16,8 +16,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 
-	// Moved entity manipulation from onBeforeUpdate to prepareEntity
-	protected override async prepareEntity(userContext: IUserContext, entity: IUser, isCreate: boolean): Promise<IUser | Partial<IUser>> {
+	override async prepareEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
 		// First, let the base class do its preparation
 		const preparedEntity = await super.prepareEntity(userContext, entity, isCreate);
 		
@@ -30,18 +29,10 @@ export class UserService extends MultiTenantApiService<IUser> {
 		if (!isCreate) {
 			// Use TypeBox's Value.Clean with PublicUserSchema to remove the password field.
 			// This will remove any properties not in the PublicUserSchema, including password
-			return Value.Clean(PublicUserSchema, preparedEntity) as Partial<IUser>;
+			return Value.Clean(PublicUserSchema, preparedEntity) as U;
 		}
 		
 		return preparedEntity;
-	}
-
-	override transformList(users: IUser[]) {
-		return super.transformList(users);
-	}
-
-	override transformSingle(user: IUser) {
-		return super.transformSingle(user);
 	}
 }
 

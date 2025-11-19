@@ -1,2 +1,2 @@
 export * from './base-api-config.interface.js';
-export * from './types/index.js';
+export * from '../databases/types/index.js';
