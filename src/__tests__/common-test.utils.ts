@@ -1,4 +1,4 @@
-import { Db, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { Request, Response, Application, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -16,12 +16,13 @@ import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
 import { Join } from '../databases/operations/join.js';
 import { Database } from '../databases/database.js';
+import { OrganizationService } from '../services/organization.service.js';
+import { IdNotFoundError } from '../errors/index.js';
 
-let db: Db;
-let collections: any = {};
 let deviceIdCookie: string;
 let authService: AuthService;
-let testUser: Partial<IUser>;
+let testUser: IUser;
+let organizationService: OrganizationService;
 
 const JWT_SECRET = 'test-secret';
 const newUser1Email= 'one@test.com';
@@ -46,41 +47,25 @@ const testUserContext: IUserContext = {
   },
   _orgId: testOrgId
 } as IUserContext;
-  
-function initialize(database: Db) {
-  db = database;
-  collections = {
-    users: db.collection('users'),
-    organizations: db.collection('organizations'),
-  };
-  authService = new AuthService(db);
-}
 
-async function createIndexes(db: Db) {
-  // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
-  //  If we can figure out how to use a single file for both, that would be great.
-  await db.command({
-    createIndexes: "users", indexes: [ { key: { email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
-  });
+
+function initialize(database: Database) {
+  authService = new AuthService(database);
+  organizationService = new OrganizationService(database);
 }
     
 async function createMetaOrg() {
-  if (!db || !collections.organizations) {
-    throw new Error('Database not initialized. Call initialize() first.');
+  if (!organizationService) {
+    throw new Error('OrganizationService not initialized. Call initialize() first.');
   }
-  
   try {
     // Create a meta organization (required for system user context)
-    const existingMetaOrg = await collections.organizations.findOne({ isMetaOrg: true });
+    const existingMetaOrg = await organizationService.findOne(testUserContext, { filters: { isMetaOrg: { eq: true } } });
     if (!existingMetaOrg) {
-      const metaOrgInsertResult = await collections.organizations.insertOne({ 
-        _id: new ObjectId(),
+      const metaOrgInsertResult = await organizationService.create(testUserContext, { 
         name: 'Meta Organization',
-        isMetaOrg: true,
-        _created: new Date(),
-        _createdBy: 'system',
-        _updated: new Date(),
-        _updatedBy: 'system'
+        code: 'meta-org',
+        isMetaOrg: true
       });
     }
   }
@@ -91,12 +76,12 @@ async function createMetaOrg() {
 }
 
 async function deleteMetaOrg() {
-  if (!collections.organizations) {
+  if (!organizationService) {
     return Promise.resolve();
   }
   
   try {
-    await collections.organizations.deleteOne({ isMetaOrg: true });
+    await organizationService.deleteMany(testUserContext, { filters: { isMetaOrg: { eq: true } } });
   }
   catch (error: any) {
     console.log('Error deleting meta org:', error);
@@ -117,7 +102,7 @@ async function setupTestUser() {
 }
 
 async function createTestUser() {
-  if (!db || !collections.users) {
+  if (!authService || !organizationService) {
     throw new Error('Database not initialized. Call initialize() first.');
   }
   
@@ -125,15 +110,24 @@ async function createTestUser() {
     const hashedAndSaltedTestUserPassword = await passwordUtils.hashPassword(testUserPassword);
     
     // Create a test organization if it doesn't exist
-    const existingOrg = await collections.organizations.findOne({ _id: testOrgId });
+    let existingOrg;
+    try {
+      existingOrg = await organizationService.getById(testUserContext, testOrgId);
+    } catch (error: any) {
+      // If organization doesn't exist, create it
+      if (error instanceof IdNotFoundError) {
+        existingOrg = null;
+      } else {
+        throw error;
+      }
+    }
+    
     if (!existingOrg) {
-      const orgInsertResult = await collections.organizations.insertOne({ 
-        _id: new ObjectId(testOrgId), 
+      await organizationService.create(testUserContext, { 
+        _id: testOrgId,
         name: testOrgName,
-        _created: new Date(),
-        _createdBy: 'system',
-        _updated: new Date(),
-        _updatedBy: 'system'
+        code: 'test-org',
+        isMetaOrg: false
       });
     }
     
@@ -151,7 +145,12 @@ async function createTestUser() {
     // const insertResults = await Promise.all([
     //   collections.users.insertMany(testUsers),
     // ]);
-    const insertResult = await collections.users.insertOne(localTestUser);
+    const insertResult = await authService.create(testUserContext, {
+      _id: testUserId,
+      email: testUserEmail,
+      password: testUserPassword,
+      _orgId: testOrgId
+    });
     
     // since this is a simulation, and we aren't using an actual controller, our normal mechanism for filtering out sensitive
     //  properties is not being called. We will have to manually remove the password property here...
@@ -173,12 +172,18 @@ function deleteTestUser() {
   
   // Delete test user
   if (testUser) {
-    promises.push(collections.users.deleteOne({_id: testUser._id}));
+    promises.push(authService.deleteById(testUserContext, testUser._id).catch((error: any) => {
+      // Ignore errors during cleanup - entity may not exist
+      return null;
+    }));
   }
   
   // Delete test organization (regular org only, not meta)
-  if (collections.organizations) {
-    promises.push(collections.organizations.deleteOne({_id: new ObjectId(testOrgId)}));
+  if (organizationService) {
+    promises.push(organizationService.deleteById(testUserContext, testOrgId).catch((error: any) => {
+      // Ignore errors during cleanup - entity may not exist
+      return null;
+    }));
   }
   
   return Promise.all(promises);
@@ -308,8 +313,10 @@ export class CategoryController extends ApiController<ICategory> {
 
 // Test service with aggregation pipeline
 export class ProductService extends GenericApiService<IProduct> {
+  private db: Database;
   constructor(database: Database) {
     super(database, 'products', 'product', ProductSpec);
+    this.db = database;
   }
 
   override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
@@ -323,7 +330,7 @@ export class ProductService extends GenericApiService<IProduct> {
 
   override postprocessEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
-      const categoryService = new CategoryService(db);
+      const categoryService = new CategoryService(this.db);
       single.category = categoryService.postprocessEntity(userContext, single.category);
     }
     return super.postprocessEntity(userContext, single);
@@ -334,8 +341,6 @@ export class ProductService extends GenericApiService<IProduct> {
 export class ProductsController extends ApiController<IProduct> {
   constructor(app: Application, database: Database) {
 
-
-    
     const productService = new ProductService(database);
 
     // 1. Define the full shape of the aggregated data, including the joined category.
@@ -358,8 +363,10 @@ export class ProductsController extends ApiController<IProduct> {
 
 // Service that uses MultiTenantApiService
 export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
+  private db: Database;
   constructor(database: Database) {
     super(database, 'products', 'product', ProductSpec);
+    this.db = database;
   }
 
   override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
@@ -373,7 +380,7 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
 
   override postprocessEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
-      const categoryService = new CategoryService(db);
+      const categoryService = new CategoryService(this.db);
       single.category = categoryService.postprocessEntity(userContext, single.category);
     }
     return super.postprocessEntity(userContext, single);
@@ -454,7 +461,6 @@ const testUtils = {
   cleanup,
   configureJwtSecret,
   constDeviceIdCookie,
-  createIndexes,
   createMetaOrg,
   deleteMetaOrg,
   deleteTestUser,
