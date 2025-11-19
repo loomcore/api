@@ -1,5 +1,5 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient, Db, ObjectId } from 'mongodb';
 
 import testUtils from './common-test.utils.js';
 import { initSystemUserContext } from '../config/base-api-config.js';
@@ -26,6 +26,10 @@ export class TestMongoDb {
     // Create and cache the initialization promise
     this.initPromise = this._performInit();
     return this.initPromise;
+  }
+
+  static getRandomId(): string {
+    return new ObjectId().toString();
   }
 
   private static async _performInit(): Promise<Db> {
