@@ -5,6 +5,7 @@ import { entityUtils } from '@loomcore/common/utils';
 import { TypeboxIsoDate, TypeboxObjectId } from '@loomcore/common/validation';
 
 import { apiUtils } from '../api.utils.js';
+import testUtils from '../../__tests__/common-test.utils.js';
 
 describe('apiUtils', () => {
   describe('apiResponse with model encoding', () => {
@@ -68,7 +69,7 @@ describe('apiUtils', () => {
       const modelSpec = entityUtils.getModelSpec(TestSchema);
       
       // Create an entity with a string ID (proper usage according to our schema)
-      const idString = new ObjectId().toString(); // Get ID string, not ObjectId instance
+      const idString = testUtils.getRandomId(); // Get ID string, not ObjectId instance
       const entity = {
         name: 'Test Entity',
         refId: idString // This is a string, matching our schema
@@ -105,7 +106,7 @@ describe('apiUtils', () => {
       const modelSpec = entityUtils.getModelSpec(TestSchema);
       
       // Create an entity with a string ID
-      const idString = new ObjectId().toString();
+      const idString = testUtils.getRandomId();
       const entity = {
         name: 'Test Entity',
         refId: idString
@@ -142,8 +143,8 @@ describe('apiUtils', () => {
       const modelSpec = entityUtils.getModelSpec(TestSchema);
       
       // Create an array of entities with string IDs
-      const id1 = new ObjectId().toString();
-      const id2 = new ObjectId().toString();
+      const id1 = testUtils.getRandomId();
+      const id2 = testUtils.getRandomId();
       const entities = [
         { name: 'Entity 1', refId: id1 },
         { name: 'Entity 2', refId: id2 }

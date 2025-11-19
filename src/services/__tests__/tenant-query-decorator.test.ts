@@ -2,7 +2,7 @@ import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TenantQueryDecorator, ITenantQueryOptions, DEFAULT_TENANT_OPTIONS } from '../tenant-query-decorator.js';
 import { ServerError } from '../../errors/index.js';
-import { ObjectId } from 'mongodb';
+import testUtils from '../../__tests__/common-test.utils.js';
 
 // Create a simple implementation of IEntity for testing
 interface TestEntity extends IEntity {
@@ -19,7 +19,7 @@ describe('TenantQueryDecorator', () => {
   // Helper function to create user context with or without orgId
   const createUserContext = (includeOrgId = true): IUserContext => ({
     user: { 
-      _id: new ObjectId().toHexString(), 
+      _id: testUtils.getRandomId(), 
       email: 'test@example.com',
       password: '',
       _created: new Date(),
@@ -32,7 +32,7 @@ describe('TenantQueryDecorator', () => {
 
   const createUserContextWithoutOrgId = () => ({
     user: { 
-      _id: new ObjectId().toHexString(), 
+      _id: testUtils.getRandomId(), 
       email: 'test@example.com',
       password: '',
       _created: new Date(),
@@ -233,7 +233,7 @@ describe('TenantQueryDecorator', () => {
   describe('applyTenantToEntity', () => {
     it('should add orgId to entity', () => {
       // Arrange
-      const newId = new ObjectId().toHexString();
+      const newId = testUtils.getRandomId();
       const decorator = new TenantQueryDecorator();
       const entity: TestEntity = { _id: newId, name: 'Test Entity' };
       
@@ -250,7 +250,7 @@ describe('TenantQueryDecorator', () => {
     
     it('should not modify entity for excluded collections', () => {
       // Arrange
-      const newId = new ObjectId().toHexString();
+      const newId = testUtils.getRandomId();
       const customOptions: ITenantQueryOptions = {
         excludedCollections: [excludedCollectionName]
       };
@@ -266,7 +266,7 @@ describe('TenantQueryDecorator', () => {
     
     it('should use custom orgId field name when specified', () => {
       // Arrange
-      const newId = new ObjectId().toHexString();
+      const newId = testUtils.getRandomId();
       const customOptions: ITenantQueryOptions = {
         orgIdField: 'tenantId'
       };
@@ -286,7 +286,7 @@ describe('TenantQueryDecorator', () => {
     
     it('should throw ServerError if userContext has no orgId', () => {
       // Arrange
-      const newId = new ObjectId().toHexString();
+      const newId = testUtils.getRandomId();
       const decorator = new TenantQueryDecorator();
       const entity: TestEntity = { _id: newId, name: 'Test Entity' };
       
@@ -298,7 +298,7 @@ describe('TenantQueryDecorator', () => {
     
     it('should override entity orgId if already exists', () => {
       // Arrange
-      const newId = new ObjectId().toHexString();
+      const newId = testUtils.getRandomId();
       const decorator = new TenantQueryDecorator();
       const entity: TestEntity & { _orgId: string } = { 
         _id: newId,

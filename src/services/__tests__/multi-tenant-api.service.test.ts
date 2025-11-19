@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
 import { TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
@@ -10,9 +9,7 @@ import { TenantQueryDecorator } from '../tenant-query-decorator.js';
 import { BadRequestError, ServerError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { Database } from '../../databases/database.js';
 import { IDatabase } from '../../databases/database.interface.js';
-import { MongoDBDatabase } from '../../databases/mongoDb/database.mongo.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -235,14 +232,14 @@ describe('MultiTenantApiService', () => {
       // Arrange
       const userContext = testUtils.testUserContext;
       const testEntity: TestEntity = {
-        _id: new ObjectId().toString(),
+        _id: testUtils.getRandomId(),
         name: 'Test Entity',
         _orgId: testOrgId
       };
       
       // Insert a test entity directly into the database
       await database.create({
-        _id: new ObjectId(testEntity._id),
+        _id: testEntity._id,
         name: testEntity.name,
         _orgId: testEntity._orgId
       });
@@ -309,14 +306,14 @@ describe('MultiTenantApiService', () => {
     it('should update an entity by ID', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const testEntityId = new ObjectId().toString();
+      const testEntityId = testUtils.getRandomId();
       
       // Insert a test entity directly into the database
-      await database.create({
-        _id: new ObjectId(testEntityId),
+      await service.create(userContext, {
+        _id: testEntityId,
         name: 'Original Name',
         _orgId: testOrgId
-      });
+      } as Partial<TestEntity>);
       
       const updateEntity: Partial<TestEntity> = {
         name: 'Updated Name'
@@ -335,7 +332,7 @@ describe('MultiTenantApiService', () => {
     it('should throw IdNotFoundError if entity not found', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const nonExistentId = new ObjectId().toString();
+      const nonExistentId = testUtils.getRandomId();
       const entity: Partial<TestEntity> = {
         name: 'Updated Name'
       };
@@ -351,14 +348,14 @@ describe('MultiTenantApiService', () => {
     it('should delete an entity by ID', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const testEntityId = new ObjectId().toString();
+      const testEntityId = testUtils.getRandomId();
       
       // Insert a test entity directly into the database
-      await database.create({
-        _id: new ObjectId(testEntityId),
+      await service.create(userContext, {
+        _id: testEntityId,
         name: 'Test Entity',
         _orgId: testOrgId
-      });
+      } as Partial<TestEntity>);
       
       // Verify it exists
       const beforeDelete = await database.getById<TestEntity>([], testEntityId);
@@ -380,7 +377,7 @@ describe('MultiTenantApiService', () => {
     it('should throw IdNotFoundError if no entity found', async () => {
       // Arrange
       const userContext = testUtils.testUserContext;
-      const nonExistentId = new ObjectId().toString();
+      const nonExistentId = testUtils.getRandomId();
       
       // Act & Assert
       await expect(

@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { ObjectId } from 'mongodb';
 import { IOrganization, IUserContext } from '@loomcore/common/models';
 
 import { OrganizationService } from '../organization.service.js';
@@ -58,7 +57,7 @@ describe('OrganizationService - Integration Tests', () => {
 
     it('should throw IdNotFoundError when organization does not exist', async () => {
       // Arrange
-      const nonExistentOrgId = new ObjectId().toString();
+      const nonExistentOrgId = testUtils.getRandomId();
 
       // Act & Assert
       await expect(
