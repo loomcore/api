@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { IUserContext, IEntity, IAuditable, IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
@@ -245,29 +244,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(retrievedEntity.count).toBe(testEntity.count);
     });
 
-    it('should transform entity ID from ObjectId to string when retrieving by ID', async () => {
-      // Arrange
-      const testEntity: Partial<TestEntity> = {
-        name: 'Entity for ID transformation test'
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Act
-      const retrievedEntity = await service.getById(testUserContext, createdEntity._id);
-      
-      // Assert
-      expect(retrievedEntity).toBeDefined();
-      expect(retrievedEntity._id).toBeDefined();
-      // ID should be a string (transformed from ObjectId)
-      expect(typeof retrievedEntity._id).toBe('string');
-      expect(retrievedEntity._id).toBe(createdEntity._id);
-    });
 
     it('should retrieve correct entity when multiple entities exist', async () => {
       // Arrange
@@ -331,15 +307,6 @@ describe('GenericApiService - Integration Tests', () => {
   });
   
   describe('Error Handling', () => {
-    it('should throw BadRequestError when getById is called with invalid ObjectId', async () => {
-      // Arrange
-      const invalidId = 'invalid-object-id';
-      
-      // Act & Assert
-      await expect(
-        service.getById(testUserContext, invalidId)
-      ).rejects.toThrow(BadRequestError);
-    });
 
     it('should throw BadRequestError when getById is called with empty string', async () => {
       // Arrange
@@ -361,15 +328,6 @@ describe('GenericApiService - Integration Tests', () => {
       ).rejects.toThrow(BadRequestError);
     });
 
-    it('should throw IdNotFoundError when getById is called with non-existent ID', async () => {
-      // Arrange
-      const nonExistentId = new ObjectId().toString();
-      
-      // Act & Assert
-      await expect(
-        service.getById(testUserContext, nonExistentId)
-      ).rejects.toThrow(IdNotFoundError);
-    });
 
     it('should throw IdNotFoundError when entity is deleted before retrieval', async () => {
       // Arrange
@@ -455,7 +413,7 @@ describe('GenericApiService - Integration Tests', () => {
         throw new Error('Entity not created or missing ID');
       }
 
-      const newId = new ObjectId().toString();
+      const newId = testUtils.getRandomId();
     
       // Try to create multiple entities with duplicate names within the batch
       const testEntities: Partial<TestEntity>[] = [
@@ -1084,36 +1042,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntities[0].count).toBe(42);
     });
 
-    it('should transform entity IDs from ObjectId to string in batch update results', async () => {
-      // Arrange
-      
-      // Create initial entity
-      const testEntity: Partial<TestEntity> = {
-        name: 'Entity for ID transformation test'
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Prepare update
-      const updateEntity: Partial<TestEntity> = {
-        _id: createdEntity._id,
-        description: 'Updated description'
-      };
-      
-      // Act
-      const updatedEntities = await service.batchUpdate(testUserContext, [updateEntity]);
-      
-      // Assert
-      expect(updatedEntities).toHaveLength(1);
-      expect(updatedEntities[0]._id).toBeDefined();
-      expect(typeof updatedEntities[0]._id).toBe('string');
-      expect(updatedEntities[0]._id).toBe(createdEntity._id);
-    });
 
     it('should update multiple entities with different field combinations', async () => {
       // Arrange
@@ -1315,33 +1243,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updatedBy).toBe(testUserContext.user._id);
     });
 
-    it('should throw BadRequestError when fullUpdateById is called with invalid ObjectId', async () => {
-      // Arrange
-      const invalidId = 'invalid-object-id';
-      const updateEntity: TestEntity = {
-        name: 'Updated Name'
-      } as TestEntity;
-      
-      // Act & Assert
-      await expect(
-        service.fullUpdateById(testUserContext, invalidId, updateEntity)
-      ).rejects.toThrow(BadRequestError);
-    });
-
-    it('should throw IdNotFoundError when fullUpdateById is called with non-existent ID', async () => {
-      // Arrange
-      const nonExistentId = new ObjectId().toString();
-      const updateEntity: TestEntity = {
-        name: 'Updated Name'
-      } as TestEntity;
-      
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      
-      // Act & Assert
-      await expect(
-        service.fullUpdateById(testUserContext, nonExistentId, preparedUpdate as TestEntity)
-      ).rejects.toThrow(IdNotFoundError);
-    });
 
     it('should fully replace all fields when updating', async () => {
       // Arrange
@@ -1384,36 +1285,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity.count).toBe(200);
     });
 
-    it('should transform entity ID from ObjectId to string in full update result', async () => {
-      // Arrange
-      const initialEntity: Partial<TestEntity> = {
-        name: 'Entity for ID transformation test'
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Act
-      const updateEntity: TestEntity = {
-        name: 'Updated Name'
-      } as TestEntity;
-      
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const updatedEntity = await service.fullUpdateById(
-        testUserContext,
-        createdEntity._id,
-        preparedUpdate as TestEntity
-      );
-      
-      // Assert
-      expect(updatedEntity._id).toBeDefined();
-      expect(typeof updatedEntity._id).toBe('string');
-      expect(updatedEntity._id).toBe(createdEntity._id);
-    });
 
     it('should handle full update with minimal fields', async () => {
       // Arrange
@@ -1610,33 +1481,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updatedBy).toBe(testUserContext.user._id);
     });
 
-    it('should throw BadRequestError when partialUpdateById is called with invalid ObjectId', async () => {
-      // Arrange
-      const invalidId = 'invalid-object-id';
-      const updateEntity: Partial<TestEntity> = {
-        name: 'Updated Name'
-      };
-      
-      // Act & Assert
-      await expect(
-        service.partialUpdateById(testUserContext, invalidId, updateEntity)
-      ).rejects.toThrow(BadRequestError);
-    });
-
-    it('should throw IdNotFoundError when partialUpdateById is called with non-existent ID', async () => {
-      // Arrange
-      const nonExistentId = new ObjectId().toString();
-      const updateEntity: Partial<TestEntity> = {
-        name: 'Updated Name'
-      };
-      
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      
-      // Act & Assert
-      await expect(
-        service.partialUpdateById(testUserContext, nonExistentId, preparedUpdate)
-      ).rejects.toThrow(IdNotFoundError);
-    });
 
     it('should update multiple fields in a single partial update', async () => {
       // Arrange
@@ -1678,36 +1522,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity.description).toBe('Original description');
     });
 
-    it('should transform entity ID from ObjectId to string in partial update result', async () => {
-      // Arrange
-      const initialEntity: Partial<TestEntity> = {
-        name: 'Entity for ID transformation test'
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Act
-      const updateEntity: Partial<TestEntity> = {
-        description: 'Updated description'
-      };
-      
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const updatedEntity = await service.partialUpdateById(
-        testUserContext,
-        createdEntity._id,
-        preparedUpdate
-      );
-      
-      // Assert
-      expect(updatedEntity._id).toBeDefined();
-      expect(typeof updatedEntity._id).toBe('string');
-      expect(updatedEntity._id).toBe(createdEntity._id);
-    });
 
     it('should handle partial update with single field', async () => {
       // Arrange
@@ -1889,18 +1703,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updatedBy).toBe(testUserContext.user._id);
     });
 
-    it('should throw BadRequestError when partialUpdateByIdWithoutBeforeAndAfter is called with invalid ObjectId', async () => {
-      // Arrange
-      const invalidId = 'invalid-object-id';
-      const updateEntity: TestEntity = {
-        name: 'Updated Name'
-      } as TestEntity;
-      
-      // Act & Assert
-      await expect(
-        service.partialUpdateByIdWithoutBeforeAndAfter(testUserContext, invalidId, updateEntity)
-      ).rejects.toThrow(BadRequestError);
-    });
 
     it('should throw IdNotFoundError when partialUpdateByIdWithoutBeforeAndAfter is called with non-existent ID', async () => {
       // Arrange
@@ -1917,36 +1719,6 @@ describe('GenericApiService - Integration Tests', () => {
       ).rejects.toThrow(IdNotFoundError);
     });
 
-    it('should transform entity ID from ObjectId to string in partialUpdateByIdWithoutBeforeAndAfter result', async () => {
-      // Arrange
-      const initialEntity: Partial<TestEntity> = {
-        name: 'Entity for ID transformation test'
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Act
-      const updateEntity: TestEntity = {
-        description: 'Updated description'
-      } as TestEntity;
-      
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
-        testUserContext,
-        createdEntity._id,
-        preparedUpdate as TestEntity
-      );
-      
-      // Assert
-      expect(updatedEntity._id).toBeDefined();
-      expect(typeof updatedEntity._id).toBe('string');
-      expect(updatedEntity._id).toBe(createdEntity._id);
-    });
 
     it('should update multiple fields in a single partial update without hooks', async () => {
       // Arrange
@@ -2236,32 +2008,6 @@ describe('GenericApiService - Integration Tests', () => {
       });
     });
 
-    it('should transform entity IDs from ObjectId to string in update results', async () => {
-      // Arrange
-      const initialEntities: Partial<TestEntity>[] = [
-        { name: 'Entity 1', isActive: true },
-        { name: 'Entity 2', isActive: true }
-      ];
-      
-      const preparedEntities = await service.preprocessEntities(testUserContext, initialEntities, true);
-      const createdEntities = await service.createMany(testUserContext, preparedEntities as TestEntity[]);
-      
-      // Act
-      const updateEntity: Partial<TestEntity> = {
-        description: 'Updated'
-      };
-      
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const queryObject = { isActive: true };
-      const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
-      
-      // Assert
-      expect(updatedEntities).toHaveLength(2);
-      updatedEntities.forEach(entity => {
-        expect(entity._id).toBeDefined();
-        expect(typeof entity._id).toBe('string');
-      });
-    });
 
     it('should handle query with $in operator for _id', async () => {
       // Arrange
@@ -2352,25 +2098,6 @@ describe('GenericApiService - Integration Tests', () => {
       ).rejects.toThrow(IdNotFoundError);
     });
 
-    it('should throw BadRequestError when deleteById is called with invalid ObjectId', async () => {
-      // Arrange
-      const invalidId = 'invalid-object-id';
-      
-      // Act & Assert
-      await expect(
-        service.deleteById(testUserContext, invalidId)
-      ).rejects.toThrow(BadRequestError);
-    });
-
-    it('should throw IdNotFoundError when deleteById is called with non-existent ID', async () => {
-      // Arrange
-      const nonExistentId = new ObjectId().toString();
-      
-      // Act & Assert
-      await expect(
-        service.deleteById(testUserContext, nonExistentId)
-      ).rejects.toThrow(IdNotFoundError);
-    });
 
     it('should delete entity and verify it is removed from collection', async () => {
       // Arrange
@@ -2471,29 +2198,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(remainingEntities.find(e => e.name === 'Entity B')).toBeUndefined();
     });
 
-    it('should handle delete operation with valid ObjectId string', async () => {
-      // Arrange
-      const testEntity: Partial<TestEntity> = {
-        name: 'Entity for delete test'
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Verify ID is a string
-      expect(typeof createdEntity._id).toBe('string');
-      
-      // Act
-      const deleteResult = await service.deleteById(testUserContext, createdEntity._id);
-      
-      // Assert
-      expect(deleteResult.count).toBe(1);
-      expect(deleteResult.success).toBe(true);
-    });
 
     it('should return correct DeleteResult structure', async () => {
       // Arrange
@@ -2912,27 +2616,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(Array.isArray(foundEntities)).toBe(true);
     });
 
-    it('should transform entity IDs from ObjectId to string in find results', async () => {
-      // Arrange
-      const testEntities: Partial<TestEntity>[] = [
-        { name: 'Entity 1', isActive: true },
-        { name: 'Entity 2', isActive: true }
-      ];
-      
-      const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-      await service.createMany(testUserContext, preparedEntities as TestEntity[]);
-      
-      // Act
-      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const foundEntities = await service.find(testUserContext, queryObject);
-      
-      // Assert
-      expect(foundEntities).toHaveLength(2);
-      foundEntities.forEach(entity => {
-        expect(entity._id).toBeDefined();
-        expect(typeof entity._id).toBe('string');
-      });
-    });
 
     it('should find entities with count condition', async () => {
       // Arrange
@@ -3107,29 +2790,6 @@ describe('GenericApiService - Integration Tests', () => {
       expect(entity).toBeNull();
     });
 
-    it('should transform entity ID from ObjectId to string in findOne result', async () => {
-      // Arrange
-      const testEntity: Partial<TestEntity> = {
-        name: 'Entity 1',
-        isActive: true
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Act
-      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-      const foundEntity = await service.findOne(testUserContext, queryObject);
-      
-      // Assert
-      expect(foundEntity?._id).toBeDefined();
-      expect(typeof foundEntity?._id).toBe('string');
-      expect(foundEntity?._id).toBe(createdEntity._id);
-    });
 
     it('should find one entity with count condition', async () => {
       // Arrange
@@ -3236,28 +2896,5 @@ describe('GenericApiService - Integration Tests', () => {
       expect(['Entity 1', 'Entity 2', 'Entity 3']).toContain(foundEntity?.name);
     });
 
-    it('should find one entity by _id using string ID', async () => {
-      // Arrange
-      const testEntity: Partial<TestEntity> = {
-        name: 'Entity to find',
-        isActive: true
-      };
-      
-      const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
-      
-      if (!createdEntity || !createdEntity._id) {
-        throw new Error('Entity not created or missing ID');
-      }
-      
-      // Act - Find by _id using string (should be converted to ObjectId)
-      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-      const foundEntity = await service.findOne(testUserContext, queryObject);
-      
-      // Assert
-      expect(foundEntity).toBeDefined();
-      expect(foundEntity?._id).toBe(createdEntity._id);
-      expect(foundEntity?.name).toBe('Entity to find');
-    });
   });
 }); 

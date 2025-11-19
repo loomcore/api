@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import moment from 'moment';
 import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, EmptyUserContext } from '@loomcore/common/models';
@@ -371,7 +370,7 @@ describe('GenericApiService - Integration Tests', () => {
   describe('Error Handling', () => {
     it('should throw IdNotFoundError when getting non-existent entity', async () => {
       // Arrange
-      const nonExistentId = new ObjectId().toString();
+      const nonExistentId = testUtils.getRandomId();
       
       // Act & Assert
       await expect(
@@ -497,7 +496,7 @@ describe('GenericApiService - Integration Tests', () => {
         const updateData = { name: 'Updated Test' };
         const updaterUserContext: IUserContext = {
           user: {
-            _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0e').toString(),
+            _id: testUtils.getRandomId(),
             email: 'updater@example.com',
             password: '',
             _created: new Date(),
@@ -608,101 +607,6 @@ describe('GenericApiService - Integration Tests', () => {
         // Assert
         expect(preparedEntity.eventDate instanceof Date).toBe(true);
         expect(preparedEntity.eventDate.toISOString()).toBe(isoDateString);
-      });
-      
-      it('should convert string IDs to ObjectIds for database storage', async () => {
-        // Arrange
-        const ObjectIdSchema = Type.Object({
-          name: Type.String({ minLength: 1 }),
-          refId: TypeboxObjectId({ title: 'Reference ID' })
-        });
-        
-        const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
-        const objectIdService = new GenericApiService<any>(
-          database,
-          'objectIdToStringTest',
-          'objectIdEntity',
-          objectIdModelSpec
-        );
-        
-        // Entity with string ID (simulating JSON from API)
-        const stringIdEntity = {
-          name: 'Entity with string ID reference',
-          refId: new ObjectId().toString() // String ID from client
-        };
-        
-        // Act
-        const preparedEntity = await objectIdService.preprocessEntity<any>(testUserContext, stringIdEntity, true);
-        
-        // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
-        expect(preparedEntity.refId instanceof ObjectId).toBe(true);
-        expect(preparedEntity.refId.toString()).toBe(stringIdEntity.refId);
-      });
-      
-      it('should handle nested objects with proper type conversion to database types', async () => {
-        // Arrange
-        const testDate = new Date();
-        const refIdString = new ObjectId().toString();
-        
-        const ComplexSchema = Type.Object({
-          name: Type.String(),
-          nested: Type.Object({
-            refId: TypeboxObjectId({ title: 'Reference ID' }),
-            timestamp: TypeboxIsoDate({ title: 'Timestamp' }),
-            deeplyNested: Type.Object({
-              anotherRefId: TypeboxObjectId({ title: 'Another Reference ID' })
-            })
-          }),
-          items: Type.Array(
-            Type.Object({
-              itemRefId: TypeboxObjectId({ title: 'Item Reference ID' }),
-              eventDate: TypeboxIsoDate({ title: 'Event Date' })
-            })
-          )
-        });
-        
-        const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
-        const complexService = new GenericApiService<any>(
-          database,
-          'complexEntities',
-          'complexEntity',
-          complexModelSpec
-        );
-        
-        // Entity with nested objects containing string IDs and ISO date strings
-        const complexJsonEntity = {
-          name: 'Complex Entity',
-          nested: {
-            refId: refIdString,
-            timestamp: testDate.toISOString(),
-            deeplyNested: {
-              anotherRefId: refIdString
-            }
-          },
-          items: [
-            { itemRefId: refIdString, eventDate: testDate.toISOString() },
-            { itemRefId: new ObjectId().toString(), eventDate: new Date().toISOString() }
-          ]
-        };
-        
-        // Act
-        const preparedEntity = await complexService.preprocessEntity<any>(testUserContext, complexJsonEntity, true);
-        
-        // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
-        expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
-        expect(preparedEntity.nested.deeplyNested.anotherRefId instanceof ObjectId).toBe(true);
-        expect(preparedEntity.items[0].itemRefId instanceof ObjectId).toBe(true);
-        expect(preparedEntity.items[1].itemRefId instanceof ObjectId).toBe(true);
-        
-        // Dates should be Date objects
-        expect(preparedEntity.nested.timestamp instanceof Date).toBe(true);
-        expect(preparedEntity.items[0].eventDate instanceof Date).toBe(true);
-        expect(preparedEntity.items[1].eventDate instanceof Date).toBe(true);
-        
-        // Verify values match original input
-        expect(preparedEntity.nested.refId.toString()).toBe(refIdString);
-        expect(preparedEntity.nested.timestamp.toISOString()).toBe(testDate.toISOString());
-        expect(preparedEntity.nested.deeplyNested.anotherRefId.toString()).toBe(refIdString);
       });
     });
   });

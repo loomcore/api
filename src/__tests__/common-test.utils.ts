@@ -1,5 +1,4 @@
-import { ObjectId } from 'mongodb';
-import { Request, Response, Application, NextFunction } from 'express';
+import { Request, Response, Application } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions } from '@loomcore/common/models';
@@ -18,6 +17,7 @@ import { Join } from '../databases/operations/join.js';
 import { Database } from '../databases/database.js';
 import { OrganizationService } from '../services/organization.service.js';
 import { IdNotFoundError } from '../errors/index.js';
+import { TestMongoDb } from './test-mongo-db.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;
@@ -53,7 +53,11 @@ function initialize(database: Database) {
   authService = new AuthService(database);
   organizationService = new OrganizationService(database);
 }
-    
+
+function getRandomId(): string {
+  return TestMongoDb.getRandomId();
+}
+
 async function createMetaOrg() {
   if (!organizationService) {
     throw new Error('OrganizationService not initialized. Call initialize() first.');
@@ -132,7 +136,7 @@ async function createTestUser() {
     }
     
     const localTestUser = {
-      _id: new ObjectId(testUserId),
+      _id: testUserId,
       email: testUserEmail, 
       password: hashedAndSaltedTestUserPassword,
       _orgId: testOrgId,
@@ -239,7 +243,7 @@ async function simulateloginWithTestUser() {
 function getAuthToken(): string {
   const payload = { 
     user: { 
-      _id: new ObjectId(testUserId),
+      _id: testUserId,
       email: testUserEmail
     }, 
     _orgId: testOrgId 
@@ -458,6 +462,7 @@ async function cleanup() {
 }
 
 const testUtils = {
+  getRandomId,
   cleanup,
   configureJwtSecret,
   constDeviceIdCookie,

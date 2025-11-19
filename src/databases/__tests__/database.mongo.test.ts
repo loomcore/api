@@ -2,12 +2,17 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Db, MongoClient, Collection, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
-import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
+import { IQueryOptions, DefaultQueryOptions, IUserContext } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
-import { initializeTypeBox } from '@loomcore/common/validation';
+import { initializeTypeBox, TypeboxIsoDate, TypeboxObjectId } from '@loomcore/common/validation';
 
 import { MongoDBDatabase } from '../mongoDb/database.mongo.js';
 import { Join } from '../operations/join.js';
+import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
+import testUtils from '../../__tests__/common-test.utils.js';
+import { TestExpressApp } from '../../__tests__/test-express-app.js';
+import { IEntity, IAuditable } from '@loomcore/common/models';
+import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -487,6 +492,554 @@ describe('MongoDBDatabase - Join Operations', () => {
       expect(resultPage2.page).toBe(2);
       expect(resultPage2.entities![0].orderNumber).toBe('ORD-303');
       expect(resultPage2.entities![1].orderNumber).toBe('ORD-304');
+    });
+  });
+
+  describe('ObjectId Conversion', () => {
+    let testUserContext: IUserContext;
+
+    beforeAll(() => {
+      testUserContext = testUtils.testUserContext;
+    });
+
+    it('should convert string IDs to ObjectIds for database storage', async () => {
+      // Arrange
+      const ObjectIdSchema = Type.Object({
+        name: Type.String({ minLength: 1 }),
+        refId: TypeboxObjectId({ title: 'Reference ID' })
+      });
+      
+      const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
+      const objectIdService = new GenericApiService<any>(
+        db,
+        'objectIdToStringTest',
+        'objectIdEntity',
+        objectIdModelSpec
+      );
+      
+      // Entity with string ID (simulating JSON from API)
+      const stringIdEntity = {
+        name: 'Entity with string ID reference',
+        refId: testUtils.getRandomId() // String ID from client
+      };
+      
+      // Act
+      const preparedEntity = await objectIdService.preprocessEntity<any>(testUserContext, stringIdEntity, true);
+      
+      // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
+      expect(preparedEntity.refId instanceof ObjectId).toBe(true);
+      expect(preparedEntity.refId.toString()).toBe(stringIdEntity.refId);
+    });
+    
+    it('should handle nested objects with proper type conversion to database types', async () => {
+      // Arrange
+      const testDate = new Date();
+      const refIdString = testUtils.getRandomId();
+      
+      const ComplexSchema = Type.Object({
+        name: Type.String(),
+        nested: Type.Object({
+          refId: TypeboxObjectId({ title: 'Reference ID' }),
+          timestamp: TypeboxIsoDate({ title: 'Timestamp' }),
+          deeplyNested: Type.Object({
+            anotherRefId: TypeboxObjectId({ title: 'Another Reference ID' })
+          })
+        }),
+        items: Type.Array(
+          Type.Object({
+            itemRefId: TypeboxObjectId({ title: 'Item Reference ID' }),
+            eventDate: TypeboxIsoDate({ title: 'Event Date' })
+          })
+        )
+      });
+      
+      const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
+      const complexService = new GenericApiService<any>(
+        db,
+        'complexEntities',
+        'complexEntity',
+        complexModelSpec
+      );
+      
+      // Entity with nested objects containing string IDs and ISO date strings
+      const complexJsonEntity = {
+        name: 'Complex Entity',
+        nested: {
+          refId: refIdString,
+          timestamp: testDate.toISOString(),
+          deeplyNested: {
+            anotherRefId: refIdString
+          }
+        },
+        items: [
+          { itemRefId: refIdString, eventDate: testDate.toISOString() },
+          { itemRefId: testUtils.getRandomId(), eventDate: new Date().toISOString() }
+        ]
+      };
+      
+      // Act
+      const preparedEntity = await complexService.preprocessEntity<any>(testUserContext, complexJsonEntity, true);
+      
+      // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
+      expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
+      expect(preparedEntity.nested.deeplyNested.anotherRefId instanceof ObjectId).toBe(true);
+      expect(preparedEntity.items[0].itemRefId instanceof ObjectId).toBe(true);
+      expect(preparedEntity.items[1].itemRefId instanceof ObjectId).toBe(true);
+      
+      // Dates should be Date objects
+      expect(preparedEntity.nested.timestamp instanceof Date).toBe(true);
+      expect(preparedEntity.items[0].eventDate instanceof Date).toBe(true);
+      expect(preparedEntity.items[1].eventDate instanceof Date).toBe(true);
+      
+      // Verify values match original input
+      expect(preparedEntity.nested.refId.toString()).toBe(refIdString);
+      expect(preparedEntity.nested.timestamp.toISOString()).toBe(testDate.toISOString());
+      expect(preparedEntity.nested.deeplyNested.anotherRefId.toString()).toBe(refIdString);
+    });
+  });
+
+  describe('ObjectId Transformation Tests', () => {
+    // Define a test entity interface
+    interface TestEntity extends IEntity, IAuditable {
+      name: string;
+      description?: string;
+      isActive?: boolean;
+      tags?: string[];
+      count?: number;
+    }
+
+    // Create a model spec for validation
+    const TestEntitySchema = Type.Object({
+      name: Type.String({ minLength: 1 }),
+      description: Type.Optional(Type.String()),
+      isActive: Type.Optional(Type.Boolean()),
+      tags: Type.Optional(Type.Array(Type.String())),
+      count: Type.Optional(Type.Number())
+    });
+
+    // Create model spec object
+    const testModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: true });
+
+    let service: GenericApiService<TestEntity>;
+    let testUserContext: IUserContext;
+
+    beforeAll(async () => {
+      const testSetup = await TestExpressApp.init('test-db-objectid');
+      testUserContext = testUtils.testUserContext;
+      
+      // Create service with auditable model spec
+      service = new GenericApiService<TestEntity>(
+        testSetup.database,
+        'testEntities',
+        'testEntity',
+        testModelSpec
+      );
+    });
+
+    afterAll(async () => {
+      await TestExpressApp.cleanup();
+    });
+
+    beforeEach(async () => {
+      await TestExpressApp.clearCollections();
+    });
+
+    describe('CRUD Operations - ObjectId Transformation', () => {
+      it('should transform entity ID from ObjectId to string when retrieving by ID', async () => {
+        // Arrange
+        const testEntity: Partial<TestEntity> = {
+          name: 'Entity for ID transformation test'
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Act
+        const retrievedEntity = await service.getById(testUserContext, createdEntity._id);
+        
+        // Assert
+        expect(retrievedEntity).toBeDefined();
+        expect(retrievedEntity._id).toBeDefined();
+        // ID should be a string (transformed from ObjectId)
+        expect(typeof retrievedEntity._id).toBe('string');
+        expect(retrievedEntity._id).toBe(createdEntity._id);
+      });
+    });
+
+    describe('Error Handling - ObjectId Validation', () => {
+      it('should throw BadRequestError when getById is called with invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'invalid-object-id';
+        
+        // Act & Assert
+        await expect(
+          service.getById(testUserContext, invalidId)
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('should throw IdNotFoundError when getById is called with non-existent ID', async () => {
+        // Arrange
+        const nonExistentId = new ObjectId().toString();
+        
+        // Act & Assert
+        await expect(
+          service.getById(testUserContext, nonExistentId)
+        ).rejects.toThrow(IdNotFoundError);
+      });
+    });
+
+    describe('Batch Update Operations - ObjectId Transformation', () => {
+      it('should transform entity IDs from ObjectId to string in batch update results', async () => {
+        // Arrange
+        
+        // Create initial entity
+        const testEntity: Partial<TestEntity> = {
+          name: 'Entity for ID transformation test'
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Prepare update
+        const updateEntity: Partial<TestEntity> = {
+          _id: createdEntity._id,
+          description: 'Updated description'
+        };
+        
+        // Act
+        const updatedEntities = await service.batchUpdate(testUserContext, [updateEntity]);
+        
+        // Assert
+        expect(updatedEntities).toHaveLength(1);
+        expect(updatedEntities[0]._id).toBeDefined();
+        expect(typeof updatedEntities[0]._id).toBe('string');
+        expect(updatedEntities[0]._id).toBe(createdEntity._id);
+      });
+    });
+
+    describe('Full Update Operations - ObjectId Transformation', () => {
+      it('should throw BadRequestError when fullUpdateById is called with invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'invalid-object-id';
+        const updateEntity: TestEntity = {
+          name: 'Updated Name'
+        } as TestEntity;
+        
+        // Act & Assert
+        await expect(
+          service.fullUpdateById(testUserContext, invalidId, updateEntity)
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('should throw IdNotFoundError when fullUpdateById is called with non-existent ID', async () => {
+        // Arrange
+        const nonExistentId = new ObjectId().toString();
+        const updateEntity: TestEntity = {
+          name: 'Updated Name'
+        } as TestEntity;
+        
+        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
+        
+        // Act & Assert
+        await expect(
+          service.fullUpdateById(testUserContext, nonExistentId, preparedUpdate as TestEntity)
+        ).rejects.toThrow(IdNotFoundError);
+      });
+
+      it('should transform entity ID from ObjectId to string in full update result', async () => {
+        // Arrange
+        const initialEntity: Partial<TestEntity> = {
+          name: 'Entity for ID transformation test'
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Act
+        const updateEntity: TestEntity = {
+          name: 'Updated Name'
+        } as TestEntity;
+        
+        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
+        const updatedEntity = await service.fullUpdateById(
+          testUserContext,
+          createdEntity._id,
+          preparedUpdate as TestEntity
+        );
+        
+        // Assert
+        expect(updatedEntity._id).toBeDefined();
+        expect(typeof updatedEntity._id).toBe('string');
+        expect(updatedEntity._id).toBe(createdEntity._id);
+      });
+    });
+
+    describe('Partial Update Operations - ObjectId Transformation', () => {
+      it('should throw BadRequestError when partialUpdateById is called with invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'invalid-object-id';
+        const updateEntity: Partial<TestEntity> = {
+          name: 'Updated Name'
+        };
+        
+        // Act & Assert
+        await expect(
+          service.partialUpdateById(testUserContext, invalidId, updateEntity)
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('should throw IdNotFoundError when partialUpdateById is called with non-existent ID', async () => {
+        // Arrange
+        const nonExistentId = new ObjectId().toString();
+        const updateEntity: Partial<TestEntity> = {
+          name: 'Updated Name'
+        };
+        
+        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
+        
+        // Act & Assert
+        await expect(
+          service.partialUpdateById(testUserContext, nonExistentId, preparedUpdate)
+        ).rejects.toThrow(IdNotFoundError);
+      });
+
+      it('should transform entity ID from ObjectId to string in partial update result', async () => {
+        // Arrange
+        const initialEntity: Partial<TestEntity> = {
+          name: 'Entity for ID transformation test'
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Act
+        const updateEntity: Partial<TestEntity> = {
+          description: 'Updated description'
+        };
+        
+        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
+        const updatedEntity = await service.partialUpdateById(
+          testUserContext,
+          createdEntity._id,
+          preparedUpdate
+        );
+        
+        // Assert
+        expect(updatedEntity._id).toBeDefined();
+        expect(typeof updatedEntity._id).toBe('string');
+        expect(updatedEntity._id).toBe(createdEntity._id);
+      });
+    });
+
+    describe('Partial Update Without Before And After - ObjectId Transformation', () => {
+      it('should throw BadRequestError when partialUpdateByIdWithoutBeforeAndAfter is called with invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'invalid-object-id';
+        const updateEntity: TestEntity = {
+          name: 'Updated Name'
+        } as TestEntity;
+        
+        // Act & Assert
+        await expect(
+          service.partialUpdateByIdWithoutBeforeAndAfter(testUserContext, invalidId, updateEntity)
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('should transform entity ID from ObjectId to string in partialUpdateByIdWithoutBeforeAndAfter result', async () => {
+        // Arrange
+        const initialEntity: Partial<TestEntity> = {
+          name: 'Entity for ID transformation test'
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Act
+        const updateEntity: TestEntity = {
+          description: 'Updated description'
+        } as TestEntity;
+        
+        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
+        const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
+          testUserContext,
+          createdEntity._id,
+          preparedUpdate as TestEntity
+        );
+        
+        // Assert
+        expect(updatedEntity._id).toBeDefined();
+        expect(typeof updatedEntity._id).toBe('string');
+        expect(updatedEntity._id).toBe(createdEntity._id);
+      });
+    });
+
+    describe('Update Operations - ObjectId Transformation', () => {
+      it('should transform entity IDs from ObjectId to string in update results', async () => {
+        // Arrange
+        const initialEntities: Partial<TestEntity>[] = [
+          { name: 'Entity 1', isActive: true },
+          { name: 'Entity 2', isActive: true }
+        ];
+        
+        const preparedEntities = await service.preprocessEntities(testUserContext, initialEntities, true);
+        const createdEntities = await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+        
+        // Act
+        const updateEntity: Partial<TestEntity> = {
+          description: 'Updated'
+        };
+        
+        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
+        const queryObject = { isActive: true };
+        const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
+        
+        // Assert
+        expect(updatedEntities).toHaveLength(2);
+        updatedEntities.forEach(entity => {
+          expect(entity._id).toBeDefined();
+          expect(typeof entity._id).toBe('string');
+        });
+      });
+    });
+
+    describe('Delete Operations - ObjectId Transformation', () => {
+      it('should throw BadRequestError when deleteById is called with invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'invalid-object-id';
+        
+        // Act & Assert
+        await expect(
+          service.deleteById(testUserContext, invalidId)
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('should throw IdNotFoundError when deleteById is called with non-existent ID', async () => {
+        // Arrange
+        const nonExistentId = new ObjectId().toString();
+        
+        // Act & Assert
+        await expect(
+          service.deleteById(testUserContext, nonExistentId)
+        ).rejects.toThrow(IdNotFoundError);
+      });
+
+      it('should handle delete operation with valid ObjectId string', async () => {
+        // Arrange
+        const testEntity: Partial<TestEntity> = {
+          name: 'Entity for delete test'
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Verify ID is a string
+        expect(typeof createdEntity._id).toBe('string');
+        
+        // Act
+        const deleteResult = await service.deleteById(testUserContext, createdEntity._id);
+        
+        // Assert
+        expect(deleteResult.count).toBe(1);
+        expect(deleteResult.success).toBe(true);
+      });
+    });
+
+    describe('Find Operations - ObjectId Transformation', () => {
+      it('should transform entity IDs from ObjectId to string in find results', async () => {
+        // Arrange
+        const testEntities: Partial<TestEntity>[] = [
+          { name: 'Entity 1', isActive: true },
+          { name: 'Entity 2', isActive: true }
+        ];
+        
+        const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
+        await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+        
+        // Act
+        const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
+        const foundEntities = await service.find(testUserContext, queryObject);
+        
+        // Assert
+        expect(foundEntities).toHaveLength(2);
+        foundEntities.forEach(entity => {
+          expect(entity._id).toBeDefined();
+          expect(typeof entity._id).toBe('string');
+        });
+      });
+    });
+
+    describe('FindOne Operations - ObjectId Transformation', () => {
+      it('should transform entity ID from ObjectId to string in findOne result', async () => {
+        // Arrange
+        const testEntity: Partial<TestEntity> = {
+          name: 'Entity 1',
+          isActive: true
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Act
+        const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
+        const foundEntity = await service.findOne(testUserContext, queryObject);
+        
+        // Assert
+        expect(foundEntity?._id).toBeDefined();
+        expect(typeof foundEntity?._id).toBe('string');
+        expect(foundEntity?._id).toBe(createdEntity._id);
+      });
+
+      it('should find one entity by _id using string ID', async () => {
+        // Arrange
+        const testEntity: Partial<TestEntity> = {
+          name: 'Entity to find',
+          isActive: true
+        };
+        
+        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
+        const createdEntity = await service.create(testUserContext, preparedEntity);
+        
+        if (!createdEntity || !createdEntity._id) {
+          throw new Error('Entity not created or missing ID');
+        }
+        
+        // Act - Find by _id using string (should be converted to ObjectId)
+        const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
+        const foundEntity = await service.findOne(testUserContext, queryObject);
+        
+        // Assert
+        expect(foundEntity).toBeDefined();
+        expect(foundEntity?._id).toBe(createdEntity._id);
+        expect(foundEntity?.name).toBe('Entity to find');
+      });
     });
   });
 });
