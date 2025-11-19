@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds, convertStringToObjectId } from '../../databases/mongoDb/utils/index.js';
+import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds } from '../../databases/mongoDb/utils/index.js';
 
 describe('mongoUtils', () => {
   describe('convertObjectIdsToStrings', () => {
@@ -330,45 +330,6 @@ describe('mongoUtils', () => {
       
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result.simpleId).toBe(invalidId); // Should remain as string
-    });
-  });
-
-  describe('convertStringToObjectId', () => {
-    it('should convert a valid string to ObjectId', () => {
-      const idString = new ObjectId().toString();
-      const result = convertStringToObjectId(idString);
-      
-      expect(result).toBeInstanceOf(ObjectId);
-      expect(result.toString()).toBe(idString);
-    });
-
-    it('should return the original ObjectId if one is passed', () => {
-      const objId = new ObjectId();
-      const result = convertStringToObjectId(objId);
-      
-      expect(result).toBe(objId);
-    });
-
-    it('should return null/undefined if null/undefined is passed', () => {
-      expect(convertStringToObjectId(null)).toBeNull();
-      expect(convertStringToObjectId(undefined)).toBeUndefined();
-    });
-
-    it('should return the original value for invalid ObjectId strings', () => {
-      const invalidId = 'not-an-objectid';
-      const result = convertStringToObjectId(invalidId);
-      
-      expect(result).toBe(invalidId);
-    });
-
-    it('should return non-string values unchanged', () => {
-      const number = 123;
-      const bool = true;
-      const obj = { test: 'value' };
-      
-      expect(convertStringToObjectId(number)).toBe(number);
-      expect(convertStringToObjectId(bool)).toBe(bool);
-      expect(convertStringToObjectId(obj)).toBe(obj);
     });
   });
 

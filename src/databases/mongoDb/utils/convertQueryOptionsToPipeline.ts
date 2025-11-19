@@ -19,7 +19,6 @@ export function convertQueryOptionsToPipeline(queryOptions: IQueryOptions, pagin
 			results.push({ $limit: queryOptions.pageSize });
 		}
 
-
 		if (pagination) {
 			pipeline.push({
 				$facet: {
