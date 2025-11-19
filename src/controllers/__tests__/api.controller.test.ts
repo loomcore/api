@@ -1,16 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
-import { Db, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { IEntity, IAuditable } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { ApiController } from '../api.controller.js';
-import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
+import { IDatabase } from '../../databases/database.interface.js';
+import { MongoDBDatabase } from '../../databases/mongoDb/database.mongo.js';
+import { IGenericApiService } from '../../services/generic-api-service/generic-api-service.interface.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
+import { Database } from '../../databases/database.js';
 
 // Mock model for testing
 interface ITestItem extends IEntity, IAuditable {
@@ -28,16 +30,16 @@ const TestItemSpec = entityUtils.getModelSpec(TestItemSchema, { isAuditable: tru
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
-  constructor(db: Db) {
-    super(db, 'testItems', 'testItem', TestItemSpec);
+  constructor(database: Database) {
+    super(database, 'testItems', 'testItem', TestItemSpec);
   }
 }
 
 class TestItemController extends ApiController<ITestItem> {
   public testItemService: TestItemService;
 
-  constructor(app: Application, db: Db) {
-    const testItemService = new TestItemService(db);
+  constructor(app: Application, database: Database) {
+    const testItemService = new TestItemService(database);
     super('test-items', app, testItemService, 'testItem', TestItemSpec);
 
     this.testItemService = testItemService;
@@ -67,16 +69,16 @@ const TestUserSpec = entityUtils.getModelSpec(TestUserSchema, { isAuditable: tru
 const TestPublicUserSchema = Type.Omit(TestUserSpec.fullSchema, ['password']);
 
 class TestUserService extends GenericApiService<ITestUser> {
-  constructor(db: Db) {
-    super(db, 'testUsers', 'testUser', TestUserSpec);
+  constructor(database: Database) {
+    super(database, 'testUsers', 'testUser', TestUserSpec);
   }
 }
 
 class TestUserController extends ApiController<ITestUser> {
   public testUserService: TestUserService;
 
-  constructor(app: Application, db: Db) {
-    const testUserService = new TestUserService(db);
+  constructor(app: Application, database: Database) {
+    const testUserService = new TestUserService(database);
     super('test-users', app, testUserService, 'testUser', TestUserSpec, TestPublicUserSchema);
 
     this.testUserService = testUserService;
@@ -88,7 +90,7 @@ class TestUserController extends ApiController<ITestUser> {
  * It uses our custom test utilities for MongoDB and Express.
  */
 describe('ApiController - Integration Tests', () => {
-  let db: Db;
+  let database: Database;
   let app: Application;
   let testAgent: any;
   let authToken: string;
@@ -100,9 +102,9 @@ describe('ApiController - Integration Tests', () => {
 
   beforeAll(async () => {
     // Initialize with our new test express app
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init('testItems');
     app = testSetup.app;
-    db = testSetup.db;
+    database = testSetup.database;
     testAgent = testSetup.agent;
     
     // Get auth token and user ID from testUtils
@@ -110,11 +112,11 @@ describe('ApiController - Integration Tests', () => {
     userId = testUtils.testUserId;
     
     // Create service and controller instances
-    controller = new TestItemController(app, db);
+    controller = new TestItemController(app, database);
     service = controller.testItemService;
     
     // Create user service and controller
-    usersController = new TestUserController(app, db);
+    usersController = new TestUserController(app, database);
     userService = usersController.testUserService;
 
     await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created

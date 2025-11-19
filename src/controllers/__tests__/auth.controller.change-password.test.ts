@@ -1,24 +1,23 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../../controllers/auth.controller.js';
 import { passwordUtils } from '../../utils/password.utils.js';
-import { IUser } from '@loomcore/common/models';
-import { Db } from 'mongodb';
+import { EmptyUserContext } from '@loomcore/common/models';
+import { AuthService } from '../../services/index.js';
 
 describe('AuthController.changePassword', () => {
+  let authService: AuthService;
   let testAgent: any;
-  let db: Db;
   
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init('test-app');
     testAgent = testSetup.agent;
-    db = testSetup.db;
-    
+
     // Initialize the AuthController with the Express app and database
-    new AuthController(testSetup.app, testSetup.db);
+    new AuthController(testSetup.app, testSetup.database);
+    authService = new AuthService(testSetup.database);
     
     // Setup error handling middleware AFTER controller initialization
     await TestExpressApp.setupErrorHandling();
@@ -50,7 +49,7 @@ describe('AuthController.changePassword', () => {
     expect(changePasswordResponse.status).toBe(200);
 
     // 3. Fetch the user directly from the database
-    const userFromDb = await db.collection<IUser>('users').findOne({ email: testUtils.testUserEmail });
+    const userFromDb = await authService.getById(EmptyUserContext, testUtils.testUserId);
     
     // 4. Verify the password in the DB is not the plain text password
     expect(userFromDb).toBeDefined();

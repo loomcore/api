@@ -2,18 +2,16 @@ import _ from 'lodash';
 import { ValueError } from '@sinclair/typebox/errors';
 import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
-
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { IDatabase } from '../../databases/database.interface.js';
-import { Db } from 'mongodb';
 import { Operation } from '../../databases/operations/operation.js';
-import { MongoDBDatabase } from '../../databases/mongoDb/database.mongo.js';
 import { Database } from '../../databases/database.js';
 import { DeleteResult } from '../../databases/types/deleteResult.js';
 import { stripSenderProvidedSystemProperties } from '../utils/stripSenderProvidedSystemProperties.js';
 import { auditForCreate } from '../utils/auditForCreate.js';
 import { auditForUpdate } from '../utils/auditForUpdate.js';
 import { BadRequestError, IdNotFoundError, NotFoundError, ServerError } from '../../errors/index.js';
+import { DatabaseToIDatabase } from '../../databases/DatabaseToIDatabase.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -37,12 +35,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     this.pluralResourceName = pluralResourceName;
     this.singularResourceName = singularResourceName;
     this.modelSpec = modelSpec;
-
-    if (database instanceof Db) {
-      this.database = new MongoDBDatabase(database, pluralResourceName);
-    } else {
-      throw Error('Sql Database not supported yet');
-    }
+    this.database = DatabaseToIDatabase(database, pluralResourceName);
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
@@ -154,11 +147,11 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return await Promise.all(entities.map(entity => this.preprocessEntity(userContext, entity, isCreate, allowId)));
   }
 
-  postprocessEntity(userContext: IUserContext, entity: T): T {
+  postprocessEntity<T>(userContext: IUserContext, entity: T): T {
     return this.database.processData(entity, this.modelSpec.fullSchema);
   }
 
-  postprocessEntities(userContext: IUserContext, entities: T[]): T[] {
+  postprocessEntities<T>(userContext: IUserContext, entities: T[]): T[] {
     return entities.map(entity => this.postprocessEntity(userContext, entity));
   }
 
@@ -208,14 +201,14 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return await this.database.getCount(operations);
   }
 
-  async create(userContext: IUserContext, entity: T | Partial<T>): Promise<T | null> {
-    let createdEntity = null;
+  async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
+    let createdEntity : T | null= null;
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, true, true);
-    const insertResult = await this.database.create(preparedEntity);
-    
+    const insertResult = await this.database.create<T>(preparedEntity);
+
     if (insertResult.insertedId) {
-      createdEntity = this.postprocessEntity(userContext, insertResult.entity);
+      createdEntity = this.postprocessEntity<T>(userContext, insertResult.entity);
     }
     
     return createdEntity;
@@ -226,11 +219,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     if (entities.length) {
       const preparedEntities = await this.preprocessEntities(userContext, entities, true, true);
-      
-      const insertResult = await this.database.createMany(preparedEntities);
+      const insertResult = await this.database.createMany<T>(preparedEntities);
 
       if (insertResult.insertedIds) {
-        createdEntities = this.postprocessEntities(userContext, insertResult.entities);
+        createdEntities = this.postprocessEntities<T>(userContext, insertResult.entities);
       }
     }
 

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
-import { Db, ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { IEntity, IAuditable } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
@@ -11,6 +10,7 @@ import { MultiTenantApiService } from '../../services/multi-tenant-api.service.j
 // Import our test utilities
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
+import { Database } from '../../databases/database.js';
 
 // Test entity for MultiTenantApiService
 interface ITestTenantItem extends IEntity, IAuditable {
@@ -30,8 +30,8 @@ const TestTenantItemSpec = entityUtils.getModelSpec(TestTenantItemSchema, { isAu
 
 // Create a test service that uses MultiTenantApiService
 class TestTenantItemService extends MultiTenantApiService<ITestTenantItem> {
-  constructor(db: Db) {
-    super(db, 'testTenantItems', 'testTenantItem', TestTenantItemSpec);
+  constructor(database: Database) {
+    super(database, 'testTenantItems', 'testTenantItem', TestTenantItemSpec);
   }
 }
 
@@ -39,8 +39,8 @@ class TestTenantItemService extends MultiTenantApiService<ITestTenantItem> {
 class TestTenantItemController extends ApiController<ITestTenantItem> {
   public testTenantItemService: TestTenantItemService;
 
-  constructor(app: Application, db: Db) {
-    const testTenantItemService = new TestTenantItemService(db);
+  constructor(app: Application, database: Database) {
+    const testTenantItemService = new TestTenantItemService(database);
     super('test-tenant-items', app, testTenantItemService, 'testTenantItem', TestTenantItemSpec);
 
     this.testTenantItemService = testTenantItemService;
@@ -52,7 +52,7 @@ class TestTenantItemController extends ApiController<ITestTenantItem> {
  * It focuses on validating proper error handling when userContext is invalid.
  */
 describe('ApiController with MultiTenantApiService', () => {
-  let db: Db;
+  let database: Database;
   let app: Application;
   let testAgent: any;
   let authToken: string;
@@ -62,9 +62,9 @@ describe('ApiController with MultiTenantApiService', () => {
 
   beforeAll(async () => {
     // Initialize with our test express app
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init('test-app');
     app = testSetup.app;
-    db = testSetup.db;
+    database = testSetup.database;
     testAgent = testSetup.agent;
 
     await testUtils.setupTestUser();
@@ -74,14 +74,13 @@ describe('ApiController with MultiTenantApiService', () => {
     userId = testUtils.testUserId;
     
     // Create service and controller instances
-    tenantItemController = new TestTenantItemController(app, db);
+    tenantItemController = new TestTenantItemController(app, database);
     tenantItemService = tenantItemController.testTenantItemService;
 
     await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created
   });
 
   afterAll(async () => {
-    await TestExpressApp.clearCollections();
     await TestExpressApp.cleanup();
   });
 

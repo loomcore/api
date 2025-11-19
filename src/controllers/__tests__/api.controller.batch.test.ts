@@ -1,29 +1,33 @@
 import { describe, it, beforeAll, afterAll, expect, beforeEach } from 'vitest';
 import supertest from 'supertest';
 import { Application } from 'express';
-import { Db, ObjectId } from 'mongodb';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import testUtils, { IProduct, ProductsController, CategoryController, MultiTenantProductsController } from '../../__tests__/common-test.utils.js';
+import testUtils, { IProduct, ICategory, ProductsController, CategoryController, MultiTenantProductsController, ProductSpec, CategorySpec } from '../../__tests__/common-test.utils.js';
+import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
+import { EmptyUserContext } from '@loomcore/common/models';
 
 describe('ApiController Batch Update', () => {
   let app: Application;
   let agent: supertest.SuperTest<supertest.Test>;
   let authorizationHeader: string;
-  let db: Db;
+  let productService: GenericApiService<IProduct>;
+  let categoryService: GenericApiService<ICategory>;
   let productIds: string[];
-  let insertedProductObjectIds: ObjectId[];
+  let categoryId: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init('test-app');
     app = testSetup.app;
-    db = testSetup.db;
     agent = testSetup.agent;
     authorizationHeader = testUtils.getAuthToken();
 
     // Instantiate controllers to map routes
-    new ProductsController(app, db);
-    new CategoryController(app, db);
-    new MultiTenantProductsController(app, db);
+    new ProductsController(app, testSetup.database);
+    new CategoryController(app, testSetup.database);
+    new MultiTenantProductsController(app, testSetup.database);
+
+    productService = new GenericApiService<IProduct>(testSetup.database, "products", "product", ProductSpec);
+    categoryService = new GenericApiService<ICategory>(testSetup.database, "categories", "category", CategorySpec);
 
     await TestExpressApp.setupErrorHandling();
   });
@@ -35,28 +39,34 @@ describe('ApiController Batch Update', () => {
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
 
-    // 1. Arrange: Create initial products using known string IDs for a more realistic test
-    const productsCollection = db.collection('products');
-    const categoryCollection = db.collection('categories');
+    // 1. Arrange: Create initial products using services
+    const categoryResult = await categoryService.create(EmptyUserContext, { name: 'Test Category' });
+    if (!categoryResult) throw new Error("category creation failed");
+    categoryId = categoryResult._id;
 
-    const categoryResult = await categoryCollection.insertOne({ name: 'Test Category' });
-    const categoryId = categoryResult.insertedId;
+    // Create products using services
+    const productA = await productService.create(EmptyUserContext, { 
+      name: 'Product A', 
+      description: 'Description A', 
+      categoryId: categoryId 
+    });
+    if (!productA) throw new Error("product A creation failed");
 
-    // Use predefined string IDs to ensure the conversion logic is tested
-    productIds = [
-      '68b7205972257807a03b9093',
-      '68b8b98fddd4af2b60ae7e08',
-      '68b8b98fddd4af2b60ae7e09'
-    ];
-    insertedProductObjectIds = productIds.map(id => new ObjectId(id));
+    const productB = await productService.create(EmptyUserContext, { 
+      name: 'Product B', 
+      description: 'Description B', 
+      categoryId: categoryId 
+    });
+    if (!productB) throw new Error("product B creation failed");
 
-    const initialProductsForDb = [
-      { _id: insertedProductObjectIds[0], name: 'Product A', description: 'Description A', categoryId },
-      { _id: insertedProductObjectIds[1], name: 'Product B', description: 'Description B', categoryId },
-      { _id: insertedProductObjectIds[2], name: 'Product C', description: 'Description C', categoryId },
-    ];
+    const productC = await productService.create(EmptyUserContext, { 
+      name: 'Product C', 
+      description: 'Description C', 
+      categoryId: categoryId 
+    });
+    if (!productC) throw new Error("product C creation failed");
 
-    await productsCollection.insertMany(initialProductsForDb);
+    productIds = [productA._id, productB._id, productC._id];
   });
 
   it('should partially update multiple products in a single batch request', async () => {
@@ -90,13 +100,12 @@ describe('ApiController Batch Update', () => {
     expect(updatedProductC.name).toBe('Product C Updated');
     expect(updatedProductC.description).toBe('Description C also Updated');
     
-    // Verify directly from DB
-    const productsCollection = db.collection('products');
-    const productAFromDb = await productsCollection.findOne({ _id: insertedProductObjectIds[0] });
-    expect(productAFromDb!.name).toBe('Product A Updated');
+    // Verify directly from service
+    const productAFromDb = await productService.getById(EmptyUserContext, productIds[0]);
+    expect(productAFromDb.name).toBe('Product A Updated');
 
-    const productBFromDb = await productsCollection.findOne({ _id: insertedProductObjectIds[1] });
-    expect(productBFromDb!.description).toBe('Description B Updated');
+    const productBFromDb = await productService.getById(EmptyUserContext, productIds[1]);
+    expect(productBFromDb.description).toBe('Description B Updated');
   });
 
   it('should partially update multiple products for a multi-tenant service', async () => {
@@ -120,8 +129,8 @@ describe('ApiController Batch Update', () => {
     const updatedProductA = response.body.data.find((p: IProduct) => p._id === productIds[0]);
     expect(updatedProductA!.name).toBe('Product A Updated');
 
-    const productsCollection = db.collection('products');
-    const productAFromDb = await productsCollection.findOne({ _id: insertedProductObjectIds[0] });
-    expect(productAFromDb!.name).toBe('Product A Updated');
+    // Verify directly from service
+    const productAFromDb = await productService.getById(EmptyUserContext, productIds[0]);
+    expect(productAFromDb.name).toBe('Product A Updated');
   });
 });

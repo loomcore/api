@@ -11,11 +11,11 @@ import { passwordUtils } from '../utils/password.utils.js';
 import { AuthService } from '../services/auth.service.js';
 import { ApiController } from '../controllers/api.controller.js';
 import { GenericApiService } from '../services/generic-api-service/generic-api.service.js';
-import { apiUtils } from '../utils/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
 import { Join } from '../databases/operations/join.js';
+import { Database } from '../databases/database.js';
 
 let db: Db;
 let collections: any = {};
@@ -293,23 +293,23 @@ export const PublicProductSchema = Type.Omit(ProductSpec.fullSchema, ['internalN
 
 // Service that does NOT use aggregation
 export class CategoryService extends GenericApiService<ICategory> {
-  constructor(db: Db) {
-    super(db, 'categories', 'category', CategorySpec);
+  constructor(database: Database) {
+    super(database, 'categories', 'category', CategorySpec);
   }
 }
 
 // Controller for the service that does NOT use aggregation
 export class CategoryController extends ApiController<ICategory> {
-  constructor(app: Application, db: Db) {
-    const categoryService = new CategoryService(db);
+  constructor(app: Application, database: Database) {
+    const categoryService = new CategoryService(database);
     super('categories', app, categoryService, 'category', CategorySpec);
   }
 }
 
 // Test service with aggregation pipeline
 export class ProductService extends GenericApiService<IProduct> {
-  constructor(db: Db) {
-    super(db, 'products', 'product', ProductSpec);
+  constructor(database: Database) {
+    super(database, 'products', 'product', ProductSpec);
   }
 
   override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
@@ -332,8 +332,11 @@ export class ProductService extends GenericApiService<IProduct> {
 
 // Controller that uses aggregation and overrides get/getById to handle it
 export class ProductsController extends ApiController<IProduct> {
-  constructor(app: Application, db: Db) {
-    const productService = new ProductService(db);
+  constructor(app: Application, database: Database) {
+
+
+    
+    const productService = new ProductService(database);
 
     // 1. Define the full shape of the aggregated data, including the joined category.
     const AggregatedProductSchema = Type.Intersect([
@@ -355,8 +358,8 @@ export class ProductsController extends ApiController<IProduct> {
 
 // Service that uses MultiTenantApiService
 export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
-  constructor(db: Db) {
-    super(db, 'products', 'product', ProductSpec);
+  constructor(database: Database) {
+    super(database, 'products', 'product', ProductSpec);
   }
 
   override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
@@ -379,8 +382,8 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
 
 // Controller that uses the multi-tenant service
 export class MultiTenantProductsController extends ApiController<IProduct> {
-  constructor(app: Application, db: Db) {
-    const productService = new MultiTenantProductService(db);
+  constructor(app: Application, database: Database) {
+    const productService = new MultiTenantProductService(database);
 
     const AggregatedProductSchema = Type.Intersect([
       ProductSpec.fullSchema,

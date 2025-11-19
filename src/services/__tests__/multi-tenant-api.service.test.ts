@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { Db, Collection, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
 import { TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
@@ -10,6 +10,9 @@ import { TenantQueryDecorator } from '../tenant-query-decorator.js';
 import { BadRequestError, ServerError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
+import { Database } from '../../databases/database.js';
+import { IDatabase } from '../../databases/database.interface.js';
+import { MongoDBDatabase } from '../../databases/mongoDb/database.mongo.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -35,9 +38,8 @@ const TestEntitySchema = Type.Object({
 const TestEntityModelSpec = entityUtils.getModelSpec(TestEntitySchema);
 
 describe('MultiTenantApiService', () => {
-  let db: Db;
+  let database: IDatabase;
   let service: MultiTenantApiService<TestEntity>;
-  let collection: Collection;
   
   // Test data
   const testOrgId = testUtils.testOrgId;
@@ -45,12 +47,12 @@ describe('MultiTenantApiService', () => {
   
   // Set up the test environment once before all tests
   beforeAll(async () => {
-    const setup = await TestExpressApp.init();
-    db = setup.db;
+    const setup = await TestExpressApp.init('testEntities');
+    database = setup.IDatabase;
     
     // Create service with real database
     service = new MultiTenantApiService<TestEntity>(
-      db,
+      setup.database,
       'testEntities',
       'testEntity',
       TestEntityModelSpec
@@ -64,10 +66,7 @@ describe('MultiTenantApiService', () => {
   // Set up before each test
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
-    
-    // Get the collection for direct database operations if needed
-    collection = db.collection('testEntities');
-    
+        
     // Spy on TenantQueryDecorator methods to verify they're called
     vi.spyOn(TenantQueryDecorator.prototype, 'applyTenantToQuery');
     vi.spyOn(TenantQueryDecorator.prototype, 'applyTenantToQueryOptions');
@@ -242,7 +241,7 @@ describe('MultiTenantApiService', () => {
       };
       
       // Insert a test entity directly into the database
-      await collection.insertOne({
+      await database.create({
         _id: new ObjectId(testEntity._id),
         name: testEntity.name,
         _orgId: testEntity._orgId
@@ -299,7 +298,7 @@ describe('MultiTenantApiService', () => {
       expect(created?._orgId).toBe(testOrgId);
       
       // Verify it was actually inserted into the database
-      const dbEntity = await collection.findOne({ _id: new ObjectId(created!._id) });
+      const dbEntity = await database.getById<TestEntity>([], created!._id);
       expect(dbEntity).toBeDefined();
       expect(dbEntity?.name).toBe('Test Entity');
       expect(dbEntity?._orgId).toBe(testOrgId);
@@ -313,7 +312,7 @@ describe('MultiTenantApiService', () => {
       const testEntityId = new ObjectId().toString();
       
       // Insert a test entity directly into the database
-      await collection.insertOne({
+      await database.create({
         _id: new ObjectId(testEntityId),
         name: 'Original Name',
         _orgId: testOrgId
@@ -355,14 +354,14 @@ describe('MultiTenantApiService', () => {
       const testEntityId = new ObjectId().toString();
       
       // Insert a test entity directly into the database
-      await collection.insertOne({
+      await database.create({
         _id: new ObjectId(testEntityId),
         name: 'Test Entity',
         _orgId: testOrgId
       });
       
       // Verify it exists
-      const beforeDelete = await collection.findOne({ _id: new ObjectId(testEntityId) });
+      const beforeDelete = await database.getById<TestEntity>([], testEntityId);
       expect(beforeDelete).toBeDefined();
       
       // Act
@@ -374,7 +373,7 @@ describe('MultiTenantApiService', () => {
       expect(deleteResult.success).toBe(true);
       
       // Verify it was actually deleted
-      const afterDelete = await collection.findOne({ _id: new ObjectId(testEntityId) });
+      const afterDelete = await database.getById<TestEntity>([], testEntityId);
       expect(afterDelete).toBeNull();
     });
     

@@ -1,16 +1,16 @@
-import {Db} from 'mongodb';
-import {Application, NextFunction, Request, Response} from 'express';
+import {Application} from 'express';
 
 import {IUser, UserSpec, PublicUserSchema} from '@loomcore/common/models';
 import {ApiController} from './api.controller.js';
 import {isAuthenticated} from '../middleware/index.js';
 import {UserService} from '../services/index.js';
+import { Database } from '../databases/database.js';
 
 export class UsersController extends ApiController<IUser> {
   private userService: UserService;
 
-  constructor(app: Application, db: Db) {
-    const userService = new UserService(db);
+  constructor(app: Application, database: Database) {
+    const userService = new UserService(database);
     super('users', app, userService, 'user', UserSpec, PublicUserSchema);
 
     this.userService = userService;

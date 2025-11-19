@@ -129,11 +129,11 @@ export class MongoDBDatabase implements IDatabase {
         }
     }
 
-    async createMany<T>(entities: any[]): Promise<{ insertedIds: any; entities: any[] }> {
+    async createMany<T>(entities: Partial<T>[]): Promise<{ insertedIds: any; entities: any[] }> {
         try {
             // Need to use "as any" to bypass TypeScript's strict type checking
             // This is necessary because we're changing _id from string to ObjectId
-            const insertResult: InsertManyResult = await this.collection.insertMany(entities as any);
+            const insertResult = await this.collection.insertMany(entities);
             
             // mongoDb mutates the entities passed into insertMany to have an _id property
             return {

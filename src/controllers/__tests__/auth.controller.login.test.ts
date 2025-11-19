@@ -3,21 +3,22 @@ import request from 'supertest';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
-import { ObjectId } from 'mongodb';
+import { AuthService } from '../../services/index.js';
+import { EmptyUserContext } from '@loomcore/common/models';
 
 describe('AuthController', () => {
+  let authService: AuthService;
   let testAgent: any;
-  let authController: AuthController;
   let testDb: any;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init('test-app');
     testAgent = testSetup.agent;
-    testDb = testSetup.db;
+    testDb = testSetup.database;
     
     // Initialize the AuthController with the Express app and database
-    authController = new AuthController(testSetup.app, testSetup.db);
-  
+    new AuthController(testSetup.app, testSetup.database);
+    authService = new AuthService(testSetup.database);
     // Setup error handling middleware AFTER controller initialization
     await TestExpressApp.setupErrorHandling();
     
@@ -122,9 +123,7 @@ describe('AuthController', () => {
       };
       
       // Get the user before login to check initial state
-      const userBeforeLogin = await testDb.collection('users').findOne({ 
-        _id: new ObjectId(testUtils.testUserId) 
-      });
+      const userBeforeLogin = await authService.getById(EmptyUserContext, testUtils.testUserId);
       
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
@@ -140,18 +139,17 @@ describe('AuthController', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await testDb.collection('users').findOne({ 
-        _id: new ObjectId(testUtils.testUserId) 
-      });
-      
+      const userAfterLogin = await authService.getById(EmptyUserContext, testUtils.testUserId);
+
       // The user should have a _lastLoggedIn property after login
       expect(userAfterLogin?._lastLoggedIn).toBeDefined();
       expect(userAfterLogin?._lastLoggedIn).toBeInstanceOf(Date);
       
       // The _lastLoggedIn should be more recent than the user's _created time
       if (userBeforeLogin?._lastLoggedIn) {
-        expect(userAfterLogin?._lastLoggedIn.getTime()).toBeGreaterThan(userBeforeLogin._lastLoggedIn.getTime());
+        expect(userAfterLogin?._lastLoggedIn?.getTime()).toBeGreaterThan(userBeforeLogin._lastLoggedIn.getTime());
       } else {
+        if (!userAfterLogin?._lastLoggedIn) throw new Error('User _lastLoggedIn is undefined');
         // If there was no _lastLoggedIn before, it should be set now and be recent
         const timeDiff = Date.now() - userAfterLogin?._lastLoggedIn.getTime();
         expect(timeDiff).toBeLessThan(5000); // Should be within 5 seconds

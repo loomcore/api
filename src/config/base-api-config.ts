@@ -1,6 +1,6 @@
-import { Db } from 'mongodb';
 import { EmptyUserContext, initializeSystemUserContext } from '@loomcore/common/models';
 import { IBaseApiConfig } from '../models/index.js';
+import { Database } from '../databases/database.js';
 
 
 export let config: IBaseApiConfig;
@@ -25,7 +25,7 @@ export function setBaseApiConfig(apiConfig: IBaseApiConfig) {
   }
 }
 
-export async function initSystemUserContext(db: Db) {
+export async function initSystemUserContext(database: Database) {
   if (!isConfigSet) {
     throw new Error('BaseApiConfig has not been set. Call setBaseApiConfig first.');
   }
@@ -38,7 +38,7 @@ export async function initSystemUserContext(db: Db) {
     if (config.app.isMultiTenant) {
       // Import OrganizationService only when needed to avoid circular dependencies
       const { OrganizationService } = await import('../services/organization.service.js');
-      const organizationService = new OrganizationService(db);
+      const organizationService = new OrganizationService(database);
       // Fetch orgId from database
       const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
 

@@ -2,14 +2,15 @@ import express, { Application } from 'express';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import supertest from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { MongoClient, Db } from 'mongodb';
 import { initializeTypeBox } from '@loomcore/common/validation';
 
-import testUtils from './common-test.utils.js';
-import { setBaseApiConfig, initSystemUserContext } from '../config/base-api-config.js';
+import { setBaseApiConfig } from '../config/base-api-config.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
+import { TestMongoDb } from './test-mongo-db.js';
+import { Database } from '../databases/database.js';
+import { IDatabase } from '../databases/database.interface.js';
+import { MongoDBDatabase } from '../databases/mongoDb/database.mongo.js';
 
 /**
  * Utility class for setting up a minimal Express application for testing
@@ -17,18 +18,18 @@ import { ensureUserContext } from '../middleware/ensure-user-context.js';
  */
 export class TestExpressApp {
   private static app: Application;
-  private static mongoServer: MongoMemoryServer;
-  private static client: MongoClient;
-  private static db: Db;
-  private static initPromise: Promise<{ app: Application, db: Db, agent: any }> | null = null;
+  private static database: Database;
+  private static IDatabase: IDatabase;
+  private static initPromise: Promise<{ app: Application, database: Database, IDatabase: IDatabase, agent: any }> | null = null;
 
   /**
    * Initialize the Express application with a MongoDB memory server
    * @returns Promise resolving to an object with the app, db, and supertest agent
    */
-  static async init(): Promise<{
+  static async init(databaseName: string): Promise<{
     app: Application,
-    db: Db,
+    database: Database,
+    IDatabase: IDatabase,
     agent: any  // Using any type for supertest agent to avoid type issues
   }> {
     // Return existing promise if initialization is already in progress
@@ -37,13 +38,14 @@ export class TestExpressApp {
     }
 
     // Create and cache the initialization promise
-    this.initPromise = this._performInit();
+    this.initPromise = this._performInit(databaseName);
     return this.initPromise;
   }
 
-  private static async _performInit(): Promise<{
+  private static async _performInit(databaseName: string): Promise<{
     app: Application,
-    db: Db,
+    database: Database,
+    IDatabase: IDatabase,
     agent: any
   }> {
     // Set up a fake clientSecret for authentication
@@ -54,7 +56,7 @@ export class TestExpressApp {
       appName: 'test-app',
       clientSecret: 'test-secret',
       database: {
-        name: 'test-database',
+        name: databaseName,
       },
       externalPort: 4000,
       internalPort: 8083,
@@ -84,26 +86,11 @@ export class TestExpressApp {
     initializeTypeBox();
 
     // Set up MongoDB memory server if not already done
-    if (!this.db) {
-      this.mongoServer = await MongoMemoryServer.create({
-        instance: {
-          ip: '127.0.0.1', // Use localhost to avoid permission issues
-          port: 0, // Use dynamic port allocation
-        },
-        binary: {
-          downloadDir: process.env.HOME ? `${process.env.HOME}/.cache/mongodb-binaries` : undefined,
-        }
-      });
-      const uri = this.mongoServer.getUri();
-      this.client = await MongoClient.connect(uri);
-      this.db = this.client.db();
-      testUtils.initialize(this.db);
-      await testUtils.createIndexes(this.db);
-
-      // Create meta org before initializing system user context
-      await testUtils.createMetaOrg();
+    if (!this.database) {
+      const db = await TestMongoDb.init();
+      this.IDatabase = new MongoDBDatabase(db, databaseName);
+      this.database = db;
     }
-    await initSystemUserContext(this.db);
 
     // Set up Express app if not already done
     if (!this.app) {
@@ -123,7 +110,8 @@ export class TestExpressApp {
 
     return {
       app: this.app,
-      db: this.db,
+      database: this.database,
+      IDatabase: this.IDatabase,
       agent
     };
   }
@@ -135,37 +123,20 @@ export class TestExpressApp {
   }
 
   /**
-   * Clean up resources
-   */
-  static async cleanup(): Promise<void> {
-    // Clean up test data first
-    await testUtils.cleanup();
-
-    if (this.client) {
-      await this.client.close();
-    }
-    if (this.mongoServer) {
-      await this.mongoServer.stop();
-    }
-    // Reset initialization state
-    this.initPromise = null;
-    this.app = undefined as any;
-    this.db = undefined as any;
-    this.client = undefined as any;
-    this.mongoServer = undefined as any;
-  }
-
-  /**
    * Clear all collections in the database
    */
   static async clearCollections(): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    await TestMongoDb.clearCollections();
+  }
 
-    const collections = await this.db.collections();
-    for (const collection of collections) {
-      await collection.deleteMany({});
-    }
+  /**
+   * Clean up resources
+   */
+  static async cleanup(): Promise<void> {
+    await TestMongoDb.cleanup();
+    // Reset initialization state
+    this.initPromise = null;
+    this.app = undefined as any;
+    this.database = undefined as any;
   }
 } 
