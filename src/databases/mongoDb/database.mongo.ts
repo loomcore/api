@@ -277,7 +277,7 @@ export class MongoDBDatabase implements IDatabase {
     async deleteById(id: string): Promise<GenericDeleteResult> {
         const objectId = new ObjectId(id);
         const baseQuery = { _id: objectId };
-        
+
         const deleteResult = await this.collection.deleteOne(baseQuery);
         
         return new GenericDeleteResult(deleteResult.acknowledged, deleteResult.deletedCount);

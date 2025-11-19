@@ -354,7 +354,7 @@ export class AuthService extends GenericApiService<IUser> {
 		return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
 	}
 
-	override async preprocessEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean): Promise<U> {
+	override async preprocessEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean): Promise<U> {
 		if (entity.email) {
 			// lowercase the email
 			entity.email = entity.email!.toLowerCase();
@@ -370,7 +370,7 @@ export class AuthService extends GenericApiService<IUser> {
 			entity.roles = ["user"];
 		}
 		
-		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate);
+		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
 		return preparedEntity;
 	}
 

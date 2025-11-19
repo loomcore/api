@@ -44,7 +44,7 @@ export class TestMongoDb {
       this.client = await MongoClient.connect(uri);
       this.db = this.client.db();
       testUtils.initialize(this.db);
-      await testUtils.createIndexes(this.db);
+      await this.createIndexes(this.db);
 
       // Create meta org before initializing system user context
       await testUtils.createMetaOrg();
@@ -52,6 +52,14 @@ export class TestMongoDb {
     await initSystemUserContext(this.db);
 
     return this.db;
+  }
+
+  private static async createIndexes(db: Db) {
+    // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
+    //  If we can figure out how to use a single file for both, that would be great.
+    await db.command({
+      createIndexes: "users", indexes: [ { key: { email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
+    });
   }
 
   /**
