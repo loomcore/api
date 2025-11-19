@@ -1,5 +1,4 @@
 import {Application, Request, Response, NextFunction} from 'express';
-import {Db, ObjectId, UpdateResult} from 'mongodb';
 import {
   ILoginResponse, 
   LoginResponseSpec, 
@@ -14,18 +13,19 @@ import {
 } from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
-import {BadRequestError, NotFoundError, UnauthenticatedError} from '../errors/index.js';
+import {BadRequestError, UnauthenticatedError} from '../errors/index.js';
 import {isAuthenticated} from '../middleware/index.js';
-import {passwordUtils, apiUtils} from '../utils/index.js';
+import { apiUtils} from '../utils/index.js';
 
 import {AuthService} from '../services/index.js';
-import { config } from '../config/index.js';
+import { UpdateResult } from '../databases/types/updateResult.js';
+import { Database } from '../databases/database.js';
 
 export class AuthController {
   authService: AuthService;
 
-  constructor(app: Application, db: Db) {
-    const authService = new AuthService(db);
+  constructor(app: Application, database: Database) {
+    const authService = new AuthService(database);
     this.authService = authService;
 
     this.mapRoutes(app);

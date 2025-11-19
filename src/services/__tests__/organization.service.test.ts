@@ -1,79 +1,35 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { Db, MongoClient, Collection, ObjectId } from 'mongodb';
-import { IUserContext, IOrganization } from '@loomcore/common/models';
-import { initializeTypeBox } from '@loomcore/common/validation';
-import { OrganizationSpec } from '@loomcore/common/models';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { ObjectId } from 'mongodb';
+import { IOrganization, IUserContext } from '@loomcore/common/models';
 
 import { OrganizationService } from '../organization.service.js';
-import { IdNotFoundError, NotFoundError } from '../../errors/index.js';
-
-// Initialize TypeBox before running any tests
-beforeAll(() => {
-  // Initialize TypeBox with custom formats and validators
-  initializeTypeBox();
-});
-
-// Helper function to create a mock user context
-const createUserContext = (): IUserContext => ({
-  user: { 
-    _id: new ObjectId().toString(),
-    email: 'test@example.com',
-    password: '',
-    _created: new Date(),
-    _createdBy: 'system',
-    _updated: new Date(),
-    _updatedBy: 'system'
-  },
-  _orgId: '67e8e19b149f740323af93d7'
-});
+import { IdNotFoundError } from '../../errors/index.js';
+import { TestExpressApp } from '../../__tests__/test-express-app.js';
+import testUtils from '../../__tests__/common-test.utils.js';
+import { Database } from '../../databases/database.js';
 
 describe('OrganizationService - Integration Tests', () => {
-  let mongoServer: MongoMemoryServer;
-  let mongoClient: MongoClient;
-  let db: Db;
+  let database: Database;
   let service: OrganizationService;
-  let collection: Collection;
   let testUserContext: IUserContext;
   
-  // Set up MongoDB Memory Server before all tests
+  // Set up TestExpressApp before all tests
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const uri = mongoServer.getUri();
-    mongoClient = new MongoClient(uri);
-    await mongoClient.connect();
-    db = mongoClient.db('test-db');
-    
+    const testSetup = await TestExpressApp.init('test-organizations');
+    database = testSetup.database;
+    testUserContext = testUtils.testUserContext;
     // Create service
-    service = new OrganizationService(db);
-    
-    testUserContext = createUserContext();
+    service = new OrganizationService(database);
   });
   
-  // Clean up MongoDB Memory Server after all tests
+  // Clean up TestExpressApp after all tests
   afterAll(async () => {
-    if (mongoClient) {
-      await mongoClient.close();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
+    await TestExpressApp.cleanup();
   });
   
-  // Set up service before each test
+  // Clear collections before each test
   beforeEach(async () => {
-    // Create a clean collection for each test
-    if (collection) {
-      await collection.drop().catch(() => {
-        // Ignore errors if collection doesn't exist yet
-      });
-    }
-    collection = db.collection('organizations');
-  });
-  
-  // Clean up after each test
-  afterEach(async () => {
-    // Additional cleanup if needed
+    await TestExpressApp.clearCollections();
   });
 
   describe('getAuthTokenByRepoCode', () => {

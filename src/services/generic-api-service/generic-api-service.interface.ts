@@ -14,15 +14,15 @@ export interface IGenericApiService<T extends IEntity> {
   preprocessEntities(userContext: IUserContext, entities: T[], isCreate: boolean, allowId: boolean): Promise<T[]>;
   preprocessEntities(userContext: IUserContext, entities: Partial<T>[], isCreate: boolean, allowId: boolean): Promise<Partial<T>[]>;
   
-  postprocessEntity(userContext: IUserContext, entity: T): T;
-  postprocessEntities(userContext: IUserContext, entities: T[]): T[];
+  postprocessEntity<T>(userContext: IUserContext, entity: T): T;
+  postprocessEntities<T>(userContext: IUserContext, entities: T[]): T[];
 
   getAll(userContext: IUserContext): Promise<T[]>;
   get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;
   getById(userContext: IUserContext, id: string): Promise<T>;
   getCount(userContext: IUserContext): Promise<number>;
-  create(userContext: IUserContext, entity: T | Partial<T>): Promise<T | null>;
-  createMany(userContext: IUserContext, entities: T[]): Promise<T[]>;
+  create(userContext: IUserContext, entity: Partial<T>): Promise<T | null>;
+  createMany(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
   batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
   fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T>;
   partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T>;

@@ -1,4 +1,3 @@
-import {Db, ObjectId, Collection, UpdateResult} from 'mongodb';
 import {Request, Response} from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
@@ -11,21 +10,23 @@ import { GenericApiService } from './generic-api-service/generic-api.service.js'
 import {PasswordResetTokenService} from './password-reset-token.service.js';
 import { passwordUtils} from '../utils/index.js';
 import {config} from '../config/index.js';
+import { Database } from '../databases/database.js';
+import { IRefreshToken } from '../models/refresh-token.js';
+import { refreshTokenModelSpec } from '../models/refresh-token.spec.js';
+import { UpdateResult } from '../databases/types/updateResult.js';
 
 export class AuthService extends GenericApiService<IUser> {
-	private refreshTokensCollection: Collection;
+	private refreshTokenService: GenericApiService<IRefreshToken>;
 	private passwordResetTokenService: PasswordResetTokenService;
 	private emailService: EmailService;
 
-
-	//TODO: Allow this to use IDatabase instead of Db
-	constructor(db: Db) {
-		super(db, 'users', 'user', UserSpec);
+	constructor(database: Database) {
+		super(database, 'users', 'user', UserSpec);
 
 		//console.log(`In AuthService constructor, config: ${JSON.stringify(config)}`);
 
-		this.refreshTokensCollection = db.collection('refreshTokens');
-		this.passwordResetTokenService = new PasswordResetTokenService(db);
+		this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
+		this.passwordResetTokenService = new PasswordResetTokenService(database);
 		this.emailService = new EmailService();
 	}
 
@@ -59,7 +60,7 @@ export class AuthService extends GenericApiService<IUser> {
 		// upon login, we want to create a new refreshToken with a full expiresOn expiration. If the client is capable of finding an unexpired refreshToken
 		//  persisted locally, it can use that to request a new accessToken - it should NOT try to log in again. Every time there's a successful cred swap, 
 		//  we start with a brand new refreshToken.
-		const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id!.toString(), deviceId);
+		const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId);
 		const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
 
 		let loginResponse = null;
@@ -82,10 +83,6 @@ export class AuthService extends GenericApiService<IUser> {
 	}
 
 	async getUserById(id: string): Promise<IUser | null> {
-		if (!entityUtils.isValidObjectId(id)) {
-			throw new BadRequestError('id is not a valid ObjectId');
-		}
-
 		const user = await this.findOne(EmptyUserContext, { filters: { _id: { eq: id } } });
 		return user;
 	}
@@ -109,7 +106,6 @@ export class AuthService extends GenericApiService<IUser> {
 	async requestTokenUsingRefreshToken(req: Request): Promise<ITokenResponse | null> {
 		const refreshToken = req.query.refreshToken;
 		const deviceId = this.getDeviceIdFromCookie(req);
-		//console.log(`deviceId: ${deviceId}`); // todo: delete me
 		let tokens: ITokenResponse | null = null;
 
 		if (refreshToken && typeof refreshToken === 'string' && deviceId) {
@@ -117,8 +113,7 @@ export class AuthService extends GenericApiService<IUser> {
 
 			// look for this particular refreshToken in our database. refreshTokens are assigned to deviceIds,
 			//  so they can only be retrieved together.
-			const activeRefreshToken = await this.getActiveRefreshToken(refreshToken, deviceId);
-			//console.log(`activeRefreshToken: ${activeRefreshToken}`); // todo: delete me
+			const activeRefreshToken = await this.getActiveRefreshToken(EmptyUserContext, refreshToken, deviceId);
 			if (activeRefreshToken) {
 				userId = activeRefreshToken.userId;
 
@@ -134,33 +129,8 @@ export class AuthService extends GenericApiService<IUser> {
 		return tokens;
 	}
 
-	// async requestTokenUsingRefreshToken(refreshToken: string, deviceId: string): Promise<ITokenResponse | null> {
-	// 	// refreshToken - { token, deviceId, userId, expiresOn, created, createdBy, createdByIp, revoked?, revokedBy? }
-	// 	//  not using revoked and revokedBy currently - I'm just deleting refreshTokens by userId and deviceId (there can be only one!!)
-	// 	let userId = null;
-
-	// 	// look for this particular refreshToken in our database. refreshTokens are assigned to deviceIds,
-	// 	//  so they can only be retrieved together.
-	// 	const activeRefreshToken = await this.getActiveRefreshToken(refreshToken, deviceId);
-	// 	console.log(`activeRefreshToken: ${activeRefreshToken}`); // todo: delete me
-	// 	let newTokens = null;
-	// 	if (activeRefreshToken) {
-	// 		userId = activeRefreshToken.userId;
-
-	// 		if (userId) {
-	// 			// we found an activeRefreshToken, and we know what user it was assigned to
-	// 			//  - create a new refreshToken and persist it to the database
-	// 			// upon refresh, we want to create a new refreshToken maintaining the existing expiresOn expiration
-	// 			//newRefreshTokenPromise = this.createNewRefreshToken(userId, deviceId, activeRefreshToken.expiresOn);
-	// 			newTokens = await this.createNewTokens(userId, deviceId, activeRefreshToken.expiresOn);
-	// 		}
-	// 	}
-
-	// 	return newTokens;
-	// }
-
 	async changeLoggedInUsersPassword(userContext: IUserContext, body: any) {
-		const queryObject = {_id: new ObjectId(userContext.user._id!)};
+		const queryObject = {_id: userContext.user._id};
 		const result = await this.changePassword(userContext, queryObject, body.password);
 		return result;
 	}
@@ -172,11 +142,8 @@ export class AuthService extends GenericApiService<IUser> {
 		const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
 
 		const result: UpdateResult = {
-			acknowledged: true,
-			modifiedCount: updatedUsers.length,
-			upsertedId: null,
-			upsertedCount: 0,
-			matchedCount: updatedUsers.length
+			success: true,
+			count: updatedUsers.length,
 		};
 
 		return result;
@@ -217,8 +184,8 @@ export class AuthService extends GenericApiService<IUser> {
 		return tokenResponse;
 	}
 
-	async getActiveRefreshToken(refreshToken: string, deviceId: string) {
-		const refreshTokenResult = await this.refreshTokensCollection.findOne({token: refreshToken, deviceId: deviceId});
+	async getActiveRefreshToken(userContext: IUserContext, refreshToken: string, deviceId: string) {
+		const refreshTokenResult = await this.refreshTokenService.findOne(userContext, { filters: { token: { eq: refreshToken }, deviceId: { eq: deviceId } } });
 		let activeRefreshToken = null;
 
 		if (refreshTokenResult) {
@@ -238,7 +205,7 @@ export class AuthService extends GenericApiService<IUser> {
 		//  how often the user must log in.  If we are refreshing from an existing token, we should maintain the existing expiresOn.
 		const expiresOn = existingExpiresOn ? existingExpiresOn : this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
 
-		const newRefreshToken = {
+		const newRefreshToken: Partial<IRefreshToken> = {
 			token: this.generateRefreshToken(),
 			deviceId,
 			userId,
@@ -251,12 +218,8 @@ export class AuthService extends GenericApiService<IUser> {
 		//  todo: At some point, we will need to have a scheduled service go through and delete all expired refreshTokens because
 		//   many will probably just expire without ever having anyone re-login on that device.
 		const deleteResult = await this.deleteRefreshTokensForDevice(deviceId)
-		const insertResult = await this.refreshTokensCollection.insertOne(newRefreshToken);
-		let tokenResult = null;
-		if (insertResult.insertedId) {  // presence of an insertedId means the insert was successful
-			tokenResult = newRefreshToken;
-		}
-		return tokenResult;
+		const insertResult = await this.refreshTokenService.create(EmptyUserContext, newRefreshToken);
+		return insertResult;
 	}
 
 	async sendResetPasswordEmail(emailAddress: string) {
@@ -311,7 +274,7 @@ export class AuthService extends GenericApiService<IUser> {
 	}
 
 	deleteRefreshTokensForDevice(deviceId: string) {
-		return this.refreshTokensCollection.deleteMany({deviceId: deviceId});
+		return this.refreshTokenService.deleteMany(EmptyUserContext, { filters: { deviceId: { eq: deviceId } } });
 	}
 
 	generateJwt(payload: any) {
@@ -418,10 +381,6 @@ export class AuthService extends GenericApiService<IUser> {
 	 */
 	private async updateLastLoggedIn(userId: string): Promise<void> {
 		try {
-			if (!entityUtils.isValidObjectId(userId)) {
-				throw new BadRequestError('userId is not a valid ObjectId');
-			}
-
 			// Use Date object so it's consistent with other date fields
 			const updates = { _lastLoggedIn: moment().utc().toDate() };
 			

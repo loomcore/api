@@ -15,8 +15,8 @@ describe('UsersController', () => {
     testAgent = testSetup.agent;
 
 		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
-		authController = new AuthController(testSetup.app, testSetup.db);
-    usersController = new UsersController(testSetup.app, testSetup.db);
+		authController = new AuthController(testSetup.app, testSetup.database);
+    usersController = new UsersController(testSetup.app, testSetup.database);
   
     // Setup error handling middleware AFTER controller initialization
     await TestExpressApp.setupErrorHandling();

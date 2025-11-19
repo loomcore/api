@@ -1,20 +1,16 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { Db, MongoClient, Collection, ObjectId } from 'mongodb';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import moment from 'moment';
 import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, EmptyUserContext } from '@loomcore/common/models';
-import { TypeboxIsoDate, TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
+import { TypeboxIsoDate, TypeboxObjectId } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { IdNotFoundError, DuplicateKeyError, BadRequestError } from '../../errors/index.js';
 import { GenericApiService } from '../generic-api-service/generic-api.service.js';
-
-// Initialize TypeBox before running any tests
-beforeAll(() => {
-  // Initialize TypeBox with custom formats and validators
-  initializeTypeBox();
-});
+import { TestExpressApp } from '../../__tests__/test-express-app.js';
+import { Database } from '../../databases/database.js';
+import testUtils from '../../__tests__/common-test.utils.js';
 
 // Define a test entity interface
 interface TestEntity extends IEntity, IAuditable {
@@ -37,88 +33,39 @@ const TestEntitySchema = Type.Object({
 // Create model spec object
 const testModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: true });
 
-// Helper function to create a mock user context
-const createUserContext = (): IUserContext => ({
-  user: { 
-    _id: new ObjectId().toString(),
-    email: 'test@example.com',
-    password: '',
-    _created: new Date(),
-    _createdBy: 'system',
-    _updated: new Date(),
-    _updatedBy: 'system'
-  },
-  _orgId: '67e8e19b149f740323af93d7'
-});
-
 describe('GenericApiService - Integration Tests', () => {
-  let mongoServer: MongoMemoryServer;
-  let mongoClient: MongoClient;
-  let db: Db;
+  let database: Database;
   let service: GenericApiService<TestEntity>;
-  let collection: Collection;
   let testUserContext: IUserContext;
   
-  // Set up MongoDB Memory Server before all tests
+  // Set up TestExpressApp before all tests
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const uri = mongoServer.getUri();
-    mongoClient = new MongoClient(uri);
-    await mongoClient.connect();
-    db = mongoClient.db('test-db');
+    const testSetup = await TestExpressApp.init('test-db');
+    testUserContext = testUtils.testUserContext;
+    database = testSetup.database;
     
     // Create service with auditable model spec
     service = new GenericApiService<TestEntity>(
-      db,
+      testSetup.database,
       'testEntities',
       'testEntity',
       testModelSpec
     );
-    
-    testUserContext = {
-      user: {
-        _id: new ObjectId('5f7d5dc35a3a3a0b8c7b3e0d').toString(),
-        email: 'test@example.com',
-        password: '',
-        _created: new Date(),
-        _createdBy: 'system',
-        _updated: new Date(),
-        _updatedBy: 'system'
-      },
-      _orgId: '67e8e19b149f740323af93d7'
-    };
   });
   
-  // Clean up MongoDB Memory Server after all tests
+  // Clean up TestExpressApp after all tests
   afterAll(async () => {
-    if (mongoClient) {
-      await mongoClient.close();
-    }
-    if (mongoServer) {
-      await mongoServer.stop();
-    }
+    await TestExpressApp.cleanup();
   });
   
   // Set up service before each test
   beforeEach(async () => {
-    // Create a clean collection for each test
-    if (collection) {
-      await collection.drop().catch(() => {
-        // Ignore errors if collection doesn't exist yet
-      });
-    }
-    collection = db.collection('testEntities');
-  });
-  
-  // Clean up after each test
-  afterEach(async () => {
-    // Additional cleanup if needed
+    await TestExpressApp.clearCollections();
   });
   
   describe('CRUD Operations', () => {
     it('should create and retrieve an entity', async () => {
       // Arrange
-      const userContext = createUserContext();
       const testEntity: Partial<TestEntity> = {
         name: 'Test Entity',
         description: 'This is a test entity',
@@ -126,8 +73,8 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Act
-      const createdEntity = await service.create(userContext, testEntity);
-      const retrievedEntity = await service.getById(userContext, createdEntity!._id.toString());
+      const createdEntity = await service.create(testUserContext, testEntity);
+      const retrievedEntity = await service.getById(testUserContext, createdEntity!._id.toString());
       
       // Assert
       expect(createdEntity).toBeDefined();
@@ -144,7 +91,6 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should create multiple entities and retrieve them all', async () => {
       // Arrange
-      const userContext = createUserContext();
       const testEntities: TestEntity[] = [
         { name: 'Entity 1', isActive: true } as TestEntity,
         { name: 'Entity 2', isActive: false } as TestEntity,
@@ -152,8 +98,8 @@ describe('GenericApiService - Integration Tests', () => {
       ];
       
       // Act
-      const createdEntities = await service.createMany(userContext, testEntities);
-      const allEntities = await service.getAll(userContext);
+      const createdEntities = await service.createMany(testUserContext, testEntities);
+      const allEntities = await service.getAll(testUserContext);
       
       // Assert
       expect(createdEntities).toHaveLength(3);
@@ -166,7 +112,6 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should update an entity', async () => {
       // Arrange
-      const userContext = createUserContext();
       const initialEntity: Partial<TestEntity> = {
         name: 'Initial Name',
         description: 'Initial description',
@@ -174,7 +119,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Create the entity first
-      const createdEntity = await service.create(userContext, initialEntity);
+      const createdEntity = await service.create(testUserContext, initialEntity);
       
       // Act - Update the entity
       const updateData: Partial<TestEntity> = {
@@ -183,7 +128,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       const updatedEntity = await service.partialUpdateById(
-        userContext, 
+        testUserContext, 
         createdEntity!._id.toString(), 
         updateData
       );
@@ -197,18 +142,17 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should delete an entity', async () => {
       // Arrange
-      const userContext = createUserContext();
       const testEntity: Partial<TestEntity> = {
         name: 'Entity to Delete',
         isActive: true
       };
       
       // Create the entity first
-      const createdEntity = await service.create(userContext, testEntity);
+      const createdEntity = await service.create(testUserContext, testEntity);
       
       // Act
       const deleteResult = await service.deleteById(
-        userContext, 
+        testUserContext, 
         createdEntity!._id.toString()
       );
       
@@ -218,14 +162,13 @@ describe('GenericApiService - Integration Tests', () => {
       
       // Verify the entity is deleted by trying to retrieve it
       await expect(service.getById(
-        userContext, 
+        testUserContext, 
         createdEntity!._id.toString()
       )).rejects.toThrow(IdNotFoundError);
     });
     
     it('should accept a partial update with only some fields', async () => {
       // Arrange
-      const userContext = createUserContext();
       const initialEntity: Partial<TestEntity> = {
         name: 'Initial Entity',
         description: 'Initial description',
@@ -233,7 +176,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Create the entity first
-      const createdEntity = await service.create(userContext, initialEntity);
+      const createdEntity = await service.create(testUserContext, initialEntity);
       
       // Act - Only update description
       const updateData: Partial<TestEntity> = {
@@ -241,7 +184,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       const updatedEntity = await service.partialUpdateById(
-        userContext, 
+        testUserContext, 
         createdEntity!._id.toString(), 
         updateData
       );
@@ -257,7 +200,6 @@ describe('GenericApiService - Integration Tests', () => {
   describe('Query Operations', () => {
     // Create test data
     beforeEach(async () => {
-      const userContext = createUserContext();
       const testEntities: TestEntity[] = [
         { name: 'Entity A', tags: ['tag1', 'tag2'], count: 10, isActive: true } as TestEntity,
         { name: 'Entity B', tags: ['tag2', 'tag3'], count: 20, isActive: false } as TestEntity,
@@ -266,15 +208,14 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity E', tags: ['tag1', 'tag4'], count: 50, isActive: true } as TestEntity
       ];
       
-      await service.createMany(userContext, testEntities);
+      await service.createMany(testUserContext, testEntities);
     });
     
     it('should get all entities', async () => {
       // Arrange
-      const userContext = createUserContext();
       
       // Act
-      const results = await service.getAll(userContext);
+      const results = await service.getAll(testUserContext);
       
       // Assert
       expect(results).toHaveLength(5);
@@ -282,7 +223,6 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should get entities with pagination', async () => {
       // Arrange
-      const userContext = createUserContext();
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
         page: 1,
@@ -290,7 +230,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Act
-      const pagedResult = await service.get(userContext, queryOptions);
+      const pagedResult = await service.get(testUserContext, queryOptions);
       
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -303,7 +243,6 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should get entities with sorting', async () => {
       // Arrange
-      const userContext = createUserContext();
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
         orderBy: 'name',
@@ -311,7 +250,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Act
-      const pagedResult = await service.get(userContext, queryOptions);
+      const pagedResult = await service.get(testUserContext, queryOptions);
       
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -323,7 +262,6 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should get entities with filtering', async () => {
       // Arrange
-      const userContext = createUserContext();
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
         filters: {
@@ -332,7 +270,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       // Act
-      const pagedResult = await service.get(userContext, queryOptions);
+      const pagedResult = await service.get(testUserContext, queryOptions);
       
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -342,10 +280,9 @@ describe('GenericApiService - Integration Tests', () => {
     
     it('should find entities matching a query', async () => {
       // Arrange
-      const userContext = createUserContext();
       
       // Act
-      const results = await service.find(userContext, { filters: { count: { gt: 30 } } });
+      const results = await service.find(testUserContext, { filters: { count: { gt: 30 } } });
       
       // Assert
       expect(results).toHaveLength(2);
@@ -434,48 +371,42 @@ describe('GenericApiService - Integration Tests', () => {
   describe('Error Handling', () => {
     it('should throw IdNotFoundError when getting non-existent entity', async () => {
       // Arrange
-      const userContext = createUserContext();
       const nonExistentId = new ObjectId().toString();
       
       // Act & Assert
       await expect(
-        service.getById(userContext, nonExistentId)
+        service.getById(testUserContext, nonExistentId)
       ).rejects.toThrow(IdNotFoundError);
     });
     
     it('should throw BadRequestError when providing invalid ObjectId', async () => {
       // Arrange
-      const userContext = createUserContext();
       const invalidId = 'not-an-object-id';
       
       // Act & Assert
       await expect(
-        service.getById(userContext, invalidId)
+        service.getById(testUserContext, invalidId)
       ).rejects.toThrow(BadRequestError);
     });
     
     it('should throw DuplicateKeyError when creating entity with duplicate unique key', async () => {
       // Arrange
-      const userContext = createUserContext();
-      
-      // First, create a collection with a unique index
-      await collection.createIndex({ name: 1 }, { unique: true });
-      
+    
       // Create first entity
       const entity1: Partial<TestEntity> = {
         name: 'Unique Name'
       };
-      
-      await service.create(userContext, entity1);
-      
-      // Try to create second entity with same name
-      const entity2: Partial<TestEntity> = {
+      // First, create a collection with a unique index
+      const createdEntity1 = await service.create(testUserContext,  entity1);
+    
+      const entity2WithId: Partial<TestEntity> = {
+        _id: createdEntity1?._id,
         name: 'Unique Name'
       };
-      
+            
       // Act & Assert
       await expect(
-        service.create(userContext, entity2)
+        service.create(testUserContext, entity2WithId)
       ).rejects.toThrow(DuplicateKeyError);
     });
   });
@@ -484,7 +415,6 @@ describe('GenericApiService - Integration Tests', () => {
     describe('Basic Preparation', () => {
       it('should strip properties not defined in the schema', async () => {
         // Arrange
-        const userContext = createUserContext();
         const entityWithExtraProps: any = {
           name: 'Entity with extra props',
           extraProperty: 'This property is not in the schema',
@@ -493,7 +423,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.preprocessEntity(userContext, entityWithExtraProps, true);
+        const preparedEntity = await service.preprocessEntity(testUserContext, entityWithExtraProps, true);
         
         // Assert
         expect(preparedEntity.name).toBe('Entity with extra props');
@@ -504,7 +434,6 @@ describe('GenericApiService - Integration Tests', () => {
       
       it('should preserve valid properties defined in the schema', async () => {
         // Arrange
-        const userContext = createUserContext();
         const validEntity = {
           name: 'Valid Entity',
           description: 'Valid description',
@@ -514,7 +443,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await service.preprocessEntity(userContext, validEntity, true);
+        const preparedEntity = await service.preprocessEntity(testUserContext, validEntity, true);
         
         // Assert
         expect(preparedEntity.name).toBe(validEntity.name);
@@ -544,7 +473,7 @@ describe('GenericApiService - Integration Tests', () => {
         // Create a non-auditable service
         const nonAuditableModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: false });
         const nonAuditableService = new GenericApiService<TestEntity>(
-          db,
+          database,
           'testEntities',
           'testEntity',
           nonAuditableModelSpec
@@ -650,7 +579,6 @@ describe('GenericApiService - Integration Tests', () => {
     describe('Type Conversion', () => {
       it('should convert ISO date strings to Date objects', async () => {
         // Arrange
-        const userContext = createUserContext();
         const testDate = new Date();
         const isoDateString = testDate.toISOString();
         
@@ -662,7 +590,7 @@ describe('GenericApiService - Integration Tests', () => {
         
         const dateModelSpec = entityUtils.getModelSpec(DateSchema, { isAuditable: true });
         const dateService = new GenericApiService<any>(
-          db,
+          database,
           'dateEntities',
           'dateEntity',
           dateModelSpec
@@ -675,7 +603,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await dateService.preprocessEntity<any>(userContext, entityWithDateString, true);
+        const preparedEntity = await dateService.preprocessEntity<any>(testUserContext, entityWithDateString, true);
         
         // Assert
         expect(preparedEntity.eventDate instanceof Date).toBe(true);
@@ -684,7 +612,6 @@ describe('GenericApiService - Integration Tests', () => {
       
       it('should convert string IDs to ObjectIds for database storage', async () => {
         // Arrange
-        const userContext = createUserContext();
         const ObjectIdSchema = Type.Object({
           name: Type.String({ minLength: 1 }),
           refId: TypeboxObjectId({ title: 'Reference ID' })
@@ -692,7 +619,7 @@ describe('GenericApiService - Integration Tests', () => {
         
         const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
         const objectIdService = new GenericApiService<any>(
-          db,
+          database,
           'objectIdToStringTest',
           'objectIdEntity',
           objectIdModelSpec
@@ -705,7 +632,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await objectIdService.preprocessEntity<any>(userContext, stringIdEntity, true);
+        const preparedEntity = await objectIdService.preprocessEntity<any>(testUserContext, stringIdEntity, true);
         
         // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
         expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -714,7 +641,6 @@ describe('GenericApiService - Integration Tests', () => {
       
       it('should handle nested objects with proper type conversion to database types', async () => {
         // Arrange
-        const userContext = createUserContext();
         const testDate = new Date();
         const refIdString = new ObjectId().toString();
         
@@ -737,7 +663,7 @@ describe('GenericApiService - Integration Tests', () => {
         
         const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
         const complexService = new GenericApiService<any>(
-          db,
+          database,
           'complexEntities',
           'complexEntity',
           complexModelSpec
@@ -760,7 +686,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
         
         // Act
-        const preparedEntity = await complexService.preprocessEntity<any>(userContext, complexJsonEntity, true);
+        const preparedEntity = await complexService.preprocessEntity<any>(testUserContext, complexJsonEntity, true);
         
         // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
         expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);

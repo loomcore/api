@@ -1,5 +1,4 @@
 import {Application, NextFunction, Request, Response} from 'express';
-import {Db} from 'mongodb';
 
 import {IOrganization} from '@loomcore/common/models';
 
@@ -8,6 +7,7 @@ import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
 import {BadRequestError, IdNotFoundError} from '../errors/index.js';
 import {OrganizationService} from '../services/index.js';
+import { Database } from '../databases/database.js';
 
 /**
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
@@ -16,8 +16,8 @@ import {OrganizationService} from '../services/index.js';
 export class OrganizationsController extends ApiController<IOrganization> {
 	orgService: OrganizationService;
 
-	constructor(app: Application, db: Db) {
-		const orgService = new OrganizationService(db);
+	constructor(app: Application, database: Database) {
+		const orgService = new OrganizationService(database);
 		super('organizations', app, orgService);
 		this.orgService = orgService;
 	}

@@ -1,28 +1,33 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
-import { Db, ObjectId } from 'mongodb';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import testUtils, { CategoryController, ProductsController } from '../../__tests__/common-test.utils.js';
+import testUtils, { CategoryController, CategorySpec, ICategory, IProduct, ProductsController, ProductSpec } from '../../__tests__/common-test.utils.js';
+import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
+import { EmptyUserContext } from '@loomcore/common/models';
 
 describe('ApiController get (paged) with aggregation - Integration Tests', () => {
-  let db: Db;
   let app: Application;
+  let productService: GenericApiService<IProduct>;
+  let categoryService: GenericApiService<ICategory>;
   let testAgent: any;
   let authToken: string;
-  let categoryId: ObjectId;
-  let productId: ObjectId;
+  let categoryId: string;
+  let productId: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init("test-app");
     app = testSetup.app;
-    db = testSetup.db;
+
     testAgent = testSetup.agent;
     authToken = testUtils.getAuthToken();
     
     // Instantiate controllers to map routes
-    new ProductsController(app, db);
-    new CategoryController(app, db);
+    new ProductsController(app, testSetup.database);
+    new CategoryController(app, testSetup.database);
+
+    productService = new GenericApiService<IProduct>(testSetup.database, "products", "product", ProductSpec);
+    categoryService = new GenericApiService<ICategory>(testSetup.database, "categories", "category", CategorySpec);
 
     await TestExpressApp.setupErrorHandling();
   });
@@ -35,16 +40,19 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
     await TestExpressApp.clearCollections();
 
     // Insert a category
-    const categoryResult = await db.collection('categories').insertOne({ name: 'Test Category' });
-    categoryId = categoryResult.insertedId;
+    const categoryResult = await categoryService.create(EmptyUserContext, { name: 'Test Category' });
+    if (!categoryResult) throw new Error("category creation failed");
+    categoryId = categoryResult._id;
 
     // Insert a product with a sensitive internalNumber
-    const productResult = await db.collection('products').insertOne({ 
+    const productResult = await productService.create(EmptyUserContext, { 
       name: 'Test Product',
       internalNumber: 'ABC-123-XYZ',
-      categoryId: categoryId 
+      categoryId: categoryId
     });
-    productId = productResult.insertedId;
+
+    if (!productResult) throw new Error("product creation failed");
+    productId = productResult._id;
   });
 
   it('should return a paged result of aggregated entities while filtering sensitive fields', async () => {
@@ -65,7 +73,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
 
     // Assert that the entity and the aggregated data are correct
     const product = pagedResult.entities[0];
-    expect(product._id).toBe(productId.toHexString());
+    expect(product._id).toBe(productId);
     expect(product.category).toBeDefined();
     expect(product.category.name).toBe('Test Category');
     // Crucially, assert that the sensitive field has been removed
@@ -90,7 +98,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
 
     // Assert that the entity data is correct
     const category = pagedResult.entities[0];
-    expect(category._id).toBe(categoryId.toHexString());
+    expect(category._id).toBe(categoryId);
     expect(category.name).toBe('Test Category');
   });
 });

@@ -1,4 +1,3 @@
-import { Db } from 'mongodb';
 import { IUserContext, IEntity, IQueryOptions, IModelSpec } from '@loomcore/common/models';
 
 import { TenantQueryDecorator } from './tenant-query-decorator.js';

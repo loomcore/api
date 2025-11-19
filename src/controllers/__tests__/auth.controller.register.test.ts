@@ -18,7 +18,7 @@ describe('AuthController', () => {
     testAgent = testSetup.agent;
     
     // Initialize the AuthController with the Express app and database
-    authController = new AuthController(testSetup.app, testSetup.db);
+    authController = new AuthController(testSetup.app, testSetup.database);
     
     // Setup error handling middleware AFTER controller initialization
     await TestExpressApp.setupErrorHandling();
