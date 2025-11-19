@@ -1,10 +1,7 @@
 import { Document } from "mongodb";
 import { IQueryOptions, IModelSpec } from "@loomcore/common/models";
 import { Operation } from "../operations/operation.js";
-import { buildMongoMatchFromQueryOptions } from "../../utils/mongo/buildMongoMatchFromQueryOptions.js";
-import { convertOperationsToPipeline } from "../../utils/mongo/convertOperationsToPipeline.js";
-import { buildPaginationPipeline } from "./buildPaginationPipeline.js";
-import { convertQueryOptionsToPipeline } from "../../utils/index.js";
+import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from "./utils/index.js";
 
 export interface IPipeline {
     addStage(stage: Document): IPipeline;
@@ -37,7 +34,7 @@ class NoSqlPipeline implements IPipeline {
     }
 
     addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): NoSqlPipeline {
-        const matchDocument = buildMongoMatchFromQueryOptions(queryOptions, modelSpec);
+        const matchDocument = buildNoSqlMatch(queryOptions, modelSpec);
         if (matchDocument) {
             this.pipeline.push(matchDocument);
         }

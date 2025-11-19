@@ -1,4 +1,4 @@
-export * from './buildMongoMatchFromQueryOptions.js';
+export * from './buildNoSqlMatch.js';
 export * from './convertStringToObjectId.js';
 export * from './convertOperationsToPipeline.js';
 export * from './convertQueryOptionsToPipeline.js';

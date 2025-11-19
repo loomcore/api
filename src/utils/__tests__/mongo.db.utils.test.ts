@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { buildMongoMatchFromQueryOptions, convertObjectIdsToStrings, convertStringsToObjectIds, convertStringToObjectId } from '../mongo/index.js';
+import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds, convertStringToObjectId } from '../../databases/mongoDb/utils/index.js';
 
 describe('mongoUtils', () => {
   describe('convertObjectIdsToStrings', () => {
@@ -384,7 +384,7 @@ describe('mongoUtils', () => {
         }
       };
 
-      const result = buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildNoSqlMatch(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -403,7 +403,7 @@ describe('mongoUtils', () => {
         }
       };
 
-      const result = buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildNoSqlMatch(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -422,7 +422,7 @@ describe('mongoUtils', () => {
         }
       };
 
-      const result = buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildNoSqlMatch(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -441,7 +441,7 @@ describe('mongoUtils', () => {
         }
       };
 
-      const result = buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildNoSqlMatch(queryOptions);
 
       expect(result).toEqual({
         $match: {
@@ -463,7 +463,7 @@ describe('mongoUtils', () => {
         }
       };
 
-      const result = buildMongoMatchFromQueryOptions(queryOptions);
+      const result = buildNoSqlMatch(queryOptions);
 
       expect(result).toEqual({
         $match: {

@@ -4,11 +4,11 @@ import { IModelSpec, IQueryOptions, IPagedResult, DefaultQueryOptions } from "@l
 import { Operation } from "../operations/operation.js";
 import { ServerError } from "../../errors/server.error.js";
 import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError } from "../../errors/index.js";
-import { convertObjectIdsToStrings, convertOperationsToPipeline, convertQueryOptionsToPipeline, convertStringsToObjectIds } from "../../utils/mongo/index.js";
+import { convertObjectIdsToStrings, convertOperationsToPipeline, convertQueryOptionsToPipeline, convertStringsToObjectIds } from "./utils/index.js";
 import { apiUtils } from "../../utils/api.utils.js";
 import NoSqlPipeline from "./noSqlPipeline.js";
 import { DeleteResult as GenericDeleteResult } from "../types/deleteResult.js";
-import { buildMongoMatchFromQueryOptions } from "../../utils/mongo/buildMongoMatchFromQueryOptions.js";
+import { buildNoSqlMatch } from "./utils/buildNoSqlMatch.js";
 import { TSchema } from "@sinclair/typebox";
 export class MongoDBDatabase implements IDatabase {
     private collection: Collection;
@@ -203,7 +203,7 @@ export class MongoDBDatabase implements IDatabase {
 
     async fullUpdateById<T>(operations: Operation[], id: string, entity: any): Promise<T> {
         // Build match document and extract the filter object
-        const matchDocument = buildMongoMatchFromQueryOptions({ filters: { _id: { eq: id } } });
+        const matchDocument = buildNoSqlMatch({ filters: { _id: { eq: id } } });
         const filter = matchDocument.$match;
         
         const replaceResult = await this.collection.replaceOne(filter, entity);
@@ -226,7 +226,7 @@ export class MongoDBDatabase implements IDatabase {
 
     async partialUpdateById<T>(operations: Operation[], id: string, entity: Partial<any>): Promise<T> {
         // Build match document and extract the filter object
-        const matchDocument = buildMongoMatchFromQueryOptions({ filters: { _id: { eq: id } } });
+        const matchDocument = buildNoSqlMatch({ filters: { _id: { eq: id } } });
         const filter = matchDocument.$match;
         
         // For partial update, we use findOneAndUpdate with $set
@@ -254,7 +254,7 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async update<T>(queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[]): Promise<T[]> {
-        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const matchDocument = buildNoSqlMatch(queryObject);
         const filter = matchDocument.$match;
         const updateResult = await this.collection.updateMany(filter, { $set: entity });
         
@@ -285,7 +285,7 @@ export class MongoDBDatabase implements IDatabase {
 
     async deleteMany(queryObject: IQueryOptions): Promise<GenericDeleteResult> {
         // Build match document and extract the filter object
-        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const matchDocument = buildNoSqlMatch(queryObject);
         const filter = matchDocument.$match;
 
         const deleteResult = await this.collection.deleteMany(filter);
@@ -293,7 +293,7 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async find<T>(queryObject: IQueryOptions): Promise<T[]> {
-        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const matchDocument = buildNoSqlMatch(queryObject);
         const filter = matchDocument.$match;
 
         const options = buildFindOptions(queryObject);
@@ -304,7 +304,7 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     async findOne<T>(queryObject: IQueryOptions): Promise<T | null> {
-        const matchDocument = buildMongoMatchFromQueryOptions(queryObject);
+        const matchDocument = buildNoSqlMatch(queryObject);
         const filter = matchDocument.$match;
         const options = buildFindOptions(queryObject);
 

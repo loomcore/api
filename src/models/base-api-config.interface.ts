@@ -1,12 +1,9 @@
-import { DatabaseType } from "../databases/types/databaseType.js";
-
 export interface IBaseApiConfig {
   appName: string;
   env: string;
   hostName: string;
   clientSecret: string;
   database: {
-    type: DatabaseType,
     name?: string;
   },
   externalPort?: number;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ObjectId } from 'mongodb';
-import { convertQueryObjectIds } from '../mongo/convertQueryObjectIds.js';
+import { convertQueryObjectIds } from '../../databases/mongoDb/utils/convertQueryObjectIds.js';
 
 describe('convertQueryObjectIds', () => {
   it('should convert string _id to ObjectId', () => {
