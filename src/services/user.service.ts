@@ -11,7 +11,7 @@ export class UserService extends MultiTenantApiService<IUser> {
   }
 
 	// Can't full update a User. You can create, partial update, or explicitly change the password.
-	override async fullUpdateById(userContext: IUserContext, id: string, entity: IUser): Promise<any> {
+	override async fullUpdateById(userContext: IUserContext, id: string, entity: IUser): Promise<IUser> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 
