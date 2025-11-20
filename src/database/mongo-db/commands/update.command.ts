@@ -2,7 +2,7 @@ import { Collection } from "mongodb";
 import { IQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
 import { NotFoundError } from "../../../errors/index.js";
-import NoSqlPipeline from "../utils/pipeline.interface.util.js";
+import NoSqlPipeline from "../models/no-sql-pipeline.js";
 import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 
 

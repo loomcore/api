@@ -1,6 +1,6 @@
 import { Collection } from "mongodb";
 import { Operation } from "../../operations/operation.js";
-import NoSqlPipeline from "../utils/pipeline.interface.util.js";
+import NoSqlPipeline from "../models/no-sql-pipeline.js";
 
 
 export async function getCount(collection: Collection, operations: Operation[]): Promise<number> {

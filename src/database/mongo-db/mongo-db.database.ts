@@ -2,7 +2,7 @@ import { Collection, Db } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult } from "@loomcore/common/models";
 import { Operation } from "../operations/operation.js";
 import { convertObjectIdsToStrings, convertStringsToObjectIds } from "./utils/index.js";
-import { DeleteResult as GenericDeleteResult } from "../models/deleteResult.js";
+import { DeleteResult as GenericDeleteResult } from "../models/delete-result.js";
 import { TSchema } from "@sinclair/typebox";
 import { IDatabase } from "../models/database.interface.js";
 import { create, createMany, batchUpdate, fullUpdateById, partialUpdateById, update, deleteById, deleteMany } from "./commands/index.js";

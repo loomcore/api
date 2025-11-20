@@ -1,5 +1,5 @@
 import { Collection, ObjectId } from "mongodb";
-import { DeleteResult as GenericDeleteResult } from "../../models/deleteResult.js";
+import { DeleteResult as GenericDeleteResult } from "../../models/delete-result.js";
 
 
 export async function deleteById(collection: Collection, id: string): Promise<GenericDeleteResult> {

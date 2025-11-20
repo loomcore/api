@@ -1,5 +1,5 @@
 import { IModelSpec, IQueryOptions, IPagedResult } from "@loomcore/common/models";
-import { DeleteResult } from "./deleteResult.js";
+import { DeleteResult } from "./delete-result.js";
 import { TSchema } from "@sinclair/typebox";
 import { Operation } from "../operations/operation.js";
 

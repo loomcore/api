@@ -13,7 +13,7 @@ import {config} from '../config/index.js';
 import { Database } from '../database/models/database.js';
 import { IRefreshToken } from '../models/refresh-token.js';
 import { refreshTokenModelSpec } from '../models/refresh-token.spec.js';
-import { UpdateResult } from '../database/models/updateResult.js';
+import { UpdateResult } from '../database/models/update-result.js';
 
 export class AuthService extends GenericApiService<IUser> {
 	private refreshTokenService: GenericApiService<IRefreshToken>;
