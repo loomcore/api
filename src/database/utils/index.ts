@@ -1,1 +1,1 @@
-export * from './database-to-IDatabase.util.js';
+export * from './database-to-idatabase.util.js';

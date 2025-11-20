@@ -5,7 +5,7 @@ import { entityUtils } from '@loomcore/common/utils';
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { Operation } from '../../database/operations/operation.js';
 import { Database } from '../../database/models/database.js';
-import { DeleteResult } from '../../database/models/deleteResult.js';
+import { DeleteResult } from '../../database/models/delete-result.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';

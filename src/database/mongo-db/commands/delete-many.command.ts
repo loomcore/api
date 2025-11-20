@@ -1,6 +1,6 @@
 import { Collection } from "mongodb";
 import { IQueryOptions } from "@loomcore/common/models";
-import { DeleteResult as GenericDeleteResult } from "../../models/deleteResult.js";
+import { DeleteResult as GenericDeleteResult } from "../../models/delete-result.js";
 import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 
 

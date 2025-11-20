@@ -7,7 +7,7 @@ import {entityUtils} from '@loomcore/common/utils';
 import {IGenericApiService} from '../services/index.js';
 import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
-import { DeleteResult } from '../database/models/deleteResult.js';
+import { DeleteResult } from '../database/models/delete-result.js';
 
 export abstract class ApiController<T extends IEntity> {
   protected app: Application;

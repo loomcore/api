@@ -1,18 +1,10 @@
 import { Document } from "mongodb";
 import { IQueryOptions, IModelSpec } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
-import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from "./index.js";
+import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from "../utils/index.js";
+import { INoSqlPipeline } from "./no-sql-pipeline.interface.js";
 
-export interface IPipeline {
-    addStage(stage: Document): IPipeline;
-    addStages(stages: Document[]): IPipeline;
-    addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): IPipeline;
-    addOperations(operations: Operation[]): IPipeline;
-    addQueryOptions(queryOptions: IQueryOptions, pagination: boolean): IPipeline;
-    build(): Document[];
-}
-
-class NoSqlPipeline implements IPipeline {
+class NoSqlPipeline implements INoSqlPipeline {
     private pipeline: Document[];
 
     constructor(pipeline: Document[] | null = null) {

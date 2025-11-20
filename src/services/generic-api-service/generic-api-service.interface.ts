@@ -1,6 +1,6 @@
 import { ValueError } from '@sinclair/typebox/errors';
 import {IUserContext, IEntity, IPagedResult, IQueryOptions} from '@loomcore/common/models';
-import { DeleteResult } from '../../database/models/deleteResult.js';
+import { DeleteResult } from '../../database/models/delete-result.js';
 import { Operation } from '../../database/operations/operation.js';
 
 export interface IGenericApiService<T extends IEntity> {
