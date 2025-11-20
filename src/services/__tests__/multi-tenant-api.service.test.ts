@@ -9,7 +9,7 @@ import { TenantQueryDecorator } from '../tenant-query-decorator.js';
 import { BadRequestError, ServerError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { IDatabase } from '../../database/models/database.interface.js';
+import { IDatabase } from '../../databases/models/database.interface.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {

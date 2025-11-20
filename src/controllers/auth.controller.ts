@@ -18,8 +18,8 @@ import {isAuthenticated} from '../middleware/index.js';
 import { apiUtils} from '../utils/index.js';
 
 import {AuthService} from '../services/index.js';
-import { UpdateResult } from '../database/models/update-result.js';
-import { Database } from '../database/models/database.js';
+import { UpdateResult } from '../databases/models/update-result.js';
+import { Database } from '../databases/models/database.js';
 
 export class AuthController {
   authService: AuthService;

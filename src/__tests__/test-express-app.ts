@@ -8,9 +8,9 @@ import { setBaseApiConfig } from '../config/base-api-config.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
 import { TestMongoDb } from './test-mongo-db.js';
-import { Database } from '../database/models/database.js';
-import { MongoDBDatabase } from '../database/mongo-db/mongo-db.database.js';
-import { IDatabase } from '../database/models/index.js';
+import { Database } from '../databases/models/database.js';
+import { MongoDBDatabase } from '../databases/mongo-db/mongo-db.database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 /**
  * Utility class for setting up a minimal Express application for testing

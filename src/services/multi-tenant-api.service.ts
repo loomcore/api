@@ -3,8 +3,8 @@ import { IUserContext, IEntity, IQueryOptions, IModelSpec } from '@loomcore/comm
 import { TenantQueryDecorator } from './tenant-query-decorator.js';
 import { BadRequestError } from '../errors/bad-request.error.js';
 import { config } from '../config/base-api-config.js';
-import { Operation } from '../database/operations/operation.js';
-import { Database } from '../database/models/database.js';
+import { Operation } from '../databases/operations/operation.js';
+import { Database } from '../databases/models/database.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 
 /**
