@@ -8,11 +8,8 @@ import { ApiController } from '../api.controller.js';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { IDatabase } from '../../databases/database.interface.js';
-import { MongoDBDatabase } from '../../databases/mongo-db/mongo-db.database.js';
-import { IGenericApiService } from '../../services/generic-api-service/generic-api-service.interface.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
-import { Database } from '../../databases/models/database.js';
+import { Database } from '../../databases/models/index.js';
 
 // Mock model for testing
 interface ITestItem extends IEntity, IAuditable {
