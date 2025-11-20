@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { AuthController } from '../../controllers/auth.controller.js';
+import { AuthController } from '../auth.controller.js';
 import { passwordUtils } from '../../utils/password.utils.js';
 import { EmptyUserContext } from '@loomcore/common/models';
 import { AuthService } from '../../services/index.js';
