@@ -9,7 +9,7 @@ import { ApiController } from '../api.controller.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { IDatabase } from '../../database/database.interface.js';
-import { MongoDBDatabase } from '../../database/mongoDb/mongoDb.database.js';
+import { MongoDBDatabase } from '../../database/mongo-db/mongo-db.database.js';
 import { IGenericApiService } from '../../services/generic-api-service/generic-api-service.interface.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { Database } from '../../database/models/database.js';

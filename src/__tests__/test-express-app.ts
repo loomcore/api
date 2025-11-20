@@ -9,7 +9,7 @@ import { errorHandler } from '../middleware/error-handler.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
 import { TestMongoDb } from './test-mongo-db.js';
 import { Database } from '../database/models/database.js';
-import { MongoDBDatabase } from '../database/mongoDb/mongoDb.database.js';
+import { MongoDBDatabase } from '../database/mongo-db/mongo-db.database.js';
 import { IDatabase } from '../database/models/index.js';
 
 /**

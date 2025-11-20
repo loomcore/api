@@ -1,6 +1,6 @@
 import { Db } from "mongodb";
 import { Database } from "../models/database.js";
-import { MongoDBDatabase } from "../mongoDb/mongoDb.database.js";
+import { MongoDBDatabase } from "../mongo-db/mongo-db.database.js";
 import { IDatabase } from "../models/database.interface.js";
 
 export function DatabaseToIDatabase(database: Database, pluralResourceName: string): IDatabase {

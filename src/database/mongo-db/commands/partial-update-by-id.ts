@@ -1,8 +1,8 @@
 import { Collection } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import { IdNotFoundError } from "../../../errors/index.js";
-import NoSqlPipeline from "../utils/pipeline.interface.js";
-import { buildNoSqlMatch } from "../utils/buildNoSqlMatch.js";
+import NoSqlPipeline from "../utils/pipeline.interface.util.js";
+import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 
 
 export async function partialUpdateById<T>(collection: Collection, operations: Operation[], id: string, entity: Partial<any>): Promise<T> {
