@@ -6,7 +6,7 @@ import { IQueryOptions, DefaultQueryOptions, IUserContext } from '@loomcore/comm
 import { entityUtils } from '@loomcore/common/utils';
 import { initializeTypeBox, TypeboxIsoDate, TypeboxObjectId } from '@loomcore/common/validation';
 
-import { MongoDBDatabase } from '../mongoDb.database.js';
+import { MongoDBDatabase } from '../mongo-db.database.js';
 import { Join } from '../../operations/join.operation.js';
 import { GenericApiService } from '../../../services/generic-api-service/generic-api.service.js';
 import testUtils from '../../../__tests__/common-test.utils.js';
