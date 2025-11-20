@@ -1,6 +1,6 @@
 import { Collection, Document } from "mongodb";
 import { Operation } from "../../operations/operation.js";
-import NoSqlPipeline from "../utils/noSqlPipeline.js";
+import NoSqlPipeline from "../utils/pipeline.interface.js";
 
 
 export async function getAll<T>(collection: Collection, operations: Operation[]): Promise<T[]> {

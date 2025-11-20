@@ -1,7 +1,7 @@
 import { Collection } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import { IdNotFoundError } from "../../../errors/index.js";
-import NoSqlPipeline from "../utils/noSqlPipeline.js";
+import NoSqlPipeline from "../utils/pipeline.interface.js";
 import { buildNoSqlMatch } from "../utils/buildNoSqlMatch.js";
 
 

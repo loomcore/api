@@ -11,7 +11,7 @@ import { ApiController } from '../controllers/api.controller.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../database/operations/operation.js';
-import { Join } from '../database/operations/join.js';
+import { Join } from '../database/operations/join.operation.js';
 import { Database } from '../database/models/database.js';
 import { OrganizationService } from '../services/organization.service.js';
 import { IdNotFoundError } from '../errors/index.js';
