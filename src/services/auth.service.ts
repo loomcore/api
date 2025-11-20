@@ -22,9 +22,6 @@ export class AuthService extends GenericApiService<IUser> {
 
 	constructor(database: Database) {
 		super(database, 'users', 'user', UserSpec);
-
-		//console.log(`In AuthService constructor, config: ${JSON.stringify(config)}`);
-
 		this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
 		this.passwordResetTokenService = new PasswordResetTokenService(database);
 		this.emailService = new EmailService();
