@@ -7,17 +7,16 @@ import { TypeboxObjectId } from '@loomcore/common/validation';
 
 import { JwtService } from '../services/jwt.service.js';
 import { passwordUtils } from '../utils/password.utils.js';
-import { AuthService } from '../services/auth.service.js';
 import { ApiController } from '../controllers/api.controller.js';
-import { GenericApiService } from '../services/generic-api-service/generic-api.service.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
-import { Operation } from '../databases/operations/operation.js';
-import { Join } from '../databases/operations/join.js';
-import { Database } from '../databases/database.js';
+import { Operation } from '../database/operations/operation.js';
+import { Join } from '../database/operations/join.js';
+import { Database } from '../database/models/database.js';
 import { OrganizationService } from '../services/organization.service.js';
 import { IdNotFoundError } from '../errors/index.js';
 import { TestMongoDb } from './test-mongo-db.js';
+import { AuthService, GenericApiService } from '../services/index.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;

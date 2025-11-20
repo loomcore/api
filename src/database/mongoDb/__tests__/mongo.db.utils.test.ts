@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds } from '../../databases/mongoDb/utils/index.js';
+import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds } from '../utils/index.js';
 
 describe('mongoUtils', () => {
   describe('convertObjectIdsToStrings', () => {

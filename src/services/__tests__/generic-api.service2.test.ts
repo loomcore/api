@@ -6,7 +6,7 @@ import { entityUtils } from '@loomcore/common/utils';
 import { DuplicateKeyError, BadRequestError, IdNotFoundError, NotFoundError } from '../../errors/index.js';
 import { GenericApiService } from '../generic-api-service/generic-api.service.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import { Database } from '../../databases/database.js';
+import { Database } from '../../database/models/database.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 
 // Define a test entity interface

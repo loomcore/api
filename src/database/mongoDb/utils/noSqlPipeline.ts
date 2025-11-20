@@ -1,7 +1,7 @@
 import { Document } from "mongodb";
 import { IQueryOptions, IModelSpec } from "@loomcore/common/models";
-import { Operation } from "../operations/operation.js";
-import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from "./utils/index.js";
+import { Operation } from "../../operations/operation.js";
+import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from "./index.js";
 
 export interface IPipeline {
     addStage(stage: Document): IPipeline;

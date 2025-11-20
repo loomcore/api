@@ -1,7 +1,7 @@
 import { Db } from "mongodb";
-import { IDatabase } from "./database.interface.js";
-import { Database } from "./database.js";
-import { MongoDBDatabase } from "./mongoDb/database.mongo.js";
+import { Database } from "../models/database.js";
+import { MongoDBDatabase } from "../mongoDb/mongoDb.database.js";
+import { IDatabase } from "../models/database.interface.js";
 
 export function DatabaseToIDatabase(database: Database, pluralResourceName: string): IDatabase {
   if (database instanceof Db) {

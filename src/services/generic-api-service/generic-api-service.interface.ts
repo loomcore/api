@@ -1,7 +1,7 @@
 import { ValueError } from '@sinclair/typebox/errors';
 import {IUserContext, IEntity, IPagedResult, IQueryOptions} from '@loomcore/common/models';
-import { DeleteResult } from '../../databases/types/deleteResult.js';
-import { Operation } from '../../databases/operations/operation.js';
+import { DeleteResult } from '../../database/models/deleteResult.js';
+import { Operation } from '../../database/operations/operation.js';
 
 export interface IGenericApiService<T extends IEntity> {
   validate(doc: any, isPartial?: boolean): ValueError[] | null;

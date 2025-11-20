@@ -4,7 +4,7 @@ import {IUser, UserSpec, PublicUserSchema} from '@loomcore/common/models';
 import {ApiController} from './api.controller.js';
 import {isAuthenticated} from '../middleware/index.js';
 import {UserService} from '../services/index.js';
-import { Database } from '../databases/database.js';
+import { Database } from '../database/models/database.js';
 
 export class UsersController extends ApiController<IUser> {
   private userService: UserService;
