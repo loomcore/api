@@ -1,6 +1,6 @@
 import { EmptyUserContext, initializeSystemUserContext } from '@loomcore/common/models';
 import { IBaseApiConfig } from '../models/index.js';
-import { Database } from '../databases/database.js';
+import { Database } from '../database/models/database.js';
 
 
 export let config: IBaseApiConfig;

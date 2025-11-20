@@ -2,7 +2,7 @@ import _ from 'lodash';
 
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
-import { Database } from '../databases/database.js';
+import { Database } from '../database/models/database.js';
 
 export class OrganizationService extends GenericApiService<IOrganization> {
 	constructor(database: Database) {

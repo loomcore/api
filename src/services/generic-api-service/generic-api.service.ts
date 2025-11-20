@@ -3,15 +3,15 @@ import { ValueError } from '@sinclair/typebox/errors';
 import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 import { IGenericApiService } from './generic-api-service.interface.js';
-import { IDatabase } from '../../databases/database.interface.js';
-import { Operation } from '../../databases/operations/operation.js';
-import { Database } from '../../databases/database.js';
-import { DeleteResult } from '../../databases/types/deleteResult.js';
+import { Operation } from '../../database/operations/operation.js';
+import { Database } from '../../database/models/database.js';
+import { DeleteResult } from '../../database/models/deleteResult.js';
 import { stripSenderProvidedSystemProperties } from '../utils/stripSenderProvidedSystemProperties.js';
 import { auditForCreate } from '../utils/auditForCreate.js';
 import { auditForUpdate } from '../utils/auditForUpdate.js';
 import { BadRequestError, IdNotFoundError, NotFoundError, ServerError } from '../../errors/index.js';
-import { DatabaseToIDatabase } from '../../databases/DatabaseToIDatabase.js';
+import { IDatabase } from '../../database/models/index.js';
+import { DatabaseToIDatabase } from '../../database/utils/index.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -138,7 +138,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       cleanedEntity = this.modelSpec.decode(preparedEntity);
     }
 
-    preparedEntity = this.database.prepareData(cleanedEntity, this.modelSpec.fullSchema);
+    preparedEntity = this.database.preprocessEntity(cleanedEntity, this.modelSpec.fullSchema);
 
     return preparedEntity;
   }
@@ -148,7 +148,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   postprocessEntity<T>(userContext: IUserContext, entity: T): T {
-    return this.database.processData(entity, this.modelSpec.fullSchema);
+    return this.database.postprocessEntity(entity, this.modelSpec.fullSchema);
   }
 
   postprocessEntities<T>(userContext: IUserContext, entities: T[]): T[] {

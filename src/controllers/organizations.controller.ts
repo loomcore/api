@@ -7,7 +7,7 @@ import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
 import {BadRequestError, IdNotFoundError} from '../errors/index.js';
 import {OrganizationService} from '../services/index.js';
-import { Database } from '../databases/database.js';
+import { Database } from '../database/models/database.js';
 
 /**
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant

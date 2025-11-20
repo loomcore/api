@@ -5,7 +5,7 @@ import { OrganizationService } from '../organization.service.js';
 import { IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { Database } from '../../databases/database.js';
+import { Database } from '../../database/models/database.js';
 
 describe('OrganizationService - Integration Tests', () => {
   let database: Database;

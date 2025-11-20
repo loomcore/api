@@ -2,7 +2,7 @@ import {Value} from '@sinclair/typebox/value';
 import {IUser, IUserContext, UserSpec, PublicUserSchema} from '@loomcore/common/models';
 import {MultiTenantApiService} from '../services/index.js';
 import {ServerError} from '../errors/index.js';
-import { Database } from '../databases/database.js';
+import { Database } from '../database/models/database.js';
 
 
 export class UserService extends MultiTenantApiService<IUser> {

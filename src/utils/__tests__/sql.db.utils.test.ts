@@ -3,8 +3,6 @@ import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 import { sqlDbUtils } from '../sql.db.utils.js';
 
 describe('sqlDbUtils', () => {
-
-  
   describe('buildSQLWhereClauseFromQueryOptions', () => {
     it('should build SQL IN clause for string array', () => {
       const queryOptions: IQueryOptions = {

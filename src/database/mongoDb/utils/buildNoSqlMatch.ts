@@ -2,8 +2,8 @@ import { IQueryOptions, IModelSpec } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 import { TSchema } from '@sinclair/typebox';
 import { Document, ObjectId } from 'mongodb';
-import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from './constants.js';
-import { getPropertySchema } from './getPropertySchema.js';
+import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
+import { getPropertySchema } from '../../utils/getPropertySchema.js';
 
 export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): Document {
 	const filters = queryOptions.filters || {};

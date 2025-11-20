@@ -2,7 +2,7 @@ import { entityUtils } from '@loomcore/common/utils';
 import { TSchema } from '@sinclair/typebox';
 import _ from 'lodash';
 import { ObjectId } from 'mongodb';
-import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from './constants.js';
+import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
 
 /**
  * Converts strings to MongoDB ObjectIds based on TypeBox schema definition
