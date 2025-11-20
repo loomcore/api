@@ -1,5 +1,5 @@
 import { Document } from 'mongodb';
-import { Join } from '../../operations/join.js';
+import { Join } from '../../operations/join.operation.js';
 import { Operation } from '../../operations/operation.js';
 
 export function convertOperationsToPipeline(operations: Operation[]): Document[] {

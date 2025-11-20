@@ -1,7 +1,7 @@
 import { Collection, Document } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
-import NoSqlPipeline from "../utils/noSqlPipeline.js";
+import NoSqlPipeline from "../utils/pipeline.interface.js";
 import { apiUtils } from "../../../utils/api.utils.js";
 
 

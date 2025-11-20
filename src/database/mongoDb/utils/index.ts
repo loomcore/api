@@ -4,4 +4,4 @@ export * from './convertObjectIdsToStrings.js'
 export * from './convertOperationsToPipeline.js';
 export * from './convertQueryOptionsToPipeline.js';
 export * from './convertStringsToObjectIds.js';
-export * from './noSqlPipeline.js';
+export * from './pipeline.interface.js';
