@@ -33,6 +33,7 @@
   "exports": {
     "./config": "./dist/config/index.js",
     "./controllers": "./dist/controllers/index.js",
+    "./database": "./dist/database/index.js",
     "./errors": "./dist/errors/index.js",
     "./middleware": "./dist/middleware/index.js",
     "./models": "./dist/models/index.js",
