@@ -3,15 +3,15 @@ import { ValueError } from '@sinclair/typebox/errors';
 import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 import { IGenericApiService } from './generic-api-service.interface.js';
-import { Operation } from '../../database/operations/operation.js';
-import { Database } from '../../database/models/database.js';
-import { DeleteResult } from '../../database/models/delete-result.js';
+import { Operation } from '../../databases/operations/operation.js';
+import { Database } from '../../databases/models/database.js';
+import { DeleteResult } from '../../databases/models/delete-result.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { BadRequestError, IdNotFoundError, NotFoundError, ServerError } from '../../errors/index.js';
-import { IDatabase } from '../../database/models/index.js';
-import { DatabaseToIDatabase } from '../../database/utils/index.js';
+import { IDatabase } from '../../databases/models/index.js';
+import { DatabaseToIDatabase } from '../../databases/utils/index.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;

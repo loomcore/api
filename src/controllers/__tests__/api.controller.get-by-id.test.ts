@@ -3,8 +3,8 @@ import { Application } from 'express';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils, { CategoryController, CategorySpec, ICategory, IProduct, ProductsController, ProductSpec } from '../../__tests__/common-test.utils.js';
-import { IDatabase } from '../../database/database.interface.js';
-import { Database } from '../../database/models/database.js';
+import { IDatabase } from '../../databases/database.interface.js';
+import { Database } from '../../databases/models/database.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
 import { throwError } from 'rxjs';

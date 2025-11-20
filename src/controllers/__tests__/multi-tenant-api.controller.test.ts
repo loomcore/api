@@ -10,7 +10,7 @@ import { MultiTenantApiService } from '../../services/multi-tenant-api.service.j
 // Import our test utilities
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { Database } from '../../database/models/database.js';
+import { Database } from '../../databases/models/database.js';
 
 // Test entity for MultiTenantApiService
 interface ITestTenantItem extends IEntity, IAuditable {
