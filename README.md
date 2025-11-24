@@ -1,0 +1,28 @@
+# @loomcore/api
+
+An opinionated Node.js API toolkit using TypeScript, Express, and MongoDB (PostgreSQL support coming soon).
+
+This library provides a foundational structure for creating robust APIs, with a strong emphasis on multi-tenancy, user management, and OAuth 2.0 Code Flow authentication out of the box.
+
+## Features
+
+- **Generic API Controller**: A base `ApiController` that automatically scaffolds a full suite of RESTful endpoints for any data model. This includes support for CRUD operations, batch updates, pagination, and counting.
+- **Built-in Multi-tenancy**: Optional, configuration-driven multi-tenancy. When enabled, all database operations are automatically scoped to the current user's organization, ensuring strict data isolation.
+- **Authentication & Authorization**: Integrated JWT-based authentication middleware (`isAuthenticated`) to easily secure endpoints and support for OAuth 2.0 Code Flow, including the use of refresh tokens.
+- **User & Organization Management**: Pre-built services and controllers for common user and organization management tasks.
+- **Password Management**: Includes services for handling password reset requests and workflows.
+- **Email Service Integration**: A ready-to-use service for sending transactional emails (e.g., for password resets or welcome messages).
+- **Configuration-Driven**: Easily enable or disable features like multi-tenancy through a single configuration file.
+- **TypeScript & ES Modules**: A modern codebase written entirely in TypeScript, using ES Modules.
+- **Extensible Services**: A generic service layer that can be extended to add custom business logic while leveraging common data access patterns.
+- **Custom Error Handling**: A set of predefined error classes for consistent and meaningful API error responses.
+
+## Core Concepts
+
+The framework is built around a few core components:
+
+1.  **`ApiController`**: You extend this class to create a new controller for a specific data model (e.g., `UsersController`). It automatically maps all the standard REST routes.
+2.  **`GenericApiService`**: A base service that provides the business logic for data operations (get, create, update, delete).
+3.  **`MultiTenantApiService`**: An extension of `GenericApiService` that adds the multi-tenancy layer, automatically filtering and tagging data with an organization ID.
+
+By extending these base classes, you can quickly stand up a new, fully-featured API endpoint with minimal boilerplate code.
