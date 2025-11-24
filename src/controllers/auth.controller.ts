@@ -19,12 +19,12 @@ import { apiUtils} from '../utils/index.js';
 
 import {AuthService} from '../services/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 export class AuthController {
   authService: AuthService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const authService = new AuthService(database);
     this.authService = authService;
 

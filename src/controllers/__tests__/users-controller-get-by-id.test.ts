@@ -11,7 +11,7 @@ describe('UsersController', () => {
 	let usersController: UsersController;
 	
 	beforeAll(async () => {
-		const testSetup = await TestExpressApp.init();
+		const testSetup = await TestExpressApp.init('test-db');
     testAgent = testSetup.agent;
 
 		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication

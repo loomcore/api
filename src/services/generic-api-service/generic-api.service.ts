@@ -4,14 +4,12 @@ import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, Default
 import { entityUtils } from '@loomcore/common/utils';
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { Operation } from '../../databases/operations/operation.js';
-import { Database } from '../../databases/models/database.js';
 import { DeleteResult } from '../../databases/models/delete-result.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { BadRequestError, IdNotFoundError, NotFoundError, ServerError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { DatabaseToIDatabase } from '../../databases/utils/index.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -21,13 +19,13 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
   /**
    * @constructs GenericApiService<T> where T extends IEntity
-   * @param database Either a MongoDb Db or Postgres Sql database 
+   * @param database The database instance
    * @param pluralResourceName This is camel-cased, plural (e.g. 'weatherAlerts') 
    * @param singularResourceName This is camel-cased, singular (e.g. 'weatherAlert') 
    * @param modelSpec The model spec 
    */
   constructor(
-    database: Database,
+    database: IDatabase,
     pluralResourceName: string,
     singularResourceName: string,
     modelSpec: IModelSpec
@@ -35,7 +33,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     this.pluralResourceName = pluralResourceName;
     this.singularResourceName = singularResourceName;
     this.modelSpec = modelSpec;
-    this.database = DatabaseToIDatabase(database, pluralResourceName);
+    this.database = database;
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
@@ -205,7 +203,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     let createdEntity : T | null= null;
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, true, true);
-    const insertResult = await this.database.create<T>(preparedEntity);
+    const insertResult = await this.database.create<T>(preparedEntity, this.pluralResourceName);
 
     if (insertResult.insertedId) {
       createdEntity = this.postprocessEntity<T>(userContext, insertResult.entity);
@@ -349,7 +347,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   async findOne(userContext: IUserContext, queryObject: IQueryOptions): Promise<T | null> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const rawEntity = await this.database.findOne<T>(preparedQuery);
+    const rawEntity = await this.database.findOne<T>(preparedQuery, this.pluralResourceName);
 
     return rawEntity ? this.postprocessEntity(userContext, rawEntity) : null;
   }

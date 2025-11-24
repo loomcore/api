@@ -16,7 +16,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
   let productId: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init("test-app");
+    const testSetup = await TestExpressApp.init();
     app = testSetup.app;
 
     testAgent = testSetup.agent;

@@ -6,38 +6,18 @@ import { entityUtils } from '@loomcore/common/utils';
 import { DuplicateKeyError, BadRequestError, IdNotFoundError, NotFoundError } from '../../errors/index.js';
 import { GenericApiService } from '../generic-api-service/generic-api.service.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import { Database } from '../../databases/models/database.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-
-// Define a test entity interface
-interface TestEntity extends IEntity, IAuditable {
-  name: string;
-  description?: string;
-  isActive?: boolean;
-  tags?: string[];
-  count?: number;
-}
-
-// Create a model spec for validation
-const TestEntitySchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
-  description: Type.Optional(Type.String()),
-  isActive: Type.Optional(Type.Boolean()),
-  tags: Type.Optional(Type.Array(Type.String())),
-  count: Type.Optional(Type.Number())
-});
-
-// Create model spec object
-const testModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: true });
+import { TestEntity, testModelSpec } from '../../__tests__/index.js';
+import { IDatabase } from '../../databases/models/index.js';
 
 describe('GenericApiService - Integration Tests', () => {
-  let database: Database;
+  let database: IDatabase;
   let service: GenericApiService<TestEntity>;
   let testUserContext: IUserContext;
   
   // Set up TestExpressApp before all tests
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init('test-db');
+    const testSetup = await TestExpressApp.init();
     testUserContext = testUtils.testUserContext;
     database = testSetup.database;
     

@@ -1,4 +1,4 @@
-import { Collection, Db } from "mongodb";
+import { Collection, Db, Document } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult } from "@loomcore/common/models";
 import { Operation } from "../operations/operation.js";
 import { convertObjectIdsToStrings, convertStringsToObjectIds } from "./utils/index.js";
@@ -23,7 +23,6 @@ export class MongoDBDatabase implements IDatabase {
     preprocessEntity<T>(entity: T, schema: TSchema): T {
         return convertStringsToObjectIds(entity, schema);
     }
-
 
     postprocessEntity<T>(single: T, schema: TSchema): T {
         if (!single) return single;

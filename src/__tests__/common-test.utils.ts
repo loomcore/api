@@ -1,7 +1,7 @@
 import { Request, Response, Application } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions } from '@loomcore/common/models';
+import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions, IOrganization } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 
@@ -12,11 +12,11 @@ import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
 import { Join } from '../databases/operations/join.operation.js';
-import { Database } from '../databases/models/database.js';
 import { OrganizationService } from '../services/organization.service.js';
 import { IdNotFoundError } from '../errors/index.js';
-import { TestMongoDb } from './test-mongo-db.js';
 import { AuthService, GenericApiService } from '../services/index.js';
+import { ObjectId } from 'mongodb';
+import { IDatabase } from '../databases/models/index.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;
@@ -48,13 +48,14 @@ const testUserContext: IUserContext = {
 } as IUserContext;
 
 
-function initialize(database: Database) {
+function initialize(database: IDatabase) {
   authService = new AuthService(database);
   organizationService = new OrganizationService(database);
 }
 
 function getRandomId(): string {
-  return TestMongoDb.getRandomId();
+  // This satisfies MongoDB and Postgres shouldn't really care what the id is. 
+  return new ObjectId().toString();
 }
 
 async function createMetaOrg() {
@@ -65,11 +66,15 @@ async function createMetaOrg() {
     // Create a meta organization (required for system user context)
     const existingMetaOrg = await organizationService.findOne(testUserContext, { filters: { isMetaOrg: { eq: true } } });
     if (!existingMetaOrg) {
-      const metaOrgInsertResult = await organizationService.create(testUserContext, { 
+
+      const metaOrg: Partial<IOrganization> = {
         name: 'Meta Organization',
         code: 'meta-org',
-        isMetaOrg: true
-      });
+        isMetaOrg: true,
+        status: 1
+      };
+
+      const metaOrgInsertResult = await organizationService.create(testUserContext, metaOrg);
     }
   }
   catch (error: any) {
@@ -301,14 +306,14 @@ export const PublicProductSchema = Type.Omit(ProductSpec.fullSchema, ['internalN
 
 // Service that does NOT use aggregation
 export class CategoryService extends GenericApiService<ICategory> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'categories', 'category', CategorySpec);
   }
 }
 
 // Controller for the service that does NOT use aggregation
 export class CategoryController extends ApiController<ICategory> {
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const categoryService = new CategoryService(database);
     super('categories', app, categoryService, 'category', CategorySpec);
   }
@@ -316,8 +321,8 @@ export class CategoryController extends ApiController<ICategory> {
 
 // Test service with aggregation pipeline
 export class ProductService extends GenericApiService<IProduct> {
-  private db: Database;
-  constructor(database: Database) {
+  private db: IDatabase;
+  constructor(database: IDatabase) {
     super(database, 'products', 'product', ProductSpec);
     this.db = database;
   }
@@ -342,7 +347,7 @@ export class ProductService extends GenericApiService<IProduct> {
 
 // Controller that uses aggregation and overrides get/getById to handle it
 export class ProductsController extends ApiController<IProduct> {
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
 
     const productService = new ProductService(database);
 
@@ -366,8 +371,8 @@ export class ProductsController extends ApiController<IProduct> {
 
 // Service that uses MultiTenantApiService
 export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
-  private db: Database;
-  constructor(database: Database) {
+  private db: IDatabase;
+  constructor(database: IDatabase) {
     super(database, 'products', 'product', ProductSpec);
     this.db = database;
   }
@@ -392,7 +397,7 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
 
 // Controller that uses the multi-tenant service
 export class MultiTenantProductsController extends ApiController<IProduct> {
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const productService = new MultiTenantProductService(database);
 
     const AggregatedProductSchema = Type.Intersect([

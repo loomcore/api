@@ -10,7 +10,7 @@ export interface IDatabase {
   get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec): Promise<IPagedResult<T>>;
   getById<T>(operations: Operation[], id: string): Promise<T | null>;
   getCount(operations: Operation[]): Promise<number>;
-  create<T>(entity: Partial<T>): Promise<{ insertedId: string; entity: T }>;
+  create<T>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: string; entity: T }>;
   createMany<T>(entities: Partial<T>[]): Promise<{ insertedIds: string[]; entities: T[] }>;
   batchUpdate<T>(entities: Partial<T>[], operations: Operation[]): Promise<T[]>;
   fullUpdateById<T>(operations: Operation[], id: string, entity: Partial<T>): Promise<T>;
@@ -19,5 +19,5 @@ export interface IDatabase {
   deleteById(id: string): Promise<DeleteResult>;
   deleteMany(queryObject: IQueryOptions): Promise<DeleteResult>;
   find<T>(queryObject: IQueryOptions): Promise<T[]>;
-  findOne<T>(queryObject: IQueryOptions): Promise<T | null>;
+  findOne<T>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null>;
 }

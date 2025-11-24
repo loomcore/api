@@ -12,7 +12,7 @@ describe('AuthController', () => {
   let testDb: any;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init('test-app');
+    const testSetup = await TestExpressApp.init();
     testAgent = testSetup.agent;
     testDb = testSetup.database;
     

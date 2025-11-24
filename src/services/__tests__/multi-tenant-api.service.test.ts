@@ -1,41 +1,20 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { Type } from '@sinclair/typebox';
 import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
-import { TypeboxObjectId, initializeTypeBox } from '@loomcore/common/validation';
-import { entityUtils } from '@loomcore/common/utils';
+import { initializeTypeBox } from '@loomcore/common/validation';
 
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
 import { TenantQueryDecorator } from '../tenant-query-decorator.js';
-import { BadRequestError, ServerError, IdNotFoundError } from '../../errors/index.js';
+import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { IDatabase } from '../../databases/models/database.interface.js';
+import { TestEntity, testModelSpec } from '../../__tests__/index.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
   initializeTypeBox();
 });
 
-// Mock entity interface matching the service generic type
-interface TestEntity extends IEntity {
-  name: string;
-  description?: string;
-  _orgId?: string;
-}
-
-// Define TypeBox schema for test entity with proper ObjectId handling
-const TestEntitySchema = Type.Object({
-  _id: TypeboxObjectId(),
-  name: Type.String(),
-  description: Type.Optional(Type.String()),
-  _orgId: Type.Optional(Type.String())
-});
-
-// Create a model spec for the test entity
-const TestEntityModelSpec = entityUtils.getModelSpec(TestEntitySchema);
-
 describe('MultiTenantApiService', () => {
-  let database: IDatabase;
   let service: MultiTenantApiService<TestEntity>;
   
   // Test data
@@ -44,15 +23,14 @@ describe('MultiTenantApiService', () => {
   
   // Set up the test environment once before all tests
   beforeAll(async () => {
-    const setup = await TestExpressApp.init('testEntities');
-    database = setup.IDatabase;
+    const setup = await TestExpressApp.init();
     
     // Create service with real database
     service = new MultiTenantApiService<TestEntity>(
       setup.database,
       'testEntities',
       'testEntity',
-      TestEntityModelSpec
+      testModelSpec
     );
   });
 
@@ -234,11 +212,15 @@ describe('MultiTenantApiService', () => {
       const testEntity: TestEntity = {
         _id: testUtils.getRandomId(),
         name: 'Test Entity',
-        _orgId: testOrgId
+        _orgId: testOrgId,
+        _created: new Date(),
+        _createdBy: 'system',
+        _updated: new Date(),
+        _updatedBy: 'system'
       };
       
       // Insert a test entity directly into the database
-      await database.create({
+      await service.create(userContext, {
         _id: testEntity._id,
         name: testEntity.name,
         _orgId: testEntity._orgId
@@ -295,7 +277,7 @@ describe('MultiTenantApiService', () => {
       expect(created?._orgId).toBe(testOrgId);
       
       // Verify it was actually inserted into the database
-      const dbEntity = await database.getById<TestEntity>([], created!._id);
+      const dbEntity = await service.getById(userContext, created!._id);
       expect(dbEntity).toBeDefined();
       expect(dbEntity?.name).toBe('Test Entity');
       expect(dbEntity?._orgId).toBe(testOrgId);
@@ -358,7 +340,7 @@ describe('MultiTenantApiService', () => {
       } as Partial<TestEntity>);
       
       // Verify it exists
-      const beforeDelete = await database.getById<TestEntity>([], testEntityId);
+      const beforeDelete = await service.getById(userContext, testEntityId);
       expect(beforeDelete).toBeDefined();
       
       // Act
@@ -370,8 +352,7 @@ describe('MultiTenantApiService', () => {
       expect(deleteResult.success).toBe(true);
       
       // Verify it was actually deleted
-      const afterDelete = await database.getById<TestEntity>([], testEntityId);
-      expect(afterDelete).toBeNull();
+      await expect(service.getById(userContext, testEntityId)).rejects.toThrow(IdNotFoundError);
     });
     
     it('should throw IdNotFoundError if no entity found', async () => {

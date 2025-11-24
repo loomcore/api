@@ -10,7 +10,7 @@ import { MultiTenantApiService } from '../../services/multi-tenant-api.service.j
 // Import our test utilities
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { Database } from '../../databases/models/database.js';
+import { IDatabase } from '../../databases/models/index.js';
 
 // Test entity for MultiTenantApiService
 interface ITestTenantItem extends IEntity, IAuditable {
@@ -30,7 +30,7 @@ const TestTenantItemSpec = entityUtils.getModelSpec(TestTenantItemSchema, { isAu
 
 // Create a test service that uses MultiTenantApiService
 class TestTenantItemService extends MultiTenantApiService<ITestTenantItem> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'testTenantItems', 'testTenantItem', TestTenantItemSpec);
   }
 }
@@ -39,7 +39,7 @@ class TestTenantItemService extends MultiTenantApiService<ITestTenantItem> {
 class TestTenantItemController extends ApiController<ITestTenantItem> {
   public testTenantItemService: TestTenantItemService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const testTenantItemService = new TestTenantItemService(database);
     super('test-tenant-items', app, testTenantItemService, 'testTenantItem', TestTenantItemSpec);
 
@@ -52,7 +52,7 @@ class TestTenantItemController extends ApiController<ITestTenantItem> {
  * It focuses on validating proper error handling when userContext is invalid.
  */
 describe('ApiController with MultiTenantApiService', () => {
-  let database: Database;
+  let database: IDatabase;
   let app: Application;
   let testAgent: any;
   let authToken: string;
@@ -62,7 +62,7 @@ describe('ApiController with MultiTenantApiService', () => {
 
   beforeAll(async () => {
     // Initialize with our test express app
-    const testSetup = await TestExpressApp.init('test-app');
+    const testSetup = await TestExpressApp.init();
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;

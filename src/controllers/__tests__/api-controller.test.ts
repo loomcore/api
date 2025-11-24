@@ -9,7 +9,7 @@ import { ApiController } from '../api.controller.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
-import { Database } from '../../databases/models/index.js';
+import { IDatabase } from '../../databases/models/index.js';
 
 // Mock model for testing
 interface ITestItem extends IEntity, IAuditable {
@@ -27,7 +27,7 @@ const TestItemSpec = entityUtils.getModelSpec(TestItemSchema, { isAuditable: tru
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'testItems', 'testItem', TestItemSpec);
   }
 }
@@ -35,7 +35,7 @@ class TestItemService extends GenericApiService<ITestItem> {
 class TestItemController extends ApiController<ITestItem> {
   public testItemService: TestItemService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const testItemService = new TestItemService(database);
     super('test-items', app, testItemService, 'testItem', TestItemSpec);
 
@@ -66,7 +66,7 @@ const TestUserSpec = entityUtils.getModelSpec(TestUserSchema, { isAuditable: tru
 const TestPublicUserSchema = Type.Omit(TestUserSpec.fullSchema, ['password']);
 
 class TestUserService extends GenericApiService<ITestUser> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'testUsers', 'testUser', TestUserSpec);
   }
 }
@@ -74,7 +74,7 @@ class TestUserService extends GenericApiService<ITestUser> {
 class TestUserController extends ApiController<ITestUser> {
   public testUserService: TestUserService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const testUserService = new TestUserService(database);
     super('test-users', app, testUserService, 'testUser', TestUserSpec, TestPublicUserSchema);
 
@@ -87,7 +87,7 @@ class TestUserController extends ApiController<ITestUser> {
  * It uses our custom test utilities for MongoDB and Express.
  */
 describe('ApiController - Integration Tests', () => {
-  let database: Database;
+  let database: IDatabase;
   let app: Application;
   let testAgent: any;
   let authToken: string;
@@ -99,7 +99,7 @@ describe('ApiController - Integration Tests', () => {
 
   beforeAll(async () => {
     // Initialize with our new test express app
-    const testSetup = await TestExpressApp.init('testItems');
+    const testSetup = await TestExpressApp.init();
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;

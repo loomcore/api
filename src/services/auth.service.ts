@@ -10,17 +10,16 @@ import { GenericApiService } from './generic-api-service/generic-api.service.js'
 import {PasswordResetTokenService} from './password-reset-token.service.js';
 import { passwordUtils} from '../utils/index.js';
 import {config} from '../config/index.js';
-import { Database } from '../databases/models/database.js';
-import { IRefreshToken } from '../models/refresh-token.js';
-import { refreshTokenModelSpec } from '../models/refresh-token.spec.js';
 import { UpdateResult } from '../databases/models/update-result.js';
+import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
+import { IDatabase } from '../databases/models/index.js';
 
 export class AuthService extends GenericApiService<IUser> {
 	private refreshTokenService: GenericApiService<IRefreshToken>;
 	private passwordResetTokenService: PasswordResetTokenService;
 	private emailService: EmailService;
 
-	constructor(database: Database) {
+	constructor(database: IDatabase) {
 		super(database, 'users', 'user', UserSpec);
 		this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
 		this.passwordResetTokenService = new PasswordResetTokenService(database);

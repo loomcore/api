@@ -1,8 +1,18 @@
+import { IEntity } from "@loomcore/common/models";
 import { entityUtils } from "@loomcore/common/utils";
 import { TypeboxIsoDate } from "@loomcore/common/validation";
 import { Type } from "@sinclair/typebox";
 
-const refreshTokenSchema = Type.Object({
+export interface IRefreshToken extends IEntity {
+	token: string;
+	deviceId: string;
+	userId: string;
+	expiresOn: number;
+	created: Date;
+	createdBy: string;
+};
+
+export const refreshTokenSchema = Type.Object({
     token: Type.String({ minLength: 1 }),
     deviceId: Type.String({ minLength: 1 }),
     userId: Type.String({ minLength: 1 }),
@@ -11,4 +21,4 @@ const refreshTokenSchema = Type.Object({
     createdBy: Type.String({ minLength: 1 })
   });
   
-  export const refreshTokenModelSpec = entityUtils.getModelSpec(refreshTokenSchema);
+export const refreshTokenModelSpec = entityUtils.getModelSpec(refreshTokenSchema);

@@ -7,7 +7,7 @@ import {isAuthenticated} from '../middleware/index.js';
 import {apiUtils} from '../utils/index.js';
 import {BadRequestError, IdNotFoundError} from '../errors/index.js';
 import {OrganizationService} from '../services/index.js';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 /**
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
@@ -16,7 +16,7 @@ import { Database } from '../databases/models/database.js';
 export class OrganizationsController extends ApiController<IOrganization> {
 	orgService: OrganizationService;
 
-	constructor(app: Application, database: Database) {
+	constructor(app: Application, database: IDatabase) {
 		const orgService = new OrganizationService(database);
 		super('organizations', app, orgService);
 		this.orgService = orgService;

@@ -13,6 +13,8 @@ import testUtils from '../../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../../__tests__/test-express-app.js';
 import { IEntity, IAuditable } from '@loomcore/common/models';
 import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
+import { TestEntity, testModelSpec } from '../../../__tests__/index.js';
+import { IDatabase } from '../../models/index.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -59,6 +61,7 @@ describe('MongoDBDatabase - Join Operations', () => {
   let mongoClient: MongoClient;
   let db: Db;
   let orderDatabase: MongoDBDatabase;
+  let testDatabase: IDatabase;
   let ordersCollection: Collection;
   let customersCollection: Collection;
 
@@ -68,7 +71,8 @@ describe('MongoDBDatabase - Join Operations', () => {
     mongoClient = new MongoClient(uri);
     await mongoClient.connect();
     db = mongoClient.db('test-db');
-    
+    const testSetup = await TestExpressApp.init();
+    testDatabase = testSetup.database;
     orderDatabase = new MongoDBDatabase(db, 'orders');
     ordersCollection = db.collection('orders');
     customersCollection = db.collection('customers');
@@ -511,7 +515,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       
       const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
       const objectIdService = new GenericApiService<any>(
-        db,
+        testDatabase,
         'objectIdToStringTest',
         'objectIdEntity',
         objectIdModelSpec
@@ -520,7 +524,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       // Entity with string ID (simulating JSON from API)
       const stringIdEntity = {
         name: 'Entity with string ID reference',
-        refId: testUtils.getRandomId() // String ID from client
+        refId: new ObjectId().toString() // String ID from client
       };
       
       // Act
@@ -555,7 +559,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       
       const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
       const complexService = new GenericApiService<any>(
-        db,
+        testDatabase,
         'complexEntities',
         'complexEntity',
         complexModelSpec
@@ -599,32 +603,11 @@ describe('MongoDBDatabase - Join Operations', () => {
   });
 
   describe('ObjectId Transformation Tests', () => {
-    // Define a test entity interface
-    interface TestEntity extends IEntity, IAuditable {
-      name: string;
-      description?: string;
-      isActive?: boolean;
-      tags?: string[];
-      count?: number;
-    }
-
-    // Create a model spec for validation
-    const TestEntitySchema = Type.Object({
-      name: Type.String({ minLength: 1 }),
-      description: Type.Optional(Type.String()),
-      isActive: Type.Optional(Type.Boolean()),
-      tags: Type.Optional(Type.Array(Type.String())),
-      count: Type.Optional(Type.Number())
-    });
-
-    // Create model spec object
-    const testModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: true });
-
     let service: GenericApiService<TestEntity>;
     let testUserContext: IUserContext;
 
     beforeAll(async () => {
-      const testSetup = await TestExpressApp.init('test-db-objectid');
+      const testSetup = await TestExpressApp.init();
       testUserContext = testUtils.testUserContext;
       
       // Create service with auditable model spec

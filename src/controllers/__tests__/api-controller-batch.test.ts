@@ -16,7 +16,7 @@ describe('ApiController Batch Update', () => {
   let categoryId: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init('test-app');
+    const testSetup = await TestExpressApp.init();
     app = testSetup.app;
     agent = testSetup.agent;
     authorizationHeader = testUtils.getAuthToken();

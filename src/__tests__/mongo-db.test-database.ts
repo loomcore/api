@@ -3,38 +3,42 @@ import { MongoClient, Db, ObjectId } from 'mongodb';
 
 import testUtils from './common-test.utils.js';
 import { initSystemUserContext } from '../config/base-api-config.js';
+import { ITestDatabase } from './test-database.interface.js';
+import { IDatabase } from '../databases/models/index.js';
+import { MongoDBDatabase } from '../databases/index.js';
 
 /**
  * Utility class for setting up a MongoDB memory server for testing
  */
-export class TestMongoDb {
-  private static mongoServer: MongoMemoryServer;
-  private static client: MongoClient;
-  private static db: Db;
-  private static initPromise: Promise<Db> | null = null;
+export class TestMongoDatabase implements ITestDatabase {
+  private mongoServer: MongoMemoryServer | null = null;
+  private mongoClient: MongoClient | null = null;
+  private mongoDb: Db | null = null;
+  private database: IDatabase | null = null;
+  private initPromise: Promise<IDatabase> | null = null;
 
   /**
    * Initialize the MongoDB memory server and database
    * @returns Promise resolving to the database instance
    */
-  static async init(): Promise<Db> {
+  async init(databaseName: string): Promise<IDatabase> {
     // Return existing promise if initialization is already in progress
     if (this.initPromise) {
       return this.initPromise;
     }
 
     // Create and cache the initialization promise
-    this.initPromise = this._performInit();
+    this.initPromise = this._performInit(databaseName);
     return this.initPromise;
   }
 
-  static getRandomId(): string {
+  getRandomId(): string {
     return new ObjectId().toString();
   }
 
-  private static async _performInit(): Promise<Db> {
+  private async _performInit(databaseName: string): Promise<IDatabase> {
     // Set up MongoDB memory server if not already done
-    if (!this.db) {
+    if (!this.database) {
       this.mongoServer = await MongoMemoryServer.create({
         instance: {
           ip: '127.0.0.1', // Use localhost to avoid permission issues
@@ -45,20 +49,23 @@ export class TestMongoDb {
         }
       });
       const uri = this.mongoServer.getUri();
-      this.client = await MongoClient.connect(uri);
-      this.db = this.client.db();
-      testUtils.initialize(this.db);
-      await this.createIndexes(this.db);
+      this.mongoClient = await MongoClient.connect(uri);
+      this.mongoDb = this.mongoClient.db();
+      const testDatabase = new MongoDBDatabase(this.mongoDb, 'test-db');
+      this.database = testDatabase;
+      testUtils.initialize(testDatabase);
+      await this.createIndexes(this.mongoDb);
 
       // Create meta org before initializing system user context
       await testUtils.createMetaOrg();
     }
-    await initSystemUserContext(this.db);
 
-    return this.db;
+    await initSystemUserContext(this.database);
+
+    return this.database;
   }
 
-  private static async createIndexes(db: Db) {
+  private async createIndexes(db: Db) {
     // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
     //  If we can figure out how to use a single file for both, that would be great.
     await db.command({
@@ -67,25 +74,14 @@ export class TestMongoDb {
   }
 
   /**
-   * Get the database instance (must be initialized first)
-   */
-  static getDb(): Db {
-    if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
-    }
-    return this.db;
-  }
-
-
-  /**
    * Clear all collections in the database
    */
-  static async clearCollections(): Promise<void> {
-    if (!this.db) {
+  async clearCollections(): Promise<void> {
+    if (!this.mongoDb) {
       throw new Error('Database not initialized');
     }
 
-    const collections = await this.db.collections();
+    const collections = await this.mongoDb.collections();
     for (const collection of collections) {
       await collection.deleteMany({});
     }
@@ -94,30 +90,23 @@ export class TestMongoDb {
   /**
    * Clean up MongoDB resources
    */
-  static async cleanup(): Promise<void> {
+  async cleanup(): Promise<void> {
     // Clean up test data first
     await testUtils.cleanup();
 
-    if (!this.db) {
-        throw new Error('Database not initialized');
-    }
+    await this.clearCollections();
 
-    const collections = await this.db.collections();
-    for (const collection of collections) {
-    await collection.deleteMany({});
-    }
-
-    if (this.client) {
-      await this.client.close();
+    if (this.mongoClient) {
+      await this.mongoClient.close();
     }
     if (this.mongoServer) {
       await this.mongoServer.stop();
     }
     // Reset initialization state
     this.initPromise = null;
-    this.db = undefined as any;
-    this.client = undefined as any;
-    this.mongoServer = undefined as any;
+    this.mongoDb = null;
+    this.database = null;
+    this.mongoClient = null;
+    this.mongoServer = null;
   }
 }
-

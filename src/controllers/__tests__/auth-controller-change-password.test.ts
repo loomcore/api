@@ -12,7 +12,7 @@ describe('AuthController.changePassword', () => {
   let testAgent: any;
   
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init('test-app');
+    const testSetup = await TestExpressApp.init();
     testAgent = testSetup.agent;
 
     // Initialize the AuthController with the Express app and database
