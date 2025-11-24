@@ -73,7 +73,7 @@ describe('MongoDBDatabase - Join Operations', () => {
     db = mongoClient.db('test-db');
     const testSetup = await TestExpressApp.init();
     testDatabase = testSetup.database;
-    orderDatabase = new MongoDBDatabase(db, 'orders');
+    orderDatabase = new MongoDBDatabase(db);
     ordersCollection = db.collection('orders');
     customersCollection = db.collection('customers');
   });
@@ -146,7 +146,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       );
 
       // Act
-      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation]);
+      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], 'orders');
 
       // Assert
       expect(results).toHaveLength(3);
@@ -193,7 +193,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       );
 
       // Act
-      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation]);
+      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], 'orders');
 
       // Assert
       expect(results).toHaveLength(1);
@@ -222,7 +222,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       ]);
 
       // Act
-      const results = await orderDatabase.getAll<Order>([]);
+      const results = await orderDatabase.getAll<Order>([], 'orders');
 
       // Assert
       expect(results).toHaveLength(2);
@@ -303,7 +303,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const result = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptions,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -391,7 +392,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const result = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptions,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -456,7 +458,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const resultPage1 = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptionsPage1,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -486,7 +489,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const resultPage2 = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptionsPage2,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert

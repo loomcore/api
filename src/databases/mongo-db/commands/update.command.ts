@@ -1,4 +1,4 @@
-import { Collection } from "mongodb";
+import { Collection, Db } from "mongodb";
 import { IQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
 import { NotFoundError } from "../../../errors/index.js";
@@ -6,7 +6,8 @@ import NoSqlPipeline from "../models/no-sql-pipeline.js";
 import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 
 
-export async function update<T>(collection: Collection, queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[]): Promise<T[]> {
+export async function update<T>(db: Db, queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
+    const collection = db.collection(pluralResourceName);
     const matchDocument = buildNoSqlMatch(queryObject);
     const filter = matchDocument.$match;
     const updateResult = await collection.updateMany(filter, { $set: entity });

@@ -7,30 +7,32 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 
 	operations.forEach(operation => {
 		if (operation instanceof Join) {
-			pipeline.push({
-				$lookup: {
-					from: operation.from,
-					localField: operation.localField,
-					foreignField: operation.foreignField,
-					as: `${operation.as}Arr`
+			pipeline.push(
+				{
+					$lookup: {
+						from: operation.from,
+						localField: operation.localField,
+						foreignField: operation.foreignField,
+						as: `${operation.as}Arr`
+					}
+				},
+				{
+					$unwind: {
+						path: `$${operation.as}Arr`,
+						preserveNullAndEmptyArrays: true
+					}
+				},
+				{
+					$addFields: {
+						[operation.as]: `$${operation.as}Arr`
+					}
+				},
+				{
+					$project: {
+						[`${operation.as}Arr`]: 0
+					}
 				}
-			},
-			{
-				$unwind: {
-					path: `$${operation.as}Arr`,
-					preserveNullAndEmptyArrays: true
-				}
-			},
-			{
-				$addFields: {
-					[operation.as]: `$${operation.as}Arr`
-				}
-			},
-			{
-				$project: {
-					[`${operation.as}Arr`]: 0
-				}
-			});
+			);
 		}
 	});
 

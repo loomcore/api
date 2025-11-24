@@ -1,10 +1,11 @@
-import { Collection, Document, ObjectId } from "mongodb";
+import { Collection, Db, Document, ObjectId } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { convertOperationsToPipeline } from "../utils/index.js";
 
 
-export async function batchUpdate<T>(collection: Collection, entities: Partial<T>[], operations: Operation[]): Promise<T[]> {
+export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations: Operation[], pluralResourceName: string): Promise<T[]> {
+    const collection = db.collection(pluralResourceName);
     if (!entities || entities.length === 0) {
         return [];
     }

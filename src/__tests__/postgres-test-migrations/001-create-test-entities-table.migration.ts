@@ -13,7 +13,7 @@ export class CreateTestEntitiesTableMigration implements IMigration {
                     "_id" VARCHAR(255) PRIMARY KEY,
                     "name" VARCHAR(255) NOT NULL,
                     "description" TEXT,
-                    "isActive" BOOLEAN NOT NULL,
+                    "isActive" BOOLEAN,
                     "tags" TEXT[],
                     "count" INTEGER,
                     "_created" TIMESTAMP NOT NULL,

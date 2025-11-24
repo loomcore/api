@@ -1,9 +1,10 @@
-import { Collection, Document } from "mongodb";
+import { Collection, Db, Document } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import NoSqlPipeline from "../models/no-sql-pipeline.js";
 
 
-export async function getAll<T>(collection: Collection, operations: Operation[]): Promise<T[]> {
+export async function getAll<T>(db: Db, operations: Operation[], pluralResourceName: string): Promise<T[]> {
+    const collection = db.collection(pluralResourceName);
     const pipeline = new NoSqlPipeline()
         .addOperations(operations)
         .build();

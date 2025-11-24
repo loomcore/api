@@ -1,11 +1,12 @@
-import { Collection, Document } from "mongodb";
+import { Collection, Db, Document } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
 import NoSqlPipeline from "../models/no-sql-pipeline.js";
 import { apiUtils } from "../../../utils/api.utils.js";
 
 
-export async function get<T>(collection: Collection, operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec): Promise<IPagedResult<T>> {
+export async function get<T>(db: Db, operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
+    const collection = db.collection(pluralResourceName);
     const pipeline = new NoSqlPipeline()
         .addMatch(queryOptions, modelSpec)
         .addOperations(operations)

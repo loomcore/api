@@ -168,9 +168,9 @@ export class PostgresDatabase implements IDatabase {
         const row = result.rows[0];
         // Convert id back to _id in the result
         const entityAny: any = { ...row };
-        if (row.id !== undefined) {
-            entityAny._id = row.id;
-            delete entityAny.id;
+        if (row._id !== undefined) {
+            entityAny._id = row._id;
+            delete entityAny._id;
         }
 
         return entityAny as T;

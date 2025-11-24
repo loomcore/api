@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
 import { IDatabase } from '../databases/models/database.interface.js';

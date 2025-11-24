@@ -1,11 +1,12 @@
-import { Collection } from "mongodb";
+import { Collection, Db } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import { IdNotFoundError } from "../../../errors/index.js";
 import NoSqlPipeline from "../models/no-sql-pipeline.js";
 import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 
 
-export async function partialUpdateById<T>(collection: Collection, operations: Operation[], id: string, entity: Partial<any>): Promise<T> {
+export async function partialUpdateById<T>(db: Db, operations: Operation[], id: string, entity: Partial<any>, pluralResourceName: string): Promise<T> {
+    const collection = db.collection(pluralResourceName);
     // Build match document and extract the filter object
     const matchDocument = buildNoSqlMatch({ filters: { _id: { eq: id } } });
     const filter = matchDocument.$match;

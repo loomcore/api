@@ -1,8 +1,9 @@
-import { Collection, ObjectId } from "mongodb";
+import { Collection, Db, ObjectId } from "mongodb";
 import { DeleteResult as GenericDeleteResult } from "../../models/delete-result.js";
 
 
-export async function deleteById(collection: Collection, id: string): Promise<GenericDeleteResult> {
+export async function deleteById(db: Db, id: string, pluralResourceName: string): Promise<GenericDeleteResult> {
+    const collection = db.collection(pluralResourceName);
     const objectId = new ObjectId(id);
     const baseQuery = { _id: objectId };
 

@@ -1,9 +1,10 @@
-import { Collection } from "mongodb";
+import { Collection, Db } from "mongodb";
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
 
 
-export async function createMany<T>(collection: Collection, pluralResourceName: string, entities: Partial<T>[]): Promise<{ insertedIds: any; entities: any[] }> {
+export async function createMany<T>(db: Db, pluralResourceName: string, entities: Partial<T>[]): Promise<{ insertedIds: any; entities: any[] }> {
     try {
+        const collection = db.collection(pluralResourceName);
         // Need to use "as any" to bypass TypeScript's strict type checking
         // This is necessary because we're changing _id from string to ObjectId
         const insertResult = await collection.insertMany(entities);

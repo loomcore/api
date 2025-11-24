@@ -39,7 +39,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   async getAll(userContext: IUserContext): Promise<T[]> {
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const entities = await this.database.getAll<T>(operations);
+    const entities = await this.database.getAll<T>(operations, this.pluralResourceName);
     
     return this.postprocessEntities(userContext, entities);
   }
@@ -158,7 +158,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec);
+    const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.pluralResourceName);
 
     const transformedEntities = this.postprocessEntities(userContext, pagedResult.entities || []);
 
@@ -185,7 +185,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const entity = await this.database.getById<T>(operations, id);
+    const entity = await this.database.getById<T>(operations, id, this.pluralResourceName);
 
     if (!entity) {
       throw new IdNotFoundError();
@@ -196,7 +196,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   async getCount(userContext: IUserContext): Promise<number> {
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    return await this.database.getCount(operations);
+    return await this.database.getCount(operations, this.pluralResourceName);
   }
 
   async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
@@ -217,7 +217,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     if (entities.length) {
       const preparedEntities = await this.preprocessEntities(userContext, entities, true, true);
-      const insertResult = await this.database.createMany<T>(preparedEntities);
+      const insertResult = await this.database.createMany<T>(preparedEntities, this.pluralResourceName);
 
       if (insertResult.insertedIds) {
         createdEntities = this.postprocessEntities<T>(userContext, insertResult.entities);
@@ -236,7 +236,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations);
+    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations, this.pluralResourceName);
     
     const updatedEntities = this.postprocessEntities(userContext, rawUpdatedEntities);
 
@@ -255,7 +255,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     }
 
     // Get existing entity to preserve audit properties
-    const existingEntity = await this.database.getById<T>(operations, id);
+    const existingEntity = await this.database.getById<T>(operations, id, this.pluralResourceName);
     if (!existingEntity) {
       throw new IdNotFoundError();
     }
@@ -271,7 +271,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
     Object.assign(preparedEntity, auditProperties);
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity);
+    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     const updatedEntity = this.postprocessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
@@ -285,7 +285,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     const updatedEntity = this.postprocessEntity(userContext, rawUpdatedEntity);
 
@@ -300,7 +300,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     return this.postprocessEntity(userContext, rawUpdatedEntity);
   }
@@ -309,7 +309,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntities = await this.database.update<T>(preparedQuery, preparedEntity, operations);
+    const rawUpdatedEntities = await this.database.update<T>(preparedQuery, preparedEntity, operations, this.pluralResourceName);
 
     const updatedEntities = this.postprocessEntities(userContext, rawUpdatedEntities);
 
@@ -321,7 +321,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       throw new BadRequestError('id is not a valid ObjectId');
     }
 
-    const deleteResult = await this.database.deleteById(id);
+    const deleteResult = await this.database.deleteById(id, this.pluralResourceName);
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();
@@ -332,14 +332,14 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   async deleteMany(userContext: IUserContext, queryObject: IQueryOptions): Promise<DeleteResult> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const deleteResult = await this.database.deleteMany(preparedQuery);
+    const deleteResult = await this.database.deleteMany(preparedQuery, this.pluralResourceName);
 
     return deleteResult;
   }
   async find(userContext: IUserContext, queryObject: IQueryOptions): Promise<T[]> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const rawEntities = await this.database.find<T>(preparedQuery);
+    const rawEntities = await this.database.find<T>(preparedQuery, this.pluralResourceName);
 
     return this.postprocessEntities(userContext, rawEntities);
   }
