@@ -16,8 +16,18 @@ This library provides a foundational structure for creating robust APIs, with a 
 - **TypeScript & ES Modules**: A modern codebase written entirely in TypeScript, using ES Modules.
 - **Extensible Services**: A generic service layer that can be extended to add custom business logic while leveraging common data access patterns.
 - **Custom Error Handling**: A set of predefined error classes for consistent and meaningful API error responses.
+- **Schema Validation with TypeBox**: Leverages TypeBox for efficient, type-safe runtime data validation that integrates seamlessly with TypeScript. 
+- **JSON Translations with TypeBox**: All data translations, from json input, to object persistence in a database, back to json output, flow through and are completely handled by json-schema-based Typebox schemas.
 
 ## Core Concepts
+
+### Schema Validation with TypeBox
+This library uses `@sinclair/typebox` to define data models and validate incoming request bodies. This approach offers several key advantages:
+
+- **Type Safety**: TypeBox schemas are standard TypeScript, which means your data models and validation logic are fully type-checked at compile time.
+- **Performance**: It is a highly-performant validation library.
+- **Single Source of Truth**: Define your data structure once as a TypeBox schema and reuse it to automatically infer TypeScript types. This eliminates the need to maintain separate validation schemas and type definitions.
+- **Automatic Filtering**: By defining a `publicSchema` for your controllers, the API will automatically filter out sensitive fields (like passwords) before sending data back to the client.
 
 The framework is built around a few core components:
 
