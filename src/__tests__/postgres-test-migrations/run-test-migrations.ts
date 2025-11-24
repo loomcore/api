@@ -1,9 +1,9 @@
 import { Client } from "pg";
 import { CreateTestEntitiesTableMigration } from "./001-create-test-entities-table.migration.js";
 
-export async function runTestMigrations(client: Client): Promise<boolean> {
+export async function runTestMigrations(client: Client, orgId: string): Promise<boolean> {
     const migrations = [
-        new CreateTestEntitiesTableMigration(client),
+        new CreateTestEntitiesTableMigration(client, orgId),
     ];
 
     let success = true;

@@ -1,11 +1,13 @@
 import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
+import { randomUUID } from "crypto";
 
 export class CreateOrganizationTableMigration implements IMigration {
-    constructor(private readonly client: Client) {
+    constructor(private readonly client: Client, private readonly orgId: string) {
     }
     
-    id = 2;
+    index = 2;
+    _id = randomUUID().toString();
     async execute(): Promise<boolean> {
         try {
         await this.client.query(`
@@ -27,7 +29,7 @@ export class CreateOrganizationTableMigration implements IMigration {
             `);
 
             await this.client.query(`
-                Insert into "migrations" ("_id", "hasRun", "reverted") values ('002', TRUE, FALSE);
+                Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
             `);
 
             return true;
@@ -43,7 +45,7 @@ export class CreateOrganizationTableMigration implements IMigration {
             DROP TABLE "organizations";
         `);
         await this.client.query(`
-                Update "migrations" SET "reverted" = TRUE WHERE "_id" = '002';
+                Update "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
             `);
         } catch (error: any) {
             console.error('Error reverting organization table:', error);

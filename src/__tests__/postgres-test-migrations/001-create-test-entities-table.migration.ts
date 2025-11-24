@@ -1,10 +1,12 @@
 import { Client } from "pg";
 import { IMigration } from "../../databases/postgres/migrations/migration.interface.js";
+import { randomUUID } from "crypto";
 
 export class CreateTestEntitiesTableMigration implements IMigration {
-    constructor(private readonly client: Client) {
+    constructor(private readonly client: Client, private readonly orgId: string) {
     }
-    id = 1;
+    index = 1;
+    _id = randomUUID().toString();
 
     async execute(): Promise<boolean> {
         try {
@@ -23,6 +25,9 @@ export class CreateTestEntitiesTableMigration implements IMigration {
                     "_deleted" TIMESTAMP,
                     "_deletedBy" VARCHAR(255)
                 )
+            `);
+            await this.client.query(`
+                Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
             `);
             return true;
         } catch (error: any) {

@@ -50,12 +50,12 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       this.database = testDatabase;
       this.postgresClient = postgresClient;
-      let success = await runMigrations(postgresClient);
+      let success = await runMigrations(postgresClient, "test-org-id", 4);
       if (!success) {
         throw new Error('Failed to run migrations');
       }
 
-      success = await runTestMigrations(postgresClient);
+      success = await runTestMigrations(postgresClient, "test-org-id");
       if (!success) {
         throw new Error('Failed to run test migrations');
       }
