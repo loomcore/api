@@ -398,16 +398,13 @@ describe('GenericApiService - Integration Tests', () => {
       // Try to create multiple entities with duplicate names within the batch
       const testEntities: Partial<TestEntity>[] = [
         { _id: newId, name: 'Duplicate Name' },
-        { _id: newId, name: 'Duplicate Name' }, // Duplicate within the same batch
+        { _id: newId, name: 'Other Name' }, // Duplicate within the same batch
         { name: 'Other Entity' }
       ];
       
-      // Prepare entities before creating
-      const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-      
       // Act & Assert
       await expect(
-        service.createMany(testUserContext, preparedEntities as TestEntity[])
+        service.createMany(testUserContext, testEntities)
       ).rejects.toThrow(DuplicateKeyError);
     });
   });

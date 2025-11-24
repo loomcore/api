@@ -1,5 +1,5 @@
 import { Collection, Db, Document } from "mongodb";
-import { IModelSpec, IQueryOptions, IPagedResult } from "@loomcore/common/models";
+import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from "@loomcore/common/models";
 import { Operation } from "../operations/operation.js";
 import { convertObjectIdsToStrings, convertStringsToObjectIds } from "./utils/index.js";
 import { DeleteResult as GenericDeleteResult } from "../models/delete-result.js";
@@ -7,6 +7,8 @@ import { TSchema } from "@sinclair/typebox";
 import { IDatabase } from "../models/database.interface.js";
 import { create, createMany, batchUpdate, fullUpdateById, partialUpdateById, update, deleteById, deleteMany } from "./commands/index.js";
 import { getAll, get, getById, getCount, find, findOne } from "./queries/index.js";
+import { entityUtils } from "@loomcore/common/utils";
+import { BadRequestError } from "../../errors/bad-request.error.js";
 
 export class MongoDBDatabase implements IDatabase {
     private db: Db;
@@ -17,7 +19,11 @@ export class MongoDBDatabase implements IDatabase {
         this.db = db;
     }
 
-    preprocessEntity<T>(entity: T, schema: TSchema): T {
+    preprocessEntity<U extends IEntity | Partial<IEntity>>(entity: U, schema: TSchema): U {
+        if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
+            console.log('entity._id', entity._id);
+            throw new BadRequestError('id is not a valid ObjectId');
+        }
         return convertStringsToObjectIds(entity, schema);
     }
 
@@ -39,8 +45,8 @@ export class MongoDBDatabase implements IDatabase {
         return getById<T>(this.db, operations, id, pluralResourceName);
     }
 
-    async getCount(operations: Operation[], pluralResourceName: string): Promise<number> {
-        return getCount(this.db, operations, pluralResourceName);
+    async getCount(pluralResourceName: string): Promise<number> {
+        return getCount(this.db, pluralResourceName);
     }
 
     async create<T>(entity: any, pluralResourceName: string): Promise<{ insertedId: any; entity: any }> {

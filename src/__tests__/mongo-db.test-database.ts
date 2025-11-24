@@ -51,7 +51,7 @@ export class TestMongoDatabase implements ITestDatabase {
       const uri = this.mongoServer.getUri();
       this.mongoClient = await MongoClient.connect(uri);
       this.mongoDb = this.mongoClient.db();
-      const testDatabase = new MongoDBDatabase(this.mongoDb, 'test-db');
+      const testDatabase = new MongoDBDatabase(this.mongoDb);
       this.database = testDatabase;
       testUtils.initialize(testDatabase);
       await this.createIndexes(this.mongoDb);

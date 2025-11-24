@@ -179,10 +179,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async getById(userContext: IUserContext, id: string): Promise<T> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
     const { operations } = this.prepareQuery(userContext, {}, []);
 
     const entity = await this.database.getById<T>(operations, id, this.pluralResourceName);
@@ -194,9 +190,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.postprocessEntity(userContext, entity);
   }
   async getCount(userContext: IUserContext): Promise<number> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    return await this.database.getCount(operations, this.pluralResourceName);
+    this.prepareQuery(userContext, {}, []);
+    return await this.database.getCount(this.pluralResourceName);
   }
 
   async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
@@ -250,10 +245,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
     // Get existing entity to preserve audit properties
     const existingEntity = await this.database.getById<T>(operations, id, this.pluralResourceName);
     if (!existingEntity) {
@@ -277,10 +268,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return updatedEntity;
   }
   async partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
     const { operations } = this.prepareQuery(userContext, {}, []);
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
@@ -291,19 +278,13 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     return updatedEntity;
   }
+
   async partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
-
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
-
-    return this.postprocessEntity(userContext, rawUpdatedEntity);
+    const preparedEntity = this.database.preprocessEntity(entity, this.modelSpec.fullSchema);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName);
+    return this.database.postprocessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
+
   async update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
@@ -317,10 +298,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async deleteById(userContext: IUserContext, id: string): Promise<DeleteResult> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
     const deleteResult = await this.database.deleteById(id, this.pluralResourceName);
 
     if (deleteResult.count <= 0) {

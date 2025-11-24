@@ -34,7 +34,7 @@ export class OrganizationsController extends ApiController<IOrganization> {
 		let name = req.params?.name;
 		try {
 			res.set('Content-Type', 'application/json');
-			const entity = await this.orgService.findOne(req.userContext!, { filters: { name: { regex: new RegExp(`^${name}$`, 'i') } } });
+			const entity = await this.orgService.findOne(req.userContext!, { filters: { name: { contains: name } } });
 			if (!entity) throw new BadRequestError('Name not found');
 
 			apiUtils.apiResponse<IOrganization>(res, 200, {data: entity});
