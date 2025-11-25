@@ -3,6 +3,7 @@ import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
 import { randomUUID } from 'crypto';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
+import _ from 'lodash';
 
 export async function createMany<T extends IEntity>(
     client: Client,
@@ -17,21 +18,42 @@ export async function createMany<T extends IEntity>(
     }
 
     try {
-        // Generate UUIDs for all entities
         const entitiesWithIds = entities.map(entity => {
-            (entity as any)._id = randomUUID().toString();
+            entity._id = entity._id ?? randomUUID().toString();
             return entity;
         });
-
-        // Get columns from the first entity (assuming all entities have the same structure)
-        const { columns } = columnsAndValuesFromEntity(entitiesWithIds[0]);
         
+        // Resolve every column that belongs to the table so we can overwrite each field.
+        const tableColumns = await client.query<{
+            column_name: string;
+            column_default: string;
+        }>(
+            `
+                SELECT column_name, column_default
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = $1
+                ORDER BY ordinal_position
+            `,
+            [pluralResourceName]
+        );
+
+        if (tableColumns.rows.length === 0) {
+            throw new BadRequestError(`Unable to resolve columns for ${pluralResourceName}`);
+        }
+
         // Build parameterized query with multiple VALUES clauses
         const allValues: any[] = [];
         const valueClauses: string[] = [];
         
         entitiesWithIds.forEach((entity, entityIndex) => {
-            const { values } = columnsAndValuesFromEntity(entity);
+            const objectEntries = Object.entries(entity);
+            const values = tableColumns.rows.map(column => {
+                if (objectEntries.find(entry => entry[0] === column.column_name)) {
+                    return objectEntries.find(entry => entry[0] === column.column_name)?.[1];
+                }
+                return column.column_default;
+            });
             const placeholders = values.map((_, valueIndex) => {
                 const paramIndex = entityIndex * values.length + valueIndex + 1;
                 return `$${paramIndex}`;
@@ -42,7 +64,7 @@ export async function createMany<T extends IEntity>(
         });
 
         const query = `
-            INSERT INTO "${pluralResourceName}" (${columns.join(', ')})
+            INSERT INTO "${pluralResourceName}" (${tableColumns.rows.map(column => `"${column.column_name}"`).join(', ')})
             VALUES ${valueClauses.join(', ')}
             RETURNING _id
         `;

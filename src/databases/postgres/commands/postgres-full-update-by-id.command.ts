@@ -2,7 +2,6 @@ import { Client } from 'pg';
 import { Operation } from "../../operations/operation.js";
 import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
-import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
 
 export async function fullUpdateById<T extends IEntity>(
@@ -13,19 +12,48 @@ export async function fullUpdateById<T extends IEntity>(
     pluralResourceName: string
 ): Promise<T> {
     try {
-        // Extract all columns and values from the entity (including _id if present, but we'll exclude it from SET)
-        const { columns, values } = columnsAndValuesFromEntity(entity);
-        
-        // Filter out _id from columns for the SET clause (we use it in WHERE)
-        const updateColumns = columns.filter(col => col !== '"_id"');
-        const updateValues = values.filter((_, index) => columns[index] !== '"_id"');
-        
-        if (updateColumns.length === 0) {
-            throw new BadRequestError('Cannot perform full update with no fields to update');
+        // Resolve every column that belongs to the table so we can overwrite each field.
+        const columnResult = await client.query<{
+            column_name: string;
+            column_default: string;
+        }>(
+            `
+                SELECT column_name, column_default
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = $1
+                ORDER BY ordinal_position
+            `,
+            [pluralResourceName]
+        );
+
+        if (columnResult.rows.length === 0) {
+            throw new BadRequestError(`Unable to resolve columns for ${pluralResourceName}`);
         }
-        
+
+        const entityRecord = (entity ?? {}) as Record<string, any>;
+
+        const updateColumns = columnResult.rows
+            .filter(column => column.column_name !== '_id');
+
+        if (updateColumns.length === 0) {
+            throw new BadRequestError(`No updatable columns found for ${pluralResourceName}`);
+        }
+
+        const updateValues = updateColumns.map(column => {
+            const columnName = column.column_name;
+            if (Object.prototype.hasOwnProperty.call(entityRecord, columnName)) {
+                return entityRecord[columnName];
+            }
+
+            // Column not present in the entity payload, so use the default value.
+            return column.column_default;
+        });
+
         // Build SET clause for UPDATE
-        const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
+        const setClause = updateColumns
+            .map((column, index) => `"${column.column_name}" = $${index + 1}`)
+            .join(', ');
         
         // Add id as the last parameter for WHERE clause
         const query = `
@@ -33,7 +61,7 @@ export async function fullUpdateById<T extends IEntity>(
             SET ${setClause}
             WHERE "_id" = $${updateValues.length + 1}
         `;
-
+        
         const result = await client.query(query, [...updateValues, id]);
         
         if (result.rowCount === 0) {
@@ -47,13 +75,13 @@ export async function fullUpdateById<T extends IEntity>(
             WHERE "_id" = $1 LIMIT 1
         `;
 
-        const selectResult = await client.query(selectQuery, [id]);
+        const selectResult = await client.query<T>(selectQuery, [id]);
         
         if (selectResult.rows.length === 0) {
             throw new IdNotFoundError();
         }
         
-        return selectResult.rows[0] as T;
+        return selectResult.rows[0];
     }
     catch (err: any) {
         // Re-throw IdNotFoundError as-is

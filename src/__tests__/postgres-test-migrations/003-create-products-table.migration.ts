@@ -1,8 +1,8 @@
 import { Client } from "pg";
-import { IMigration } from "./migration.interface.js";
+import { IMigration } from "../../databases/postgres/migrations/index.js";
 import { randomUUID } from "crypto";
 
-export class CreateUsersTableMigration implements IMigration {
+export class CreateProductsTableMigration implements IMigration {
     constructor(private readonly client: Client, private readonly orgId: string) {
     }
 
@@ -11,17 +11,13 @@ export class CreateUsersTableMigration implements IMigration {
     async execute(): Promise<boolean> {
         try {
             await this.client.query(`
-                CREATE TABLE "users" (
+                CREATE TABLE "products" (
                     "_id" VARCHAR(255) PRIMARY KEY,
                     "_orgId" VARCHAR(255),
-                    "email" VARCHAR(255) NOT NULL,
-                    "firstName" VARCHAR(255),
-                    "lastName" VARCHAR(255),
-                    "displayName" VARCHAR(255),
-                    "password" VARCHAR(255) NOT NULL,
-                    "roles" TEXT[],
-                    "_lastLoggedIn" TIMESTAMP,
-                    "_lastPasswordChange" TIMESTAMP,
+                    "name" VARCHAR(255) NOT NULL,
+                    "description" TEXT,
+                    "internalNumber" VARCHAR(255),
+                    "categoryId" VARCHAR(255) NOT NULL REFERENCES "categories"("_id"),
                     "_created" TIMESTAMP NOT NULL,
                     "_createdBy" VARCHAR(255) NOT NULL,
                     "_updated" TIMESTAMP NOT NULL,
@@ -33,8 +29,9 @@ export class CreateUsersTableMigration implements IMigration {
             await this.client.query(`
                 Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
             `);
-        } catch (error: any) {  
-            console.error('Error creating users table:', error);
+            return true;
+        } catch (error: any) {
+            console.error('Error creating products table:', error);
             return false;
         }
         return true;
@@ -43,13 +40,13 @@ export class CreateUsersTableMigration implements IMigration {
     async revert(): Promise<boolean> {
         try {
             await this.client.query(`
-                DROP TABLE "users";
+                DROP TABLE "products";
             `);
             await this.client.query(`
                 Update "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
             `);
         } catch (error: any) {
-            console.error('Error reverting users table:', error);
+            console.error('Error reverting products table:', error);
             return false;
         }
         return true;

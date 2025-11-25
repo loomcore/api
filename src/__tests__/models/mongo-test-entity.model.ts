@@ -1,11 +1,12 @@
 import { IAuditable, IEntity, IModelSpec } from "@loomcore/common/models";
 import { entityUtils } from "@loomcore/common/utils";
+import { TypeboxObjectId } from "@loomcore/common/validation";
 import { TSchema, Type } from "@sinclair/typebox";
 
 // Create a model spec for validation
-export const TestEntitySchema: TSchema = Type.Object({
-  _id: Type.String(),
-  _orgId: Type.Optional(Type.String()),
+export const MongoTestEntitySchema: TSchema = Type.Object({
+  _id: TypeboxObjectId(),
+  _orgId: Type.Optional(TypeboxObjectId()),
   name: Type.String({ minLength: 1 }),
   description: Type.Optional(Type.String()),
   isActive: Type.Optional(Type.Boolean()),
@@ -14,7 +15,7 @@ export const TestEntitySchema: TSchema = Type.Object({
 });
 
 
-export interface TestEntity extends IEntity, IAuditable {
+export interface MongoTestEntity extends IEntity, IAuditable {
   name: string;
   description?: string;
   isActive?: boolean;
@@ -22,4 +23,4 @@ export interface TestEntity extends IEntity, IAuditable {
   count?: number;
 }
 
-export const testModelSpec: IModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: true });
+export const mongoTestEntityModelSpec: IModelSpec = entityUtils.getModelSpec(MongoTestEntitySchema, { isAuditable: true });

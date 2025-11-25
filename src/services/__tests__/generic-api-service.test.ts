@@ -358,16 +358,6 @@ describe('GenericApiService - Integration Tests', () => {
       ).rejects.toThrow(IdNotFoundError);
     });
     
-    it('should throw BadRequestError when providing invalid ObjectId', async () => {
-      // Arrange
-      const invalidId = 'not-an-object-id';
-      
-      // Act & Assert
-      await expect(
-        service.getById(testUserContext, invalidId)
-      ).rejects.toThrow(BadRequestError);
-    });
-    
     it('should throw DuplicateKeyError when creating entity with duplicate unique key', async () => {
       // Arrange
     

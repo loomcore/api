@@ -15,6 +15,7 @@ import { IEntity, IAuditable } from '@loomcore/common/models';
 import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { TestEntity, testModelSpec } from '../../../__tests__/index.js';
 import { IDatabase } from '../../models/index.js';
+import { MongoTestEntity } from '../../../__tests__/models/mongo-test-entity.model.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -668,6 +669,16 @@ describe('MongoDBDatabase - Join Operations', () => {
         ).rejects.toThrow(BadRequestError);
       });
 
+      it('should throw BadRequestError when providing invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'not-an-object-id';
+        
+        // Act & Assert
+        await expect(
+          service.getById(testUserContext, invalidId)
+        ).rejects.toThrow(BadRequestError);
+      });
+
       it('should throw IdNotFoundError when getById is called with non-existent ID', async () => {
         // Arrange
         const nonExistentId = new ObjectId().toString();
@@ -676,6 +687,16 @@ describe('MongoDBDatabase - Join Operations', () => {
         await expect(
           service.getById(testUserContext, nonExistentId)
         ).rejects.toThrow(IdNotFoundError);
+      });
+
+      it('should throw BadRequestError when getById is called with non-hexadecimal string', async () => {
+        // Arrange
+        const invalidId = '12345678901234567890123g'; // 'g' is not a valid hex character
+
+        // Act & Assert
+        await expect(
+          service.getById(testUserContext, invalidId)
+        ).rejects.toThrow(BadRequestError);
       });
     });
 
@@ -883,22 +904,23 @@ describe('MongoDBDatabase - Join Operations', () => {
     describe('Update Operations - ObjectId Transformation', () => {
       it('should transform entity IDs from ObjectId to string in update results', async () => {
         // Arrange
-        const initialEntities: Partial<TestEntity>[] = [
+        const initialEntities: Partial<MongoTestEntity>[] = [
           { name: 'Entity 1', isActive: true },
           { name: 'Entity 2', isActive: true }
         ];
         
-        const preparedEntities = await service.preprocessEntities(testUserContext, initialEntities, true);
-        const createdEntities = await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+        const createdEntities = await service.createMany(testUserContext, initialEntities);
         
         // Act
-        const updateEntity: Partial<TestEntity> = {
+        const updateEntity: Partial<MongoTestEntity> = {
           description: 'Updated'
         };
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-        const queryObject = { isActive: true };
-        const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
+        const queryObject: IQueryOptions = {
+          ...DefaultQueryOptions,
+          filters: { isActive: { eq: true } }
+        };
+        const updatedEntities = await service.update(testUserContext, queryObject, updateEntity);
         
         // Assert
         expect(updatedEntities).toHaveLength(2);

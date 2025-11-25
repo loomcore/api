@@ -298,16 +298,6 @@ describe('GenericApiService - Integration Tests', () => {
       ).rejects.toThrow(BadRequestError);
     });
 
-    it('should throw BadRequestError when getById is called with non-hexadecimal string', async () => {
-      // Arrange
-      const invalidId = '12345678901234567890123g'; // 'g' is not a valid hex character
-      
-      // Act & Assert
-      await expect(
-        service.getById(testUserContext, invalidId)
-      ).rejects.toThrow(BadRequestError);
-    });
-
 
     it('should throw IdNotFoundError when entity is deleted before retrieval', async () => {
       // Arrange
@@ -1290,8 +1280,8 @@ describe('GenericApiService - Integration Tests', () => {
       
       // Assert
       expect(updatedEntity.name).toBe('Minimal Update');
-      expect(updatedEntity.description).toBeUndefined();
-      expect(updatedEntity.isActive).toBeUndefined();
+      expect(updatedEntity.description).toBeNull();
+      expect(updatedEntity.isActive).toBeNull();
       expect(updatedEntity._id).toBe(createdEntity._id);
     });
   });
@@ -2853,8 +2843,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-      await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+      await service.createMany(testUserContext, testEntities);
       
       // Act - Find one active entity (multiple match)
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };

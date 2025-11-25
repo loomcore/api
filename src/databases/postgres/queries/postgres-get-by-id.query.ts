@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import { Operation } from "../../operations/operation.js";
 import { buildJoinClauses } from "../utils/build-join-clauses.js";
+import { BadRequestError } from '../../../errors/index.js';
 
 export async function getById<T>(
     client: Client,
@@ -8,6 +9,8 @@ export async function getById<T>(
     id: string,
     pluralResourceName: string
 ): Promise<T | null> {
+    if (!id)
+        throw new BadRequestError('id is required');
     const joinClauses = buildJoinClauses(operations);
     
     const query = `SELECT * FROM "${pluralResourceName}" ${joinClauses} WHERE "_id" = $1 LIMIT 1`;

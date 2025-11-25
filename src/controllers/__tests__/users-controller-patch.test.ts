@@ -12,17 +12,17 @@ describe('UsersController', () => {
 	
 	beforeAll(async () => {
 		const testSetup = await TestExpressApp.init();
-    testAgent = testSetup.agent;
+    	testAgent = testSetup.agent;
 
 		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
 		authController = new AuthController(testSetup.app, testSetup.database);
-    usersController = new UsersController(testSetup.app, testSetup.database);
-  
-    // Setup error handling middleware AFTER controller initialization
-    await TestExpressApp.setupErrorHandling();
-    
-    // Set up test user data
-    await testUtils.setupTestUser();
+		usersController = new UsersController(testSetup.app, testSetup.database);
+	
+		// Setup error handling middleware AFTER controller initialization
+		await TestExpressApp.setupErrorHandling();
+		
+		// Set up test user data
+		await testUtils.setupTestUser();
 	});
 
 	afterAll(async () => {

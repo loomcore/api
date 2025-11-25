@@ -135,6 +135,7 @@ async function createTestUser() {
         _id: testOrgId,
         name: testOrgName,
         code: 'test-org',
+        status: 1,
         isMetaOrg: false
       });
     }

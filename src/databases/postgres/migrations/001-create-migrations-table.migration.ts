@@ -20,7 +20,6 @@ export class CreateMigrationTableMigration implements IMigration {
         await this.client.query(`
             INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") VALUES ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
         `);
-        console.log(`Created migrations table with _id: ${this._id}`);
         return true;
     }
 
