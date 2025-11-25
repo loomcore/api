@@ -285,7 +285,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.database.postprocessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
 
-  async update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
+  async update(userContext: IUserContext, queryObject: IQueryOptions, entity: Partial<T>): Promise<T[]> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);

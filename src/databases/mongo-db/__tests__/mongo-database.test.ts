@@ -71,7 +71,7 @@ describe('MongoDBDatabase - Join Operations', () => {
     mongoClient = new MongoClient(uri);
     await mongoClient.connect();
     db = mongoClient.db('test-db');
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(true);
     testDatabase = testSetup.database;
     orderDatabase = new MongoDBDatabase(db);
     ordersCollection = db.collection('orders');

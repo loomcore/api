@@ -1271,8 +1271,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
       
-      const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-      const createdEntity = await service.create(testUserContext, preparedEntity);
+      const createdEntity = await service.create(testUserContext, initialEntity);
       
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1283,11 +1282,10 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Minimal Update'
       } as TestEntity;
       
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
       const updatedEntity = await service.fullUpdateById(
         testUserContext,
         createdEntity._id,
-        preparedUpdate as TestEntity
+        updateEntity
       );
       
       // Assert
@@ -1853,9 +1851,8 @@ describe('GenericApiService - Integration Tests', () => {
         description: 'Updated via query'
       };
       
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const queryObject = { _id: createdEntity._id };
-      const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
+      const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
+      const updatedEntities = await service.update(testUserContext, queryObject, updateEntity);
       
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1881,7 +1878,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
       
       // Assert - Verify the update worked
@@ -1925,7 +1922,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const queryObject = { isActive: true };
+      const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
       const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
       
       // Assert
@@ -1947,7 +1944,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
       
       const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const queryObject = { name: 'Non-existent Entity' };
+      const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
       
       // Act & Assert
       await expect(
@@ -2025,17 +2022,15 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.preprocessEntities(testUserContext, initialEntities, true);
-      await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+      await service.createMany(testUserContext, initialEntities);
       
       // Act - Update all entities (empty query matches all)
       const updateEntity: Partial<TestEntity> = {
         description: 'Updated all entities'
       };
       
-      const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-      const queryObject = {};
-      const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
+      const queryObject = { ...DefaultQueryOptions };
+      const updatedEntities = await service.update(testUserContext, queryObject, updateEntity);
       
       // Assert
       expect(updatedEntities).toHaveLength(3);
@@ -2246,15 +2241,14 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
       
-      const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-      await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+      await service.createMany(testUserContext, testEntities);
       
       // Verify initial count
       const initialCount = await service.getCount(testUserContext);
       expect(initialCount).toBe(3);
       
       // Act - Delete all entities (empty query matches all)
-      const queryObject: IQueryOptions = { filters: {} };
+      const queryObject: IQueryOptions = { ...DefaultQueryOptions };
       const deleteResult = await service.deleteMany(testUserContext, queryObject);
       
       // Assert
@@ -2647,11 +2641,10 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
       
-      const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-      await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+      await service.createMany(testUserContext, testEntities);
       
       // Act - Find with limit option
-      const queryObject: IQueryOptions = { filters: {}, page: 1, pageSize: 2 };
+      const queryObject: IQueryOptions = { ...DefaultQueryOptions, page: 1, pageSize: 2 };
       const foundEntities = await service.find(testUserContext, queryObject);
       
       // Assert

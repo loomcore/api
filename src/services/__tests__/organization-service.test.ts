@@ -38,11 +38,12 @@ describe('OrganizationService - Integration Tests', () => {
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
         code: 'test-org',
+        status: 1,
+        isMetaOrg: false,
         authToken: authToken
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
@@ -69,12 +70,13 @@ describe('OrganizationService - Integration Tests', () => {
       // Arrange
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization Without Token',
-        code: 'test-org-no-token'
+        code: 'test-org-no-token',
+        status: 1,
+        isMetaOrg: false,
         // authToken is intentionally omitted
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
@@ -84,7 +86,7 @@ describe('OrganizationService - Integration Tests', () => {
       const result = await service.getAuthTokenByRepoCode(testUserContext, createdOrg._id);
 
       // Assert
-      expect(result).toBeUndefined();
+      expect(result).toBeNull();
     });
   });
 
@@ -96,11 +98,12 @@ describe('OrganizationService - Integration Tests', () => {
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
         code: orgCode,
+        status: 1,
+        isMetaOrg: false,
         authToken: authToken
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
@@ -121,11 +124,12 @@ describe('OrganizationService - Integration Tests', () => {
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
         code: orgCode,
+        status: 1,
+        isMetaOrg: false,
         authToken: validAuthToken
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      await service.create(testUserContext, preparedOrg);
+      await service.create(testUserContext, orgData);
 
       // Act
       const result = await service.validateRepoAuthToken(testUserContext, orgCode, invalidAuthToken);
@@ -151,12 +155,13 @@ describe('OrganizationService - Integration Tests', () => {
       const orgCode = 'test-org-no-token';
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
-        code: orgCode
+        code: orgCode,
+        status: 1,
+        isMetaOrg: false
         // authToken is intentionally omitted
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      await service.create(testUserContext, preparedOrg);
+      await service.create(testUserContext, orgData);
 
       // Act
       const result = await service.validateRepoAuthToken(testUserContext, orgCode, 'some-token');
@@ -172,11 +177,11 @@ describe('OrganizationService - Integration Tests', () => {
       const metaOrgData: Partial<IOrganization> = {
         name: 'Meta Organization',
         code: 'meta-org',
-        isMetaOrg: true
+        isMetaOrg: true,
+        status: 1
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, metaOrgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, metaOrgData);
       
       if (!createdOrg) {
         throw new Error('Meta organization not created');
@@ -199,11 +204,11 @@ describe('OrganizationService - Integration Tests', () => {
       const regularOrgData: Partial<IOrganization> = {
         name: 'Regular Organization',
         code: 'regular-org',
+        status: 1,
         isMetaOrg: false
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, regularOrgData, true);
-      await service.create(testUserContext, preparedOrg);
+      await service.create(testUserContext, regularOrgData);
 
       // Act & Assert
       const result = await service.getMetaOrg(testUserContext);
@@ -215,28 +220,27 @@ describe('OrganizationService - Integration Tests', () => {
       const regularOrgData1: Partial<IOrganization> = {
         name: 'Regular Organization 1',
         code: 'regular-org-1',
+        status: 1,
         isMetaOrg: false
       };
       
       const regularOrgData2: Partial<IOrganization> = {
         name: 'Regular Organization 2',
         code: 'regular-org-2',
+        status: 1,
         isMetaOrg: false
       };
       
       const metaOrgData: Partial<IOrganization> = {
         name: 'Meta Organization',
         code: 'meta-org',
+        status: 1,
         isMetaOrg: true
       };
       
-      const preparedRegular1 = await service.preprocessEntity(testUserContext, regularOrgData1, true);
-      const preparedRegular2 = await service.preprocessEntity(testUserContext, regularOrgData2, true);
-      const preparedMeta = await service.preprocessEntity(testUserContext, metaOrgData, true);
-      
-      await service.create(testUserContext, preparedRegular1);
-      await service.create(testUserContext, preparedRegular2);
-      const createdMeta = await service.create(testUserContext, preparedMeta);
+      await service.create(testUserContext, regularOrgData1);
+      await service.create(testUserContext, regularOrgData2);
+      const createdMeta = await service.create(testUserContext, metaOrgData);
       
       if (!createdMeta) {
         throw new Error('Meta organization not created');
@@ -258,13 +262,13 @@ describe('OrganizationService - Integration Tests', () => {
       // Arrange
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
-        code: 'test-org'
+        code: 'test-org',
+        status: 1,
+        isMetaOrg: false
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-
       // Act
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       // Assert
       expect(createdOrg).toBeDefined();
@@ -277,11 +281,12 @@ describe('OrganizationService - Integration Tests', () => {
       // Arrange
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
-        code: 'test-org'
+        code: 'test-org',
+        status: 1,
+        isMetaOrg: false
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
@@ -302,11 +307,12 @@ describe('OrganizationService - Integration Tests', () => {
       const orgCode = 'unique-org-code';
       const orgData: Partial<IOrganization> = {
         name: 'Test Organization',
-        code: orgCode
+        code: orgCode,
+        status: 1,
+        isMetaOrg: false
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      await service.create(testUserContext, preparedOrg);
+      await service.create(testUserContext, orgData);
 
       // Act
       const foundOrg = await service.findOne(testUserContext, { filters: { code: { eq: orgCode } } });
@@ -321,7 +327,9 @@ describe('OrganizationService - Integration Tests', () => {
       // Arrange
       const orgData: Partial<IOrganization> = {
         name: 'Original Name',
-        code: 'test-org'
+        code: 'test-org',
+        status: 1,
+        isMetaOrg: false
       };
       
       const createdOrg = await service.create(testUserContext, orgData);
@@ -347,11 +355,12 @@ describe('OrganizationService - Integration Tests', () => {
       // Arrange
       const orgData: Partial<IOrganization> = {
         name: 'Organization to Delete',
-        code: 'delete-org'
+        code: 'delete-org',
+        status: 1,
+        isMetaOrg: false
       };
       
-      const preparedOrg = await service.preprocessEntity(testUserContext, orgData, true);
-      const createdOrg = await service.create(testUserContext, preparedOrg);
+      const createdOrg = await service.create(testUserContext, orgData);
       
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');

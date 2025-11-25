@@ -18,10 +18,6 @@ export async function update<T extends IEntity>(
     try {
         // Build WHERE clause from queryObject
         const { whereClause, values: whereValues } = buildWhereClause(queryObject);
-        
-        if (!whereClause) {
-            throw new BadRequestError('Update query must include filters to prevent updating all records');
-        }
 
         // Extract columns and values from the entity (only the fields to update)
         const { columns, values: entityValues } = columnsAndValuesFromEntity(entity);

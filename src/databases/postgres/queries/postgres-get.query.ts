@@ -6,6 +6,7 @@ import { buildOrderByClause } from "../utils/build-order-by-clause.js";
 import { buildJoinClauses } from "../utils/build-join-clauses.js";
 import { executeCountQuery } from "../utils/build-count-query.js";
 import { apiUtils } from "../../../utils/api.utils.js";
+import { buildPaginationClause } from '../utils/build-pagination-clause.js';
 
 export async function get<T>(
     client: Client,
@@ -16,27 +17,16 @@ export async function get<T>(
     const { whereClause, values } = buildWhereClause(queryOptions);
     const joinClauses = buildJoinClauses(operations);
     const orderByClause = buildOrderByClause(queryOptions);
-
+    const paginationClause = buildPaginationClause(queryOptions);
     // Build the base query parts
     const baseQuery = `SELECT * FROM "${pluralResourceName}" ${joinClauses} ${whereClause}`;
     
     // Get total count
     const total = await executeCountQuery(client, pluralResourceName, queryOptions);
 
-    // Build pagination
-    let limitOffsetClause = '';
-    const limitValues = [...values];
-    if (queryOptions.page && queryOptions.pageSize) {
-        const offset = (queryOptions.page - 1) * queryOptions.pageSize;
-        const limitParamIndex = limitValues.length + 1;
-        const offsetParamIndex = limitValues.length + 2;
-        limitOffsetClause = `LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`;
-        limitValues.push(queryOptions.pageSize, offset);
-    }
-
     // Execute the main query
-    const dataQuery = `${baseQuery} ${orderByClause} ${limitOffsetClause}`.trim();
-    const dataResult = await client.query(dataQuery, limitValues);
+    const dataQuery = `${baseQuery} ${orderByClause} ${paginationClause}`.trim();
+    const dataResult = await client.query(dataQuery, values);
     
     const entities = dataResult.rows as T[];
 

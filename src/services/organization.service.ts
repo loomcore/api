@@ -7,10 +7,10 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 		super(database, 'organizations', 'organization', OrganizationSpec);
 	}
 
-	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string) {
+	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string) : Promise<string | null> {
 		// until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
 		const org = await this.getById(userContext, orgId);
-		return org ? org.authToken : null;
+		return org?.authToken ?? null;
 	}
 
 	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<string | null> {

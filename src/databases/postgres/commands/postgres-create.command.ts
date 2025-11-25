@@ -10,7 +10,7 @@ export async function create<T extends IEntity>(
     entity: Partial<T>
 ): Promise<{ insertedId: string; entity: T }> {
     try {
-        entity._id = randomUUID().toString();
+        entity._id = entity._id ?? randomUUID().toString();
         const { columns, values } = columnsAndValuesFromEntity(entity);
         
         // Build parameterized query

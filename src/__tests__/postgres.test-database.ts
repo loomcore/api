@@ -95,23 +95,19 @@ export class TestPostgresDatabase implements ITestDatabase {
       throw new Error('Database not initialized');
     }
 
-    // try {
-    //   // Get all table names from the database
-    //   const result = await this.postgresClient.query(`
-    //     SELECT tablename 
-    //     FROM "${this.databaseName}" 
-    //     WHERE "schemaname" = 'public'
-    //   `);
+    // Get all table names from the database
+    const result = await this.postgresClient.query(`
+      SELECT "table_name" 
+      FROM information_schema.tables 
+      WHERE "table_schema" = 'public'
+      AND "table_type" = 'BASE TABLE'
+    `);
 
-    //   // Truncate all tables
-    //   if (result.rows.length > 0) {
-    //     const tableNames = result.rows.map(row => `"${row.tablename}"`).join(', ');
-    //     await this.postgresClient.query(`TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`);
-    //   }
-    // } catch (error: any) {
-    //   // If no tables exist yet, that's okay
-    //   console.log('Note: No tables to clear or error clearing tables:', error.message);
-    // }
+    // Truncate all tables
+    // pg-mem does not support truncating mutliple tables at once, so we need to truncate each table individually
+    result.rows.forEach(async (row) => {
+      await this.postgresClient?.query(`TRUNCATE TABLE "${row.table_name}" RESTART IDENTITY CASCADE`);
+    });
   }
 
   /**

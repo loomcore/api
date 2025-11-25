@@ -13,6 +13,7 @@ export class CreateTestEntitiesTableMigration implements IMigration {
             await this.client.query(`
                 CREATE TABLE "testEntities" (
                     "_id" VARCHAR(255) PRIMARY KEY,
+                    "_orgId" VARCHAR(255),
                     "name" VARCHAR(255) NOT NULL,
                     "description" TEXT,
                     "isActive" BOOLEAN,
