@@ -179,9 +179,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async getById(userContext: IUserContext, id: string): Promise<T> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
+    const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
 
-    const entity = await this.database.getById<T>(operations, id, this.pluralResourceName);
+    const entity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
 
     if (!entity) {
       throw new IdNotFoundError();
@@ -229,9 +229,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     
     const preparedEntities = await this.preprocessEntities(userContext, entities, false, true);
 
-    const { operations } = this.prepareQuery(userContext, {}, []);
+    const { queryObject, operations } = this.prepareQuery(userContext, {}, []);
 
-    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations, this.pluralResourceName);
+    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations, queryObject, this.pluralResourceName);
     
     const updatedEntities = this.postprocessEntities(userContext, rawUpdatedEntities);
 
@@ -243,10 +243,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     //  fetch if we manually crafted the returned entity, but that seems presumptuous, especially
     //  as the update process gets more complex. PREFER using partialUpdateById.
 
-    const { operations } = this.prepareQuery(userContext, {}, []);
+    const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
 
     // Get existing entity to preserve audit properties
-    const existingEntity = await this.database.getById<T>(operations, id, this.pluralResourceName);
+    const existingEntity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
     if (!existingEntity) {
       throw new IdNotFoundError();
     }

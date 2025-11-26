@@ -3,12 +3,14 @@ import { Operation } from "../../operations/operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
-import { IEntity } from '@loomcore/common/models';
+import { Filter, IEntity, IQueryOptions } from '@loomcore/common/models';
+import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function batchUpdate<T extends IEntity>(
     client: Client,
     entities: Partial<T>[],
     operations: Operation[],
+    queryObject: IQueryOptions,
     pluralResourceName: string
 ): Promise<T[]> {
     if (!entities || entities.length === 0) {
@@ -24,6 +26,7 @@ export async function batchUpdate<T extends IEntity>(
         }
         entityIds.push(entity._id);
     }
+    queryObject.filters = queryObject.filters || {};
 
     try {
         // Start a transaction
@@ -40,33 +43,34 @@ export async function batchUpdate<T extends IEntity>(
 
             const { columns, values } = columnsAndValuesFromEntity(updateData);
             
-            // Build SET clause for UPDATE
             const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
-            
-            // Add _id as the last parameter for WHERE clause
+
+            queryObject.filters._id = { eq: _id };
+            const { whereClause } = buildWhereClause(queryObject, values);
+
             const query = `
                 UPDATE "${pluralResourceName}"
                 SET ${setClause}
-                WHERE "_id" = $${values.length + 1}
+                ${whereClause}
             `;
 
-            await client.query(query, [...values, _id]);
+            await client.query(query, values);
         }
 
-        // Commit the transaction
         await client.query('COMMIT');
 
-        // Retrieve updated entities with operations applied
         const joinClauses = buildJoinClauses(operations);
         
-        // Build WHERE clause for retrieving updated entities
-        const placeholders = entityIds.map((_, index) => `$${index + 1}`).join(', ');
+        queryObject.filters._id = { in: entityIds };
+        
+        const { whereClause, values } = buildWhereClause(queryObject);
+        // Use the whereClause and values from buildWhereClause
         const selectQuery = `
             SELECT * FROM "${pluralResourceName}" ${joinClauses}
-            WHERE "_id" IN (${placeholders})
+            ${whereClause}
         `;
 
-        const result = await client.query(selectQuery, entityIds);
+        const result = await client.query(selectQuery, values);
         
         return result.rows as T[];
     }

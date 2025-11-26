@@ -1,11 +1,9 @@
 import { IQueryOptions } from "@loomcore/common/models";
 
-export function buildWhereClause(queryObject: IQueryOptions): { whereClause: string, values: any[] } {
+export function buildWhereClause(queryObject: IQueryOptions, values: any[] = []): { whereClause: string, values: any[] } {
     const filters = queryObject.filters || {};
-
     const conditions: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;    
+    let paramIndex = values.length + 1;    
     
     // Build WHERE clause from filters
     for (const [key, value] of Object.entries(filters)) {

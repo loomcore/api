@@ -887,8 +887,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', description: 'Original description 3', isActive: true }
       ];
       
-      const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-      const createdEntities = await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+      const createdEntities = await service.createMany(testUserContext, testEntities);
       
       // Prepare update entities with IDs
       const updateEntities: Partial<TestEntity>[] = [
@@ -1277,8 +1276,8 @@ describe('GenericApiService - Integration Tests', () => {
       
       // Assert
       expect(updatedEntity.name).toBe('Minimal Update');
-      expect(updatedEntity.description).toBeNull();
-      expect(updatedEntity.isActive).toBeNull();
+      expect(updatedEntity.description).toBeUndefined();
+      expect(updatedEntity.isActive).toBeUndefined();
       expect(updatedEntity._id).toBe(createdEntity._id);
     });
   });

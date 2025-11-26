@@ -36,8 +36,8 @@ export class PostgresDatabase implements IDatabase {
     async get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
         return getQuery(this.client, operations, queryOptions, pluralResourceName);
     }
-    async getById<T>(operations: Operation[], id: string, pluralResourceName: string): Promise<T | null> {
-        return getByIdQuery(this.client, operations, id, pluralResourceName);
+    async getById<T>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
+        return getByIdQuery(this.client, operations, queryObject, id, pluralResourceName);
     }
     async getCount(pluralResourceName: string): Promise<number> {
         return getCountQuery(this.client, pluralResourceName);
@@ -48,8 +48,8 @@ export class PostgresDatabase implements IDatabase {
     async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: string[]; entities: T[]; }> {
         return createManyCommand(this.client, pluralResourceName, entities);
     }
-    async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], pluralResourceName: string): Promise<T[]> {
-        return batchUpdateCommand(this.client, entities, operations, pluralResourceName);
+    async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+        return batchUpdateCommand(this.client, entities, operations, queryObject, pluralResourceName);
     }
     async fullUpdateById<T extends IEntity>(operations: Operation[], id: string, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return fullUpdateByIdCommand(this.client, operations, id, entity, pluralResourceName);

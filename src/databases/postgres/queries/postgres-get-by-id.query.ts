@@ -5,10 +5,13 @@ import { buildJoinClauses } from "../utils/build-join-clauses.js";
 import { buildSelectClause } from "../utils/build-select-clause.js";
 import { transformJoinResults } from "../utils/transform-join-results.js";
 import { BadRequestError } from '../../../errors/index.js';
+import { IQueryOptions } from '@loomcore/common/models';
+import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function getById<T>(
     client: Client,
     operations: Operation[],
+    queryObject: IQueryOptions,
     id: string,
     pluralResourceName: string
 ): Promise<T | null> {
@@ -23,9 +26,13 @@ export async function getById<T>(
     const selectClause = hasJoins 
         ? await buildSelectClause(client, pluralResourceName, pluralResourceName, operations)
         : '*';
-    
-    const query = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} WHERE "${pluralResourceName}"."_id" = $1 LIMIT 1`;
-    const result = await client.query(query, [id]);
+
+    queryObject.filters || (queryObject.filters = {});
+    queryObject.filters._id = { eq: id };
+
+    const { whereClause, values } = buildWhereClause(queryObject);
+    const query = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause} LIMIT 1`;
+    const result = await client.query(query, values);
 
     if (result.rows.length === 0) {
         return null;

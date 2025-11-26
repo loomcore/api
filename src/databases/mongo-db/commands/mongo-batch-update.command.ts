@@ -2,9 +2,10 @@ import { Collection, Db, Document, ObjectId } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { convertOperationsToPipeline } from "../utils/index.js";
+import { IQueryOptions } from "@loomcore/common/models";
 
 
-export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations: Operation[], pluralResourceName: string): Promise<T[]> {
+export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
     const collection = db.collection(pluralResourceName);
     if (!entities || entities.length === 0) {
         return [];

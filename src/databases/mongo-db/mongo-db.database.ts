@@ -40,8 +40,8 @@ export class MongoDBDatabase implements IDatabase {
         return get<T>(this.db, operations, queryOptions, modelSpec, pluralResourceName);
     }
 
-    async getById<T>(operations: Operation[], id: string, pluralResourceName: string): Promise<T | null> {
-        return getById<T>(this.db, operations, id, pluralResourceName);
+    async getById<T>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
+        return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
     }
 
     async getCount(pluralResourceName: string): Promise<number> {
@@ -56,8 +56,8 @@ export class MongoDBDatabase implements IDatabase {
         return createMany<T>(this.db, pluralResourceName, entities);
     }
 
-    async batchUpdate<T>(entities: Partial<T>[], operations: Operation[], pluralResourceName: string): Promise<T[]> {
-        return batchUpdate<T>(this.db, entities, operations, pluralResourceName);
+    async batchUpdate<T>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+        return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
     }
 
     async fullUpdateById<T>(operations: Operation[], id: string, entity: any, pluralResourceName: string): Promise<T> {
