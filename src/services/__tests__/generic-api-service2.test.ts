@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Type } from '@sinclair/typebox';
-import { IUserContext, IEntity, IAuditable, IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { entityUtils } from '@loomcore/common/utils';
+import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 
 import { DuplicateKeyError, BadRequestError, IdNotFoundError, NotFoundError } from '../../errors/index.js';
 import { GenericApiService } from '../generic-api-service/generic-api.service.js';
@@ -9,16 +7,15 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
 import { IDatabase } from '../../databases/models/index.js';
+import { testUserContext } from '../../__tests__/test-objects.js';
 
 describe('GenericApiService - Integration Tests', () => {
   let database: IDatabase;
   let service: GenericApiService<TestEntity>;
-  let testUserContext: IUserContext;
   
   // Set up TestExpressApp before all tests
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();
-    testUserContext = testUtils.testUserContext;
     database = testSetup.database;
     
     // Create service with auditable model spec

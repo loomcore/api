@@ -4,6 +4,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import { AuthController } from '../auth.controller.js';
 import { UsersController } from '../users.controller.js';
+import { getTestUser } from '../../__tests__/test-objects.js';
 
 describe('UsersController', () => {
 	let testAgent: any;
@@ -11,8 +12,8 @@ describe('UsersController', () => {
 	let usersController: UsersController;
 	
 	beforeAll(async () => {
-		const testSetup = await TestExpressApp.init('test-db');
-    testAgent = testSetup.agent;
+		const testSetup = await TestExpressApp.init();
+    	testAgent = testSetup.agent;
 
 		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
 		authController = new AuthController(testSetup.app, testSetup.database);
@@ -31,7 +32,7 @@ describe('UsersController', () => {
 	});
 
 	describe('GET /users', () => {
-		const apiEndpoint = `/api/users/${testUtils.testUserId}`;
+		const apiEndpoint = `/api/users/${getTestUser()._id}`;
 
 		it('should not return any sensitive information for a user', async () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
@@ -41,7 +42,7 @@ describe('UsersController', () => {
 				.set('Authorization', authorizationHeaderValue);
 
 			expect(response.status).toBe(200);
-			expect(response.body?.data?.email).toEqual(testUtils.testUserEmail);
+			expect(response.body?.data?.email).toEqual(getTestUser().email);
 			expect(response.body?.data?.password).toBeUndefined();
 		});
 	});

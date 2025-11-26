@@ -11,39 +11,25 @@ import { MultiTenantApiService } from '../../services/multi-tenant-api.service.j
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { IDatabase } from '../../databases/models/index.js';
-
-// Test entity for MultiTenantApiService
-interface ITestTenantItem extends IEntity, IAuditable {
-  name: string;
-  value?: number;
-  _orgId?: string;
-}
-
-const TestTenantItemSchema = Type.Object({
-  name: Type.String(),
-  value: Type.Optional(Type.Number()),
-  _orgId: Type.Optional(Type.String())
-});
-
-// Create model specs with auditable
-const TestTenantItemSpec = entityUtils.getModelSpec(TestTenantItemSchema, { isAuditable: true });
+import { getTestUser } from '../../__tests__/test-objects.js';
+import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 
 // Create a test service that uses MultiTenantApiService
-class TestTenantItemService extends MultiTenantApiService<ITestTenantItem> {
+class TestItemService extends MultiTenantApiService<ITestItem> {
   constructor(database: IDatabase) {
-    super(database, 'testTenantItems', 'testTenantItem', TestTenantItemSpec);
+    super(database, 'testItems', 'testItem', TestItemSpec);
   }
 }
 
 // Create a test controller that uses the MultiTenantApiService
-class TestTenantItemController extends ApiController<ITestTenantItem> {
-  public testTenantItemService: TestTenantItemService;
+class TestItemController extends ApiController<ITestItem> {
+  public testItemService: TestItemService;
 
   constructor(app: Application, database: IDatabase) {
-    const testTenantItemService = new TestTenantItemService(database);
-    super('test-tenant-items', app, testTenantItemService, 'testTenantItem', TestTenantItemSpec);
+    const testItemService = new TestItemService(database);
+    super('test-items', app, testItemService, 'testItem', TestItemSpec);
 
-    this.testTenantItemService = testTenantItemService;
+    this.testItemService = testItemService;
   }
 }
 
@@ -56,8 +42,8 @@ describe('ApiController with MultiTenantApiService', () => {
   let app: Application;
   let testAgent: any;
   let authToken: string;
-  let tenantItemService: TestTenantItemService;
-  let tenantItemController: TestTenantItemController;
+  let testItemService: TestItemService;
+  let testItemController: TestItemController;
   let userId: string;
 
   beforeAll(async () => {
@@ -71,11 +57,11 @@ describe('ApiController with MultiTenantApiService', () => {
     
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
-    userId = testUtils.testUserId;
+    userId = getTestUser()._id;
     
     // Create service and controller instances
-    tenantItemController = new TestTenantItemController(app, database);
-    tenantItemService = tenantItemController.testTenantItemService;
+    testItemController = new TestItemController(app, database);
+    testItemService = testItemController.testItemService;
 
     await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created
   });
@@ -96,7 +82,7 @@ describe('ApiController with MultiTenantApiService', () => {
 
       // This should succeed because the authToken from testUtils includes orgId
       const response = await testAgent
-        .get('/api/test-tenant-items')
+        .get('/api/test-items')
         .set('Authorization', authorizationHeaderValue);
       
       // Test passes if the request succeeds (no error about missing orgId)

@@ -16,6 +16,7 @@ import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { TestEntity, testModelSpec } from '../../../__tests__/index.js';
 import { IDatabase } from '../../models/index.js';
 import { MongoTestEntity } from '../../../__tests__/models/mongo-test-entity.model.js';
+import { testUserContext } from '../../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -505,11 +506,6 @@ describe('MongoDBDatabase - Join Operations', () => {
   });
 
   describe('ObjectId Conversion', () => {
-    let testUserContext: IUserContext;
-
-    beforeAll(() => {
-      testUserContext = testUtils.testUserContext;
-    });
 
     it('should convert string IDs to ObjectIds for database storage', async () => {
       // Arrange
@@ -609,11 +605,9 @@ describe('MongoDBDatabase - Join Operations', () => {
 
   describe('ObjectId Transformation Tests', () => {
     let service: GenericApiService<TestEntity>;
-    let testUserContext: IUserContext;
 
     beforeAll(async () => {
       const testSetup = await TestExpressApp.init();
-      testUserContext = testUtils.testUserContext;
       
       // Create service with auditable model spec
       service = new GenericApiService<TestEntity>(

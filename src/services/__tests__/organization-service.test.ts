@@ -6,17 +6,15 @@ import { IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { IDatabase } from '../../databases/models/index.js';
-
+import { testUserContext } from '../../__tests__/test-objects.js';
 describe('OrganizationService - Integration Tests', () => {
   let database: IDatabase;
   let service: OrganizationService;
-  let testUserContext: IUserContext;
   
   // Set up TestExpressApp before all tests
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();
     database = testSetup.database;
-    testUserContext = testUtils.testUserContext;
     // Create service
     service = new OrganizationService(database);
   });

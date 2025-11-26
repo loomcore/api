@@ -4,8 +4,6 @@ import { TSchema, Type } from "@sinclair/typebox";
 
 // Create a model spec for validation
 export const TestEntitySchema: TSchema = Type.Object({
-  _id: Type.String(),
-  _orgId: Type.Optional(Type.String()),
   name: Type.String({ minLength: 1 }),
   description: Type.Optional(Type.String()),
   isActive: Type.Optional(Type.Boolean()),

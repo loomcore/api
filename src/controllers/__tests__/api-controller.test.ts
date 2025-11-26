@@ -10,20 +10,8 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-
-// Mock model for testing
-interface ITestItem extends IEntity, IAuditable {
-  name: string;
-  value?: number;
-}
-
-const TestItemSchema = Type.Object({
-  name: Type.String(),
-  value: Type.Optional(Type.Number())
-});
-
-// Create model specs - auditable
-const TestItemSpec = entityUtils.getModelSpec(TestItemSchema, { isAuditable: true });
+import { getTestUser } from '../../__tests__/test-objects.js';
+import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
@@ -106,7 +94,7 @@ describe('ApiController - Integration Tests', () => {
     
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
-    userId = testUtils.testUserId;
+    userId = getTestUser()._id;
     
     // Create service and controller instances
     controller = new TestItemController(app, database);

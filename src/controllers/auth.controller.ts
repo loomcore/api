@@ -9,7 +9,7 @@ import {
   UserSpec, 
   PublicUserSchema, 
   UserContextSpec,
-  passwordValidator
+  passwordValidator,
 } from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
@@ -47,6 +47,7 @@ export class AuthController {
     res.set('Content-Type', 'application/json');
 
 		const loginResponse = await this.authService.attemptLogin(req, res, email, password);
+
     apiUtils.apiResponse<ILoginResponse | null>(res, 200, {data: loginResponse}, LoginResponseSpec);
   }
 

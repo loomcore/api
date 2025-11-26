@@ -5,16 +5,15 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
 import { IDatabase } from '../../databases/models/index.js';
+import { testUserContext } from '../../__tests__/test-objects.js';
 
 describe('GenericApiService - Sql Integration Tests', () => {
   let database: IDatabase;
   let testEntityService: GenericApiService<TestEntity>;
-  let testUserContext: IUserContext;
   
   // Set up TestExpressApp before all tests
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init(false);
-    testUserContext = testUtils.testUserContext;
     database = testSetup.database;
     
     // Create service with auditable model spec

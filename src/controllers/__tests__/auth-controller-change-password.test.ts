@@ -6,6 +6,7 @@ import { AuthController } from '../auth.controller.js';
 import { passwordUtils } from '../../utils/password.utils.js';
 import { EmptyUserContext } from '@loomcore/common/models';
 import { AuthService } from '../../services/index.js';
+import { getTestUser } from '../../__tests__/test-objects.js';
 
 describe('AuthController.changePassword', () => {
   let authService: AuthService;
@@ -49,7 +50,7 @@ describe('AuthController.changePassword', () => {
     expect(changePasswordResponse.status).toBe(200);
 
     // 3. Fetch the user directly from the database
-    const userFromDb = await authService.getById(EmptyUserContext, testUtils.testUserId);
+    const userFromDb = await authService.getById(EmptyUserContext, getTestUser()._id);
     
     // 4. Verify the password in the DB is not the plain text password
     expect(userFromDb).toBeDefined();
@@ -63,7 +64,7 @@ describe('AuthController.changePassword', () => {
     const loginResponse = await testAgent
       .post('/api/auth/login')
       .send({
-        email: testUtils.testUserEmail,
+        email: getTestUser().email,
         password: newPassword,
       });
       

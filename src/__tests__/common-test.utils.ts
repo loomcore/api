@@ -1,12 +1,11 @@
 import { Request, Response, Application } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions, IOrganization } from '@loomcore/common/models';
+import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions, IOrganization, getSystemUserContext } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 
 import { JwtService } from '../services/jwt.service.js';
-import { passwordUtils } from '../utils/password.utils.js';
 import { ApiController } from '../controllers/api.controller.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
@@ -17,40 +16,21 @@ import { IdNotFoundError } from '../errors/index.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
+import { testMetaOrg, testOrg, getTestUser, testUserContext } from './test-objects.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;
-let testUser: IUser;
 let organizationService: OrganizationService;
 
 const JWT_SECRET = 'test-secret';
 const newUser1Email= 'one@test.com';
 const newUser1Password = 'testone';
-const testUserId = '67f33ed5b75090e0dda18a3c';
-const testOrgId = '67e8e19b149f740323af93d7';
-const testOrgName = 'Test Organization';
-const testUserEmail = 'test@example.com';
-const testUserEmailCaseInsensitive = 'tesT@example.com';
-const testUserPassword = 'testPassword';
 const constDeviceIdCookie = crypto.randomBytes(16).toString('hex'); // Generate a consistent device ID for tests
-
-// Initialize with default values
-const testUserContext: IUserContext = {
-  user: {
-    _id: testUserId,
-    email: testUserEmail,
-    _created: new Date(),
-    _createdBy: 'system',
-    _updated: new Date(),
-    _updatedBy: 'system'
-  },
-  _orgId: testOrgId
-} as IUserContext;
-
 
 function initialize(database: IDatabase) {
   authService = new AuthService(database);
   organizationService = new OrganizationService(database);
+  deviceIdCookie = constDeviceIdCookie;
 }
 
 function getRandomId(): string {
@@ -66,15 +46,7 @@ async function createMetaOrg() {
     // Create a meta organization (required for system user context)
     const existingMetaOrg = await organizationService.findOne(testUserContext, { filters: { isMetaOrg: { eq: true } } });
     if (!existingMetaOrg) {
-
-      const metaOrg: Partial<IOrganization> = {
-        name: 'Meta Organization',
-        code: 'meta-org',
-        isMetaOrg: true,
-        status: 1
-      };
-
-      const metaOrgInsertResult = await organizationService.create(testUserContext, metaOrg);
+      const metaOrgInsertResult = await organizationService.create(testUserContext, testMetaOrg);
     }
   }
   catch (error: any) {
@@ -97,7 +69,7 @@ async function deleteMetaOrg() {
   }
 }
     
-async function setupTestUser() {
+async function setupTestUser() : Promise<IUser> {
   try {
     // Clean up any existing test data, then create fresh test user
     await deleteTestUser();
@@ -109,18 +81,16 @@ async function setupTestUser() {
   }
 }
 
-async function createTestUser() {
+async function createTestUser() : Promise<IUser> {
   if (!authService || !organizationService) {
     throw new Error('Database not initialized. Call initialize() first.');
   }
   
   try {
-    const hashedAndSaltedTestUserPassword = await passwordUtils.hashPassword(testUserPassword);
-    
     // Create a test organization if it doesn't exist
     let existingOrg;
     try {
-      existingOrg = await organizationService.getById(testUserContext, testOrgId);
+      existingOrg = await organizationService.getById(testUserContext, testOrg._id);
     } catch (error: any) {
       // If organization doesn't exist, create it
       if (error instanceof IdNotFoundError) {
@@ -131,44 +101,18 @@ async function createTestUser() {
     }
     
     if (!existingOrg) {
-      await organizationService.create(testUserContext, { 
-        _id: testOrgId,
-        name: testOrgName,
-        code: 'test-org',
-        status: 1,
-        isMetaOrg: false
-      });
+      await organizationService.create(testUserContext, testOrg);
     }
-    
-    const localTestUser = {
-      _id: testUserId,
-      email: testUserEmail, 
-      password: hashedAndSaltedTestUserPassword,
-      _orgId: testOrgId,
-      _created: new Date(),
-      _createdBy: 'system',
-      _updated: new Date(),
-      _updatedBy: 'system'
-    };
 
-    // const insertResults = await Promise.all([
-    //   collections.users.insertMany(testUsers),
-    // ]);
-    const insertResult = await authService.create(testUserContext, {
-      _id: testUserId,
-      email: testUserEmail,
-      password: testUserPassword,
-      _orgId: testOrgId
-    });
-    
-    // since this is a simulation, and we aren't using an actual controller, our normal mechanism for filtering out sensitive
-    //  properties is not being called. We will have to manually remove the password property here...
-    delete (localTestUser as any)['password'];
+    const systemUserContext = getSystemUserContext();
 
-    // mongoDb mutates the entity passed into insertOne to have an _id property
-    testUser = {...localTestUser, _id: localTestUser._id.toString()};
+    const createdUser = await authService.createUser(systemUserContext, getTestUser());
 
-    return localTestUser;
+    if (!createdUser) {
+      throw new Error('Failed to create test user');
+    }
+
+    return createdUser;
   }
   catch (error: any) {
     console.log('Error in createTestUser:', error);
@@ -176,26 +120,20 @@ async function createTestUser() {
   }
 }
 
-function deleteTestUser() {
-  let promises: Promise<any>[] = [];
-  
+async function deleteTestUser() { 
   // Delete test user
-  if (testUser) {
-    promises.push(authService.deleteById(testUserContext, testUser._id).catch((error: any) => {
-      // Ignore errors during cleanup - entity may not exist
-      return null;
-    }));
-  }
+  await authService.deleteById(testUserContext, getTestUser()._id).catch((error: any) => {
+    // Ignore errors during cleanup - entity may not exist
+    return null;
+  });
+  
   
   // Delete test organization (regular org only, not meta)
-  if (organizationService) {
-    promises.push(organizationService.deleteById(testUserContext, testOrgId).catch((error: any) => {
+    await organizationService.deleteById(testUserContext, testOrg._id).catch((error: any) => {
       // Ignore errors during cleanup - entity may not exist
       return null;
-    }));
-  }
-  
-  return Promise.all(promises);
+    });
+
 }
   
 /**
@@ -228,8 +166,8 @@ async function simulateloginWithTestUser() {
   const loginResponse = await authService.attemptLogin(
     req as Request, 
     res as Response, 
-    testUserEmail, 
-    testUserPassword
+    getTestUser().email, 
+    getTestUser().password
   );
   
   // Make sure we got a valid response
@@ -248,10 +186,10 @@ async function simulateloginWithTestUser() {
 function getAuthToken(): string {
   const payload = { 
     user: { 
-      _id: testUserId,
-      email: testUserEmail
+      _id: getTestUser()._id,
+      email: getTestUser().email
     }, 
-    _orgId: testOrgId 
+    _orgId: testOrg._id 
   };
   
   // Use JwtService to sign the token - this is what the real app uses
@@ -414,10 +352,6 @@ export class MultiTenantProductsController extends ApiController<IProduct> {
   }
 }
 
-function getTestUser(): Partial<IUser> {
-  return testUser;
-}
-
 /**
  * Configure JWT service to use test secret
  * This should be called before tests that use authentication
@@ -438,11 +372,13 @@ async function loginWithTestUser(agent: any) {
   // Set deviceId cookie first
   agent.set('Cookie', [`deviceId=${deviceIdCookie}`]);
   
+  const testUser = getTestUser();
+
   const response = await agent
     .post('/api/auth/login')
     .send({
-      email: testUserEmail,
-      password: testUserPassword,
+      email: testUser.email,
+      password: testUser.password,
     });
 
   // Make sure we got a valid response
@@ -475,20 +411,12 @@ const testUtils = {
   deleteMetaOrg,
   deleteTestUser,
   getAuthToken,
-  getTestUser,
   initialize,
   loginWithTestUser,
   newUser1Email,
   newUser1Password,
   setupTestUser,
   simulateloginWithTestUser,
-  testUserContext,
-  testUserId,
-  testUserEmail,
-  testUserEmailCaseInsensitive,
-  testUserPassword,
-  testOrgId,
-  testOrgName,
   verifyToken
 };
 export default testUtils;
