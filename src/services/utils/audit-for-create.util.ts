@@ -8,6 +8,4 @@ export function auditForCreate(userContext: IUserContext, doc: any) {
     doc._createdBy = userId;
     doc._updated = now;
     doc._updatedBy = userId;
-    doc._deleted = null;
-    doc._deletedBy = null;
 }

@@ -15,8 +15,6 @@ export const testUser: IUser = {
     _lastPasswordChange: new Date(),
     _updated: new Date(),
     _updatedBy: 'system',
-    _deleted: undefined,
-    _deletedBy: undefined
 };
 
 export function getTestUser() {
