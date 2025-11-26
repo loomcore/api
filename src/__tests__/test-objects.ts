@@ -36,8 +36,6 @@ export const testMetaOrg: IOrganization = {
     _createdBy: 'system',
     _updated: new Date(),
     _updatedBy: 'system',
-    _deleted: undefined,
-    _deletedBy: undefined
 };
 
 export const testOrg: IOrganization = {
@@ -49,7 +47,5 @@ export const testOrg: IOrganization = {
     _created: new Date(),
     _createdBy: 'system',
     _updated: new Date(),
-    _updatedBy: 'system',
-    _deleted: undefined,
-    _deletedBy: undefined
+    _updatedBy: 'system',   
 };

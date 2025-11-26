@@ -12,10 +12,10 @@ export async function fullUpdateById<T extends IEntity>(
     pluralResourceName: string
 ): Promise<T> {
     try {
-        // Resolve every column that belongs to the table so we can overwrite each field.
-        const columnResult = await client.query<{
+        // Get all columns and their default values from the table schema
+        const tableColumns = await client.query<{
             column_name: string;
-            column_default: string;
+            column_default: string | null;
         }>(
             `
                 SELECT column_name, column_default
@@ -27,39 +27,55 @@ export async function fullUpdateById<T extends IEntity>(
             [pluralResourceName]
         );
 
-        if (columnResult.rows.length === 0) {
+        if (tableColumns.rows.length === 0) {
             throw new BadRequestError(`Unable to resolve columns for ${pluralResourceName}`);
         }
 
-        const entityRecord = (entity ?? {}) as Record<string, any>;
-
-        const updateColumns = columnResult.rows
-            .filter(column => column.column_name !== '_id');
-
-        if (updateColumns.length === 0) {
-            throw new BadRequestError(`No updatable columns found for ${pluralResourceName}`);
-        }
-
-        const updateValues = updateColumns.map(column => {
+        // System columns that should be preserved (not updated)
+        const preservedColumns = new Set(['_id', '_created', '_createdBy']);
+        
+        const entityRecord = entity as Record<string, any>;
+        const updateColumns: string[] = [];
+        const updateValues: any[] = [];
+        let paramIndex = 1;
+        
+        // Build SET clause for all columns
+        for (const column of tableColumns.rows) {
             const columnName = column.column_name;
-            if (Object.prototype.hasOwnProperty.call(entityRecord, columnName)) {
-                return entityRecord[columnName];
+            
+            // Skip preserved system columns
+            if (preservedColumns.has(columnName)) {
+                continue;
             }
-
-            // Column not present in the entity payload, so use the default value.
-            return column.column_default;
-        });
-
-        // Build SET clause for UPDATE
-        const setClause = updateColumns
-            .map((column, index) => `"${column.column_name}" = $${index + 1}`)
-            .join(', ');
+            
+            // If entity has a value for this column, use it
+            if (columnName in entityRecord && entityRecord[columnName] !== undefined) {
+                updateColumns.push(`"${columnName}" = $${paramIndex}`);
+                updateValues.push(entityRecord[columnName]);
+                paramIndex++;
+            } else if (column.column_default !== null) {
+                // Use DEFAULT keyword for columns with default values
+                updateColumns.push(`"${columnName}" = DEFAULT`);
+            } else {
+                // Set to NULL for columns without defaults
+                updateColumns.push(`"${columnName}" = $${paramIndex}`);
+                updateValues.push(null);
+                paramIndex++;
+            }
+        }
+        
+        if (updateColumns.length === 0) {
+            throw new BadRequestError('Cannot perform full update with no fields to update');
+        }
+        
+        // Build SET clause
+        const setClause = updateColumns.join(', ');
         
         // Add id as the last parameter for WHERE clause
         const query = `
             UPDATE "${pluralResourceName}"
             SET ${setClause}
-            WHERE "_id" = $${updateValues.length + 1}
+            WHERE "_id" = $${paramIndex}
         `;
         
         const result = await client.query(query, [...updateValues, id]);

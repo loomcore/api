@@ -17,6 +17,7 @@ export class CreateTestItemsTableMigration implements IMigration {
                     "_orgId" VARCHAR(255),
                     "name" VARCHAR(255) NOT NULL,
                     "value" INTEGER,
+                    "eventDate" TIMESTAMP,
                     "_created" TIMESTAMP NOT NULL,
                     "_createdBy" VARCHAR(255) NOT NULL,
                     "_updated" TIMESTAMP NOT NULL,

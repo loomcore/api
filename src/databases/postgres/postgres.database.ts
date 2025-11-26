@@ -17,6 +17,7 @@ import { getAll as getAllQuery } from "./queries/postgres-get-all.query.js";
 import { get as getQuery } from "./queries/postgres-get.query.js";
 import { getById as getByIdQuery } from "./queries/postgres-get-by-id.query.js";
 import { getCount as getCountQuery } from "./queries/postgres-get-count.query.js";
+import { convertNullToUndefined } from "./utils/convert-null-to-undefined.util.js";
 
 export class PostgresDatabase implements IDatabase {
     private client: Client;
@@ -28,7 +29,7 @@ export class PostgresDatabase implements IDatabase {
         return entity;
     }
     postprocessEntity<T>(entity: T, modelSpec: TSchema): T {
-        return entity;
+        return convertNullToUndefined(entity, modelSpec);
     }
     async getAll<T>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return getAllQuery(this.client, operations, pluralResourceName);

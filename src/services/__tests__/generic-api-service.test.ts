@@ -47,7 +47,7 @@ describe('GenericApiService - Integration Tests', () => {
       const testEntity: Partial<TestEntity> = {
         name: 'Test Entity',
         description: 'This is a test entity',
-        isActive: true
+        isActive: true,
       };
       
       // Act

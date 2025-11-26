@@ -153,6 +153,8 @@ describe('ApiController - Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ name: 'Test Item' });
         
+
+      console.log('response.body.data\n', JSON.stringify(response.body.data, null, 3));
       // Assertions
       expect(response.status).toBe(201);
       expect(response.body.data).toHaveProperty('_created');
@@ -610,6 +612,7 @@ describe('ApiController - Integration Tests', () => {
 
     it('should handle full updates (PUT) with proper audit trail', async () => {
       // Create initial entity
+      
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
@@ -632,6 +635,7 @@ describe('ApiController - Integration Tests', () => {
       const updatedItem = updateResponse.body.data;
       
       // Verify audit properties
+      expect(updatedItem.eventDate).toBeUndefined();
       expect(updatedItem._created).toEqual(createdItem._created);
       expect(updatedItem._createdBy).toEqual(createdItem._createdBy);
       expect(updatedItem._updated).not.toEqual(createdItem._updated);
@@ -642,8 +646,8 @@ describe('ApiController - Integration Tests', () => {
 
     it('should handle bulk operations with audit properties', async () => {
       // Create multiple entities to test bulk behavior
-      const entities = [
-        { name: 'Bulk Item 1', value: 10 },
+      const entities: Partial<ITestItem>[] = [
+        { name: 'Bulk Item 1', value: 10, eventDate: new Date() },
         { name: 'Bulk Item 2', value: 20 },
         { name: 'Bulk Item 3', value: 30 }
       ];

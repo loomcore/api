@@ -64,7 +64,7 @@ export class TestExpressApp {
       jobTypes: '',
       deployedBranch: '',
       debug: {
-        showErrors: false
+        showErrors: true
       },
       app: { isMultiTenant: true },
       auth: {
