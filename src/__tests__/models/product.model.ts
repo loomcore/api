@@ -1,0 +1,25 @@
+import { IAuditable, IEntity } from "@loomcore/common/models";
+import { entityUtils } from "@loomcore/common/utils";
+import { Type } from "@sinclair/typebox";
+import { TypeboxObjectId } from "@loomcore/common/validation";
+import { ICategory } from "./category.model.js";
+
+export interface IProduct extends IEntity, IAuditable {
+    name: string;
+    description?: string;
+    internalNumber?: string; // a sensitive property
+    categoryId: string;
+    category?: ICategory;
+}
+
+export const ProductSchema = Type.Object({
+    name: Type.String(),
+    description: Type.Optional(Type.String()),
+    internalNumber: Type.Optional(Type.String()),
+    categoryId: Type.String({ title: 'Category ID' }),
+})
+
+export const ProductSpec = entityUtils.getModelSpec(ProductSchema, { isAuditable: true });
+
+// Create a public schema for products that omits the sensitive internalNumber
+export const PublicProductSchema = Type.Omit(ProductSpec.fullSchema, ['internalNumber']);

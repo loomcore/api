@@ -34,7 +34,7 @@ describe('mongoUtils', () => {
         name: 'Test Entity'
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(result._id).toBe(objId.toString());
       expect(typeof result._id).toBe('string');
@@ -57,7 +57,7 @@ describe('mongoUtils', () => {
         normalField: 'Another Normal Value'
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(result._id).toBe(mainId.toString());
       expect(result.simpleId).toBe(simpleId.toString());
@@ -79,7 +79,7 @@ describe('mongoUtils', () => {
         arrayOfIds: [id1, id2, id3]
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(Array.isArray(result.arrayOfIds)).toBe(true);
       expect(result.arrayOfIds).toHaveLength(3);
@@ -100,7 +100,7 @@ describe('mongoUtils', () => {
         ]
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(Array.isArray(result.arrayOfObjects)).toBe(true);
       expect(result.arrayOfObjects).toHaveLength(2);
@@ -118,7 +118,7 @@ describe('mongoUtils', () => {
         _orgId: orgId
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(result._orgId).toBe(orgId);
       expect(typeof result._orgId).toBe('string');
@@ -134,14 +134,14 @@ describe('mongoUtils', () => {
         }
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(typeof result._id).toBe('string');
       expect(result.simpleId).toBeNull();
       expect(result.nestedObject.nestedId).toBeUndefined();
     });
 
-    it('should handle non-schema fields without conversion', () => {
+    it('should convert non-schema fields to strings', () => {
       const extraId = new ObjectId();
       const idString = new ObjectId().toString(); // String ID that should be in our models
       
@@ -151,11 +151,11 @@ describe('mongoUtils', () => {
         extraObjectId: extraId // Not in schema but is an ObjectId
       };
 
-      const result = convertObjectIdsToStrings(entity, TestSchema);
+      const result = convertObjectIdsToStrings(entity);
       
       expect(result._id).toBe(idString); // Should remain as string
       expect(result.extraField).toBe('Extra Value');
-      expect(result.extraObjectId).toStrictEqual(extraId); // Should remain as ObjectId since not in schema
+      expect(result.extraObjectId).toBe(extraId.toString()); // Should be converted to string
     });
 
     it('should have fallback behavior when no schema provided', () => {

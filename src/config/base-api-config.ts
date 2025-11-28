@@ -1,6 +1,6 @@
 import { EmptyUserContext, initializeSystemUserContext } from '@loomcore/common/models';
 import { IBaseApiConfig } from '../models/index.js';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 
 export let config: IBaseApiConfig;
@@ -25,7 +25,7 @@ export function setBaseApiConfig(apiConfig: IBaseApiConfig) {
   }
 }
 
-export async function initSystemUserContext(database: Database) {
+export async function initSystemUserContext(database: IDatabase) {
   if (!isConfigSet) {
     throw new Error('BaseApiConfig has not been set. Call setBaseApiConfig first.');
   }

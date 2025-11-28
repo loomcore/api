@@ -4,14 +4,12 @@ import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, Default
 import { entityUtils } from '@loomcore/common/utils';
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { Operation } from '../../databases/operations/operation.js';
-import { Database } from '../../databases/models/database.js';
 import { DeleteResult } from '../../databases/models/delete-result.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { BadRequestError, IdNotFoundError, NotFoundError, ServerError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { DatabaseToIDatabase } from '../../databases/utils/index.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -21,13 +19,13 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
   /**
    * @constructs GenericApiService<T> where T extends IEntity
-   * @param database Either a MongoDb Db or Postgres Sql database 
+   * @param database The database instance
    * @param pluralResourceName This is camel-cased, plural (e.g. 'weatherAlerts') 
    * @param singularResourceName This is camel-cased, singular (e.g. 'weatherAlert') 
    * @param modelSpec The model spec 
    */
   constructor(
-    database: Database,
+    database: IDatabase,
     pluralResourceName: string,
     singularResourceName: string,
     modelSpec: IModelSpec
@@ -35,13 +33,13 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     this.pluralResourceName = pluralResourceName;
     this.singularResourceName = singularResourceName;
     this.modelSpec = modelSpec;
-    this.database = DatabaseToIDatabase(database, pluralResourceName);
+    this.database = database;
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const entities = await this.database.getAll<T>(operations);
+    const entities = await this.database.getAll<T>(operations, this.pluralResourceName);
     
     return this.postprocessEntities(userContext, entities);
   }
@@ -160,7 +158,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec);
+    const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.pluralResourceName);
 
     const transformedEntities = this.postprocessEntities(userContext, pagedResult.entities || []);
 
@@ -181,13 +179,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async getById(userContext: IUserContext, id: string): Promise<T> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
+    const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
 
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    const entity = await this.database.getById<T>(operations, id);
+    const entity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
 
     if (!entity) {
       throw new IdNotFoundError();
@@ -196,16 +190,15 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.postprocessEntity(userContext, entity);
   }
   async getCount(userContext: IUserContext): Promise<number> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    return await this.database.getCount(operations);
+    this.prepareQuery(userContext, {}, []);
+    return await this.database.getCount(this.pluralResourceName);
   }
 
   async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
     let createdEntity : T | null= null;
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, true, true);
-    const insertResult = await this.database.create<T>(preparedEntity);
+    const insertResult = await this.database.create<T>(preparedEntity, this.pluralResourceName);
 
     if (insertResult.insertedId) {
       createdEntity = this.postprocessEntity<T>(userContext, insertResult.entity);
@@ -219,7 +212,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     if (entities.length) {
       const preparedEntities = await this.preprocessEntities(userContext, entities, true, true);
-      const insertResult = await this.database.createMany<T>(preparedEntities);
+      const insertResult = await this.database.createMany<T>(preparedEntities, this.pluralResourceName);
 
       if (insertResult.insertedIds) {
         createdEntities = this.postprocessEntities<T>(userContext, insertResult.entities);
@@ -236,9 +229,9 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     
     const preparedEntities = await this.preprocessEntities(userContext, entities, false, true);
 
-    const { operations } = this.prepareQuery(userContext, {}, []);
+    const { queryObject, operations } = this.prepareQuery(userContext, {}, []);
 
-    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations);
+    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations, queryObject, this.pluralResourceName);
     
     const updatedEntities = this.postprocessEntities(userContext, rawUpdatedEntities);
 
@@ -250,14 +243,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     //  fetch if we manually crafted the returned entity, but that seems presumptuous, especially
     //  as the update process gets more complex. PREFER using partialUpdateById.
 
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
+    const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
 
     // Get existing entity to preserve audit properties
-    const existingEntity = await this.database.getById<T>(operations, id);
+    const existingEntity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
     if (!existingEntity) {
       throw new IdNotFoundError();
     }
@@ -273,45 +262,35 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
     Object.assign(preparedEntity, auditProperties);
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity);
+    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     const updatedEntity = this.postprocessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
   }
   async partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
     const { operations } = this.prepareQuery(userContext, {}, []);
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     const updatedEntity = this.postprocessEntity(userContext, rawUpdatedEntity);
 
     return updatedEntity;
   }
+
   async partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
-
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity);
-
-    return this.postprocessEntity(userContext, rawUpdatedEntity);
+    const preparedEntity = this.database.preprocessEntity(entity, this.modelSpec.fullSchema);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName);
+    return this.database.postprocessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
-  async update(userContext: IUserContext, queryObject: any, entity: Partial<T>): Promise<T[]> {
+
+  async update(userContext: IUserContext, queryObject: IQueryOptions, entity: Partial<T>): Promise<T[]> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
     const preparedEntity = await this.preprocessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntities = await this.database.update<T>(preparedQuery, preparedEntity, operations);
+    const rawUpdatedEntities = await this.database.update<T>(preparedQuery, preparedEntity, operations, this.pluralResourceName);
 
     const updatedEntities = this.postprocessEntities(userContext, rawUpdatedEntities);
 
@@ -319,11 +298,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
 
   async deleteById(userContext: IUserContext, id: string): Promise<DeleteResult> {
-    if (!entityUtils.isValidObjectId(id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
-    }
-
-    const deleteResult = await this.database.deleteById(id);
+    const deleteResult = await this.database.deleteById(id, this.pluralResourceName);
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();
@@ -334,14 +309,14 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   async deleteMany(userContext: IUserContext, queryObject: IQueryOptions): Promise<DeleteResult> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const deleteResult = await this.database.deleteMany(preparedQuery);
+    const deleteResult = await this.database.deleteMany(preparedQuery, this.pluralResourceName);
 
     return deleteResult;
   }
   async find(userContext: IUserContext, queryObject: IQueryOptions): Promise<T[]> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const rawEntities = await this.database.find<T>(preparedQuery);
+    const rawEntities = await this.database.find<T>(preparedQuery, this.pluralResourceName);
 
     return this.postprocessEntities(userContext, rawEntities);
   }
@@ -349,7 +324,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   async findOne(userContext: IUserContext, queryObject: IQueryOptions): Promise<T | null> {
     const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const rawEntity = await this.database.findOne<T>(preparedQuery);
+    const rawEntity = await this.database.findOne<T>(preparedQuery, this.pluralResourceName);
 
     return rawEntity ? this.postprocessEntity(userContext, rawEntity) : null;
   }

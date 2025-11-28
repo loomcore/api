@@ -2,11 +2,11 @@ import {Value} from '@sinclair/typebox/value';
 import {IUser, IUserContext, UserSpec, PublicUserSchema} from '@loomcore/common/models';
 import {MultiTenantApiService} from '../services/index.js';
 import {ServerError} from '../errors/index.js';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 
 export class UserService extends MultiTenantApiService<IUser> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'users', 'user', UserSpec);
   }
 

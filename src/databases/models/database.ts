@@ -1,4 +1,4 @@
 import { Db } from 'mongodb';
-import { Sql } from 'postgres';
+import { Client } from 'pg';
 
-export type Database = Db | Sql;
+export type Database = Db | Client;

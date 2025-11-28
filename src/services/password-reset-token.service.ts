@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 import {EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec} from '@loomcore/common/models';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
-	constructor(database: Database) {
+	constructor(database: IDatabase) {
 		super(database, 'passwordResetTokens', 'passwordResetToken', PasswordResetTokenSpec);
 	}
 

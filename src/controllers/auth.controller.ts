@@ -9,7 +9,7 @@ import {
   UserSpec, 
   PublicUserSchema, 
   UserContextSpec,
-  passwordValidator
+  passwordValidator,
 } from '@loomcore/common/models';
 import {entityUtils} from '@loomcore/common/utils';
 
@@ -19,12 +19,12 @@ import { apiUtils} from '../utils/index.js';
 
 import {AuthService} from '../services/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/index.js';
 
 export class AuthController {
   authService: AuthService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const authService = new AuthService(database);
     this.authService = authService;
 
@@ -47,6 +47,7 @@ export class AuthController {
     res.set('Content-Type', 'application/json');
 
 		const loginResponse = await this.authService.attemptLogin(req, res, email, password);
+
     apiUtils.apiResponse<ILoginResponse | null>(res, 200, {data: loginResponse}, LoginResponseSpec);
   }
 

@@ -9,25 +9,13 @@ import { ApiController } from '../api.controller.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
-import { Database } from '../../databases/models/index.js';
-
-// Mock model for testing
-interface ITestItem extends IEntity, IAuditable {
-  name: string;
-  value?: number;
-}
-
-const TestItemSchema = Type.Object({
-  name: Type.String(),
-  value: Type.Optional(Type.Number())
-});
-
-// Create model specs - auditable
-const TestItemSpec = entityUtils.getModelSpec(TestItemSchema, { isAuditable: true });
+import { IDatabase } from '../../databases/models/index.js';
+import { getTestUser } from '../../__tests__/test-objects.js';
+import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'testItems', 'testItem', TestItemSpec);
   }
 }
@@ -35,7 +23,7 @@ class TestItemService extends GenericApiService<ITestItem> {
 class TestItemController extends ApiController<ITestItem> {
   public testItemService: TestItemService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const testItemService = new TestItemService(database);
     super('test-items', app, testItemService, 'testItem', TestItemSpec);
 
@@ -66,7 +54,7 @@ const TestUserSpec = entityUtils.getModelSpec(TestUserSchema, { isAuditable: tru
 const TestPublicUserSchema = Type.Omit(TestUserSpec.fullSchema, ['password']);
 
 class TestUserService extends GenericApiService<ITestUser> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'testUsers', 'testUser', TestUserSpec);
   }
 }
@@ -74,7 +62,7 @@ class TestUserService extends GenericApiService<ITestUser> {
 class TestUserController extends ApiController<ITestUser> {
   public testUserService: TestUserService;
 
-  constructor(app: Application, database: Database) {
+  constructor(app: Application, database: IDatabase) {
     const testUserService = new TestUserService(database);
     super('test-users', app, testUserService, 'testUser', TestUserSpec, TestPublicUserSchema);
 
@@ -87,7 +75,7 @@ class TestUserController extends ApiController<ITestUser> {
  * It uses our custom test utilities for MongoDB and Express.
  */
 describe('ApiController - Integration Tests', () => {
-  let database: Database;
+  let database: IDatabase;
   let app: Application;
   let testAgent: any;
   let authToken: string;
@@ -99,14 +87,14 @@ describe('ApiController - Integration Tests', () => {
 
   beforeAll(async () => {
     // Initialize with our new test express app
-    const testSetup = await TestExpressApp.init('testItems');
+    const testSetup = await TestExpressApp.init();
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;
     
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
-    userId = testUtils.testUserId;
+    userId = getTestUser()._id;
     
     // Create service and controller instances
     controller = new TestItemController(app, database);
@@ -622,6 +610,7 @@ describe('ApiController - Integration Tests', () => {
 
     it('should handle full updates (PUT) with proper audit trail', async () => {
       // Create initial entity
+      
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
@@ -644,6 +633,7 @@ describe('ApiController - Integration Tests', () => {
       const updatedItem = updateResponse.body.data;
       
       // Verify audit properties
+      expect(updatedItem.eventDate).toBeUndefined();
       expect(updatedItem._created).toEqual(createdItem._created);
       expect(updatedItem._createdBy).toEqual(createdItem._createdBy);
       expect(updatedItem._updated).not.toEqual(createdItem._updated);
@@ -654,8 +644,8 @@ describe('ApiController - Integration Tests', () => {
 
     it('should handle bulk operations with audit properties', async () => {
       // Create multiple entities to test bulk behavior
-      const entities = [
-        { name: 'Bulk Item 1', value: 10 },
+      const entities: Partial<ITestItem>[] = [
+        { name: 'Bulk Item 1', value: 10, eventDate: new Date() },
         { name: 'Bulk Item 2', value: 20 },
         { name: 'Bulk Item 3', value: 30 }
       ];

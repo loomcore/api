@@ -47,7 +47,8 @@ function apiResponse<T>(
 		} 
 		else {
 			// For single entity
-			options.data = specForEncoding.encode(options.data) as T;
+			const encodedData = specForEncoding.encode(options.data);
+			options.data = encodedData;
 		}
 	}
 

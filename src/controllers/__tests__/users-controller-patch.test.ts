@@ -4,6 +4,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import { AuthController } from '../auth.controller.js';
 import { UsersController } from '../users.controller.js';
+import { getTestUser } from '../../__tests__/test-objects.js';
 
 describe('UsersController', () => {
 	let testAgent: any;
@@ -12,17 +13,17 @@ describe('UsersController', () => {
 	
 	beforeAll(async () => {
 		const testSetup = await TestExpressApp.init();
-    testAgent = testSetup.agent;
+    	testAgent = testSetup.agent;
 
 		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
 		authController = new AuthController(testSetup.app, testSetup.database);
-    usersController = new UsersController(testSetup.app, testSetup.database);
-  
-    // Setup error handling middleware AFTER controller initialization
-    await TestExpressApp.setupErrorHandling();
-    
-    // Set up test user data
-    await testUtils.setupTestUser();
+		usersController = new UsersController(testSetup.app, testSetup.database);
+	
+		// Setup error handling middleware AFTER controller initialization
+		await TestExpressApp.setupErrorHandling();
+		
+		// Set up test user data
+		await testUtils.setupTestUser();
 	});
 
 	afterAll(async () => {
@@ -36,7 +37,7 @@ describe('UsersController', () => {
 		it("should return a 200 and only update provided properties", async () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
 			
-			const path = `${apiEndpoint}/${testUtils.testUserId}`;
+			const path = `${apiEndpoint}/${getTestUser()._id}`;
 			const updatedRole = 'admin';
 			const updatedUser = {
 				roles: [updatedRole]
@@ -49,7 +50,7 @@ describe('UsersController', () => {
 				.expect(200);
 
 			expect(response.body?.data?.roles).toEqual([updatedRole]);
-			expect(response.body?.data?.email).toEqual(testUtils.testUserEmail); // because this is partial update, properties we did not provide should remain the same
+			expect(response.body?.data?.email).toEqual(getTestUser().email); // because this is partial update, properties we did not provide should remain the same
 		});
 	});
 
