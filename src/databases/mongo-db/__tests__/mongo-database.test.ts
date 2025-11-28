@@ -15,7 +15,6 @@ import { IEntity, IAuditable } from '@loomcore/common/models';
 import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { TestEntity, testModelSpec } from '../../../__tests__/index.js';
 import { IDatabase } from '../../models/index.js';
-import { MongoTestEntity } from '../../../__tests__/models/mongo-test-entity.model.js';
 import { testUserContext } from '../../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
@@ -529,7 +528,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
       
       // Act
-      const preparedEntity = await objectIdService.preprocessEntity<any>(testUserContext, stringIdEntity, true);
+      const preparedEntity = await objectIdService.preprocessEntity(testUserContext, stringIdEntity, true);
       
       // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -583,7 +582,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
       
       // Act
-      const preparedEntity = await complexService.preprocessEntity<any>(testUserContext, complexJsonEntity, true);
+      const preparedEntity = await complexService.preprocessEntity(testUserContext, complexJsonEntity, true);
       
       // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
@@ -859,7 +858,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         
         // Act & Assert
         await expect(
-          service.partialUpdateByIdWithoutBeforeAndAfter(testUserContext, invalidId, updateEntity)
+          service.partialUpdateByIdWithoutPreAndPostProcessing(testUserContext, invalidId, updateEntity)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -882,7 +881,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         } as TestEntity;
         
         const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-        const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
+        const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
           testUserContext,
           createdEntity._id,
           preparedUpdate as TestEntity
@@ -898,7 +897,7 @@ describe('MongoDBDatabase - Join Operations', () => {
     describe('Update Operations - ObjectId Transformation', () => {
       it('should transform entity IDs from ObjectId to string in update results', async () => {
         // Arrange
-        const initialEntities: Partial<MongoTestEntity>[] = [
+        const initialEntities: Partial<TestEntity>[] = [
           { name: 'Entity 1', isActive: true },
           { name: 'Entity 2', isActive: true }
         ];
@@ -906,7 +905,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         const createdEntities = await service.createMany(testUserContext, initialEntities);
         
         // Act
-        const updateEntity: Partial<MongoTestEntity> = {
+        const updateEntity: Partial<TestEntity> = {
           description: 'Updated'
         };
         
@@ -979,8 +978,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           { name: 'Entity 2', isActive: true }
         ];
         
-        const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-        await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+        await service.createMany(testUserContext, testEntities);
         
         // Act
         const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };

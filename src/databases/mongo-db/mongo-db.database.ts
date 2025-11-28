@@ -19,7 +19,7 @@ export class MongoDBDatabase implements IDatabase {
         this.db = db;
     }
 
-    preprocessEntity<U extends IEntity | Partial<IEntity>>(entity: U, schema: TSchema): U {
+    preprocessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
         if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
             throw new BadRequestError('id is not a valid ObjectId');
         }

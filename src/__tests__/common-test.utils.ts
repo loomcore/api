@@ -23,7 +23,7 @@ let authService: AuthService;
 let organizationService: OrganizationService;
 
 const JWT_SECRET = 'test-secret';
-const newUser1Email= 'one@test.com';
+const newUser1Email = 'one@test.com';
 const newUser1Password = 'testone';
 const constDeviceIdCookie = crypto.randomBytes(16).toString('hex'); // Generate a consistent device ID for tests
 
@@ -59,7 +59,7 @@ async function deleteMetaOrg() {
   if (!organizationService) {
     return Promise.resolve();
   }
-  
+
   try {
     await organizationService.deleteMany(testUserContext, { filters: { isMetaOrg: { eq: true } } });
   }
@@ -68,8 +68,8 @@ async function deleteMetaOrg() {
     // Don't throw - cleanup should be non-blocking
   }
 }
-    
-async function setupTestUser() : Promise<IUser> {
+
+async function setupTestUser(): Promise<IUser> {
   try {
     // Clean up any existing test data, then create fresh test user
     await deleteTestUser();
@@ -81,11 +81,11 @@ async function setupTestUser() : Promise<IUser> {
   }
 }
 
-async function createTestUser() : Promise<IUser> {
+async function createTestUser(): Promise<IUser> {
   if (!authService || !organizationService) {
     throw new Error('Database not initialized. Call initialize() first.');
   }
-  
+
   try {
     // Create a test organization if it doesn't exist
     let existingOrg;
@@ -99,7 +99,7 @@ async function createTestUser() : Promise<IUser> {
         throw error;
       }
     }
-    
+
     if (!existingOrg) {
       await organizationService.create(testUserContext, testOrg);
     }
@@ -120,22 +120,20 @@ async function createTestUser() : Promise<IUser> {
   }
 }
 
-async function deleteTestUser() { 
+async function deleteTestUser() {
   // Delete test user
   await authService.deleteById(testUserContext, getTestUser()._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
     return null;
   });
-  
-  
-  // Delete test organization (regular org only, not meta)
-    await organizationService.deleteById(testUserContext, testOrg._id).catch((error: any) => {
-      // Ignore errors during cleanup - entity may not exist
-      return null;
-    });
 
+  // Delete test organization (regular org only, not meta)
+  await organizationService.deleteById(testUserContext, testOrg._id).catch((error: any) => {
+    // Ignore errors during cleanup - entity may not exist
+    return null;
+  });
 }
-  
+
 /**
  * Simulates a login with the test user by directly calling AuthService.attemptLogin
  * This doesn't require controllers or API endpoints to be set up
@@ -146,59 +144,59 @@ async function simulateloginWithTestUser() {
   const req: any = {
     cookies: {}
   };
-  
+
   // Use existing deviceId cookie if available
   if (deviceIdCookie) {
     req.cookies['deviceId'] = deviceIdCookie;
   }
-  
+
   // Create a simple mock response that captures cookies
   const res: any = {
-    cookie: function(name: string, value: string) {
+    cookie: function (name: string, value: string) {
       if (name === 'deviceId') {
         deviceIdCookie = value;
       }
       return res;
     }
   };
-  
+
   // Call authService.attemptLogin directly
   const loginResponse = await authService.attemptLogin(
-    req as Request, 
-    res as Response, 
-    getTestUser().email, 
+    req as Request,
+    res as Response,
+    getTestUser().email,
     getTestUser().password
   );
-  
+
   // Make sure we got a valid response
   if (!loginResponse?.tokens?.accessToken) {
     throw new Error('Failed to login with test user');
   }
-  
+
   return `Bearer ${loginResponse.tokens.accessToken}`;
 }
 
-  /**
-   * Get a valid JWT token for testing authentication
-   * Uses the same JWT service that the real application uses
-   * @returns JWT token string in Bearer format
-   */
+/**
+ * Get a valid JWT token for testing authentication
+ * Uses the same JWT service that the real application uses
+ * @returns JWT token string in Bearer format
+ */
 function getAuthToken(): string {
-  const payload = { 
-    user: { 
+  const payload = {
+    user: {
       _id: getTestUser()._id,
       email: getTestUser().email
-    }, 
-    _orgId: testOrg._id 
+    },
+    _orgId: testOrg._id
   };
-  
+
   // Use JwtService to sign the token - this is what the real app uses
   const token = JwtService.sign(
-    payload, 
-    JWT_SECRET, 
+    payload,
+    JWT_SECRET,
     { expiresIn: 3600 }
   );
-  
+
   return `Bearer ${token}`;
 }
 
@@ -265,7 +263,7 @@ export class ProductsController extends ApiController<IProduct> {
         category: CategorySpec.fullSchema
       }))
     ]);
-    
+
     // 2. Create a public version of the aggregated schema by omitting sensitive fields.
     const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
 
@@ -313,7 +311,7 @@ export class MultiTenantProductsController extends ApiController<IProduct> {
         category: CategorySpec.fullSchema
       }))
     ]);
-    
+
     const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
 
     super('multi-tenant-products', app, productService, 'product', ProductSpec, PublicAggregatedProductSchema);
@@ -328,9 +326,9 @@ function configureJwtSecret(): void {
   // Configure the application to use our test secret
   // This should be done in a setup function before tests
   const originalJwtVerify = jwt.verify;
-  
+
   // Patch jwt.verify to use our test secret
-  (jwt.verify as any) = function(token: string, secret: string, options?: jwt.VerifyOptions): any {
+  (jwt.verify as any) = function (token: string, secret: string, options?: jwt.VerifyOptions): any {
     return originalJwtVerify(token, JWT_SECRET, options);
   };
 }
@@ -339,7 +337,7 @@ function configureJwtSecret(): void {
 async function loginWithTestUser(agent: any) {
   // Set deviceId cookie first
   agent.set('Cookie', [`deviceId=${deviceIdCookie}`]);
-  
+
   const testUser = getTestUser();
 
   const response = await agent

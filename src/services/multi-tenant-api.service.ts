@@ -52,7 +52,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the individual entity preparation hook to add tenant ID
    * This will be called for both create and update operations
    */
-  override async preprocessEntity<U extends T | Partial<T>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
+  override async preprocessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<Partial<T>> {
     if (!config?.app?.isMultiTenant) {
       return super.preprocessEntity(userContext, entity, isCreate, allowId);
     }
