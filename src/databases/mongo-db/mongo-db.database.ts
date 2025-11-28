@@ -29,7 +29,7 @@ export class MongoDBDatabase implements IDatabase {
     postprocessEntity<T>(single: T, schema: TSchema): T {
         if (!single) return single;
 
-        return convertObjectIdsToStrings<T>(single, schema);
+        return convertObjectIdsToStrings<T>(single);
     }
 
     async getAll<T>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
