@@ -3,7 +3,7 @@ import { IMigration } from "./index.js";
 import { randomUUID } from "crypto";
 
 export class CreateRefreshTokenTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId: string) {
+    constructor(private readonly client: Client, private readonly orgId?: string) {
     }
 
     //src/models/refresh-token.model.ts
@@ -24,9 +24,15 @@ export class CreateRefreshTokenTableMigration implements IMigration {
                 "createdBy" VARCHAR(255) NOT NULL
             )
         `);
-            await this.client.query(`
-                Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
-            `);
+            if (this.orgId) {
+                await this.client.query(`
+                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+                `);
+            } else {
+                await this.client.query(`
+                    Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${this._id}', ${this.index}, TRUE, FALSE);
+                `);
+            }
             return true;
         } catch (error: any) {
             console.error('Error creating refresh token table:', error);

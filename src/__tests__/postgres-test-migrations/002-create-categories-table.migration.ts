@@ -4,7 +4,7 @@ import { IMigration } from "../../databases/postgres/migrations/index.js";
 import { Client } from "pg";
 
 export class CreateCategoriesTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId: string) {
+    constructor(private readonly client: Client, private readonly orgId?: string) {
     }
 
     index = 2;
@@ -18,9 +18,15 @@ export class CreateCategoriesTableMigration implements IMigration {
                     "name" VARCHAR(255) NOT NULL
                 )
             `);
-            await this.client.query(`
-                Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
-            `);
+            if (this.orgId) {
+                await this.client.query(`
+                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+                `);
+            } else {
+                await this.client.query(`
+                    Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${this._id}', ${this.index}, TRUE, FALSE);
+                `);
+            }
             return true;
         } catch (error: any) {
             console.error('Error creating categories table:', error);

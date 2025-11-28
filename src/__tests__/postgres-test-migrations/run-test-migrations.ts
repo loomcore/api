@@ -5,7 +5,7 @@ import { CreateProductsTableMigration } from "./003-create-products-table.migrat
 import { CreateTestUsersTableMigration } from "./004-create-test-users-table.migration.js";
 import { CreateTestItemsTableMigration } from "./005-create-test-items-table.migration.js";
 
-export async function runTestMigrations(client: Client, orgId: string): Promise<boolean> {
+export async function runTestMigrations(client: Client, orgId?: string): Promise<boolean> {
     const migrations = [
         new CreateTestEntitiesTableMigration(client, orgId),
         new CreateCategoriesTableMigration(client, orgId),

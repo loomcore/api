@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 
 
 export class CreateTestItemsTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId: string) {
+    constructor(private readonly client: Client, private readonly orgId?: string) {
     }
 
     index = 5;

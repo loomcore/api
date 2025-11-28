@@ -4,7 +4,8 @@ import { initSystemUserContext } from '../config/base-api-config.js';
 import { ITestDatabase } from './test-database.interface.js';
 import { newDb } from "pg-mem";
 import { Client } from 'pg';
-import { runMigrations } from '../databases/postgres/migrations/index.js';
+import { setupDatabaseForMultitenant } from '../databases/postgres/migrations/setup-for-multitenant.migration.js';
+import { setupDatabaseForAuth } from '../databases/postgres/migrations/setup-for-auth.migration.js';
 import { runTestMigrations } from './postgres-test-migrations/run-test-migrations.js';
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
@@ -50,9 +51,14 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       this.database = testDatabase;
       this.postgresClient = postgresClient;
-      let success = await runMigrations(postgresClient, "test-org-id", 4);
+      let success = await setupDatabaseForMultitenant(postgresClient, "test-org-id");
       if (!success) {
-        throw new Error('Failed to run migrations');
+        throw new Error('Failed to setup for multitenant');
+      }
+
+      success = await setupDatabaseForAuth(postgresClient, "test-org-id");
+      if (!success) {
+        throw new Error('Failed to setup for auth');
       }
 
       success = await runTestMigrations(postgresClient, "test-org-id");
