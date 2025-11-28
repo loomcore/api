@@ -7,32 +7,79 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 
 	operations.forEach(operation => {
 		if (operation instanceof Join) {
-			pipeline.push(
-				{
-					$lookup: {
-						from: operation.from,
-						localField: operation.localField,
-						foreignField: operation.foreignField,
-						as: `${operation.as}Arr`
+			// Check if the foreignField is '_id' (which is always ObjectId in MongoDB)
+			// and if the localField value might be a string that needs conversion
+			const needsObjectIdConversion = operation.foreignField === '_id';
+			
+			if (needsObjectIdConversion) {
+				// Use $expr with $eq to handle ObjectId conversion for the lookup
+				pipeline.push(
+					{
+						$lookup: {
+							from: operation.from,
+							let: { localId: { $cond: [
+								{ $eq: [{ $type: `$${operation.localField}` }, 'string'] },
+								{ $toObjectId: `$${operation.localField}` },
+								`$${operation.localField}`
+							]}},
+							pipeline: [
+								{
+									$match: {
+										$expr: {
+											$eq: [`$${operation.foreignField}`, '$$localId']
+										}
+									}
+								}
+							],
+							as: `${operation.as}Arr`
+						}
+					},
+					{
+						$unwind: {
+							path: `$${operation.as}Arr`,
+							preserveNullAndEmptyArrays: true
+						}
+					},
+					{
+						$addFields: {
+							[operation.as]: `$${operation.as}Arr`
+						}
+					},
+					{
+						$project: {
+							[`${operation.as}Arr`]: 0
+						}
 					}
-				},
-				{
-					$unwind: {
-						path: `$${operation.as}Arr`,
-						preserveNullAndEmptyArrays: true
+				);
+			} else {
+				// Use simple lookup for non-ObjectId fields
+				pipeline.push(
+					{
+						$lookup: {
+							from: operation.from,
+							localField: operation.localField,
+							foreignField: operation.foreignField,
+							as: `${operation.as}Arr`
+						}
+					},
+					{
+						$unwind: {
+							path: `$${operation.as}Arr`,
+							preserveNullAndEmptyArrays: true
+						}
+					},
+					{
+						$addFields: {
+							[operation.as]: `$${operation.as}Arr`
+						}
+					},
+					{
+						$project: {
+							[`${operation.as}Arr`]: 0
+						}
 					}
-				},
-				{
-					$addFields: {
-						[operation.as]: `$${operation.as}Arr`
-					}
-				},
-				{
-					$project: {
-						[`${operation.as}Arr`]: 0
-					}
-				}
-			);
+				);
+			}
 		}
 	});
 

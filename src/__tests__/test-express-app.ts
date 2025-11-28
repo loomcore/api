@@ -25,7 +25,7 @@ export class TestExpressApp {
    * Initialize the Express application with a test database
    * @returns Promise resolving to an object with the app, database, and supertest agent
    */
-  static async init(useMongoDb: boolean = false): Promise<{
+  static async init(useMongoDb: boolean = true): Promise<{
     app: Application,
     database: IDatabase,
     testDatabase: ITestDatabase,
