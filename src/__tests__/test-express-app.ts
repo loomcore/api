@@ -23,14 +23,21 @@ export class TestExpressApp {
   private static databaseName: string = 'test-db';
   /**
    * Initialize the Express application with a test database
+   * @param useMongoDb - If not provided, will check TEST_DATABASE env var ('mongodb' or 'postgres')
    * @returns Promise resolving to an object with the app, database, and supertest agent
    */
-  static async init(useMongoDb: boolean = true): Promise<{
+  static async init(useMongoDb?: boolean): Promise<{
     app: Application,
     database: IDatabase,
     testDatabase: ITestDatabase,
     agent: any  // Using any type for supertest agent to avoid type issues
   }> {
+    // If useMongoDb is not explicitly provided, check environment variable
+    if (useMongoDb === undefined) {
+      const testDb = process.env.TEST_DATABASE;
+      useMongoDb = testDb === 'mongodb';
+    }
+
     // Return existing promise if initialization is already in progress
     if (this.initPromise) {
       return this.initPromise;
