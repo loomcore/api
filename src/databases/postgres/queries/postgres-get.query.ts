@@ -17,7 +17,6 @@ export async function get<T>(
     queryOptions: IQueryOptions,
     pluralResourceName: string
 ): Promise<IPagedResult<T>> {
-    const { whereClause, values } = buildWhereClause(queryOptions);
     const joinClauses = buildJoinClauses(operations, pluralResourceName);
     const orderByClause = buildOrderByClause(queryOptions);
     const paginationClause = buildPaginationClause(queryOptions);
@@ -28,6 +27,10 @@ export async function get<T>(
     const selectClause = hasJoins 
         ? await buildSelectClause(client, pluralResourceName, pluralResourceName, operations)
         : '*';
+    
+    // When there are joins, qualify column names with table prefix to avoid ambiguity
+    const tablePrefix = hasJoins ? pluralResourceName : undefined;
+    const { whereClause, values } = buildWhereClause(queryOptions, [], tablePrefix);
     
     // Build the base query parts
     const baseQuery = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause}`;

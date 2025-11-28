@@ -385,8 +385,7 @@ export class AuthService extends GenericApiService<IUser> {
 			const systemUserContext = getSystemUserContext();
 			await this.partialUpdateById(systemUserContext, userId, updates);
         } catch (error) {
-            // Log error but don't throw to ensure non-blocking behavior
-            console.log(`Failed to update lastLoggedIn for user ${userId}: ${error}`);
+
         }
     }
 }

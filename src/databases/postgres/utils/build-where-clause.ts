@@ -1,40 +1,46 @@
 import { IQueryOptions } from "@loomcore/common/models";
 
-export function buildWhereClause(queryObject: IQueryOptions, values: any[] = []): { whereClause: string, values: any[] } {
+export function buildWhereClause(queryObject: IQueryOptions, values: any[] = [], tablePrefix?: string): { whereClause: string, values: any[] } {
     const filters = queryObject.filters || {};
     const conditions: string[] = [];
-    let paramIndex = values.length + 1;    
+    let paramIndex = values.length + 1;
+    
+    // Qualify column names with table prefix if provided
+    const qualifyColumn = (columnName: string): string => {
+        return tablePrefix ? `"${tablePrefix}"."${columnName}"` : `"${columnName}"`;
+    };
     
     // Build WHERE clause from filters
     for (const [key, value] of Object.entries(filters)) {
         if (value) {
+            const qualifiedKey = qualifyColumn(key);
             
             if (value.eq !== undefined) {
-                conditions.push(`"${key}" = $${paramIndex}`);
+                conditions.push(`${qualifiedKey} = $${paramIndex}`);
                 values.push(value.eq);
                 paramIndex++;
             } else if (value.in !== undefined && Array.isArray(value.in)) {
                 const placeholders = value.in.map(() => `$${paramIndex++}`).join(', ');
-                conditions.push(`"${key}" IN (${placeholders})`);
+                conditions.push(`${qualifiedKey} IN (${placeholders})`);
                 values.push(...value.in);
             } else if (value.gte !== undefined) {
-                conditions.push(`"${key}" >= $${paramIndex}`);
+                conditions.push(`${qualifiedKey} >= $${paramIndex}`);
                 values.push(value.gte);
                 paramIndex++;
             } else if (value.lte !== undefined) {
-                conditions.push(`"${key}" <= $${paramIndex}`);
+                conditions.push(`${qualifiedKey} <= $${paramIndex}`);
                 values.push(value.lte);
                 paramIndex++;
             } else if (value.gt !== undefined) {
-                conditions.push(`"${key}" > $${paramIndex}`);
+                conditions.push(`${qualifiedKey} > $${paramIndex}`);
                 values.push(value.gt);
                 paramIndex++;
             } else if (value.lt !== undefined) {
-                conditions.push(`"${key}" < $${paramIndex}`);
+                conditions.push(`${qualifiedKey} < $${paramIndex}`);
                 values.push(value.lt);
                 paramIndex++;
             } else if (value.contains !== undefined) {
-                conditions.push(`LOWER("${key}") LIKE LOWER($${paramIndex})`);
+                conditions.push(`LOWER(${qualifiedKey}) LIKE LOWER($${paramIndex})`);
                 values.push(`%${value.contains}%`);
                 paramIndex++;
             }

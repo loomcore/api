@@ -3,11 +3,9 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { IUser, IUserContext, IEntity, IAuditable, IQueryOptions, IOrganization, getSystemUserContext } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
-import { TypeboxObjectId } from '@loomcore/common/validation';
 
 import { JwtService } from '../services/jwt.service.js';
 import { ApiController } from '../controllers/api.controller.js';
-import { entityUtils } from '@loomcore/common/utils';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
 import { Join } from '../databases/operations/join.operation.js';
@@ -17,6 +15,8 @@ import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
 import { testMetaOrg, testOrg, getTestUser, testUserContext } from './test-objects.js';
+import { CategorySpec, ICategory } from './models/category.model.js';
+import { IProduct, ProductSpec } from './models/product.model.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;
@@ -210,38 +210,6 @@ function getAuthToken(): string {
 function verifyToken(token: string): any {
   return JwtService.verify(token, JWT_SECRET);
 }
-
-// Mock models for testing aggregation
-export interface ICategory extends IEntity {
-  name: string;
-}
-
-export interface IProduct extends IEntity, IAuditable {
-  name: string;
-  description?: string;
-  internalNumber?: string; // a sensitive property
-  categoryId: string;
-  category?: ICategory;
-}
-
-export const CategorySchema = Type.Object({
-  _id: Type.Optional(TypeboxObjectId()),
-  name: Type.String(),
-});
-export const CategorySpec = entityUtils.getModelSpec(CategorySchema);
-
-
-export const ProductSchema = Type.Object({
-  _id: Type.Optional(TypeboxObjectId()),
-  name: Type.String(),
-  description: Type.Optional(Type.String()),
-  internalNumber: Type.Optional(Type.String()),
-  categoryId: TypeboxObjectId({ title: 'Category ID' }),
-});
-export const ProductSpec = entityUtils.getModelSpec(ProductSchema, { isAuditable: true });
-
-// Create a public schema for products that omits the sensitive internalNumber
-export const PublicProductSchema = Type.Omit(ProductSpec.fullSchema, ['internalNumber']);
 
 // Service that does NOT use aggregation
 export class CategoryService extends GenericApiService<ICategory> {

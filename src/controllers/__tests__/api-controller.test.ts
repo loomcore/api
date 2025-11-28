@@ -153,8 +153,6 @@ describe('ApiController - Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ name: 'Test Item' });
         
-
-      console.log('response.body.data\n', JSON.stringify(response.body.data, null, 3));
       // Assertions
       expect(response.status).toBe(201);
       expect(response.body.data).toHaveProperty('_created');

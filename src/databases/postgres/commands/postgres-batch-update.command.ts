@@ -1,5 +1,6 @@
 import { Client } from 'pg';
 import { Operation } from "../../operations/operation.js";
+import { Join } from "../../operations/join.operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
@@ -59,11 +60,15 @@ export async function batchUpdate<T extends IEntity>(
 
         await client.query('COMMIT');
 
-        const joinClauses = buildJoinClauses(operations);
+        const joinClauses = buildJoinClauses(operations, pluralResourceName);
+        
+        // When there are joins, qualify column names with table prefix to avoid ambiguity
+        const hasJoins = operations.some(op => op instanceof Join);
+        const tablePrefix = hasJoins ? pluralResourceName : undefined;
         
         queryObject.filters._id = { in: entityIds };
         
-        const { whereClause, values } = buildWhereClause(queryObject);
+        const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix);
         // Use the whereClause and values from buildWhereClause
         const selectQuery = `
             SELECT * FROM "${pluralResourceName}" ${joinClauses}
