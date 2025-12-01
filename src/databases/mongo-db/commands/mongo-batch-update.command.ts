@@ -1,4 +1,4 @@
-import { Collection, Db, Document, ObjectId } from "mongodb";
+import { Db, Document, ObjectId } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { convertOperationsToPipeline } from "../utils/index.js";

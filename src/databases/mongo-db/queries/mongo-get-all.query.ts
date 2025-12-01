@@ -1,4 +1,4 @@
-import { Collection, Db, Document } from "mongodb";
+import { Db, Document } from "mongodb";
 import { Operation } from "../../operations/operation.js";
 import NoSqlPipeline from "../models/no-sql-pipeline.js";
 

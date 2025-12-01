@@ -7,6 +7,8 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 		super(database, 'organizations', 'organization', OrganizationSpec);
 	}
 
+	// TODO: override prepareQuery to add check for isMetaOrg.
+	// If user is not meta org, throw error.
 	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string) : Promise<string | null> {
 		// until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
 		const org = await this.getById(userContext, orgId);

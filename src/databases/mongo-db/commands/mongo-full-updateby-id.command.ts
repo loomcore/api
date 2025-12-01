@@ -5,7 +5,6 @@ import NoSqlPipeline from "../models/no-sql-pipeline.js";
 import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 import { entityUtils } from "@loomcore/common/utils";
 
-
 export async function fullUpdateById<T>(db: Db, operations: Operation[], id: string, entity: any, pluralResourceName: string): Promise<T> {
     if (!entityUtils.isValidObjectId(id)) {
         throw new BadRequestError('id is not a valid ObjectId');
@@ -33,4 +32,3 @@ export async function fullUpdateById<T>(db: Db, operations: Operation[], id: str
     
     return updatedEntity as T;
 }
-

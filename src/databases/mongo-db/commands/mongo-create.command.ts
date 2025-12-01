@@ -1,6 +1,5 @@
-import { Collection, Db, InsertOneResult } from "mongodb";
+import { Db, InsertOneResult } from "mongodb";
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
-
 
 export async function create<T>(db: Db, pluralResourceName: string, entity: Partial<T>): Promise<{ insertedId: any; entity: T }> {
     try {
@@ -22,4 +21,3 @@ export async function create<T>(db: Db, pluralResourceName: string, entity: Part
         throw new BadRequestError(`Error creating ${pluralResourceName}`);
     }
 }
-

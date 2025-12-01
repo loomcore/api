@@ -22,7 +22,7 @@ import { convertNullToUndefined } from "./utils/convert-null-to-undefined.util.j
 export class PostgresDatabase implements IDatabase {
     private client: Client;
 
-    constructor(client: Client, pluralResourceName: string) {
+    constructor(client: Client) {
         this.client = client;
     }
     preprocessEntity<T>(entity: T, modelSpec: TSchema): T {

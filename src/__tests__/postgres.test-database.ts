@@ -9,15 +9,15 @@ import { setupDatabaseForAuth } from '../databases/postgres/migrations/setup-for
 import { runTestMigrations } from './postgres-test-migrations/run-test-migrations.js';
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
+import { testOrg } from './test-objects.js';
 /**
  * Utility class for setting up a PostgreSQL test database for testing
- * Implements ITestDatabase<Sql> interface
+ * Implements ITestDatabase
  */
 export class TestPostgresDatabase implements ITestDatabase {
   private database: IDatabase | null = null;
   private postgresClient: Client | null = null;
   private initPromise: Promise<IDatabase> | null = null;
-  private databaseName: string | null = null;
   /**
    * Initialize the PostgreSQL test database
    * @returns Promise resolving to the database client instance
@@ -38,30 +38,27 @@ export class TestPostgresDatabase implements ITestDatabase {
   }
 
   private async _performInit(databaseName: string): Promise<IDatabase> {
-    this.databaseName = databaseName;
     // Set up PostgreSQL test database if not already done
     if (!this.database) {
-      // Connect to the database using the postgres package
-      const  {Client, Pool} = newDb().adapters.createPg();
-      const postgresClient = new Client({
-        database: databaseName
-      });
+      // Create new test database client using pg-mem
+      const { Client } = newDb().adapters.createPg();
+      const postgresClient = new Client();
       await postgresClient.connect();
-      const testDatabase = new PostgresDatabase(postgresClient, databaseName);
+      const testDatabase = new PostgresDatabase(postgresClient);
 
       this.database = testDatabase;
       this.postgresClient = postgresClient;
-      let success = await setupDatabaseForMultitenant(postgresClient, "test-org-id");
+      let success = await setupDatabaseForMultitenant(postgresClient, testOrg._id);
       if (!success) {
         throw new Error('Failed to setup for multitenant');
       }
 
-      success = await setupDatabaseForAuth(postgresClient, "test-org-id");
+      success = await setupDatabaseForAuth(postgresClient, testOrg._id);
       if (!success) {
         throw new Error('Failed to setup for auth');
       }
 
-      success = await runTestMigrations(postgresClient, "test-org-id");
+      success = await runTestMigrations(postgresClient, testOrg._id);
       if (!success) {
         throw new Error('Failed to run test migrations');
       }
@@ -110,7 +107,7 @@ export class TestPostgresDatabase implements ITestDatabase {
     `);
 
     // Truncate all tables
-    // pg-mem does not support truncating mutliple tables at once, so we need to truncate each table individually
+    // pg-mem does not support truncating mutliple tables at once yet, so we need to truncate each table individually
     result.rows.forEach(async (row) => {
       await this.postgresClient?.query(`TRUNCATE TABLE "${row.table_name}" RESTART IDENTITY CASCADE`);
     });
@@ -126,24 +123,6 @@ export class TestPostgresDatabase implements ITestDatabase {
     if (!this.postgresClient) {
       throw new Error('Database not initialized');
     }
-
-    // Clear all tables
-    // try {
-    //   const result = await this.postgresClient.query(`
-    //     SELECT "table_name"
-    //     FROM information_schema.tables 
-    //     WHERE table_schema = 'public' 
-    //     AND table_type = 'BASE TABLE';
-    //   `);
-
-    //   if (result.rows.length > 0) {
-    //     const tableNames = result.rows.map(row => `"${row.tablename}"`).join(', ');
-    //     await this.postgresClient.query(`TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`);
-    //   }
-    // } catch (error: any) {
-    //   console.log('Error clearing tables during cleanup:', error.message);
-    //   // Don't throw - cleanup should be non-blocking
-    // }
 
     // Close the client connection
     await this.postgresClient.end();

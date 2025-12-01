@@ -1,6 +1,5 @@
-import { Collection, Db } from "mongodb";
+import { Db } from "mongodb";
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
-
 
 export async function createMany<T>(db: Db, pluralResourceName: string, entities: Partial<T>[]): Promise<{ insertedIds: any; entities: any[] }> {
     try {

@@ -1,4 +1,4 @@
-import { Collection, Db, Document } from "mongodb";
+import { Db } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from "@loomcore/common/models";
 import { Operation } from "../operations/operation.js";
 import { convertObjectIdsToStrings, convertStringsToObjectIds } from "./utils/index.js";

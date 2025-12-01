@@ -1,4 +1,4 @@
-import { Collection, Db } from "mongodb";
+import { Db } from "mongodb";
 import { IQueryOptions } from "@loomcore/common/models";
 import { buildNoSqlMatch, buildFindOptions } from "../utils/index.js";
 

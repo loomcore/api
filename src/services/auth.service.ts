@@ -14,6 +14,7 @@ import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
 
+// TODO: Make this a MultiTenantApiService
 export class AuthService extends GenericApiService<IUser> {
     private refreshTokenService: GenericApiService<IRefreshToken>;
     private passwordResetTokenService: PasswordResetTokenService;

@@ -15,4 +15,3 @@ export async function deleteById(db: Db, id: string, pluralResourceName: string)
     
     return new GenericDeleteResult(deleteResult.acknowledged, deleteResult.deletedCount);
 }
-
