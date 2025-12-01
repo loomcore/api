@@ -10,25 +10,12 @@ import { NotFoundError } from "../errors/not-found.error.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { IBaseApiConfig } from "../models/index.js";
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
+import { IDatabase } from '../databases/models/index.js';
 
 // Define the type for the routes setup function
-type RouteSetupFunction = (app: Application, db: Db, config: IBaseApiConfig) => void;
+type RouteSetupFunction = (app: Application, database: IDatabase, config: IBaseApiConfig) => void;
 
-// function setupInternalExpress(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetupFunction) {
-// 	internalApp.use(bodyParser.json());
-// 	internalApp.use(cookieParser());
-// 	internalApp.use(cors({
-// 		origin: config.corsAllowedOrigins
-// 	}));
-// 	internalRoutes(internalApp, db); // routes calls every controller to map its own routes
-
-// 	internalApp.all('*', async (req, res) => {
-// 		throw new NotFoundError();
-// 	});
-// 	internalApp.use(errorHandler);
-// }
-
-function setupExpressApp(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetupFunction): Application {
+function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoutes: RouteSetupFunction): Application {
   const app: Application = express();
 
   // Use the 'qs' library for parsing query strings which allows for nested objects
@@ -54,7 +41,7 @@ function setupExpressApp(db: Db, config: IBaseApiConfig, setupRoutes: RouteSetup
 	}));
   app.use(ensureUserContext);
 
-  setupRoutes(app, db, config); // setupRoutes calls every controller to map its own routes
+  setupRoutes(app, database, config); // setupRoutes calls every controller to map its own routes
 
   app.use(async (req, res) => {
     throw new NotFoundError(`Requested path, ${req.path}, Not Found`);
