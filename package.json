@@ -40,7 +40,7 @@
     "./__tests__": "./dist/__tests__/index.js",
     "./config": "./dist/config/index.js",
     "./controllers": "./dist/controllers/index.js",
-    "./database": "./dist/database/index.js",
+    "./databases": "./dist/databases/index.js",
     "./errors": "./dist/errors/index.js",
     "./middleware": "./dist/middleware/index.js",
     "./models": "./dist/models/index.js",
