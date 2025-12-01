@@ -2,7 +2,7 @@
   "name": "@loomcore/api",
   "version": "0.1.0",
   "private": false,
-  "description": "Loom Core Api - An opinionated Node.js api using Typescript, Express, and MongoDb",
+  "description": "Loom Core Api - An opinionated Node.js api using Typescript, Express, and MongoDb or PostgreSQL",
   "scripts": {
     "clean": "rm -rf dist",
     "tsc": "tsc --project tsconfig.prod.json",
