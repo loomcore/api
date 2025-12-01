@@ -36,3 +36,15 @@ The framework is built around a few core components:
 3.  **`MultiTenantApiService`**: An extension of `GenericApiService` that adds the multi-tenancy layer, automatically filtering and tagging data with an organization ID.
 
 By extending these base classes, you can quickly stand up a new, fully-featured API endpoint with minimal boilerplate code.
+
+## Example Usage
+
+### Host Application
+A simple example usage of this library can be found in this [sample host application](https://github.com/thardy/monorepo-starter/tree/main/apps/api).
+
+The following five files will give you a good overview of the functionality bundled into this library:
+1. [Main app file](https://github.com/thardy/monorepo-starter/blob/main/apps/api/src/index.ts) - Contains robust graceful shutdown, bundled in `expressUtils.performGracefulShutdown()`. Current example hardwired to MongoDb, but database abstraction and PostgreSQL support is currently in progress.
+2. [Sample model](https://github.com/thardy/monorepo-starter/blob/main/apps/api/src/features/products/product.model.ts) - uses Typebox for validation and all json transforms.
+3. [Sample controller](https://github.com/thardy/monorepo-starter/blob/main/apps/api/src/features/products/products.controller.ts) - Simply override ApiController to get full CRUD endpoints - getAll, get (with typed Filter object from querystring), getById, getCount, create, batchUpdate, fullUpdateById, partialUpdateById, and deleteById. 
+4. [Sample service](https://github.com/thardy/monorepo-starter/blob/main/apps/api/src/features/products/product.service.ts) - All CRUD handled by simply overriding GenericApiService. Override MultiTenantApiService instead to get full multi-tenant enforcement on all writes and queries. There are a ton of hooks available for overrides, including the ability to add joins on every get.
+5. [Routes](https://github.com/thardy/monorepo-starter/blob/main/apps/api/src/server/routes/routes.ts) - full auth, organizations, and users endpoints/services are all bundled into the library
