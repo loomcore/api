@@ -6,9 +6,9 @@ import { Operation } from "../operations/operation.js";
 export interface IDatabase {
   preprocessEntity<T extends IEntity>(entity: Partial<T>, modelSpec: TSchema): Partial<T>;
   postprocessEntity<T extends IEntity>(entity: T, modelSpec: TSchema): T;
-  getAll<T>(operations: Operation[], pluralResourceName: string): Promise<T[]>;
-  get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>>;
-  getById<T>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null>;
+  getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]>;
+  get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>>;
+  getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null>;
   getCount(pluralResourceName: string): Promise<number>;
   create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: string; entity: T }>;
   createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: string[]; entities: T[] }>;

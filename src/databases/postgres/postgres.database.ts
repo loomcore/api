@@ -25,19 +25,19 @@ export class PostgresDatabase implements IDatabase {
     constructor(client: Client) {
         this.client = client;
     }
-    preprocessEntity<T>(entity: T, modelSpec: TSchema): T {
+    preprocessEntity<T extends IEntity>(entity: Partial<T>, modelSpec: TSchema): Partial<T> {
         return entity;
     }
-    postprocessEntity<T>(entity: T, modelSpec: TSchema): T {
+    postprocessEntity<T extends IEntity>(entity: T, modelSpec: TSchema): T {
         return convertNullToUndefined(entity, modelSpec);
     }
-    async getAll<T>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
+    async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return getAllQuery(this.client, operations, pluralResourceName);
     }
-    async get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
+    async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
         return getQuery(this.client, operations, queryOptions, pluralResourceName);
     }
-    async getById<T>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
+    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
         return getByIdQuery(this.client, operations, queryObject, id, pluralResourceName);
     }
     async getCount(pluralResourceName: string): Promise<number> {
@@ -70,7 +70,7 @@ export class PostgresDatabase implements IDatabase {
     async find<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
         return findQuery<T>(this.client, queryObject, pluralResourceName);
     }
-    async findOne<T>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
+    async findOne<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
         return findOneQuery(this.client, queryObject, pluralResourceName);
     }
 }

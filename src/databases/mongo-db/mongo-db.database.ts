@@ -26,21 +26,21 @@ export class MongoDBDatabase implements IDatabase {
         return convertStringsToObjectIds(entity, schema);
     }
 
-    postprocessEntity<T>(single: T, schema: TSchema): T {
+    postprocessEntity<T extends IEntity>(single: T, schema: TSchema): T {
         if (!single) return single;
 
         return convertObjectIdsToStrings<T>(single);
     }
 
-    async getAll<T>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
+    async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return getAll<T>(this.db, operations, pluralResourceName);
     }
 
-    async get<T>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
+    async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
         return get<T>(this.db, operations, queryOptions, modelSpec, pluralResourceName);
     }
 
-    async getById<T>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
+    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
         return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
     }
 
@@ -48,27 +48,27 @@ export class MongoDBDatabase implements IDatabase {
         return getCount(this.db, pluralResourceName);
     }
 
-    async create<T>(entity: any, pluralResourceName: string): Promise<{ insertedId: any; entity: any }> {
+    async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: string; entity: T }> {
         return create<T>(this.db, pluralResourceName, entity);
     }
 
-    async createMany<T>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: any; entities: any[] }> {
+    async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: string[]; entities: T[] }> {
         return createMany<T>(this.db, pluralResourceName, entities);
     }
 
-    async batchUpdate<T>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+    async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
         return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
     }
 
-    async fullUpdateById<T>(operations: Operation[], id: string, entity: any, pluralResourceName: string): Promise<T> {
+    async fullUpdateById<T extends IEntity>(operations: Operation[], id: string, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return fullUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
     }
 
-    async partialUpdateById<T>(operations: Operation[], id: string, entity: Partial<any>, pluralResourceName: string): Promise<T> {
+    async partialUpdateById<T extends IEntity>(operations: Operation[], id: string, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return partialUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
     }
 
-    async update<T>(queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
+    async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return update<T>(this.db, queryObject, entity, operations, pluralResourceName);
     }
 
@@ -80,11 +80,11 @@ export class MongoDBDatabase implements IDatabase {
         return deleteMany(this.db, queryObject, pluralResourceName);
     }
 
-    async find<T>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+    async find<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
         return find<T>(this.db, queryObject, pluralResourceName);
     }
 
-    async findOne<T>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
+    async findOne<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
         return findOne<T>(this.db, queryObject, pluralResourceName);
     }
 };
