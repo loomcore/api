@@ -31,18 +31,6 @@ export function convertQueryOptionsToPipeline(queryOptions: IQueryOptions, pagin
 					total: { $arrayElemAt: ['$count.total', 0] }
 				}
 			});
-		} else {
-			pipeline.push({
-				$facet: {
-					data: results,
-					count: [{ $count: 'total' }]
-				}
-			},{
-				$project: {
-					data: 1,
-					total: { $arrayElemAt: ['$count.total', 0] }
-				}
-			});
 		}
 	}
 

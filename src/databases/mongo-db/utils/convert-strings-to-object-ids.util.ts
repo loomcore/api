@@ -3,6 +3,7 @@ import { TSchema } from '@sinclair/typebox';
 import _ from 'lodash';
 import { ObjectId } from 'mongodb';
 import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
+import { IEntity } from '@loomcore/common/models';
 
 /**
  * Converts strings to MongoDB ObjectIds based on TypeBox schema definition
@@ -10,15 +11,15 @@ import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
  * @param schema TypeBox schema with TypeboxObjectId fields
  * @returns Entity with strings converted to ObjectIds for MongoDB operations
  */
-export function convertStringsToObjectIds(entity: any, schema: TSchema): any {
+export function convertStringsToObjectIds<U extends IEntity | Partial<IEntity>>(entity: U, schema: TSchema): U {
 	if (!entity) return entity;
 
 	// Create a deep clone to avoid modifying the original
-	const clone = _.cloneDeep(entity);
+	const clone = _.cloneDeep(entity) as any;
 
 	// Manually check for and convert _id at the root level, as it's not part of the schema properties
 	if (clone._id && typeof clone._id === 'string' && entityUtils.isValidObjectId(clone._id)) {
-		clone._id = new ObjectId(clone._id);
+		clone._id = new ObjectId(clone._id as string);
 	}
 
 	// Extract object id fields from schema and process the entity

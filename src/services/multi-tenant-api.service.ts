@@ -4,8 +4,8 @@ import { TenantQueryDecorator } from './tenant-query-decorator.js';
 import { BadRequestError } from '../errors/bad-request.error.js';
 import { config } from '../config/base-api-config.js';
 import { Operation } from '../databases/operations/operation.js';
-import { Database } from '../databases/models/database.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { IDatabase } from '../databases/models/index.js';
 
 /**
  * Decorates the GenericApiService with multi-tenancy behavior.
@@ -16,7 +16,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
   private tenantDecorator?: TenantQueryDecorator;
   
   constructor(
-    database: Database, 
+    database: IDatabase, 
     pluralResourceName: string, 
     singularResourceName: string,
     modelSpec: IModelSpec
@@ -52,7 +52,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the individual entity preparation hook to add tenant ID
    * This will be called for both create and update operations
    */
-  override async preprocessEntity<U extends T | Partial<T>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
+  override async preprocessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<Partial<T>> {
     if (!config?.app?.isMultiTenant) {
       return super.preprocessEntity(userContext, entity, isCreate, allowId);
     }

@@ -2,12 +2,15 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import testUtils, { CategoryController, CategorySpec, ICategory, IProduct, ProductsController, ProductSpec } from '../../__tests__/common-test.utils.js';
-import { IDatabase } from '../../databases/database.interface.js';
-import { Database } from '../../databases/models/database.js';
+import testUtils from '../../__tests__/common-test.utils.js';
+import { CategoryController } from '../../__tests__/common-test.utils.js';
+import { ICategory } from '../../__tests__/models/category.model.js';
+import { IProduct } from '../../__tests__/models/product.model.js';
+import { ProductsController } from '../../__tests__/common-test.utils.js';
+import { ProductSpec } from '../../__tests__/models/product.model.js';
+import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
-import { throwError } from 'rxjs';
 
 describe('ApiController getById with aggregation - Integration Tests', () => {
   let app: Application;
@@ -19,7 +22,7 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
   let productId: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init('test-app');
+    const testSetup = await TestExpressApp.init();
     app = testSetup.app;
 
     testAgent = testSetup.agent;

@@ -5,6 +5,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
 import { AuthService } from '../../services/index.js';
 import { EmptyUserContext } from '@loomcore/common/models';
+import { getTestUser } from '../../__tests__/test-objects.js';
 
 describe('AuthController', () => {
   let authService: AuthService;
@@ -12,7 +13,7 @@ describe('AuthController', () => {
   let testDb: any;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init('test-app');
+    const testSetup = await TestExpressApp.init();
     testAgent = testSetup.agent;
     testDb = testSetup.database;
     
@@ -35,8 +36,8 @@ describe('AuthController', () => {
 
     it('should return a 200, an accessToken, and a userContext if correct credentials are given', async () => {
       const user = {
-        email: testUtils.testUserEmail,
-        password: testUtils.testUserPassword
+        email: getTestUser().email,
+        password: getTestUser().password
       };
       
       // Set a device ID cookie before making the request
@@ -53,8 +54,8 @@ describe('AuthController', () => {
 
     it('should return a user object with a string _id', async () => {
       const user = {
-        email: testUtils.testUserEmail,
-        password: testUtils.testUserPassword
+        email: getTestUser().email,
+        password: getTestUser().password
       };
       
       // Set a device ID cookie before making the request
@@ -70,8 +71,8 @@ describe('AuthController', () => {
 
     it('should allow email to be case insensitive', async () => {
       const user = {
-        email: testUtils.testUserEmailCaseInsensitive,
-        password: testUtils.testUserPassword
+        email: getTestUser().email,
+        password: getTestUser().password
       };
       
       // Set a device ID cookie before making the request
@@ -103,7 +104,7 @@ describe('AuthController', () => {
 
     it('should return a 400 if password is incorrect', async () => {
       const user = {
-        email: testUtils.testUserEmail,
+        email: getTestUser().email,
         password: 'yourmom'
       };
       
@@ -118,12 +119,12 @@ describe('AuthController', () => {
 
     it('should update the user\'s _lastLoggedIn property in the database after successful login', async () => {
       const user = {
-        email: testUtils.testUserEmail,
-        password: testUtils.testUserPassword
+        email: getTestUser().email,
+        password: getTestUser().password
       };
       
       // Get the user before login to check initial state
-      const userBeforeLogin = await authService.getById(EmptyUserContext, testUtils.testUserId);
+      const userBeforeLogin = await authService.getById(EmptyUserContext, getTestUser()._id);
       
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
@@ -139,7 +140,7 @@ describe('AuthController', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await authService.getById(EmptyUserContext, testUtils.testUserId);
+      const userAfterLogin = await authService.getById(EmptyUserContext, getTestUser()._id);
 
       // The user should have a _lastLoggedIn property after login
       expect(userAfterLogin?._lastLoggedIn).toBeDefined();
@@ -158,8 +159,8 @@ describe('AuthController', () => {
 
     it('should not return any sensitive information in the usercontext', async () => {
       const user = {
-        email: testUtils.testUserEmail,
-        password: testUtils.testUserPassword
+        email: getTestUser().email,
+        password: getTestUser().password
       };
       
       // Set a device ID cookie before making the request

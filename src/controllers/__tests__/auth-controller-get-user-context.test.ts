@@ -4,6 +4,7 @@ import request from 'supertest';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
+import { testUser } from '../../__tests__/test-objects.js';
 describe('[library] AuthController', () => {
   let testAgent: any;
   let authController: AuthController;
@@ -37,7 +38,7 @@ describe('[library] AuthController', () => {
         .set('Authorization', authorizationHeaderValue)
         .expect(200);
 
-      expect(response.body?.data?.user?.email).toEqual(testUtils.testUserEmail);
+      expect(response.body?.data?.user?.email).toEqual(testUser.email);
     });
 
     it('should return a 401 when no authToken is supplied', async () => {

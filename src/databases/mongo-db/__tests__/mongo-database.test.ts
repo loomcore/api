@@ -13,6 +13,9 @@ import testUtils from '../../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../../__tests__/test-express-app.js';
 import { IEntity, IAuditable } from '@loomcore/common/models';
 import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
+import { TestEntity, testModelSpec } from '../../../__tests__/index.js';
+import { IDatabase } from '../../models/index.js';
+import { testUserContext } from '../../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -59,6 +62,7 @@ describe('MongoDBDatabase - Join Operations', () => {
   let mongoClient: MongoClient;
   let db: Db;
   let orderDatabase: MongoDBDatabase;
+  let testDatabase: IDatabase;
   let ordersCollection: Collection;
   let customersCollection: Collection;
 
@@ -68,8 +72,9 @@ describe('MongoDBDatabase - Join Operations', () => {
     mongoClient = new MongoClient(uri);
     await mongoClient.connect();
     db = mongoClient.db('test-db');
-    
-    orderDatabase = new MongoDBDatabase(db, 'orders');
+    const testSetup = await TestExpressApp.init(true);
+    testDatabase = testSetup.database;
+    orderDatabase = new MongoDBDatabase(db);
     ordersCollection = db.collection('orders');
     customersCollection = db.collection('customers');
   });
@@ -142,7 +147,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       );
 
       // Act
-      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation]);
+      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], 'orders');
 
       // Assert
       expect(results).toHaveLength(3);
@@ -189,7 +194,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       );
 
       // Act
-      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation]);
+      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], 'orders');
 
       // Assert
       expect(results).toHaveLength(1);
@@ -218,7 +223,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       ]);
 
       // Act
-      const results = await orderDatabase.getAll<Order>([]);
+      const results = await orderDatabase.getAll<Order>([], 'orders');
 
       // Assert
       expect(results).toHaveLength(2);
@@ -299,7 +304,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const result = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptions,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -387,7 +393,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const result = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptions,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -452,7 +459,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const resultPage1 = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptionsPage1,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -482,7 +490,8 @@ describe('MongoDBDatabase - Join Operations', () => {
       const resultPage2 = await orderDatabase.get<OrderWithCustomer>(
         [joinOperation],
         queryOptionsPage2,
-        orderModelSpec
+        orderModelSpec,
+        'orders'
       );
 
       // Assert
@@ -496,11 +505,6 @@ describe('MongoDBDatabase - Join Operations', () => {
   });
 
   describe('ObjectId Conversion', () => {
-    let testUserContext: IUserContext;
-
-    beforeAll(() => {
-      testUserContext = testUtils.testUserContext;
-    });
 
     it('should convert string IDs to ObjectIds for database storage', async () => {
       // Arrange
@@ -511,7 +515,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       
       const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
       const objectIdService = new GenericApiService<any>(
-        db,
+        testDatabase,
         'objectIdToStringTest',
         'objectIdEntity',
         objectIdModelSpec
@@ -520,11 +524,11 @@ describe('MongoDBDatabase - Join Operations', () => {
       // Entity with string ID (simulating JSON from API)
       const stringIdEntity = {
         name: 'Entity with string ID reference',
-        refId: testUtils.getRandomId() // String ID from client
+        refId: new ObjectId().toString() // String ID from client
       };
       
       // Act
-      const preparedEntity = await objectIdService.preprocessEntity<any>(testUserContext, stringIdEntity, true);
+      const preparedEntity = await objectIdService.preprocessEntity(testUserContext, stringIdEntity, true);
       
       // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -555,7 +559,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       
       const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
       const complexService = new GenericApiService<any>(
-        db,
+        testDatabase,
         'complexEntities',
         'complexEntity',
         complexModelSpec
@@ -578,7 +582,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
       
       // Act
-      const preparedEntity = await complexService.preprocessEntity<any>(testUserContext, complexJsonEntity, true);
+      const preparedEntity = await complexService.preprocessEntity(testUserContext, complexJsonEntity, true);
       
       // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
@@ -599,33 +603,10 @@ describe('MongoDBDatabase - Join Operations', () => {
   });
 
   describe('ObjectId Transformation Tests', () => {
-    // Define a test entity interface
-    interface TestEntity extends IEntity, IAuditable {
-      name: string;
-      description?: string;
-      isActive?: boolean;
-      tags?: string[];
-      count?: number;
-    }
-
-    // Create a model spec for validation
-    const TestEntitySchema = Type.Object({
-      name: Type.String({ minLength: 1 }),
-      description: Type.Optional(Type.String()),
-      isActive: Type.Optional(Type.Boolean()),
-      tags: Type.Optional(Type.Array(Type.String())),
-      count: Type.Optional(Type.Number())
-    });
-
-    // Create model spec object
-    const testModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: true });
-
     let service: GenericApiService<TestEntity>;
-    let testUserContext: IUserContext;
 
     beforeAll(async () => {
-      const testSetup = await TestExpressApp.init('test-db-objectid');
-      testUserContext = testUtils.testUserContext;
+      const testSetup = await TestExpressApp.init();
       
       // Create service with auditable model spec
       service = new GenericApiService<TestEntity>(
@@ -651,8 +632,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, testEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -681,6 +661,16 @@ describe('MongoDBDatabase - Join Operations', () => {
         ).rejects.toThrow(BadRequestError);
       });
 
+      it('should throw BadRequestError when providing invalid ObjectId', async () => {
+        // Arrange
+        const invalidId = 'not-an-object-id';
+        
+        // Act & Assert
+        await expect(
+          service.getById(testUserContext, invalidId)
+        ).rejects.toThrow(BadRequestError);
+      });
+
       it('should throw IdNotFoundError when getById is called with non-existent ID', async () => {
         // Arrange
         const nonExistentId = new ObjectId().toString();
@@ -689,6 +679,16 @@ describe('MongoDBDatabase - Join Operations', () => {
         await expect(
           service.getById(testUserContext, nonExistentId)
         ).rejects.toThrow(IdNotFoundError);
+      });
+
+      it('should throw BadRequestError when getById is called with non-hexadecimal string', async () => {
+        // Arrange
+        const invalidId = '12345678901234567890123g'; // 'g' is not a valid hex character
+
+        // Act & Assert
+        await expect(
+          service.getById(testUserContext, invalidId)
+        ).rejects.toThrow(BadRequestError);
       });
     });
 
@@ -701,8 +701,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, testEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -746,11 +745,9 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Updated Name'
         } as TestEntity;
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-        
         // Act & Assert
         await expect(
-          service.fullUpdateById(testUserContext, nonExistentId, preparedUpdate as TestEntity)
+          service.fullUpdateById(testUserContext, nonExistentId, updateEntity)
         ).rejects.toThrow(IdNotFoundError);
       });
 
@@ -760,8 +757,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, initialEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -772,11 +768,10 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Updated Name'
         } as TestEntity;
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
         const updatedEntity = await service.fullUpdateById(
           testUserContext,
           createdEntity._id,
-          preparedUpdate as TestEntity
+          updateEntity
         );
         
         // Assert
@@ -807,11 +802,9 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Updated Name'
         };
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-        
         // Act & Assert
         await expect(
-          service.partialUpdateById(testUserContext, nonExistentId, preparedUpdate)
+          service.partialUpdateById(testUserContext, nonExistentId, updateEntity)
         ).rejects.toThrow(IdNotFoundError);
       });
 
@@ -821,8 +814,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, initialEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -833,11 +825,10 @@ describe('MongoDBDatabase - Join Operations', () => {
           description: 'Updated description'
         };
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
         const updatedEntity = await service.partialUpdateById(
           testUserContext,
           createdEntity._id,
-          preparedUpdate
+          updateEntity
         );
         
         // Assert
@@ -857,18 +848,17 @@ describe('MongoDBDatabase - Join Operations', () => {
         
         // Act & Assert
         await expect(
-          service.partialUpdateByIdWithoutBeforeAndAfter(testUserContext, invalidId, updateEntity)
+          service.partialUpdateByIdWithoutPreAndPostProcessing(testUserContext, invalidId, updateEntity)
         ).rejects.toThrow(BadRequestError);
       });
 
-      it('should transform entity ID from ObjectId to string in partialUpdateByIdWithoutBeforeAndAfter result', async () => {
+      it('should transform entity ID from ObjectId to string in partialUpdateByIdWithoutPreAndPostProcessing result', async () => {
         // Arrange
         const initialEntity: Partial<TestEntity> = {
           name: 'Entity for ID transformation test'
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, initialEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, initialEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -879,11 +869,10 @@ describe('MongoDBDatabase - Join Operations', () => {
           description: 'Updated description'
         } as TestEntity;
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-        const updatedEntity = await service.partialUpdateByIdWithoutBeforeAndAfter(
+        const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
           testUserContext,
           createdEntity._id,
-          preparedUpdate as TestEntity
+          updateEntity
         );
         
         // Assert
@@ -901,17 +890,18 @@ describe('MongoDBDatabase - Join Operations', () => {
           { name: 'Entity 2', isActive: true }
         ];
         
-        const preparedEntities = await service.preprocessEntities(testUserContext, initialEntities, true);
-        const createdEntities = await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+        const createdEntities = await service.createMany(testUserContext, initialEntities);
         
         // Act
         const updateEntity: Partial<TestEntity> = {
           description: 'Updated'
         };
         
-        const preparedUpdate = await service.preprocessEntity(testUserContext, updateEntity, false);
-        const queryObject = { isActive: true };
-        const updatedEntities = await service.update(testUserContext, queryObject, preparedUpdate);
+        const queryObject: IQueryOptions = {
+          ...DefaultQueryOptions,
+          filters: { isActive: { eq: true } }
+        };
+        const updatedEntities = await service.update(testUserContext, queryObject, updateEntity);
         
         // Assert
         expect(updatedEntities).toHaveLength(2);
@@ -949,8 +939,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for delete test'
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, testEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -976,8 +965,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           { name: 'Entity 2', isActive: true }
         ];
         
-        const preparedEntities = await service.preprocessEntities(testUserContext, testEntities, true);
-        await service.createMany(testUserContext, preparedEntities as TestEntity[]);
+        await service.createMany(testUserContext, testEntities);
         
         // Act
         const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
@@ -1000,8 +988,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           isActive: true
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, testEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -1024,8 +1011,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           isActive: true
         };
         
-        const preparedEntity = await service.preprocessEntity(testUserContext, testEntity, true);
-        const createdEntity = await service.create(testUserContext, preparedEntity);
+        const createdEntity = await service.create(testUserContext, testEntity);
         
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');

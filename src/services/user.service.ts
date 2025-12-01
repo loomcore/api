@@ -2,11 +2,10 @@ import {Value} from '@sinclair/typebox/value';
 import {IUser, IUserContext, UserSpec, PublicUserSchema} from '@loomcore/common/models';
 import {MultiTenantApiService} from '../services/index.js';
 import {ServerError} from '../errors/index.js';
-import { Database } from '../databases/models/database.js';
-
+import { IDatabase } from '../databases/models/index.js';
 
 export class UserService extends MultiTenantApiService<IUser> {
-  constructor(database: Database) {
+  constructor(database: IDatabase) {
     super(database, 'users', 'user', UserSpec);
   }
 
@@ -15,7 +14,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 
-	override async preprocessEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean = false): Promise<U> {
+	override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean = false): Promise<Partial<IUser>> {
 		// First, let the base class do its preparation
 		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate);
 		
@@ -28,7 +27,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		if (!isCreate) {
 			// Use TypeBox's Value.Clean with PublicUserSchema to remove the password field.
 			// This will remove any properties not in the PublicUserSchema, including password
-			return Value.Clean(PublicUserSchema, preparedEntity) as U;
+			return Value.Clean(PublicUserSchema, preparedEntity) as Partial<IUser>;
 		}
 		
 		return preparedEntity;

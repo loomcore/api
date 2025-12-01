@@ -8,14 +8,8 @@ export interface IGenericApiService<T extends IEntity> {
   validateMany(docs: any[], isPartial?: boolean): ValueError[] | null;
   
   prepareQuery(userContext: IUserContext | undefined, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] };
-
-  preprocessEntity(userContext: IUserContext, entity: T, isCreate: boolean, allowId: boolean): Promise<T>;
   preprocessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean): Promise<Partial<T>>;
-  preprocessEntities(userContext: IUserContext, entities: T[], isCreate: boolean, allowId: boolean): Promise<T[]>;
-  preprocessEntities(userContext: IUserContext, entities: Partial<T>[], isCreate: boolean, allowId: boolean): Promise<Partial<T>[]>;
-  
-  postprocessEntity<T>(userContext: IUserContext, entity: T): T;
-  postprocessEntities<T>(userContext: IUserContext, entities: T[]): T[];
+  postprocessEntity(userContext: IUserContext, entity: T): T;
 
   getAll(userContext: IUserContext): Promise<T[]>;
   get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;
@@ -26,7 +20,7 @@ export interface IGenericApiService<T extends IEntity> {
   batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
   fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T>;
   partialUpdateById(userContext: IUserContext, id: string, entity: Partial<T>): Promise<T>;
-  partialUpdateByIdWithoutBeforeAndAfter(userContext: IUserContext, id: string, entity: T): Promise<T>;
+  partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: string, entity: T): Promise<T>;
   update(userContext: IUserContext, queryObject: IQueryOptions, entity: Partial<T>): Promise<T[]>;
   deleteById(userContext: IUserContext, id: string): Promise<DeleteResult>;
   deleteMany(userContext: IUserContext, queryObject: IQueryOptions): Promise<DeleteResult>;

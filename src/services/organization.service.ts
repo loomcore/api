@@ -1,18 +1,18 @@
-import _ from 'lodash';
-
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import {IOrganization, IUserContext, OrganizationSpec} from '@loomcore/common/models';
-import { Database } from '../databases/models/database.js';
+import { IDatabase } from '../databases/models/database.interface.js';
 
 export class OrganizationService extends GenericApiService<IOrganization> {
-	constructor(database: Database) {
+	constructor(database: IDatabase) {
 		super(database, 'organizations', 'organization', OrganizationSpec);
 	}
 
-	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string) {
+	// TODO: override prepareQuery to add check for isMetaOrg.
+	// If user is not meta org, throw error.
+	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string) : Promise<string | null> {
 		// until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
 		const org = await this.getById(userContext, orgId);
-		return org ? org.authToken : null;
+		return org?.authToken ?? null;
 	}
 
 	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<string | null> {

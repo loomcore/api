@@ -3,14 +3,13 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import supertest from 'supertest';
 import { initializeTypeBox } from '@loomcore/common/validation';
-
 import { setBaseApiConfig } from '../config/base-api-config.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
-import { TestMongoDb } from './test-mongo-db.js';
-import { Database } from '../databases/models/database.js';
-import { MongoDBDatabase } from '../databases/mongo-db/mongo-db.database.js';
-import { IDatabase } from '../databases/models/index.js';
+import { TestMongoDatabase } from './mongo-db.test-database.js';
+import { TestPostgresDatabase } from './postgres.test-database.js';
+import { ITestDatabase } from './test-database.interface.js';
+import { IDatabase } from '../databases/models/database.interface.js';
 
 /**
  * Utility class for setting up a minimal Express application for testing
@@ -18,34 +17,41 @@ import { IDatabase } from '../databases/models/index.js';
  */
 export class TestExpressApp {
   private static app: Application;
-  private static database: Database;
-  private static IDatabase: IDatabase;
-  private static initPromise: Promise<{ app: Application, database: Database, IDatabase: IDatabase, agent: any }> | null = null;
-
+  private static database: IDatabase;
+  private static testDatabase: ITestDatabase;
+  private static initPromise: Promise<{ app: Application, database: IDatabase, testDatabase: ITestDatabase, agent: any }> | null = null;
+  private static databaseName: string = 'test-db';
   /**
-   * Initialize the Express application with a MongoDB memory server
-   * @returns Promise resolving to an object with the app, db, and supertest agent
+   * Initialize the Express application with a test database
+   * @param useMongoDb - If not provided, will check TEST_DATABASE env var ('mongodb' or 'postgres')
+   * @returns Promise resolving to an object with the app, database, and supertest agent
    */
-  static async init(databaseName: string): Promise<{
+  static async init(useMongoDb?: boolean): Promise<{
     app: Application,
-    database: Database,
-    IDatabase: IDatabase,
+    database: IDatabase,
+    testDatabase: ITestDatabase,
     agent: any  // Using any type for supertest agent to avoid type issues
   }> {
+    // If useMongoDb is not explicitly provided, check environment variable
+    if (useMongoDb === undefined) {
+      const testDb = process.env.TEST_DATABASE;
+      useMongoDb = testDb === 'mongodb';
+    }
+
     // Return existing promise if initialization is already in progress
     if (this.initPromise) {
       return this.initPromise;
     }
 
     // Create and cache the initialization promise
-    this.initPromise = this._performInit(databaseName);
+    this.initPromise = this._performInit(useMongoDb);
     return this.initPromise;
   }
 
-  private static async _performInit(databaseName: string): Promise<{
+  private static async _performInit(useMongoDb: boolean): Promise<{
     app: Application,
-    database: Database,
-    IDatabase: IDatabase,
+    database: IDatabase,
+    testDatabase: ITestDatabase,
     agent: any
   }> {
     // Set up a fake clientSecret for authentication
@@ -56,7 +62,7 @@ export class TestExpressApp {
       appName: 'test-app',
       clientSecret: 'test-secret',
       database: {
-        name: databaseName,
+        name: this.databaseName,
       },
       externalPort: 4000,
       internalPort: 8083,
@@ -85,11 +91,16 @@ export class TestExpressApp {
     // Initialize TypeBox format validators
     initializeTypeBox();
 
-    // Set up MongoDB memory server if not already done
     if (!this.database) {
-      const db = await TestMongoDb.init();
-      this.IDatabase = new MongoDBDatabase(db, databaseName);
-      this.database = db;
+      if (useMongoDb) {
+        const testMongoDb = new TestMongoDatabase();
+        this.testDatabase = testMongoDb;
+        this.database = await testMongoDb.init(this.databaseName);
+      } else {
+        const testPostgresDb = new TestPostgresDatabase();
+        this.testDatabase = testPostgresDb;
+        this.database = await testPostgresDb.init(this.databaseName);
+      }
     }
 
     // Set up Express app if not already done
@@ -111,7 +122,7 @@ export class TestExpressApp {
     return {
       app: this.app,
       database: this.database,
-      IDatabase: this.IDatabase,
+      testDatabase: this.testDatabase,
       agent
     };
   }
@@ -126,17 +137,22 @@ export class TestExpressApp {
    * Clear all collections in the database
    */
   static async clearCollections(): Promise<void> {
-    await TestMongoDb.clearCollections();
+    if (this.testDatabase) {
+      await this.testDatabase.clearCollections();
+    }
   }
 
   /**
    * Clean up resources
    */
   static async cleanup(): Promise<void> {
-    await TestMongoDb.cleanup();
+    if (this.testDatabase) {
+      await this.testDatabase.cleanup();
+    }
     // Reset initialization state
     this.initPromise = null;
     this.app = undefined as any;
     this.database = undefined as any;
+    this.testDatabase = undefined as any;
   }
 } 

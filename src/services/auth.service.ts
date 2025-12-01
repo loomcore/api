@@ -10,384 +10,383 @@ import { GenericApiService } from './generic-api-service/generic-api.service.js'
 import {PasswordResetTokenService} from './password-reset-token.service.js';
 import { passwordUtils} from '../utils/index.js';
 import {config} from '../config/index.js';
-import { Database } from '../databases/models/database.js';
-import { IRefreshToken } from '../models/refresh-token.js';
-import { refreshTokenModelSpec } from '../models/refresh-token.spec.js';
 import { UpdateResult } from '../databases/models/update-result.js';
+import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
+import { IDatabase } from '../databases/models/index.js';
 
+// TODO: Make this a MultiTenantApiService
 export class AuthService extends GenericApiService<IUser> {
-	private refreshTokenService: GenericApiService<IRefreshToken>;
-	private passwordResetTokenService: PasswordResetTokenService;
-	private emailService: EmailService;
+    private refreshTokenService: GenericApiService<IRefreshToken>;
+    private passwordResetTokenService: PasswordResetTokenService;
+    private emailService: EmailService;
 
-	constructor(database: Database) {
-		super(database, 'users', 'user', UserSpec);
-		this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
-		this.passwordResetTokenService = new PasswordResetTokenService(database);
-		this.emailService = new EmailService();
-	}
+    constructor(database: IDatabase) {
+        super(database, 'users', 'user', UserSpec);
+        this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
+        this.passwordResetTokenService = new PasswordResetTokenService(database);
+        this.emailService = new EmailService();
+    }
 
-	async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
-		const lowerCaseEmail = email.toLowerCase();
-		const user = await this.getUserByEmail(lowerCaseEmail);
+    async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
+        const lowerCaseEmail = email.toLowerCase();
+        const user = await this.getUserByEmail(lowerCaseEmail);
 
-		// Basic validation to prevent errors with undefined user
-		if (!user) {
-			throw new BadRequestError('Invalid Credentials');
-		}
+        // Basic validation to prevent errors with undefined user
+        if (!user) {
+            throw new BadRequestError('Invalid Credentials');
+        }
 
-		const passwordsMatch = await passwordUtils.comparePasswords(user.password!, password);
-		if (!passwordsMatch) {
-			throw new BadRequestError('Invalid Credentials');
-		}
+        const passwordsMatch = await passwordUtils.comparePasswords(user.password!, password);
+        if (!passwordsMatch) {
+            throw new BadRequestError('Invalid Credentials');
+        }
 
-		const userContext = { 
-			user: user, 
-			_orgId: user._orgId 
-		};
+        const userContext = { 
+            user: user, 
+            _orgId: user._orgId 
+        };
 
-		const deviceId = this.getAndSetDeviceIdCookie(req, res);
-		const loginResponse = await this.logUserIn(userContext, deviceId);
-		return loginResponse;
-	}
-	
-	async logUserIn(userContext: IUserContext, deviceId: string) {
-		const payload = userContext;
-		const accessToken = this.generateJwt(payload);
-		// upon login, we want to create a new refreshToken with a full expiresOn expiration. If the client is capable of finding an unexpired refreshToken
-		//  persisted locally, it can use that to request a new accessToken - it should NOT try to log in again. Every time there's a successful cred swap, 
-		//  we start with a brand new refreshToken.
-		const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId);
-		const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
+        const deviceId = this.getAndSetDeviceIdCookie(req, res);
+        const loginResponse = await this.logUserIn(userContext, deviceId);
+        return loginResponse;
+    }
+    
+    async logUserIn(userContext: IUserContext, deviceId: string) {
+        const payload = userContext;
+        const accessToken = this.generateJwt(payload);
+        // upon login, we want to create a new refreshToken with a full expiresOn expiration. If the client is capable of finding an unexpired refreshToken
+        //  persisted locally, it can use that to request a new accessToken - it should NOT try to log in again. Every time there's a successful cred swap, 
+        //  we start with a brand new refreshToken.
+        const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, null, userContext._orgId);
+        const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
 
-		let loginResponse = null;
-		if (refreshTokenObject) {
-			const tokenResponse = {
-				accessToken,
-				refreshToken: refreshTokenObject.token,
-				expiresOn: accessTokenExpiresOn
-			};
+        let loginResponse = null;
+        if (refreshTokenObject) {
+            const tokenResponse = {
+                accessToken,
+                refreshToken: refreshTokenObject.token,
+                expiresOn: accessTokenExpiresOn
+            };
 
-			// Update lastLoggedIn in a non-blocking way
-			this.updateLastLoggedIn(userContext.user._id!)
-				.catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
-			
-			userContext.user = this.postprocessEntity(userContext, userContext.user);
-			loginResponse = {tokens: tokenResponse, userContext };
-		}
 
-		return loginResponse;
-	}
+            // Update lastLoggedIn in a non-blocking way
+            this.updateLastLoggedIn(userContext.user._id!)
+                .catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
+            
+            userContext.user = this.postprocessEntity(userContext, userContext.user);
+            loginResponse = {tokens: tokenResponse, userContext };
+        }
 
-	async getUserById(id: string): Promise<IUser | null> {
-		const user = await this.findOne(EmptyUserContext, { filters: { _id: { eq: id } } });
-		return user;
-	}
+        return loginResponse;
+    }
 
-	async getUserByEmail(email: string): Promise<IUser | null> {
-		const user = await this.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
-		return user;
-	}
+    async getUserById(id: string): Promise<IUser | null> {
+        const user = await this.findOne(EmptyUserContext, { filters: { _id: { eq: id } } });
+        return user;
+    }
 
-	async createUser(userContext: IUserContext, user: IUser): Promise<IUser | null> {
-		// You currently don't have to be logged-in to create a user - we'll need to vette exactly what you do need based on the scenario.
-		// todo: validate that the user._orgId exists - think through the whole user creation process
-		//  I think a user either has to be created by someone with the authorization to do so, or they need to be
-		//  joining an org that has open registration, or else they have some sort of invite to join an org,
-		//  or initialSetup is occurring.
-		// prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
-		const createdUser = await this.create(userContext, user);
-		return createdUser;
-	}
+    async getUserByEmail(email: string): Promise<IUser | null> {
+        const user = await this.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
+        return user;
+    }
 
-	async requestTokenUsingRefreshToken(req: Request): Promise<ITokenResponse | null> {
-		const refreshToken = req.query.refreshToken;
-		const deviceId = this.getDeviceIdFromCookie(req);
-		let tokens: ITokenResponse | null = null;
+    async createUser(userContext: IUserContext, user: IUser): Promise<IUser | null> {
+        // You currently don't have to be logged-in to create a user - we'll need to vette exactly what you do need based on the scenario.
+        // todo: validate that the user._orgId exists - think through the whole user creation process
+        //  I think a user either has to be created by someone with the authorization to do so, or they need to be
+        //  joining an org that has open registration, or else they have some sort of invite to join an org,
+        //  or initialSetup is occurring.
+        // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
+        const createdUser = await this.create(userContext, user);
+        return createdUser;
+    }
 
-		if (refreshToken && typeof refreshToken === 'string' && deviceId) {
-			let userId = null;
+    async requestTokenUsingRefreshToken(req: Request): Promise<ITokenResponse | null> {
+        const refreshToken = req.query.refreshToken;
+        const deviceId = this.getDeviceIdFromCookie(req);
+        let tokens: ITokenResponse | null = null;
 
-			// look for this particular refreshToken in our database. refreshTokens are assigned to deviceIds,
-			//  so they can only be retrieved together.
-			const activeRefreshToken = await this.getActiveRefreshToken(EmptyUserContext, refreshToken, deviceId);
-			if (activeRefreshToken) {
-				userId = activeRefreshToken.userId;
+        if (refreshToken && typeof refreshToken === 'string' && deviceId && typeof deviceId === 'string') {
+            let userId = null;
 
-				if (userId) {
-					// todo: why do we need to create a new refreshToken? Can we just let the original one expire and create a new one after they login at that time?
-					// we found an activeRefreshToken, and we know what user it was assigned to
-					//  - create a new refreshToken and persist it to the database
-					// upon refresh, we want to create a new refreshToken maintaining the existing expiresOn expiration
-					tokens = await this.createNewTokens(userId, deviceId, activeRefreshToken.expiresOn);
-				}
-			}
-		}
-		return tokens;
-	}
+            // look for this particular refreshToken in our database. refreshTokens are assigned to deviceIds,
+            //  so they can only be retrieved together.
+            const activeRefreshToken = await this.getActiveRefreshToken(EmptyUserContext, refreshToken, deviceId);
+            if (activeRefreshToken) {
+                userId = activeRefreshToken.userId;
 
-	async changeLoggedInUsersPassword(userContext: IUserContext, body: any) {
-		const queryObject = {_id: userContext.user._id};
-		const result = await this.changePassword(userContext, queryObject, body.password);
-		return result;
-	}
+                if (userId) {
+                    // todo: why do we need to create a new refreshToken? Can we just let the original one expire and create a new one after they login at that time?
+                    // we found an activeRefreshToken, and we know what user it was assigned to
+                    //  - create a new refreshToken and persist it to the database
+                    // upon refresh, we want to create a new refreshToken maintaining the existing expiresOn expiration
+                    tokens = await this.createNewTokens(userId, deviceId, activeRefreshToken.expiresOn);
+                }
+            }
+        }
+        return tokens;
+    }
 
-	async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
-		// queryObject will either be {_id: someUserId} for loggedInUser change or {email: someEmail} from forgotPassword
-		// Note: We pass the plain password here - prepareEntity will hash it
-		const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
-		const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
+    async changeLoggedInUsersPassword(userContext: IUserContext, body: any) {
+        const queryObject = {_id: userContext.user._id};
+        const result = await this.changePassword(userContext, queryObject, body.password);
+        return result;
+    }
 
-		const result: UpdateResult = {
-			success: true,
-			count: updatedUsers.length,
-		};
+    async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
+        // queryObject will either be {_id: someUserId} for loggedInUser change or {email: someEmail} from forgotPassword
+        // Note: We pass the plain password here - prepareEntity will hash it
+        const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
+        const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
 
-		return result;
-	}
+        const result: UpdateResult = {
+            success: true,
+            count: updatedUsers.length,
+        };
 
-	async createNewTokens(userId: string, deviceId: string, refreshTokenExpiresOn: number) {
-		let createdRefreshTokenObject: any = null;
+        return result;
+    }
 
-		// todo: do we really need to create a new refreshToken? Can we just let the original one expire and create a new one at that time?
-		const newRefreshToken = await this.createNewRefreshToken(userId, deviceId, refreshTokenExpiresOn);
-		let user = null;
-		if (newRefreshToken) {
-			// we created a brand new refreshToken - now get the user object associated with this refreshToken
-			createdRefreshTokenObject = newRefreshToken;
-			user = await this.getUserById(userId);
-		}
+    async createNewTokens(userId: string, deviceId: string, refreshTokenExpiresOn: number) {
+        let createdRefreshTokenObject: any = null;
 
-		//  return the new refreshToken and accessToken in a tokenResponse (just like we did in login)
-		let tokenResponse = null;
-		if (user && createdRefreshTokenObject) {
-			// todo: there's a really good chance this will introduce a bug where selectedOrgContext is lost when using refreshToken
-			//  to get a new accessToken because we are hard-coding it to the user's org right here.
-			//  We'll need to find a way to have the client tell us what the selectedOrg should be when they
-			//  call requestTokenUsingRefreshToken() - AND we'll need to VALIDATE that they can select that org
-			//  if (selectedOrgId !== user._orgIdorgId) then user.isMetaAdmin must be true.
-			const payload = {
-				user: user, 
-				_orgId: user._orgId ? String(user._orgId) : undefined
-			};  // _orgId is the selectedOrg (the org of the user for any non-metaAdmins)
-			const accessToken = this.generateJwt(payload);
-			const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
-			tokenResponse = {
-				accessToken,
-				refreshToken: createdRefreshTokenObject.token,
-				expiresOn: accessTokenExpiresOn
-			};
-		}
-		return tokenResponse;
-	}
+        // Get user first to get _orgId
+        const user = await this.getUserById(userId);
 
-	async getActiveRefreshToken(userContext: IUserContext, refreshToken: string, deviceId: string) {
-		const refreshTokenResult = await this.refreshTokenService.findOne(userContext, { filters: { token: { eq: refreshToken }, deviceId: { eq: deviceId } } });
-		let activeRefreshToken = null;
+        // todo: do we really need to create a new refreshToken? Can we just let the original one expire and create a new one at that time?
+        const newRefreshToken = await this.createNewRefreshToken(userId, deviceId, refreshTokenExpiresOn, user?._orgId);
+        if (newRefreshToken) {
+            // we created a brand new refreshToken - now get the user object associated with this refreshToken
+            createdRefreshTokenObject = newRefreshToken;
+        }
 
-		if (refreshTokenResult) {
-			// validate that the refreshToken has not expired
-			const now = Date.now();
-			const notExpired = refreshTokenResult.expiresOn > now;
-			if (notExpired) {
-				activeRefreshToken = refreshTokenResult;
-			}
-		}
+        //  return the new refreshToken and accessToken in a tokenResponse (just like we did in login)
+        let tokenResponse = null;
+        if (user && createdRefreshTokenObject) {
+            // todo: there's a really good chance this will introduce a bug where selectedOrgContext is lost when using refreshToken
+            //  to get a new accessToken because we are hard-coding it to the user's org right here.
+            //  We'll need to find a way to have the client tell us what the selectedOrg should be when they
+            //  call requestTokenUsingRefreshToken() - AND we'll need to VALIDATE that they can select that org
+            //  if (selectedOrgId !== user._orgIdorgId) then user.isMetaAdmin must be true.
+            const payload = {
+                user: user, 
+                _orgId: user._orgId
+            };  // _orgId is the selectedOrg (the org of the user for any non-metaAdmins)
+            const accessToken = this.generateJwt(payload);
+            const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
+            tokenResponse = {
+                accessToken,
+                refreshToken: createdRefreshTokenObject.token,
+                expiresOn: accessTokenExpiresOn
+            };
+        }
+        return tokenResponse;
+    }
 
-		return activeRefreshToken;
-	}
+    async getActiveRefreshToken(userContext: IUserContext, refreshToken: string, deviceId: string) {
+        const refreshTokenResult = await this.refreshTokenService.findOne(userContext, { filters: { token: { eq: refreshToken }, deviceId: { eq: deviceId } } });
+        let activeRefreshToken = null;
 
-	async createNewRefreshToken(userId: string, deviceId: string, existingExpiresOn: number | null = null) {
-		// if existingExpiresOn is provided, use it, otherwise we start over.  The expiresOn on the refreshToken basically represents
-		//  how often the user must log in.  If we are refreshing from an existing token, we should maintain the existing expiresOn.
-		const expiresOn = existingExpiresOn ? existingExpiresOn : this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
+        if (refreshTokenResult) {
+            // validate that the refreshToken has not expired
+            const now = Date.now();
+            const notExpired = refreshTokenResult.expiresOn > now;
+            if (notExpired) {
+                activeRefreshToken = refreshTokenResult;
+            }
+        }
 
-		const newRefreshToken: Partial<IRefreshToken> = {
-			token: this.generateRefreshToken(),
-			deviceId,
-			userId,
-			expiresOn: expiresOn,
-			created: moment().utc().toDate(),
-			createdBy: userId
-		};
+        return activeRefreshToken;
+    }
 
-		// delete all other refreshTokens with the same deviceId
-		//  todo: At some point, we will need to have a scheduled service go through and delete all expired refreshTokens because
-		//   many will probably just expire without ever having anyone re-login on that device.
-		const deleteResult = await this.deleteRefreshTokensForDevice(deviceId)
-		const insertResult = await this.refreshTokenService.create(EmptyUserContext, newRefreshToken);
-		return insertResult;
-	}
+    async createNewRefreshToken(userId: string, deviceId: string, existingExpiresOn: number | null = null, orgId?: string) {
+        // if existingExpiresOn is provided, use it, otherwise we start over.  The expiresOn on the refreshToken basically represents
+        //  how often the user must log in.  If we are refreshing from an existing token, we should maintain the existing expiresOn.
+        const expiresOn = existingExpiresOn ? existingExpiresOn : this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
 
-	async sendResetPasswordEmail(emailAddress: string) {
-		// create passwordResetToken
-		const expiresOn = this.getExpiresOnFromMinutes(config.auth.passwordResetTokenExpirationInMinutes);
-		const passwordResetToken = await this.passwordResetTokenService.createPasswordResetToken(emailAddress, expiresOn);
-		
-		// Check if password reset token was created successfully
-		if (!passwordResetToken) {
-			throw new ServerError(`Failed to create password reset token for email: ${emailAddress}`);
-		}
+        const newRefreshToken: Partial<IRefreshToken> = {
+			_orgId: orgId,
+            token: this.generateRefreshToken(),
+            deviceId,
+            userId,
+            expiresOn: expiresOn,
+            created: moment().utc().toDate(),
+            createdBy: userId
+        };
 
-		// create reset password link
-		const httpOrHttps = config.env === 'local' ? 'http' : 'https';
-		const urlEncodedEmail = encodeURIComponent(emailAddress);
-		const clientUrl = config.hostName
-		const resetPasswordLink = `${httpOrHttps}://${clientUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
+        // delete all other refreshTokens with the same deviceId
+        //  todo: At some point, we will need to have a scheduled service go through and delete all expired refreshTokens because
+        //   many will probably just expire without ever having anyone re-login on that device.
+        const deleteResult = await this.deleteRefreshTokensForDevice(deviceId)
+        const insertResult = await this.refreshTokenService.create(EmptyUserContext, newRefreshToken);
+        return insertResult;
+    }
 
-		const htmlEmailBody = `<strong><a href="${resetPasswordLink}">Reset Password</a></strong>`;
-		await this.emailService.sendHtmlEmail(emailAddress, `Reset Password for ${config.appName}`, htmlEmailBody);
-	}
+    async sendResetPasswordEmail(emailAddress: string) {
+        // create passwordResetToken
+        const expiresOn = this.getExpiresOnFromMinutes(config.auth.passwordResetTokenExpirationInMinutes);
+        const passwordResetToken = await this.passwordResetTokenService.createPasswordResetToken(emailAddress, expiresOn);
+        
+        // Check if password reset token was created successfully
+        if (!passwordResetToken) {
+            throw new ServerError(`Failed to create password reset token for email: ${emailAddress}`);
+        }
 
-	async resetPassword(email: string, passwordResetToken: string, password: string): Promise<UpdateResult> {
-		const lowerCaseEmail = email.toLowerCase();
-		// fetch passwordResetToken
-		const retrievedPasswordResetToken = await this.passwordResetTokenService.getByEmail(lowerCaseEmail);
-		
-		// Check if token exists
-		if (!retrievedPasswordResetToken) {
-			throw new ServerError(`Unable to retrieve password reset token for email: ${lowerCaseEmail}`);
-		}
-		
-		// Validate they sent the same token that we have saved for this email (there can only be one) and that it hasn't expired
-		if (retrievedPasswordResetToken.token !== passwordResetToken || retrievedPasswordResetToken.expiresOn < Date.now()) {
-			throw new BadRequestError('Invalid password reset token');
-		}
+        // create reset password link
+        const httpOrHttps = config.env === 'local' ? 'http' : 'https';
+        const urlEncodedEmail = encodeURIComponent(emailAddress);
+        const clientUrl = config.hostName
+        const resetPasswordLink = `${httpOrHttps}://${clientUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
-		// Validate password before attempting to change it
-		const validationErrors = entityUtils.validate(passwordValidator, { password: password });
-		entityUtils.handleValidationResult(validationErrors, 'AuthService.resetPassword');
+        const htmlEmailBody = `<strong><a href="${resetPasswordLink}">Reset Password</a></strong>`;
+        await this.emailService.sendHtmlEmail(emailAddress, `Reset Password for ${config.appName}`, htmlEmailBody);
+    }
 
-		// update user password
-		const result = await this.changePassword(EmptyUserContext, {email: lowerCaseEmail}, password);
-		console.log(`password changed using forgot-password for email: ${lowerCaseEmail}`);
+    async resetPassword(email: string, passwordResetToken: string, password: string): Promise<UpdateResult> {
+        const lowerCaseEmail = email.toLowerCase();
+        // fetch passwordResetToken
+        const retrievedPasswordResetToken = await this.passwordResetTokenService.getByEmail(lowerCaseEmail);
+        
+        // Check if token exists
+        if (!retrievedPasswordResetToken) {
+            throw new ServerError(`Unable to retrieve password reset token for email: ${lowerCaseEmail}`);
+        }
+        
+        // Validate they sent the same token that we have saved for this email (there can only be one) and that it hasn't expired
+        if (retrievedPasswordResetToken.token !== passwordResetToken || retrievedPasswordResetToken.expiresOn < Date.now()) {
+            throw new BadRequestError('Invalid password reset token');
+        }
 
-		// delete passwordResetToken
-		// todo: should we await here? I think we should not. The user successfully changed their password regardless of what happens to the resetToken
-		await this.passwordResetTokenService.deleteById(EmptyUserContext, retrievedPasswordResetToken._id.toString());
-		console.log(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
+        // Validate password before attempting to change it
+        const validationErrors = entityUtils.validate(passwordValidator, { password: password });
+        entityUtils.handleValidationResult(validationErrors, 'AuthService.resetPassword');
 
-		return result;
-	}
+        // update user password
+        const result = await this.changePassword(EmptyUserContext, {email: lowerCaseEmail}, password);
+        console.log(`password changed using forgot-password for email: ${lowerCaseEmail}`);
 
-	deleteRefreshTokensForDevice(deviceId: string) {
-		return this.refreshTokenService.deleteMany(EmptyUserContext, { filters: { deviceId: { eq: deviceId } } });
-	}
+        // delete passwordResetToken
+        // todo: should we await here? I think we should not. The user successfully changed their password regardless of what happens to the resetToken
+        await this.passwordResetTokenService.deleteById(EmptyUserContext, retrievedPasswordResetToken._id.toString());
+        console.log(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
 
-	generateJwt(payload: any) {
-		// Ensure orgId is a string before signing to prevent type inconsistencies when deserializing
-		if (payload._orgId !== undefined) {
-			payload._orgId = String(payload._orgId);
-		}
-		
-		// generate the jwt (uses jsonwebtoken library)
-		const jwtExpiryConfig = config.auth.jwtExpirationInSeconds;
-		const jwtExpirationInSeconds = (typeof jwtExpiryConfig === 'string') ? parseInt(jwtExpiryConfig) : jwtExpiryConfig;
+        return result;
+    }
 
-		const accessToken = JwtService.sign(
-			payload,
-			config.clientSecret,
-			{
-				expiresIn: jwtExpirationInSeconds
-			}
-		);
-		return accessToken;
-	};
+    deleteRefreshTokensForDevice(deviceId: string) {
+        return this.refreshTokenService.deleteMany(EmptyUserContext, { filters: { deviceId: { eq: deviceId } } });
+    }
 
-	generateRefreshToken() {
-		return crypto.randomBytes(40).toString('hex');
-	}
+    generateJwt(payload: any) {
+        // Ensure orgId is a string before signing to prevent type inconsistencies when deserializing
+        if (payload._orgId !== undefined) {
+            payload._orgId = String(payload._orgId);
+        }
+        
+        // generate the jwt (uses jsonwebtoken library)
+        const jwtExpiryConfig = config.auth.jwtExpirationInSeconds;
+        const jwtExpirationInSeconds = (typeof jwtExpiryConfig === 'string') ? parseInt(jwtExpiryConfig) : jwtExpiryConfig;
 
-	generateDeviceId() {
-		return crypto.randomBytes(40).toString('hex');
-	}
+        const accessToken = JwtService.sign(
+            payload,
+            config.clientSecret,
+            {
+                expiresIn: jwtExpirationInSeconds
+            }
+        );
+        return accessToken;
+    };
 
-	getAndSetDeviceIdCookie(req: Request, res: Response) {
-		let isNewDeviceId = false;
-		let deviceId = '';
-		const deviceIdFromCookie = this.getDeviceIdFromCookie(req);
+    generateRefreshToken() {
+        return crypto.randomBytes(40).toString('hex');
+    }
 
-		if (deviceIdFromCookie) {
-			deviceId = deviceIdFromCookie;
-		} else {
-			deviceId = this.generateDeviceId();
-			isNewDeviceId = true;
-			// todo: send out an email telling the user that there was a login from a new device
-			//const htmlEmailBody = `There has been a login from a new device. If this was not you, please reset your password immediately.`;
-			//this.emailService.sendHtmlEmail(emailAddress, 'Reset Password for Risk Answers', htmlEmailBody);
-		}
+    generateDeviceId() {
+        return crypto.randomBytes(40).toString('hex');
+    }
 
-		if (isNewDeviceId) {
-			// save deviceId as cookie on response
-			const cookieOptions: any = {
-				maxAge: config.auth.deviceIdCookieMaxAgeInDays * 24 * 60 * 60 * 1000,
-				httpOnly: true
-			};
-			
-			// save deviceId as cookie on response
-			res.cookie('deviceId', deviceId, cookieOptions);
-		}
+    getAndSetDeviceIdCookie(req: Request, res: Response) {
+        let isNewDeviceId = false;
+        let deviceId = '';
+        const deviceIdFromCookie = this.getDeviceIdFromCookie(req);
 
-		return deviceId;
-	}
+        if (deviceIdFromCookie) {
+            deviceId = deviceIdFromCookie;
+        } else {
+            deviceId = this.generateDeviceId();
+            isNewDeviceId = true;
+            // todo: send out an email telling the user that there was a login from a new device
+            //const htmlEmailBody = `There has been a login from a new device. If this was not you, please reset your password immediately.`;
+            //this.emailService.sendHtmlEmail(emailAddress, 'Reset Password for Risk Answers', htmlEmailBody);
+        }
 
-	getDeviceIdFromCookie(req: Request) {
-		//console.log(`req.cookies: ${JSON.stringify(req.cookies)}`); // todo: delete me
-		return req.cookies['deviceId'];
-	}
+        if (isNewDeviceId) {
+            // save deviceId as cookie on response
+            const cookieOptions: any = {
+                maxAge: config.auth.deviceIdCookieMaxAgeInDays * 24 * 60 * 60 * 1000,
+                httpOnly: true
+            };
+            
+            // save deviceId as cookie on response
+            res.cookie('deviceId', deviceId, cookieOptions);
+        }
 
-	getExpiresOnFromSeconds(expiresInSeconds: number) {
-		// exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
-		return Date.now() + expiresInSeconds * 1000;
-	}
+        return deviceId;
+    }
 
-	getExpiresOnFromMinutes(expiresInMinutes: number) {
-		// exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
-		return Date.now() + expiresInMinutes * 60 * 1000
-	}
+    getDeviceIdFromCookie(req: Request) {
+        return req.cookies['deviceId'];
+    }
 
-	getExpiresOnFromDays(expiresInDays: number) {
-		// exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
-		return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
-	}
+    getExpiresOnFromSeconds(expiresInSeconds: number) {
+        // exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
+        return Date.now() + expiresInSeconds * 1000;
+    }
 
-	override async preprocessEntity<U extends IUser | Partial<IUser>>(userContext: IUserContext, entity: U, isCreate: boolean, allowId: boolean): Promise<U> {
-		if (entity.email) {
-			// lowercase the email
-			entity.email = entity.email!.toLowerCase();
-		}
+    getExpiresOnFromMinutes(expiresInMinutes: number) {
+        // exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
+        return Date.now() + expiresInMinutes * 60 * 1000
+    }
 
-		if (entity.password) {
-			const hash = await passwordUtils.hashPassword(entity.password!);
-			entity.password = hash;
-		}
+    getExpiresOnFromDays(expiresInDays: number) {
+        // exactly when the token expires (in milliseconds since Jan 1, 1970 UTC)
+        return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
+    }
 
-		// Need to set default roles if new user created without a role.
-		if (isCreate && !entity.roles) {
-			entity.roles = ["user"];
-		}
-		
-		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
-		return preparedEntity;
-	}
+    override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean): Promise<Partial<IUser>> {
+        if (entity.email) {
+            // lowercase the email
+            entity.email = entity.email!.toLowerCase();
+        }
 
-	/**
-	 * Updates the user's lastLoggedIn date to the current time
-	 * This is designed to be called in a non-blocking way
-	 * @param userId The ID of the user to update
-	 */
-	private async updateLastLoggedIn(userId: string): Promise<void> {
-		try {
-			// Use Date object so it's consistent with other date fields
-			const updates = { _lastLoggedIn: moment().utc().toDate() };
-			
+        if (entity.password) {
+            const hash = await passwordUtils.hashPassword(entity.password!);
+            entity.password = hash;
+        }
+
+        // Need to set default roles if new user created without a role.
+        if (isCreate && !entity.roles) {
+            entity.roles = ["user"];
+        }
+        
+        const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
+        return preparedEntity;
+    }
+
+    /**
+     * Updates the user's lastLoggedIn date to the current time
+     * This is designed to be called in a non-blocking way
+     * @param userId The ID of the user to update
+     */
+    private async updateLastLoggedIn(userId: string): Promise<void> {
+        try {
+            // Use Date object so it's consistent with other date fields
+            const updates: Partial<IUser> = { _lastLoggedIn: moment().utc().toDate() };
 			// Use system user context to allow updating system properties
 			const systemUserContext = getSystemUserContext();
-			await this.partialUpdateById(systemUserContext, userId, updates as unknown as Partial<IUser>);
-		} catch (error) {
-			// Log error but don't throw to ensure non-blocking behavior
-			console.log(`Failed to update lastLoggedIn for user ${userId}: ${error}`);
-		}
-	}
+			await this.partialUpdateById(systemUserContext, userId, updates);
+        } catch (error) {
 
+        }
+    }
 }
