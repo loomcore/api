@@ -1,12 +1,11 @@
 import { Client } from "pg";
 import { IMigration } from "./index.js";
-import { CreateRefreshTokenTableMigration } from "./004-create-refresh-token-table.migration.js";
+import { CreateRefreshTokenTableMigration } from "./004-create-refresh-tokens-table.migration.js";
 import { CreateMigrationTableMigration } from "./001-create-migrations-table.migration.js";
 import { CreateUsersTableMigration } from "./003-create-users-table.migration.js";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 
 export async function setupDatabaseForAuth(client: Client, _orgId?: string): Promise<{success: boolean, error: Error | null}> {
-
     let runMigrations: number[] = [];
     if (await doesTableExist(client, 'migrations')) {
         const migrations = await client.query(`
@@ -27,7 +26,6 @@ export async function setupDatabaseForAuth(client: Client, _orgId?: string): Pro
         migrationsToRun.push(new CreateUsersTableMigration(client));
     if (!runMigrations.includes(4))
         migrationsToRun.push(new CreateRefreshTokenTableMigration(client));
-
 
     for (const migration of migrationsToRun) {
         await migration.execute(_orgId);

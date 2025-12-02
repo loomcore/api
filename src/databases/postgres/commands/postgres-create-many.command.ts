@@ -1,9 +1,7 @@
 import { Client } from 'pg';
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
 import { randomUUID } from 'crypto';
-import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
-import _ from 'lodash';
 
 export async function createMany<T extends IEntity>(
     client: Client,

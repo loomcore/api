@@ -48,17 +48,17 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       this.database = testDatabase;
       this.postgresClient = postgresClient;
-      let success = await setupDatabaseForMultitenant(postgresClient, 'Test Org', 'test-org');
+      let success = (await setupDatabaseForMultitenant(postgresClient, 'Test Org', 'test-org')).success;
       if (!success) {
         throw new Error('Failed to setup for multitenant');
       }
 
-      success = await setupDatabaseForAuth(postgresClient, testOrg._id);
+      success = (await setupDatabaseForAuth(postgresClient, testOrg._id)).success;
       if (!success) {
         throw new Error('Failed to setup for auth');
       }
 
-      success = await runTestMigrations(postgresClient, testOrg._id);
+      success = (await runTestMigrations(postgresClient, testOrg._id)).success;
       if (!success) {
         throw new Error('Failed to run test migrations');
       }

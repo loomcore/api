@@ -3,7 +3,7 @@ import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 
 //TODO: merge these into an atomic transaction
-export class CreateOrganizationTableMigration implements IMigration {
+export class CreateOrganizationsTableMigration implements IMigration {
     constructor(private readonly client: Client, private readonly orgName: string, private readonly orgCode: string) {
     }
 
@@ -11,7 +11,6 @@ export class CreateOrganizationTableMigration implements IMigration {
 
     async execute(_orgId?: string) {
         const _id = randomUUID().toString();
-        const _orgIdToUse = _orgId || randomUUID().toString();
         try {
             await this.client.query(`
             CREATE TABLE "organizations" (
@@ -32,26 +31,20 @@ export class CreateOrganizationTableMigration implements IMigration {
             `);
         } catch (error: any) {
             if (error.code === '42P07' || error.data?.error?.includes('already exists')) {
-                return { success: true, error: null };
+                console.log(`Organization table already exists`);
             } else {
                 return { success: false, error: new Error(`Error creating organization table: ${error.message}`) };
             }
         }
 
         try {
-            await this.client.query(`
-                INSERT INTO "organizations" ("_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
-                VALUES ('${_orgIdToUse}', '${this.orgName}', '${this.orgCode}', 1, true, NOW(), 'system', NOW(), 'system');
-            `);
-        } catch (error: any) {
-            return { success: false, error: new Error(`Error creating meta organization: ${error.message}`) };
-        }
-
-        try {
-            await this.client.query(`
+            const result = await this.client.query(`
                 INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                VALUES ('${_id}', '${_orgIdToUse}', ${this.index}, TRUE, FALSE);
+                VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
             `);
+            if (result.rowCount === 0) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
+            }
         } catch (error: any) {
             return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
@@ -61,11 +54,14 @@ export class CreateOrganizationTableMigration implements IMigration {
 
     async revert(_orgId?: string) {
         try {
-            await this.client.query(`
-            DROP TABLE "organizations";
-        `);
+            const result = await this.client.query(`
+                DROP TABLE "organizations";
+            `);
+            if (result.rowCount === 0) {
+                return { success: false, error: new Error(`Error dropping organizations table: No row returned`) };
+            }
         } catch (error: any) {
-            return { success: false, error: new Error(`Error dropping organizations table: ${error.message}`) };
+            return { success: false, error: new Error(`Error dropping organizations table for orgId ${_orgId}: ${error.message}`) };
         }
 
         try {
@@ -74,12 +70,12 @@ export class CreateOrganizationTableMigration implements IMigration {
             `);
             if (result.rowCount === 0) {
                 return {
-                    success: false, error: new Error(`Error updating migration record: Migration record not found.
+                    success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: Migration record not found.
                     Migration index: ${this.index}, _orgId: ${_orgId}`)
                 };
             }
         } catch (error: any) {
-            return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };
+            return { success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: ${error.message}`) };
         }
 
         return { success: true, error: null };
