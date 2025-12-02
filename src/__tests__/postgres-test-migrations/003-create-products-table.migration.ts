@@ -8,7 +8,7 @@ export class CreateProductsTableMigration implements IMigration {
 
     index = 3;
     _id = randomUUID().toString();
-    async execute(): Promise<boolean> {
+    async execute() {
         try {
             await this.client.query(`
                 CREATE TABLE "products" (
@@ -26,35 +26,48 @@ export class CreateProductsTableMigration implements IMigration {
                     "_deletedBy" VARCHAR(255)
                 )
             `);
-            if (this.orgId) {
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error creating products table: ${error.message}`) };
+        }
+
+        if (this.orgId) {
+            try {
                 await this.client.query(`
                     Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
                 `);
-            } else {
+            } catch (error: any) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
+            }
+        } else {
+            try {
                 await this.client.query(`
                     Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${this._id}', ${this.index}, TRUE, FALSE);
                 `);
+            } catch (error: any) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
             }
-            return true;
-        } catch (error: any) {
-            console.error('Error creating products table:', error);
-            return false;
         }
-        return true;
+
+        return { success: true, error: null };
     }
 
-    async revert(): Promise<boolean> {
+    async revert() {
         try {
             await this.client.query(`
                 DROP TABLE "products";
             `);
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error dropping products table: ${error.message}`) };
+        }
+
+        try {
             await this.client.query(`
                 Update "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
             `);
         } catch (error: any) {
-            console.error('Error reverting products table:', error);
-            return false;
+            return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };
         }
-        return true;
+
+        return { success: true, error: null };
     }
 }

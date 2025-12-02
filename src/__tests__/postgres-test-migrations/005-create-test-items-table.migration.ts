@@ -9,7 +9,7 @@ export class CreateTestItemsTableMigration implements IMigration {
 
     index = 5;
     _id = randomUUID().toString();
-    async execute(): Promise<boolean> {
+    async execute() {
         try {
             await this.client.query(`
                 CREATE TABLE "testItems" (
@@ -27,24 +27,47 @@ export class CreateTestItemsTableMigration implements IMigration {
                 )
             `);
         } catch (error: any) {
-            console.error('Error creating test items table:', error);
-            return false;
+            return { success: false, error: new Error(`Error creating test items table: ${error.message}`) };
         }
-        return true;
+
+        if (this.orgId) {
+            try {
+                await this.client.query(`
+                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+                `);
+            } catch (error: any) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
+            }
+        } else {
+            try {
+                await this.client.query(`
+                    Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${this._id}', ${this.index}, TRUE, FALSE);
+                `);
+            } catch (error: any) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
+            }
+        }
+
+        return { success: true, error: null };
     }
 
-    async revert(): Promise<boolean> {
+    async revert() {
         try {
             await this.client.query(`
                 DROP TABLE "testItems";
             `);
         } catch (error: any) {
+            return { success: false, error: new Error(`Error dropping test items table: ${error.message}`) };
+        }
+
+        try {
             await this.client.query(`
                 Update "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
             `);
-            console.error('Error reverting test items table:', error);
-            return false;
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };
         }
-        return true;
+
+        return { success: true, error: null };
     }
 }

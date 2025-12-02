@@ -5,7 +5,7 @@ import { CreateProductsTableMigration } from "./003-create-products-table.migrat
 import { CreateTestUsersTableMigration } from "./004-create-test-users-table.migration.js";
 import { CreateTestItemsTableMigration } from "./005-create-test-items-table.migration.js";
 
-export async function runTestMigrations(client: Client, orgId?: string): Promise<boolean> {
+export async function runTestMigrations(client: Client, orgId?: string): Promise<{success: boolean, error: Error | null}> {
     const migrations = [
         new CreateTestEntitiesTableMigration(client, orgId),
         new CreateCategoriesTableMigration(client, orgId),
@@ -14,12 +14,12 @@ export async function runTestMigrations(client: Client, orgId?: string): Promise
         new CreateTestItemsTableMigration(client, orgId),
     ];
 
-    let success = true;
-    for (const migration of migrations) {
-        success = await migration.execute();
-        if (!success) {
-            return false;
+    try {
+        for (const migration of migrations) {
+            await migration.execute();
         }
+    } catch (error: any) {
+        return { success: false, error: error };
     }
-    return success;
+    return { success: true, error: null };
 }

@@ -7,10 +7,10 @@ export class CreateMigrationTableMigration implements IMigration {
     }
     index = 1;
     _id = randomUUID().toString();
-    async execute(): Promise<boolean> {
+    async execute() {
         let alreadyRun = false;
         try {
-                await this.client.query(`
+            await this.client.query(`
                 CREATE TABLE "migrations" (
                     "_id" VARCHAR(255) PRIMARY KEY,
                     "_orgId" VARCHAR(255),
@@ -23,27 +23,36 @@ export class CreateMigrationTableMigration implements IMigration {
             if (error.data.error.includes('already exists')) {
                 alreadyRun = true;
             } else {
-                throw error;
+                return { success: false, error: new Error(`Error creating migrations table: ${error.message}`) };
             }
         }
         if (!alreadyRun) {
-            if (this.orgId) {
-                await this.client.query(`
-                INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") VALUES ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+            try {
+                if (this.orgId) {
+                    await this.client.query(`
+                        INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
+                        VALUES ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);`);
+                } else {
+                    await this.client.query(`
+                        INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                        VALUES ('${this._id}', ${this.index}, TRUE, FALSE);
             `);
-            } else {
-                await this.client.query(`
-                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted") VALUES ('${this._id}', ${this.index}, TRUE, FALSE);
-            `);
+                }
+            } catch (error: any) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
             }
         }
-        return true;
+        return { success: true, error: null };
     }
 
-    async revert(): Promise<boolean> {
-        await this.client.query(`
+    async revert() {
+        try {
+            await this.client.query(`
             DROP TABLE "migrations";
         `);
-        return true;
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error reverting migration ${this.index} from migrations table: ${error.message}`) };
+        }
+        return { success: true, error: null };
     }
 }
