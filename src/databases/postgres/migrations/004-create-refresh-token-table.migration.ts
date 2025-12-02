@@ -3,12 +3,12 @@ import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 
 export class CreateRefreshTokenTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId?: string) {
+    constructor(private readonly client: Client) {
     }
 
     index = 4;
-    _id = randomUUID().toString();
-    async execute() {
+    async execute(_orgId?: string) {
+        const _id = randomUUID().toString();
         try {
             await this.client.query(`
                 CREATE TABLE "refreshTokens" (
@@ -23,14 +23,18 @@ export class CreateRefreshTokenTableMigration implements IMigration {
                 )
             `);
         } catch (error: any) {
-            return { success: false, error: new Error(`Error creating refresh token table: ${error.message}`) };
+            if (error.code === '42P07' || error.data?.error?.includes('already exists')) {
+                return { success: true, error: null };
+            } else {
+                return { success: false, error: new Error(`Error creating refresh token table: ${error.message}`) };
+            }
         }
 
-        if (this.orgId) {
+        if (_orgId) {
             try {
                 await this.client.query(`
                     INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                    VALUES ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+                    VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
                 `);
             } catch (error: any) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
@@ -39,7 +43,7 @@ export class CreateRefreshTokenTableMigration implements IMigration {
             try {
                 await this.client.query(`
                     INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
-                    VALUES ('${this._id}', ${this.index}, TRUE, FALSE);
+                    VALUES ('${_id}', ${this.index}, TRUE, FALSE);
                 `);
             } catch (error: any) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
@@ -49,7 +53,7 @@ export class CreateRefreshTokenTableMigration implements IMigration {
         return { success: true, error: null };
     }
 
-    async revert() {
+    async revert(_orgId?: string) {
         try {
             await this.client.query(`
                 DROP TABLE "refreshTokens";
@@ -60,7 +64,7 @@ export class CreateRefreshTokenTableMigration implements IMigration {
 
         try {
             await this.client.query(`
-                UPDATE "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
+                UPDATE "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
             `);
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };

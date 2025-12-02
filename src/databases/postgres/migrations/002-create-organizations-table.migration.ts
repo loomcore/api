@@ -3,12 +3,14 @@ import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 
 export class CreateOrganizationTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId: string) {
+    constructor(private readonly client: Client, private readonly orgName: string, private readonly orgCode: string) {
     }
 
     index = 2;
-    _id = randomUUID().toString();
-    async execute() {
+
+    async execute(_orgId?: string) {
+        const _id = randomUUID().toString();
+        const _orgIdToUse = _orgId || randomUUID().toString();
         try {
             await this.client.query(`
             CREATE TABLE "organizations" (
@@ -28,13 +30,26 @@ export class CreateOrganizationTableMigration implements IMigration {
                 )
             `);
         } catch (error: any) {
-            return { success: false, error: new Error(`Error creating organization table: ${error.message}`) };
+            if (error.code === '42P07' || error.data?.error?.includes('already exists')) {
+                return { success: true, error: null };
+            } else {
+                return { success: false, error: new Error(`Error creating organization table: ${error.message}`) };
+            }
+        }
+
+        try {
+            await this.client.query(`
+                INSERT INTO "organizations" ("_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
+                VALUES ('${_orgIdToUse}', '${this.orgName}', '${this.orgCode}', 1, true, NOW(), 'system', NOW(), 'system');
+            `);
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
 
         try {
             await this.client.query(`
                 INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                VALUES ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+                VALUES ('${_id}', '${_orgIdToUse}', ${this.index}, TRUE, FALSE);
             `);
         } catch (error: any) {
             return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
@@ -43,7 +58,7 @@ export class CreateOrganizationTableMigration implements IMigration {
         return { success: true, error: null };
     }
 
-    async revert() {
+    async revert(_orgId?: string) {
         try {
             await this.client.query(`
             DROP TABLE "organizations";
@@ -54,7 +69,7 @@ export class CreateOrganizationTableMigration implements IMigration {
 
         try {
             await this.client.query(`
-                Update "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
+                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
             `);
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };

@@ -3,10 +3,10 @@ import { IMigration } from "./index.js";
 import { CreateMigrationTableMigration } from "./001-create-migrations-table.migration.js";
 import { CreateOrganizationTableMigration } from "./002-create-organizations-table.migration.js";
 
-export async function setupDatabaseForMultitenant(client: Client, orgId: string): Promise<{success: boolean, error: Error | null}> {
+export async function setupDatabaseForMultitenant(client: Client, orgName: string, orgCode: string): Promise<{success: boolean, error: Error | null}> {
     const migrations: IMigration[] = [
-        new CreateMigrationTableMigration(client, orgId),
-        new CreateOrganizationTableMigration(client, orgId),
+        new CreateMigrationTableMigration(client),
+        new CreateOrganizationTableMigration(client, orgName, orgCode),
     ];
 
     try {

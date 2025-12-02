@@ -5,18 +5,18 @@ import { CreateProductsTableMigration } from "./003-create-products-table.migrat
 import { CreateTestUsersTableMigration } from "./004-create-test-users-table.migration.js";
 import { CreateTestItemsTableMigration } from "./005-create-test-items-table.migration.js";
 
-export async function runTestMigrations(client: Client, orgId?: string): Promise<{success: boolean, error: Error | null}> {
+export async function runTestMigrations(client: Client, _orgId?: string): Promise<{success: boolean, error: Error | null}> {
     const migrations = [
-        new CreateTestEntitiesTableMigration(client, orgId),
-        new CreateCategoriesTableMigration(client, orgId),
-        new CreateProductsTableMigration(client, orgId),
-        new CreateTestUsersTableMigration(client, orgId),
-        new CreateTestItemsTableMigration(client, orgId),
+        new CreateTestEntitiesTableMigration(client),
+        new CreateCategoriesTableMigration(client),
+        new CreateProductsTableMigration(client),
+        new CreateTestUsersTableMigration(client),
+        new CreateTestItemsTableMigration(client),
     ];
 
     try {
         for (const migration of migrations) {
-            await migration.execute();
+            await migration.execute(_orgId);
         }
     } catch (error: any) {
         return { success: false, error: error };

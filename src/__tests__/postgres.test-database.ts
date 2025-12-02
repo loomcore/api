@@ -48,7 +48,7 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       this.database = testDatabase;
       this.postgresClient = postgresClient;
-      let success = await setupDatabaseForMultitenant(postgresClient, testOrg._id);
+      let success = await setupDatabaseForMultitenant(postgresClient, 'Test Org', 'test-org');
       if (!success) {
         throw new Error('Failed to setup for multitenant');
       }

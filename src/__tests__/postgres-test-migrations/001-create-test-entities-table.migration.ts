@@ -3,12 +3,12 @@ import { IMigration } from "../../databases/postgres/migrations/migration.interf
 import { randomUUID } from "crypto";
 
 export class CreateTestEntitiesTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId?: string) {
+    constructor(private readonly client: Client) {
     }
     index = 1;
-    _id = randomUUID().toString();
 
-    async execute() {
+    async execute(_orgId?: string) {
+        const _id = randomUUID().toString();
         try {
             await this.client.query(`
                 CREATE TABLE "testEntities" (
@@ -31,10 +31,10 @@ export class CreateTestEntitiesTableMigration implements IMigration {
             return { success: false, error: new Error(`Error creating test entities table: ${error.message}`) };
         }
 
-        if (this.orgId) {
+        if (_orgId) {
             try {
                 await this.client.query(`
-                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);
+                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
                 `);
             } catch (error: any) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
@@ -42,7 +42,7 @@ export class CreateTestEntitiesTableMigration implements IMigration {
         } else {
             try {
                 await this.client.query(`
-                    Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${this._id}', ${this.index}, TRUE, FALSE);
+                    Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${_id}', ${this.index}, TRUE, FALSE);
                 `);
             } catch (error: any) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
@@ -52,7 +52,7 @@ export class CreateTestEntitiesTableMigration implements IMigration {
         return { success: true, error: null };
     }
 
-    async revert() {
+    async revert(_orgId?: string) {
         try {
             await this.client.query(`
                 DROP TABLE test_entities;
@@ -63,7 +63,7 @@ export class CreateTestEntitiesTableMigration implements IMigration {
 
         try {
             await this.client.query(`
-                Update "migrations" SET "reverted" = TRUE WHERE "_id" = '${this._id}';
+                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
             `);
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };

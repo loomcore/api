@@ -3,12 +3,11 @@ import { IMigration } from "./migration.interface.js";
 import { randomUUID } from 'crypto';
 
 export class CreateMigrationTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgId?: string) {
+    constructor(private readonly client: Client) {
     }
     index = 1;
-    _id = randomUUID().toString();
-    async execute() {
-        let alreadyRun = false;
+    async execute(_orgId?: string) {
+        const _id = randomUUID().toString();
         try {
             await this.client.query(`
                 CREATE TABLE "migrations" (
@@ -20,32 +19,31 @@ export class CreateMigrationTableMigration implements IMigration {
                 )
             `);
         } catch (error: any) {
-            if (error.data.error.includes('already exists')) {
-                alreadyRun = true;
+            if (error.code === '42P07' || error.data?.error?.includes('already exists')) {
+                return { success: true, error: null };
             } else {
                 return { success: false, error: new Error(`Error creating migrations table: ${error.message}`) };
             }
         }
-        if (!alreadyRun) {
-            try {
-                if (this.orgId) {
-                    await this.client.query(`
-                        INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                        VALUES ('${this._id}', '${this.orgId}', ${this.index}, TRUE, FALSE);`);
-                } else {
-                    await this.client.query(`
-                        INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
-                        VALUES ('${this._id}', ${this.index}, TRUE, FALSE);
+        try {
+            if (_orgId) {
+                await this.client.query(`
+                    INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
+                    VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);`);
+            } else {
+                await this.client.query(`
+                    INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                    VALUES ('${_id}', ${this.index}, TRUE, FALSE);
             `);
-                }
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
             }
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
+
         return { success: true, error: null };
     }
 
-    async revert() {
+    async revert(_orgId?: string) {
         try {
             await this.client.query(`
             DROP TABLE "migrations";

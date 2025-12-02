@@ -4,16 +4,16 @@ import { CreateRefreshTokenTableMigration } from "./004-create-refresh-token-tab
 import { CreateMigrationTableMigration } from "./001-create-migrations-table.migration.js";
 import { CreateUsersTableMigration } from "./003-create-users-table.migration.js";
 
-export async function setupDatabaseForAuth(client: Client, orgId?: string): Promise<{success: boolean, error: Error | null}> {
+export async function setupDatabaseForAuth(client: Client, _orgId?: string): Promise<{success: boolean, error: Error | null}> {
     const migrations: IMigration[] = [
-        new CreateMigrationTableMigration(client, orgId),
-        new CreateUsersTableMigration(client, orgId),
-        new CreateRefreshTokenTableMigration(client, orgId),
+        new CreateMigrationTableMigration(client),
+        new CreateUsersTableMigration(client),
+        new CreateRefreshTokenTableMigration(client),
     ];
 
     try {
         for (const migration of migrations) {
-            await migration.execute();
+            await migration.execute(_orgId);
         }
     } catch (error: any) {
         return { success: false, error: error };
