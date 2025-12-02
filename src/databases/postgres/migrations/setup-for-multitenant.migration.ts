@@ -1,13 +1,13 @@
 import { Client } from "pg";
-import { IMigration } from "./index.js";
 import { CreateMigrationTableMigration } from "./001-create-migrations-table.migration.js";
 import { CreateOrganizationsTableMigration } from "./002-create-organizations-table.migration.js";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 import { CreateMetaOrgMigration } from "./005-create-meta-org.migration.js";
+import { randomUUID } from 'crypto';
 
 export async function setupDatabaseForMultitenant(client: Client, orgName: string, orgCode: string): Promise<{ success: boolean, metaOrgId: string | undefined, error: Error | null }> {
     let runMigrations: number[] = [];
-    let metaOrgId: string | undefined = undefined;
+    const metaOrgId: string = randomUUID().toString();
 
     if (await doesTableExist(client, 'migrations')) {
         const migrations = await client.query(`
@@ -29,9 +29,9 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
         }
     }
 
-    if (!runMigrations.includes(2)){
+    if (!runMigrations.includes(2)) {
         const createOrganizationTableMigration = new CreateOrganizationsTableMigration(client, orgName, orgCode);
-        const result = await createOrganizationTableMigration.execute();
+        const result = await createOrganizationTableMigration.execute(metaOrgId);
         if (!result.success) {
             console.log('setupDatabaseForMultitenant: error creating organizations table', result.error);
             return { success: false, metaOrgId: metaOrgId, error: result.error };
@@ -40,12 +40,11 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
 
     if (!runMigrations.includes(5)) {
         const createMetaOrgMigration = new CreateMetaOrgMigration(client, orgName, orgCode);
-        const result = await createMetaOrgMigration.execute();
+        const result = await createMetaOrgMigration.execute(metaOrgId);
         if (!result.success || !result.metaOrgId) {
             console.log('setupDatabaseForMultitenant: error creating meta org', result.error);
             return { success: false, metaOrgId: metaOrgId, error: result.error };
         }
-        metaOrgId = result.metaOrgId;
     }
 
     return { success: true, metaOrgId: metaOrgId, error: null };
