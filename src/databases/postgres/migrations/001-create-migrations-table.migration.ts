@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from 'crypto';
 
+//TODO: merge these into an atomic transaction
 export class CreateMigrationTableMigration implements IMigration {
     constructor(private readonly client: Client) {
     }

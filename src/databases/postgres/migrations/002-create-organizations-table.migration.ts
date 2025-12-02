@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 
+//TODO: merge these into an atomic transaction
 export class CreateOrganizationTableMigration implements IMigration {
     constructor(private readonly client: Client, private readonly orgName: string, private readonly orgCode: string) {
     }
@@ -43,7 +44,7 @@ export class CreateOrganizationTableMigration implements IMigration {
                 VALUES ('${_orgIdToUse}', '${this.orgName}', '${this.orgCode}', 1, true, NOW(), 'system', NOW(), 'system');
             `);
         } catch (error: any) {
-            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
+            return { success: false, error: new Error(`Error creating meta organization: ${error.message}`) };
         }
 
         try {
@@ -68,9 +69,15 @@ export class CreateOrganizationTableMigration implements IMigration {
         }
 
         try {
-            await this.client.query(`
+            const result = await this.client.query(`
                 Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
             `);
+            if (result.rowCount === 0) {
+                return {
+                    success: false, error: new Error(`Error updating migration record: Migration record not found.
+                    Migration index: ${this.index}, _orgId: ${_orgId}`)
+                };
+            }
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };
         }
