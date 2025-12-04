@@ -5,7 +5,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
 import { AuthService } from '../../services/index.js';
 import { EmptyUserContext } from '@loomcore/common/models';
-import { getTestUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 
 describe('AuthController', () => {
   let authService: AuthService;
@@ -16,13 +16,13 @@ describe('AuthController', () => {
     const testSetup = await TestExpressApp.init();
     testAgent = testSetup.agent;
     testDb = testSetup.database;
-    
+
     // Initialize the AuthController with the Express app and database
     new AuthController(testSetup.app, testSetup.database);
     authService = new AuthService(testSetup.database);
     // Setup error handling middleware AFTER controller initialization
     await TestExpressApp.setupErrorHandling();
-    
+
     // Set up test user data
     await testUtils.setupTestUser();
   });
@@ -36,13 +36,13 @@ describe('AuthController', () => {
 
     it('should return a 200, an accessToken, and a userContext if correct credentials are given', async () => {
       const user = {
-        email: getTestUser().email,
-        password: getTestUser().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
-      
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)
@@ -54,13 +54,13 @@ describe('AuthController', () => {
 
     it('should return a user object with a string _id', async () => {
       const user = {
-        email: getTestUser().email,
-        password: getTestUser().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
-      
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)
@@ -71,13 +71,13 @@ describe('AuthController', () => {
 
     it('should allow email to be case insensitive', async () => {
       const user = {
-        email: getTestUser().email,
-        password: getTestUser().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
-      
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)
@@ -92,10 +92,10 @@ describe('AuthController', () => {
         email: 'yourmom97@mom.com',
         password: 'yourmom'
       };
-      
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)
@@ -104,13 +104,13 @@ describe('AuthController', () => {
 
     it('should return a 400 if password is incorrect', async () => {
       const user = {
-        email: getTestUser().email,
+        email: getTestMetaOrgUser().email,
         password: 'yourmom'
       };
-      
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)
@@ -119,33 +119,33 @@ describe('AuthController', () => {
 
     it('should update the user\'s _lastLoggedIn property in the database after successful login', async () => {
       const user = {
-        email: getTestUser().email,
-        password: getTestUser().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
-      
+
       // Get the user before login to check initial state
-      const userBeforeLogin = await authService.getById(EmptyUserContext, getTestUser()._id);
-      
+      const userBeforeLogin = await authService.getById(EmptyUserContext, getTestMetaOrgUser()._id);
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)
         .expect(200);
 
       expect(response.body?.data?.tokens?.accessToken).toBeDefined();
-      
+
       // Wait a moment for the async _lastLoggedIn update to complete
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await authService.getById(EmptyUserContext, getTestUser()._id);
+      const userAfterLogin = await authService.getById(EmptyUserContext, getTestMetaOrgUser()._id);
 
       // The user should have a _lastLoggedIn property after login
       expect(userAfterLogin?._lastLoggedIn).toBeDefined();
       expect(userAfterLogin?._lastLoggedIn).toBeInstanceOf(Date);
-      
+
       // The _lastLoggedIn should be more recent than the user's _created time
       if (userBeforeLogin?._lastLoggedIn) {
         expect(userAfterLogin?._lastLoggedIn?.getTime()).toBeGreaterThan(userBeforeLogin._lastLoggedIn.getTime());
@@ -159,13 +159,13 @@ describe('AuthController', () => {
 
     it('should not return any sensitive information in the usercontext', async () => {
       const user = {
-        email: getTestUser().email,
-        password: getTestUser().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
-      
+
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
-      
+
       const response = await testAgent
         .post(apiEndpoint)
         .send(user)

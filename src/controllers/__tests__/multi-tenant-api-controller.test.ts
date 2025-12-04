@@ -11,7 +11,7 @@ import { MultiTenantApiService } from '../../services/multi-tenant-api.service.j
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 
 // Create a test service that uses MultiTenantApiService
@@ -54,11 +54,11 @@ describe('ApiController with MultiTenantApiService', () => {
     testAgent = testSetup.agent;
 
     await testUtils.setupTestUser();
-    
+
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
-    userId = getTestUser()._id;
-    
+    userId = getTestMetaOrgUser()._id;
+
     // Create service and controller instances
     testItemController = new TestItemController(app, database);
     testItemService = testItemController.testItemService;
@@ -71,7 +71,7 @@ describe('ApiController with MultiTenantApiService', () => {
   });
 
   beforeEach(async () => {
-    
+
   });
 
   // todo: to make this fail (change _orgId back to orgId in auth.controller line 62), and change the test to ACTUALLY call login endpoint first
@@ -84,11 +84,11 @@ describe('ApiController with MultiTenantApiService', () => {
       const response = await testAgent
         .get('/api/test-items')
         .set('Authorization', authorizationHeaderValue);
-      
+
       // Test passes if the request succeeds (no error about missing orgId)
       expect(response.status).toBe(200);
     });
-    
+
   });
 });
 

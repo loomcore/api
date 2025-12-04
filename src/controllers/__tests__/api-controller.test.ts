@@ -10,7 +10,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 
 // Test service and controller
@@ -91,15 +91,15 @@ describe('ApiController - Integration Tests', () => {
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;
-    
+
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
-    userId = getTestUser()._id;
-    
+    userId = getTestMetaOrgUser()._id;
+
     // Create service and controller instances
     controller = new TestItemController(app, database);
     service = controller.testItemService;
-    
+
     // Create user service and controller
     usersController = new TestUserController(app, database);
     userService = usersController.testUserService;
@@ -134,7 +134,7 @@ describe('ApiController - Integration Tests', () => {
       const getResponse = await testAgent
         .get(`/api/test-items/${itemId}`)
         .set('Authorization', authToken);
-      
+
       // Assertions
       expect(getResponse.status).toBe(200);
       const fetchedItem = getResponse.body.data;
@@ -152,7 +152,7 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Test Item' });
-        
+
       // Assertions
       expect(response.status).toBe(201);
       expect(response.body.data).toHaveProperty('_created');
@@ -167,31 +167,31 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Name', value: 100 });
-      
+
       expect(createResponse.status).toBe(201);
-      
+
       // Extract the entity from the response
       const originalItem = createResponse.body.data;
       expect(originalItem).toBeDefined();
       expect(originalItem._id).toBeDefined();
 
       const itemId = originalItem._id;
-      
+
       // Wait a bit to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Update with PATCH
       const updateResponse = await testAgent
         .patch(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
         .send({ name: 'Updated Name' });
-      
+
       expect(updateResponse.status).toBe(200);
-      
+
       // Extract the updated entity
       const updatedItem = updateResponse.body.data;
       expect(updatedItem).toBeDefined();
-      
+
       // Verify audit properties
       expect(updatedItem._created).toEqual(originalItem._created);
       expect(updatedItem._createdBy).toEqual(originalItem._createdBy);
@@ -205,34 +205,34 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Name', value: 100 });
-      
+
       expect(createResponse.status).toBe(201);
-      
+
       // Extract the entity from the response
       const originalItem = createResponse.body.data;
       expect(originalItem).toBeDefined();
       expect(originalItem._id).toBeDefined();
-      
+
       const itemId = originalItem._id;
-      
+
       // Wait a bit to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Update with PUT - include all required fields
       const updateResponse = await testAgent
         .put(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
-        .send({ 
-          name: 'New Name', 
+        .send({
+          name: 'New Name',
           value: 200
         });
-      
+
       expect(updateResponse.status).toBe(200);
-      
+
       // Extract the updated entity
       const updatedItem = updateResponse.body.data;
       expect(updatedItem).toBeDefined();
-      
+
       // Verify audit properties
       expect(updatedItem._created).toEqual(originalItem._created);
       expect(updatedItem._createdBy).toEqual(originalItem._createdBy);
@@ -246,35 +246,35 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Item' });
-      
+
       expect(createResponse.status).toBe(201);
-      
+
       // Extract the entity from the response
       const originalItem = createResponse.body.data;
       expect(originalItem).toBeDefined();
       expect(originalItem._id).toBeDefined();
-      
+
       const itemId = originalItem._id;
-      
+
       // Try to tamper with audit properties during update
       const tamperedDate = new Date(2000, 1, 1).toISOString();
       const updateResponse = await testAgent
         .patch(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
-        .send({ 
+        .send({
           name: 'Tampered Item',
           _created: tamperedDate,
           _createdBy: 'hacker',
           _updated: tamperedDate,
           _updatedBy: 'hacker'
         });
-      
+
       expect(updateResponse.status).toBe(200);
-      
+
       // Extract the updated entity
       const updatedItem = updateResponse.body.data;
       expect(updatedItem).toBeDefined();
-      
+
       // Verify tamper attempt failed
       expect(updatedItem._created).toEqual(originalItem._created);
       expect(updatedItem._createdBy).toEqual(originalItem._createdBy);
@@ -290,27 +290,27 @@ describe('ApiController - Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ name: 'Item 1', value: 10 })
         .expect(201);
-      
+
       const item2Response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Item 2', value: 20 })
         .expect(201);
-      
+
       // Get all items via HTTP
       const response = await testAgent
         .get('/api/test-items')
         .set('Authorization', authToken)
         .expect(200);
-      
+
       // ApiController returns responses wrapped in IApiResponse format with paged result
       const pagedResult = response.body.data;
       const items = pagedResult?.entities;
-      
+
       // Verify we got an array of items
       expect(Array.isArray(items)).toBe(true);
       expect(items.length).toBeGreaterThan(0);
-      
+
       // Verify all items have audit properties
       items.forEach((item: any) => {
         expect(item).toHaveProperty('_created');
@@ -326,27 +326,27 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Single Item', value: 42 });
-      
+
       expect(createResponse.status).toBe(201);
-      
+
       // Extract the entity and ID from the response
       const createdItem = createResponse.body.data;
       expect(createdItem).toBeDefined();
-      
+
       const itemId = createdItem._id;
       expect(itemId).toBeDefined();
-      
+
       // Get the item
       const getResponse = await testAgent
         .get(`/api/test-items/${itemId}`)
         .set('Authorization', authToken);
-      
+
       expect(getResponse.status).toBe(200);
-      
+
       // Extract the retrieved entity
       const retrievedItem = getResponse.body.data;
       expect(retrievedItem).toBeDefined();
-      
+
       // Verify audit properties
       expect(retrievedItem).toHaveProperty('_created');
       expect(retrievedItem).toHaveProperty('_createdBy', userId);
@@ -364,29 +364,29 @@ describe('ApiController - Integration Tests', () => {
         firstName: 'Test',
         lastName: 'User'
       };
-      
+
       try {
         // Create a new user with auth
         const response = await testAgent
           .post('/api/test-users')
           .set('Authorization', authToken)
           .send(testUser);
-        
+
         expect(response.status).toBe(201);
-        
+
         // Check if the response is wrapped in a success/data format
         const entity = response.body.data;
-        
+
         expect(entity).toBeDefined();
-        
+
         // Verify user properties
         expect(entity.email).toBe('testuser@example.com');
         expect(entity.firstName).toBe('Test');
         expect(entity.lastName).toBe('User');
-        
+
         // Verify password is not included (removed by public schema)
         expect(entity).not.toHaveProperty('password');
-        
+
         // Verify audit properties are present - this is what our test is checking for
         expect(entity).toHaveProperty('_created');
         expect(entity).toHaveProperty('_createdBy', userId);
@@ -397,7 +397,7 @@ describe('ApiController - Integration Tests', () => {
         throw error;
       }
     });
-    
+
     it('should return 401 when trying to access secured endpoint without authentication', async () => {
       // Make a request without authorization header
       const response = await testAgent
@@ -422,26 +422,26 @@ describe('ApiController - Integration Tests', () => {
         anotherExtraProperty: 999,
         nestedExtra: { foo: 'bar' }
       };
-      
+
       // Act - Create via controller endpoint
       const response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send(testEntity);
-      
+
       // Assert
       expect(response.status).toBe(201);
       const createdEntity = response.body.data;
-      
+
       expect(createdEntity).toBeDefined();
       expect(createdEntity.name).toBe(testEntity.name);
       expect(createdEntity.value).toBe(testEntity.value);
-      
+
       // Check that extra properties were stripped out
       expect(createdEntity.extraProperty).toBeUndefined();
       expect(createdEntity.anotherExtraProperty).toBeUndefined();
       expect(createdEntity.nestedExtra).toBeUndefined();
-      
+
       // Check that system properties were preserved/added
       expect(createdEntity._id).toBeDefined();
       expect(createdEntity._created).toBeDefined();
@@ -457,13 +457,13 @@ describe('ApiController - Integration Tests', () => {
         value: 42,
         extraProperty: 'Extra'
       };
-      
+
       // Act & Assert
       const response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send(invalidEntity);
-      
+
       expect(response.status).toBe(400); // Should be a validation error
     });
 
@@ -473,21 +473,21 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Valid Item', value: 100 });
-      
+
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
-      
+
       // Try to update with invalid data
       const invalidUpdate = {
         name: '', // Empty string should fail validation
         value: 'not a number' // Wrong type
       };
-      
+
       const response = await testAgent
         .patch(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
         .send(invalidUpdate);
-      
+
       expect(response.status).toBe(400); // Should be a validation error
     });
 
@@ -497,25 +497,25 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Item', value: 100 });
-      
+
       expect(createResponse.status).toBe(201);
       const originalItem = createResponse.body.data;
       const itemId = originalItem._id;
-      
+
       // Update only the value field
       const partialUpdate = {
         value: 200
         // name should remain unchanged
       };
-      
+
       const response = await testAgent
         .patch(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
         .send(partialUpdate);
-      
+
       expect(response.status).toBe(200);
       const updatedItem = response.body.data;
-      
+
       // Verify partial update worked correctly
       expect(updatedItem.name).toBe(originalItem.name); // Unchanged
       expect(updatedItem.value).toBe(200); // Updated
@@ -527,15 +527,15 @@ describe('ApiController - Integration Tests', () => {
   describe('Comprehensive Audit Functionality Integration', () => {
     it('should add all auditable properties on creation', async () => {
       const entity = { name: 'AuditTest', value: 42 };
-      
+
       const response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send(entity);
-      
+
       expect(response.status).toBe(201);
       const result = response.body.data;
-      
+
       expect(result).toBeDefined();
       expect(result._created).toBeDefined();
       expect(result._createdBy).toBe(userId);
@@ -547,9 +547,9 @@ describe('ApiController - Integration Tests', () => {
 
     it('should not allow client to override audit properties on create', async () => {
       const hackDate = new Date(2020, 1, 1).toISOString();
-      
+
       // Try to create with tampered audit properties
-      const entity = { 
+      const entity = {
         name: 'TamperTest',
         value: 42,
         _created: hackDate,
@@ -557,15 +557,15 @@ describe('ApiController - Integration Tests', () => {
         _updated: hackDate,
         _updatedBy: 'hacker'
       };
-      
+
       const response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send(entity);
-      
+
       expect(response.status).toBe(201);
       const result = response.body.data;
-      
+
       expect(result).toBeDefined();
       expect(result._created).not.toEqual(hackDate);
       expect(result._createdBy).not.toEqual('hacker');
@@ -581,26 +581,26 @@ describe('ApiController - Integration Tests', () => {
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'UpdateTest', value: 100 });
-      
+
       expect(createResponse.status).toBe(201);
       const createdItem = createResponse.body.data;
-      
+
       const originalCreated = createdItem._created;
       const originalCreatedBy = createdItem._createdBy;
       const itemId = createdItem._id;
-      
+
       // Wait a moment to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Update the entity
       const updateResponse = await testAgent
         .patch(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
         .send({ name: 'Updated Test' });
-      
+
       expect(updateResponse.status).toBe(200);
       const updatedItem = updateResponse.body.data;
-      
+
       // Check audit fields
       expect(updatedItem._created).toEqual(originalCreated);
       expect(updatedItem._createdBy).toEqual(originalCreatedBy);
@@ -610,28 +610,28 @@ describe('ApiController - Integration Tests', () => {
 
     it('should handle full updates (PUT) with proper audit trail', async () => {
       // Create initial entity
-      
+
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'PUT Test', value: 50 });
-      
+
       expect(createResponse.status).toBe(201);
       const createdItem = createResponse.body.data;
       const itemId = createdItem._id;
-      
+
       // Wait to ensure timestamp difference
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Full update with PUT
       const updateResponse = await testAgent
         .put(`/api/test-items/${itemId}`)
         .set('Authorization', authToken)
         .send({ name: 'PUT Updated', value: 75 });
-      
+
       expect(updateResponse.status).toBe(200);
       const updatedItem = updateResponse.body.data;
-      
+
       // Verify audit properties
       expect(updatedItem.eventDate).toBeUndefined();
       expect(updatedItem._created).toEqual(createdItem._created);
@@ -649,16 +649,16 @@ describe('ApiController - Integration Tests', () => {
         { name: 'Bulk Item 2', value: 20 },
         { name: 'Bulk Item 3', value: 30 }
       ];
-      
-      const createPromises = entities.map(entity => 
+
+      const createPromises = entities.map(entity =>
         testAgent
           .post('/api/test-items')
           .set('Authorization', authToken)
           .send(entity)
       );
-      
+
       const responses = await Promise.all(createPromises);
-      
+
       // Verify all were created successfully
       responses.forEach((response, index) => {
         expect(response.status).toBe(201);
@@ -670,16 +670,16 @@ describe('ApiController - Integration Tests', () => {
         expect(item._updated).toBeDefined();
         expect(item._updatedBy).toBe(userId);
       });
-      
+
       // Verify via list endpoint
       const listResponse = await testAgent
         .get('/api/test-items')
         .set('Authorization', authToken);
-      
+
       expect(listResponse.status).toBe(200);
       const pagedResult = listResponse.body.data;
       expect(pagedResult.entities.length).toBeGreaterThanOrEqual(3);
-      
+
       // Check that all returned entities have audit properties
       pagedResult.entities.forEach((item: any) => {
         expect(item._created).toBeDefined();

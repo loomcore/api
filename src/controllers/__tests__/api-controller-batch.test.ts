@@ -9,7 +9,7 @@ import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
-import { getTestUser, testUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, testMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
 
 describe('ApiController Batch Update', () => {
@@ -57,51 +57,51 @@ describe('ApiController Batch Update', () => {
     categoryId = categoryResult._id;
 
 
-    const multiTenantCategoryResult = await multiTenantCategoryService.create(testUserContext, { name: 'Test Category' });
+    const multiTenantCategoryResult = await multiTenantCategoryService.create(testMetaOrgUserContext, { name: 'Test Category' });
     if (!multiTenantCategoryResult) throw new Error("multi-tenant category creation failed");
     multiTenantCategoryId = multiTenantCategoryResult._id;
     // Create products using services
-    const productA = await productService.create(EmptyUserContext, { 
+    const productA = await productService.create(EmptyUserContext, {
       name: 'Product A',
-      description: 'Description A', 
-      categoryId: categoryId 
+      description: 'Description A',
+      categoryId: categoryId
     });
     if (!productA) throw new Error("product A creation failed");
 
-    const productB = await productService.create(EmptyUserContext, { 
-      name: 'Product B', 
-      description: 'Description B', 
-      categoryId: categoryId 
+    const productB = await productService.create(EmptyUserContext, {
+      name: 'Product B',
+      description: 'Description B',
+      categoryId: categoryId
     });
     if (!productB) throw new Error("product B creation failed");
 
-    const productC = await productService.create(EmptyUserContext, { 
-      name: 'Product C', 
-      description: 'Description C', 
-      categoryId: categoryId 
+    const productC = await productService.create(EmptyUserContext, {
+      name: 'Product C',
+      description: 'Description C',
+      categoryId: categoryId
     });
     if (!productC) throw new Error("product C creation failed");
 
     productIds = [productA._id, productB._id, productC._id];
 
-    const multiTenantProductA = await multiTenantProductService.create(testUserContext, { 
+    const multiTenantProductA = await multiTenantProductService.create(testMetaOrgUserContext, {
       ...productA,
       _id: undefined,
-      _orgId: testUserContext._orgId
+      _orgId: testMetaOrgUserContext._orgId
     });
     if (!multiTenantProductA) throw new Error("multi-tenant product A creation failed");
 
-    const multiTenantProductB = await multiTenantProductService.create(testUserContext, { 
-      ...productB, 
+    const multiTenantProductB = await multiTenantProductService.create(testMetaOrgUserContext, {
+      ...productB,
       _id: undefined,
-      _orgId: testUserContext._orgId
+      _orgId: testMetaOrgUserContext._orgId
     });
     if (!multiTenantProductB) throw new Error("multi-tenant product B creation failed");
 
-    const multiTenantProductC = await multiTenantProductService.create(testUserContext, { 
-      ...productC, 
+    const multiTenantProductC = await multiTenantProductService.create(testMetaOrgUserContext, {
+      ...productC,
       _id: undefined,
-      _orgId: testUserContext._orgId
+      _orgId: testMetaOrgUserContext._orgId
     });
     if (!multiTenantProductC) throw new Error("multi-tenant product C creation failed");
 
@@ -138,7 +138,7 @@ describe('ApiController Batch Update', () => {
     const updatedProductC = response.body.data.find((p: any) => p._id === productIds[2]);
     expect(updatedProductC.name).toBe('Product C Updated');
     expect(updatedProductC.description).toBe('Description C also Updated');
-    
+
     // Verify directly from service
     const productAFromDb = await productService.getById(EmptyUserContext, productIds[0]);
     expect(productAFromDb.name).toBe('Product A Updated');
@@ -170,7 +170,7 @@ describe('ApiController Batch Update', () => {
     expect(updatedProductA!.name).toBe('Product A Updated');
 
     // Verify directly from service
-    const productAFromDb = await multiTenantProductService.getById(testUserContext, multiTenantProductIds[0]);
+    const productAFromDb = await multiTenantProductService.getById(testMetaOrgUserContext, multiTenantProductIds[0]);
     expect(productAFromDb.name).toBe('Product A Updated');
   });
 });

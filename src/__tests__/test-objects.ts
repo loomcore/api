@@ -1,31 +1,5 @@
 import { IOrganization, IUser, IUserContext } from "@loomcore/common/models";
 
-export const testUser: IUser = {
-    _id: '69261672f48fb7bf76e54dfb',
-    email: 'test@example.com',
-    password: 'testpassword',
-    firstName: 'Test',
-    lastName: 'User',
-    displayName: 'Test User',
-    roles: ['user'],
-    _orgId: '6926167d06c0073a778a124f',
-    _created: new Date(),
-    _createdBy: 'system',
-    _lastLoggedIn: new Date(),
-    _lastPasswordChange: new Date(),
-    _updated: new Date(),
-    _updatedBy: 'system',
-};
-
-export function getTestUser() {
-    return { ...testUser };
-}
-
-export const testUserContext: IUserContext = {
-    user: getTestUser(),
-    _orgId: '6926167d06c0073a778a124f'
-};
-
 export const testMetaOrg: IOrganization = {
     _id: '69261691f936c45f85da24d0',
     name: 'Test Meta Organization',
@@ -38,6 +12,32 @@ export const testMetaOrg: IOrganization = {
     _updatedBy: 'system',
 };
 
+const testMetaOrgUser: IUser = {
+    _id: '69261672f48fb7bf76e54dfb',
+    email: 'test@example.com',
+    password: 'testpassword',
+    firstName: 'Test',
+    lastName: 'User',
+    displayName: 'Test User',
+    roles: ['user'],
+    _orgId: testMetaOrg._id,
+    _created: new Date(),
+    _createdBy: 'system',
+    _lastLoggedIn: new Date(),
+    _lastPasswordChange: new Date(),
+    _updated: new Date(),
+    _updatedBy: 'system',
+};
+
+export function getTestMetaOrgUser() {
+    return { ...testMetaOrgUser };
+}
+
+export const testMetaOrgUserContext: IUserContext = {
+    user: getTestMetaOrgUser(),
+    _orgId: testMetaOrg._id,
+};
+
 export const testOrg: IOrganization = {
     _id: '6926167d06c0073a778a124f',
     name: 'Test Organization',
@@ -47,5 +47,30 @@ export const testOrg: IOrganization = {
     _created: new Date(),
     _createdBy: 'system',
     _updated: new Date(),
-    _updatedBy: 'system',   
+    _updatedBy: 'system',
+};
+
+const testOrgUser: IUser = {
+    _id: '6926167d06c0073a778a1250',
+    email: 'test-org-user@example.com',
+    password: 'testpassword',
+    firstName: 'Test',
+    lastName: 'User',
+    displayName: 'Test User',
+    roles: ['user'],
+    _orgId: testOrg._id,
+    _created: new Date(),
+    _createdBy: 'system',
+    _lastLoggedIn: new Date(),
+    _updated: new Date(),
+    _updatedBy: 'system',
+};
+
+export function getTestOrgUser() {
+    return { ...testOrgUser };
+}
+
+export const testOrgUserContext: IUserContext = {
+    user: getTestOrgUser(),
+    _orgId: testOrg._id,
 };

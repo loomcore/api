@@ -14,7 +14,7 @@ import { IdNotFoundError } from '../errors/index.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
-import { testMetaOrg, testOrg, getTestUser, testUserContext } from './test-objects.js';
+import { testMetaOrg, testOrg, getTestMetaOrgUser, testMetaOrgUserContext } from './test-objects.js';
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 
@@ -44,9 +44,9 @@ async function createMetaOrg() {
   }
   try {
     // Create a meta organization (required for system user context)
-    const existingMetaOrg = await organizationService.findOne(testUserContext, { filters: { isMetaOrg: { eq: true } } });
+    const existingMetaOrg = await organizationService.findOne(testMetaOrgUserContext, { filters: { isMetaOrg: { eq: true } } });
     if (!existingMetaOrg) {
-      const metaOrgInsertResult = await organizationService.create(testUserContext, testMetaOrg);
+      const metaOrgInsertResult = await organizationService.create(testMetaOrgUserContext, testMetaOrg);
     }
   }
   catch (error: any) {
@@ -61,7 +61,7 @@ async function deleteMetaOrg() {
   }
 
   try {
-    await organizationService.deleteMany(testUserContext, { filters: { isMetaOrg: { eq: true } } });
+    await organizationService.deleteMany(testMetaOrgUserContext, { filters: { isMetaOrg: { eq: true } } });
   }
   catch (error: any) {
     console.log('Error deleting meta org:', error);
@@ -87,26 +87,26 @@ async function createTestUser(): Promise<IUser> {
   }
 
   try {
-    // Create a test organization if it doesn't exist
-    let existingOrg;
+    // Create a test meta organization if it doesn't exist
+    let existingMetaOrg;
     try {
-      existingOrg = await organizationService.getById(testUserContext, testOrg._id);
+      existingMetaOrg = await organizationService.getMetaOrg(testMetaOrgUserContext);
     } catch (error: any) {
       // If organization doesn't exist, create it
       if (error instanceof IdNotFoundError) {
-        existingOrg = null;
+        existingMetaOrg = null;
       } else {
         throw error;
       }
     }
 
-    if (!existingOrg) {
-      await organizationService.create(testUserContext, testOrg);
+    if (!existingMetaOrg) {
+      await organizationService.create(testMetaOrgUserContext, testMetaOrg);
     }
 
     const systemUserContext = getSystemUserContext();
 
-    const createdUser = await authService.createUser(systemUserContext, getTestUser());
+    const createdUser = await authService.createUser(systemUserContext, getTestMetaOrgUser());
 
     if (!createdUser) {
       throw new Error('Failed to create test user');
@@ -122,13 +122,13 @@ async function createTestUser(): Promise<IUser> {
 
 async function deleteTestUser() {
   // Delete test user
-  await authService.deleteById(testUserContext, getTestUser()._id).catch((error: any) => {
+  await authService.deleteById(testMetaOrgUserContext, getTestMetaOrgUser()._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
     return null;
   });
 
   // Delete test organization (regular org only, not meta)
-  await organizationService.deleteById(testUserContext, testOrg._id).catch((error: any) => {
+  await organizationService.deleteById(testMetaOrgUserContext, testOrg._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
     return null;
   });
@@ -164,8 +164,8 @@ async function simulateloginWithTestUser() {
   const loginResponse = await authService.attemptLogin(
     req as Request,
     res as Response,
-    getTestUser().email,
-    getTestUser().password
+    getTestMetaOrgUser().email,
+    getTestMetaOrgUser().password
   );
 
   // Make sure we got a valid response
@@ -182,12 +182,13 @@ async function simulateloginWithTestUser() {
  * @returns JWT token string in Bearer format
  */
 function getAuthToken(): string {
+  const metaOrgUser = getTestMetaOrgUser();
   const payload = {
     user: {
-      _id: getTestUser()._id,
-      email: getTestUser().email
+      _id: metaOrgUser._id,
+      email: metaOrgUser.email
     },
-    _orgId: testOrg._id
+    _orgId: metaOrgUser._orgId
   };
 
   // Use JwtService to sign the token - this is what the real app uses
@@ -338,7 +339,7 @@ async function loginWithTestUser(agent: any) {
   // Set deviceId cookie first
   agent.set('Cookie', [`deviceId=${deviceIdCookie}`]);
 
-  const testUser = getTestUser();
+  const testUser = getTestMetaOrgUser();
 
   const response = await agent
     .post('/api/auth/login')
