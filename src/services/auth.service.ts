@@ -1,15 +1,15 @@
-import {Request, Response} from 'express';
+import { Request, Response } from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
-import {IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext} from '@loomcore/common/models';
-import {entityUtils} from '@loomcore/common/utils';
+import { IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
 
-import {BadRequestError, ServerError, NotFoundError} from '../errors/index.js';
-import {JwtService, EmailService} from './index.js';
+import { BadRequestError, ServerError, NotFoundError } from '../errors/index.js';
+import { JwtService, EmailService } from './index.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
-import {PasswordResetTokenService} from './password-reset-token.service.js';
-import { passwordUtils} from '../utils/index.js';
-import {config} from '../config/index.js';
+import { PasswordResetTokenService } from './password-reset-token.service.js';
+import { passwordUtils } from '../utils/index.js';
+import { config } from '../config/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
@@ -41,16 +41,16 @@ export class AuthService extends GenericApiService<IUser> {
             throw new BadRequestError('Invalid Credentials');
         }
 
-        const userContext = { 
-            user: user, 
-            _orgId: user._orgId 
+        const userContext = {
+            user: user,
+            _orgId: user._orgId
         };
 
         const deviceId = this.getAndSetDeviceIdCookie(req, res);
         const loginResponse = await this.logUserIn(userContext, deviceId);
         return loginResponse;
     }
-    
+
     async logUserIn(userContext: IUserContext, deviceId: string) {
         const payload = userContext;
         const accessToken = this.generateJwt(payload);
@@ -72,9 +72,9 @@ export class AuthService extends GenericApiService<IUser> {
             // Update lastLoggedIn in a non-blocking way
             this.updateLastLoggedIn(userContext.user._id!)
                 .catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
-            
+
             userContext.user = this.postprocessEntity(userContext, userContext.user);
-            loginResponse = {tokens: tokenResponse, userContext };
+            loginResponse = { tokens: tokenResponse, userContext };
         }
 
         return loginResponse;
@@ -90,7 +90,7 @@ export class AuthService extends GenericApiService<IUser> {
         return user;
     }
 
-    async createUser(userContext: IUserContext, user: IUser): Promise<IUser | null> {
+    async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
         // You currently don't have to be logged-in to create a user - we'll need to vette exactly what you do need based on the scenario.
         // todo: validate that the user._orgId exists - think through the whole user creation process
         //  I think a user either has to be created by someone with the authorization to do so, or they need to be
@@ -128,7 +128,7 @@ export class AuthService extends GenericApiService<IUser> {
     }
 
     async changeLoggedInUsersPassword(userContext: IUserContext, body: any) {
-        const queryObject = {_id: userContext.user._id};
+        const queryObject = { _id: userContext.user._id };
         const result = await this.changePassword(userContext, queryObject, body.password);
         return result;
     }
@@ -169,7 +169,7 @@ export class AuthService extends GenericApiService<IUser> {
             //  call requestTokenUsingRefreshToken() - AND we'll need to VALIDATE that they can select that org
             //  if (selectedOrgId !== user._orgIdorgId) then user.isMetaAdmin must be true.
             const payload = {
-                user: user, 
+                user: user,
                 _orgId: user._orgId
             };  // _orgId is the selectedOrg (the org of the user for any non-metaAdmins)
             const accessToken = this.generateJwt(payload);
@@ -205,7 +205,7 @@ export class AuthService extends GenericApiService<IUser> {
         const expiresOn = existingExpiresOn ? existingExpiresOn : this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
 
         const newRefreshToken: Partial<IRefreshToken> = {
-			_orgId: orgId,
+            _orgId: orgId,
             token: this.generateRefreshToken(),
             deviceId,
             userId,
@@ -226,7 +226,7 @@ export class AuthService extends GenericApiService<IUser> {
         // create passwordResetToken
         const expiresOn = this.getExpiresOnFromMinutes(config.auth.passwordResetTokenExpirationInMinutes);
         const passwordResetToken = await this.passwordResetTokenService.createPasswordResetToken(emailAddress, expiresOn);
-        
+
         // Check if password reset token was created successfully
         if (!passwordResetToken) {
             throw new ServerError(`Failed to create password reset token for email: ${emailAddress}`);
@@ -246,12 +246,12 @@ export class AuthService extends GenericApiService<IUser> {
         const lowerCaseEmail = email.toLowerCase();
         // fetch passwordResetToken
         const retrievedPasswordResetToken = await this.passwordResetTokenService.getByEmail(lowerCaseEmail);
-        
+
         // Check if token exists
         if (!retrievedPasswordResetToken) {
             throw new ServerError(`Unable to retrieve password reset token for email: ${lowerCaseEmail}`);
         }
-        
+
         // Validate they sent the same token that we have saved for this email (there can only be one) and that it hasn't expired
         if (retrievedPasswordResetToken.token !== passwordResetToken || retrievedPasswordResetToken.expiresOn < Date.now()) {
             throw new BadRequestError('Invalid password reset token');
@@ -262,7 +262,7 @@ export class AuthService extends GenericApiService<IUser> {
         entityUtils.handleValidationResult(validationErrors, 'AuthService.resetPassword');
 
         // update user password
-        const result = await this.changePassword(EmptyUserContext, {email: lowerCaseEmail}, password);
+        const result = await this.changePassword(EmptyUserContext, { email: lowerCaseEmail }, password);
         console.log(`password changed using forgot-password for email: ${lowerCaseEmail}`);
 
         // delete passwordResetToken
@@ -282,7 +282,7 @@ export class AuthService extends GenericApiService<IUser> {
         if (payload._orgId !== undefined) {
             payload._orgId = String(payload._orgId);
         }
-        
+
         // generate the jwt (uses jsonwebtoken library)
         const jwtExpiryConfig = config.auth.jwtExpirationInSeconds;
         const jwtExpirationInSeconds = (typeof jwtExpiryConfig === 'string') ? parseInt(jwtExpiryConfig) : jwtExpiryConfig;
@@ -326,7 +326,7 @@ export class AuthService extends GenericApiService<IUser> {
                 maxAge: config.auth.deviceIdCookieMaxAgeInDays * 24 * 60 * 60 * 1000,
                 httpOnly: true
             };
-            
+
             // save deviceId as cookie on response
             res.cookie('deviceId', deviceId, cookieOptions);
         }
@@ -368,7 +368,7 @@ export class AuthService extends GenericApiService<IUser> {
         if (isCreate && !entity.roles) {
             entity.roles = ["user"];
         }
-        
+
         const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
         return preparedEntity;
     }
@@ -382,9 +382,9 @@ export class AuthService extends GenericApiService<IUser> {
         try {
             // Use Date object so it's consistent with other date fields
             const updates: Partial<IUser> = { _lastLoggedIn: moment().utc().toDate() };
-			// Use system user context to allow updating system properties
-			const systemUserContext = getSystemUserContext();
-			await this.partialUpdateById(systemUserContext, userId, updates);
+            // Use system user context to allow updating system properties
+            const systemUserContext = getSystemUserContext();
+            await this.partialUpdateById(systemUserContext, userId, updates);
         } catch (error) {
 
         }
