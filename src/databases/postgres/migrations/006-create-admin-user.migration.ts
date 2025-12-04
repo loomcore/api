@@ -2,11 +2,10 @@ import { Client } from "pg";
 import { IMigration, PostgresDatabase } from "../index.js";
 import { randomUUID } from "crypto";
 import { UserService } from "../../../services/user.service.js";
-import { getSystemUserContext } from "@loomcore/common/models";
-
+import { getSystemUserContext, initializeSystemUserContext } from "@loomcore/common/models";
 
 export class CreateAdminUserMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly adminUsername: string, private readonly adminPassword: string) {
+    constructor(private readonly client: Client, private readonly adminEmail: string, private readonly adminPassword: string) {
     }
 
     index = 6;
@@ -16,11 +15,12 @@ export class CreateAdminUserMigration implements IMigration {
         try {
             const database = new PostgresDatabase(this.client);
             const userService = new UserService(database);
+            initializeSystemUserContext(this.adminEmail, _orgId);
             const systemUserContext = getSystemUserContext();
             const adminUser = await userService.create(systemUserContext, {
                 _id: _id,
                 _orgId: _orgId,
-                email: this.adminUsername,
+                email: this.adminEmail,
                 password: this.adminPassword,
                 firstName: 'Admin',
                 lastName: 'User',
