@@ -21,14 +21,14 @@ export class TestMongoDatabase implements ITestDatabase {
    * Initialize the MongoDB memory server and database
    * @returns Promise resolving to the database instance
    */
-  async init(databaseName: string): Promise<IDatabase> {
+  async init(): Promise<IDatabase> {
     // Return existing promise if initialization is already in progress
     if (this.initPromise) {
       return this.initPromise;
     }
 
     // Create and cache the initialization promise
-    this.initPromise = this._performInit(databaseName);
+    this.initPromise = this._performInit();
     return this.initPromise;
   }
 
@@ -36,7 +36,7 @@ export class TestMongoDatabase implements ITestDatabase {
     return new ObjectId().toString();
   }
 
-  private async _performInit(databaseName: string): Promise<IDatabase> {
+  private async _performInit(): Promise<IDatabase> {
     // Set up MongoDB memory server if not already done
     if (!this.database) {
       this.mongoServer = await MongoMemoryServer.create({
@@ -69,7 +69,7 @@ export class TestMongoDatabase implements ITestDatabase {
     // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
     //  If we can figure out how to use a single file for both, that would be great.
     await db.command({
-      createIndexes: "users", indexes: [ { key: { email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
+      createIndexes: "users", indexes: [{ key: { email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
     });
   }
 

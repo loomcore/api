@@ -20,9 +20,7 @@ export class CreateMigrationTableMigration implements IMigration {
                 )
             `);
         } catch (error: any) {
-            if (error.code === '42P07' || error.data?.error?.includes('already exists')) {
-                console.log(`Migrations table already exists`);
-            } else {
+            if (error.code !== '42P07' && !error.data?.error?.includes('already exists')) {
                 return { success: false, error: new Error(`Error creating migrations table: ${error.message}`) };
             }
         }

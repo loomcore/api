@@ -22,14 +22,14 @@ export class TestPostgresDatabase implements ITestDatabase {
    * Initialize the PostgreSQL test database
    * @returns Promise resolving to the database client instance
    */
-  async init(databaseName: string): Promise<IDatabase> {
+  async init(adminUsername?: string, adminPassword?: string): Promise<IDatabase> {
     // Return existing promise if initialization is already in progress
     if (this.initPromise) {
       return this.initPromise;
     }
 
     // Create and cache the initialization promise
-    this.initPromise = this._performInit(databaseName);
+    this.initPromise = this._performInit(adminUsername, adminPassword);
     return this.initPromise;
   }
 
@@ -37,7 +37,7 @@ export class TestPostgresDatabase implements ITestDatabase {
     return randomUUID();
   }
 
-  private async _performInit(databaseName: string): Promise<IDatabase> {
+  private async _performInit(adminUsername?: string, adminPassword?: string): Promise<IDatabase> {
     // Set up PostgreSQL test database if not already done
     if (!this.database) {
       // Create new test database client using pg-mem
@@ -53,7 +53,7 @@ export class TestPostgresDatabase implements ITestDatabase {
         throw new Error('Failed to setup for multitenant');
       }
 
-      success = (await setupDatabaseForAuth(postgresClient, testOrg._id)).success;
+      success = (await setupDatabaseForAuth(postgresClient, adminUsername || 'admin', adminPassword || 'password', testOrg._id)).success;
       if (!success) {
         throw new Error('Failed to setup for auth');
       }

@@ -95,11 +95,11 @@ export class TestExpressApp {
       if (useMongoDb) {
         const testMongoDb = new TestMongoDatabase();
         this.testDatabase = testMongoDb;
-        this.database = await testMongoDb.init(this.databaseName);
+        this.database = await testMongoDb.init();
       } else {
         const testPostgresDb = new TestPostgresDatabase();
         this.testDatabase = testPostgresDb;
-        this.database = await testPostgresDb.init(this.databaseName);
+        this.database = await testPostgresDb.init('admin', 'password');
       }
     }
 

@@ -5,7 +5,7 @@ export type ITestDatabase = {
    * Initialize the test database
    * @returns Promise resolving to the database instance
    */
-  init(databaseName: string): Promise<IDatabase>;
+  init(adminUsername?: string, adminPassword?: string): Promise<IDatabase>;
 
   /**
    * Generate a random ID for testing
