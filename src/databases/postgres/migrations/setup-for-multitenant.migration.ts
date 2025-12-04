@@ -4,10 +4,13 @@ import { CreateOrganizationsTableMigration } from "./002-create-organizations-ta
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 import { CreateMetaOrgMigration } from "./005-create-meta-org.migration.js";
 import { randomUUID } from 'crypto';
+import { OrganizationService } from "../../../services/index.js";
+import { PostgresDatabase } from "../postgres.database.js";
+import { EmptyUserContext } from "@loomcore/common/models";
 
 export async function setupDatabaseForMultitenant(client: Client, orgName: string, orgCode: string): Promise<{ success: boolean, metaOrgId: string | undefined, error: Error | null }> {
     let runMigrations: number[] = [];
-    const metaOrgId: string = randomUUID().toString();
+    let metaOrgId: string = randomUUID().toString();
 
     if (await doesTableExist(client, 'migrations')) {
         const migrations = await client.query(`
@@ -45,6 +48,15 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
             console.log('setupDatabaseForMultitenant: error creating meta org', result.error);
             return { success: false, metaOrgId: metaOrgId, error: result.error };
         }
+    } else {
+        const database = new PostgresDatabase(client);
+        const organizationService = new OrganizationService(database);
+        const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+        console.log('setupDatabaseForMultitenant: metaOrg', metaOrg);
+        if (!metaOrg) {
+            return { success: false, metaOrgId: metaOrgId, error: new Error('error getting meta org') };
+        }
+        metaOrgId = metaOrg._id;
     }
 
     return { success: true, metaOrgId: metaOrgId, error: null };
