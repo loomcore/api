@@ -5,6 +5,7 @@ import { CreateMigrationTableMigration } from "./001-create-migrations-table.mig
 import { CreateUsersTableMigration } from "./003-create-users-table.migration.js";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 import { CreateAdminUserMigration } from "./006-create-admin-user.migration.js";
+import { getSystemUserContext } from "@loomcore/common/models";
 
 export async function setupDatabaseForAuth(client: Client, adminUsername: string, adminPassword: string): Promise<{ success: boolean, error: Error | null }> {
     let runMigrations: number[] = [];
@@ -28,8 +29,11 @@ export async function setupDatabaseForAuth(client: Client, adminUsername: string
         migrationsToRun.push(new CreateUsersTableMigration(client));
     if (!runMigrations.includes(4))
         migrationsToRun.push(new CreateRefreshTokenTableMigration(client));
-    if (!runMigrations.includes(6))
-        migrationsToRun.push(new CreateAdminUserMigration(client, adminUsername, adminPassword));
+    if (!runMigrations.includes(6)) {
+        const systemUserContext = getSystemUserContext();
+        migrationsToRun.push(new CreateAdminUserMigration(client, adminUsername, adminPassword, systemUserContext._orgId));
+    }
+
 
     for (const migration of migrationsToRun) {
         await migration.execute();

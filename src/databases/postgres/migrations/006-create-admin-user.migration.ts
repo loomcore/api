@@ -6,19 +6,19 @@ import { AuthService } from "../../../services/auth.service.js";
 import { OrganizationService } from "../../../services/index.js";
 
 export class CreateAdminUserMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly adminEmail: string, private readonly adminPassword: string) {
+    constructor(private readonly client: Client, private readonly adminEmail: string, private readonly adminPassword: string, private readonly _orgId?: string) {
     }
 
     index = 6;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
         try {
             const database = new PostgresDatabase(this.client);
             const authService = new AuthService(database);
             const adminUser = await authService.createUser(getSystemUserContext(), {
                 _id: _id,
-                _orgId: _orgId,
+                _orgId: this._orgId,
                 email: this.adminEmail,
                 password: this.adminPassword,
                 firstName: 'Admin',
