@@ -9,7 +9,7 @@ export class CreateOrganizationsTableMigration implements IMigration {
 
     index = 2;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
         try {
             await this.client.query(`
@@ -39,8 +39,8 @@ export class CreateOrganizationsTableMigration implements IMigration {
 
         try {
             const result = await this.client.query(`
-                INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
+                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                VALUES ('${_id}', ${this.index}, TRUE, FALSE);
             `);
             if (result.rowCount === 0) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
@@ -52,7 +52,7 @@ export class CreateOrganizationsTableMigration implements IMigration {
         return { success: true, error: null };
     }
 
-    async revert(_orgId?: string) {
+    async revert() {
         try {
             const result = await this.client.query(`
                 DROP TABLE "organizations";
@@ -61,21 +61,21 @@ export class CreateOrganizationsTableMigration implements IMigration {
                 return { success: false, error: new Error(`Error dropping organizations table: No row returned`) };
             }
         } catch (error: any) {
-            return { success: false, error: new Error(`Error dropping organizations table for orgId ${_orgId}: ${error.message}`) };
+            return { success: false, error: new Error(`Error dropping organizations table: ${error.message}`) };
         }
 
         try {
             const result = await this.client.query(`
-                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
+                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}';
             `);
             if (result.rowCount === 0) {
                 return {
-                    success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: Migration record not found.
-                    Migration index: ${this.index}, _orgId: ${_orgId}`)
+                    success: false, error: new Error(`Error updating migration record for index ${this.index}: Migration record not found.
+                    Migration index: ${this.index}`)
                 };
             }
         } catch (error: any) {
-            return { success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: ${error.message}`) };
+            return { success: false, error: new Error(`Error updating migration record for index ${this.index}: ${error.message}`) };
         }
 
         return { success: true, error: null };

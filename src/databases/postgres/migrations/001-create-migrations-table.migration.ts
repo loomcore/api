@@ -7,13 +7,12 @@ export class CreateMigrationTableMigration implements IMigration {
     constructor(private readonly client: Client) {
     }
     index = 1;
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
         try {
             await this.client.query(`
                 CREATE TABLE "migrations" (
                     "_id" VARCHAR(255) PRIMARY KEY,
-                    "_orgId" VARCHAR(255),
                     "index" INTEGER NOT NULL,
                     "hasRun" BOOLEAN NOT NULL,
                     "reverted" BOOLEAN NOT NULL
@@ -25,21 +24,12 @@ export class CreateMigrationTableMigration implements IMigration {
             }
         }
         try {
-            if (_orgId) {
-                const result = await this.client.query(`
-                    INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                    VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);`);
-                if (result.rowCount === 0) {
-                    return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
-                }
-            } else {
-                const result = await this.client.query(`
-                    INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
-                    VALUES ('${_id}', ${this.index}, TRUE, FALSE);
+            const result = await this.client.query(`
+                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                VALUES ('${_id}', ${this.index}, TRUE, FALSE);
             `);
-                if (result.rowCount === 0) {
-                    return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
-                }
+            if (result.rowCount === 0) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
             }
         } catch (error: any) {
             return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
@@ -48,7 +38,7 @@ export class CreateMigrationTableMigration implements IMigration {
         return { success: true, error: null };
     }
 
-    async revert(_orgId?: string) {
+    async revert() {
         try {
             const result = await this.client.query(`
             DROP TABLE "migrations";

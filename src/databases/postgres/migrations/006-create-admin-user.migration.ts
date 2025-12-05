@@ -1,9 +1,9 @@
 import { Client } from "pg";
 import { IMigration, PostgresDatabase } from "../index.js";
 import { randomUUID } from "crypto";
-import { UserService } from "../../../services/user.service.js";
-import { getSystemUserContext, initializeSystemUserContext } from "@loomcore/common/models";
+import { EmptyUserContext, getSystemUserContext, initializeSystemUserContext } from "@loomcore/common/models";
 import { AuthService } from "../../../services/auth.service.js";
+import { OrganizationService } from "../../../services/index.js";
 
 export class CreateAdminUserMigration implements IMigration {
     constructor(private readonly client: Client, private readonly adminEmail: string, private readonly adminPassword: string) {
@@ -16,9 +16,7 @@ export class CreateAdminUserMigration implements IMigration {
         try {
             const database = new PostgresDatabase(this.client);
             const authService = new AuthService(database);
-            initializeSystemUserContext(this.adminEmail, _orgId);
-            const systemUserContext = getSystemUserContext();
-            const adminUser = await authService.createUser(systemUserContext, {
+            const adminUser = await authService.createUser(getSystemUserContext(), {
                 _id: _id,
                 _orgId: _orgId,
                 email: this.adminEmail,
@@ -34,8 +32,8 @@ export class CreateAdminUserMigration implements IMigration {
 
         try {
             const result = await this.client.query(`
-                INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
+                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                VALUES ('${_id}', ${this.index}, TRUE, FALSE);
             `);
             if (result.rowCount === 0) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
@@ -47,7 +45,7 @@ export class CreateAdminUserMigration implements IMigration {
         return { success: true, error: null };
     }
 
-    async revert(_orgId?: string): Promise<{ success: boolean, error: Error | null }> {
+    async revert(): Promise<{ success: boolean, error: Error | null }> {
         throw new Error('Not implemented');
     }
 }

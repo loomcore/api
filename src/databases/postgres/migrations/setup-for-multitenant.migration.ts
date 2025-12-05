@@ -25,9 +25,18 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
 
     if (!runMigrations.includes(1)) {
         const createMigrationTableMigration = new CreateMigrationTableMigration(client);
-        const result = await createMigrationTableMigration.execute(metaOrgId);
+        const result = await createMigrationTableMigration.execute();
         if (!result.success) {
             console.log('setupDatabaseForMultitenant: error creating migration table', result.error);
+            return { success: false, metaOrgId: metaOrgId, error: result.error };
+        }
+    }
+
+    if (!runMigrations.includes(2)) {
+        const createOrganizationTableMigration = new CreateOrganizationsTableMigration(client, orgName, orgCode);
+        const result = await createOrganizationTableMigration.execute();
+        if (!result.success) {
+            console.log('setupDatabaseForMultitenant: error creating organizations table', result.error);
             return { success: false, metaOrgId: metaOrgId, error: result.error };
         }
     } else {
@@ -39,18 +48,9 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
         }
     }
 
-    if (!runMigrations.includes(2)) {
-        const createOrganizationTableMigration = new CreateOrganizationsTableMigration(client, orgName, orgCode);
-        const result = await createOrganizationTableMigration.execute(metaOrgId);
-        if (!result.success) {
-            console.log('setupDatabaseForMultitenant: error creating organizations table', result.error);
-            return { success: false, metaOrgId: metaOrgId, error: result.error };
-        }
-    }
-
     if (!runMigrations.includes(5)) {
         const createMetaOrgMigration = new CreateMetaOrgMigration(client, orgName, orgCode);
-        const result = await createMetaOrgMigration.execute(metaOrgId);
+        const result = await createMetaOrgMigration.execute();
         if (!result.success || !result.metaOrgId) {
             console.log('setupDatabaseForMultitenant: error creating meta org', result.error);
             return { success: false, metaOrgId: metaOrgId, error: result.error };

@@ -31,36 +31,22 @@ export class CreateRefreshTokenTableMigration implements IMigration {
             }
         }
 
-        if (_orgId) {
-            try {
-                const result = await this.client.query(`
-                    INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                    VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
-                `);
-                if (result.rowCount === 0) {
-                    return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
-                }
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
+        try {
+            const result = await this.client.query(`
+                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                VALUES ('${_id}', ${this.index}, TRUE, FALSE);
+            `);
+            if (result.rowCount === 0) {
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
             }
-        } else {
-            try {
-                const result = await this.client.query(`
-                    INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
-                    VALUES ('${_id}', ${this.index}, TRUE, FALSE);
-                `);
-                if (result.rowCount === 0) {
-                    return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
-                }
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
-            }
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
 
         return { success: true, error: null };
     }
 
-    async revert(_orgId?: string) {
+    async revert() {
         try {
             const result = await this.client.query(`
                 DROP TABLE "refreshTokens";
@@ -74,10 +60,10 @@ export class CreateRefreshTokenTableMigration implements IMigration {
 
         try {
             const result = await this.client.query(`
-                UPDATE "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
+                UPDATE "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}';
             `);
             if (result.rowCount === 0) {
-                return { success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: No row returned`) };
+                return { success: false, error: new Error(`Error updating migration record for index ${this.index}: No row returned`) };
             }
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };

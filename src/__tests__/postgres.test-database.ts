@@ -10,6 +10,7 @@ import { runTestMigrations } from './postgres-test-migrations/run-test-migration
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
 import { testOrg } from './test-objects.js';
+import { getSystemUserContext } from '@loomcore/common/models';
 /**
  * Utility class for setting up a PostgreSQL test database for testing
  * Implements ITestDatabase
@@ -53,12 +54,16 @@ export class TestPostgresDatabase implements ITestDatabase {
         throw new Error('Failed to setup for multitenant');
       }
 
-      success = (await setupDatabaseForAuth(postgresClient, adminUsername || 'admin', adminPassword || 'password', testOrg._id)).success;
+      await initSystemUserContext(this.database);
+
+      success = (await setupDatabaseForAuth(postgresClient, adminUsername || 'admin', adminPassword || 'password')).success;
       if (!success) {
         throw new Error('Failed to setup for auth');
       }
 
-      success = (await runTestMigrations(postgresClient, testOrg._id)).success;
+      const systemUserContext = getSystemUserContext();
+
+      success = (await runTestMigrations(postgresClient, systemUserContext._orgId)).success;
       if (!success) {
         throw new Error('Failed to run test migrations');
       }
@@ -70,7 +75,6 @@ export class TestPostgresDatabase implements ITestDatabase {
       // Create meta org before initializing system user context
       await testUtils.createMetaOrg();
     }
-    await initSystemUserContext(this.database);
 
     return this.database;
   }

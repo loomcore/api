@@ -9,7 +9,7 @@ export class CreateMetaOrgMigration implements IMigration {
 
     index = 5;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
 
         try {
@@ -26,8 +26,8 @@ export class CreateMetaOrgMigration implements IMigration {
 
         try {
             const result = await this.client.query(`
-                INSERT INTO "migrations" ("_id", "_orgId", "index", "hasRun", "reverted")
-                VALUES ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
+                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                VALUES ('${_id}', ${this.index}, TRUE, FALSE);
             `);
             if (result.rowCount === 0) {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
@@ -39,9 +39,9 @@ export class CreateMetaOrgMigration implements IMigration {
         return { success: true, metaOrgId: _id, error: null };
     }
 
-    async revert(_orgId?: string) {
+    async revert() {
         try {
-            const result = await this.client.query(`DELETE FROM "organizations" WHERE "_id" = ${_orgId} AND "isMetaOrg" = TRUE;`);
+            const result = await this.client.query(`DELETE FROM "organizations" WHERE "isMetaOrg" = TRUE;`);
             if (result.rowCount === 0) {
                 return { success: false, error: new Error(`Error reverting meta org: No row returned`) };
             }
@@ -51,13 +51,13 @@ export class CreateMetaOrgMigration implements IMigration {
 
         try {
             const result = await this.client.query(`
-                UPDATE "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
+                UPDATE "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}';
             `);
             if (result.rowCount === 0) {
-                return { success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: No row returned`) };
+                return { success: false, error: new Error(`Error updating migration record for index ${this.index}: No row returned`) };
             }
         } catch (error: any) {
-            return { success: false, error: new Error(`Error updating migration record for index ${this.index} and orgId ${_orgId}: ${error.message}`) };
+            return { success: false, error: new Error(`Error updating migration record for index ${this.index}: ${error.message}`) };
         }   
 
         return { success: true, error: null };
