@@ -7,24 +7,27 @@ import { entityUtils } from '@loomcore/common/utils';
 import { BadRequestError, ServerError, NotFoundError } from '../errors/index.js';
 import { JwtService, EmailService } from './index.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { MultiTenantApiService } from './multi-tenant-api.service.js';
 import { PasswordResetTokenService } from './password-reset-token.service.js';
+import { OrganizationService } from './organization.service.js';
 import { passwordUtils } from '../utils/index.js';
 import { config } from '../config/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
 
-// TODO: Make this a MultiTenantApiService
-export class AuthService extends GenericApiService<IUser> {
+export class AuthService extends MultiTenantApiService<IUser> {
     private refreshTokenService: GenericApiService<IRefreshToken>;
     private passwordResetTokenService: PasswordResetTokenService;
     private emailService: EmailService;
+    private organizationService: OrganizationService;
 
     constructor(database: IDatabase) {
         super(database, 'users', 'user', UserSpec);
         this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
         this.emailService = new EmailService();
+        this.organizationService = new OrganizationService(database);
     }
 
     async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
@@ -81,22 +84,45 @@ export class AuthService extends GenericApiService<IUser> {
     }
 
     async getUserById(id: string): Promise<IUser | null> {
-        const user = await this.findOne(EmptyUserContext, { filters: { _id: { eq: id } } });
+        // Use system user context for operations that need to bypass tenant filtering
+        // This is needed for system-level operations like token refresh
+        const systemUserContext = getSystemUserContext();
+        const user = await this.findOne(systemUserContext, { filters: { _id: { eq: id } } });
         return user;
     }
 
     async getUserByEmail(email: string): Promise<IUser | null> {
-        const user = await this.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
-        return user;
+        // Query database directly to bypass tenant filtering for global email uniqueness check
+        // Email addresses must be unique across all tenants, so we can't use tenant-filtered queries
+        const queryOptions = { filters: { email: { eq: email.toLowerCase() } } };
+        const rawUsers = await this.database.find<IUser>(queryOptions, 'users');
+        if (rawUsers.length === 0) {
+            return null;
+        }
+        // Use system user context for postprocessing (it has _orgId required by MultiTenantApiService)
+        const systemUserContext = getSystemUserContext();
+        return this.postprocessEntity(systemUserContext, rawUsers[0]);
     }
 
     async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
-        // You currently don't have to be logged-in to create a user - we'll need to vette exactly what you do need based on the scenario.
-        // todo: validate that the user._orgId exists - think through the whole user creation process
-        //  I think a user either has to be created by someone with the authorization to do so, or they need to be
-        //  joining an org that has open registration, or else they have some sort of invite to join an org,
-        //  or initialSetup is occurring.
         // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
+
+        // Check if email already exists
+        if (user.email) {
+            const existingUser = await this.getUserByEmail(user.email);
+            if (existingUser) {
+                throw new BadRequestError('A user with this email address already exists');
+            }
+        }
+
+        // Check if organization exists when _orgId is provided
+        if (user._orgId && userContext._orgId && userContext._orgId !== user._orgId && userContext.user?._id !== 'system') {
+            const org = await this.organizationService.findOne(userContext, { filters: { _id: { eq: user._orgId } } });
+            if (!org) {
+                throw new BadRequestError('The specified organization does not exist');
+            }
+        }
+
         const createdUser = await this.create(userContext, user);
         return createdUser;
     }

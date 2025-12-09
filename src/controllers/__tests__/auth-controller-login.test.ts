@@ -4,7 +4,6 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
 import { AuthService } from '../../services/index.js';
-import { EmptyUserContext } from '@loomcore/common/models';
 import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 
 describe('AuthController', () => {
@@ -124,7 +123,7 @@ describe('AuthController', () => {
       };
 
       // Get the user before login to check initial state
-      const userBeforeLogin = await authService.getById(EmptyUserContext, getTestMetaOrgUser()._id);
+      const userBeforeLogin = await authService.getUserById(getTestMetaOrgUser()._id);
 
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
@@ -140,7 +139,7 @@ describe('AuthController', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await authService.getById(EmptyUserContext, getTestMetaOrgUser()._id);
+      const userAfterLogin = await authService.getUserById(getTestMetaOrgUser()._id);
 
       // The user should have a _lastLoggedIn property after login
       expect(userAfterLogin?._lastLoggedIn).toBeDefined();

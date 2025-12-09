@@ -14,10 +14,10 @@ import { IDatabase } from '../databases/models/index.js';
  */
 export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
   private tenantDecorator?: TenantQueryDecorator;
-  
+
   constructor(
-    database: IDatabase, 
-    pluralResourceName: string, 
+    database: IDatabase,
+    pluralResourceName: string,
     singularResourceName: string,
     modelSpec: IModelSpec
   ) {
@@ -37,11 +37,11 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareQuery');
     }
-    
+
     // Apply tenant filtering to the query object
     const queryObject = this.tenantDecorator!.applyTenantToQuery(
-      userContext, 
-      queryOptions, 
+      userContext,
+      queryOptions,
       this.pluralResourceName
     );
     return { queryObject, operations };
@@ -59,14 +59,14 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     if (!userContext || !userContext._orgId) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareEntity');
     }
-    
+
     // First call the base class implementation to handle standard entity preparation
     const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
-    
+
     // Then apply tenant ID
     const orgIdField = this.tenantDecorator!.getOrgIdField();
     (preparedEntity as any)[orgIdField] = userContext._orgId;
-    
+
     return preparedEntity;
   }
 } 

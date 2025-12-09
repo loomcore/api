@@ -4,7 +4,6 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
 import { passwordUtils } from '../../utils/password.utils.js';
-import { EmptyUserContext } from '@loomcore/common/models';
 import { AuthService } from '../../services/index.js';
 import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 
@@ -50,7 +49,7 @@ describe('AuthController.changePassword', () => {
     expect(changePasswordResponse.status).toBe(200);
 
     // 3. Fetch the user directly from the database
-    const userFromDb = await authService.getById(EmptyUserContext, getTestMetaOrgUser()._id);
+    const userFromDb = await authService.getUserById(getTestMetaOrgUser()._id);
 
     // 4. Verify the password in the DB is not the plain text password
     expect(userFromDb).toBeDefined();
