@@ -71,7 +71,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
                 expiresOn: accessTokenExpiresOn
             };
 
-
             // Update lastLoggedIn in a non-blocking way
             this.updateLastLoggedIn(userContext.user._id!)
                 .catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
@@ -83,25 +82,20 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return loginResponse;
     }
 
-    async getUserById(id: string): Promise<IUser | null> {
-        // Use system user context for operations that need to bypass tenant filtering
-        // This is needed for system-level operations like token refresh
-        const systemUserContext = getSystemUserContext();
-        const user = await this.findOne(systemUserContext, { filters: { _id: { eq: id } } });
-        return user;
-    }
-
     async getUserByEmail(email: string): Promise<IUser | null> {
         // Query database directly to bypass tenant filtering for global email uniqueness check
         // Email addresses must be unique across all tenants, so we can't use tenant-filtered queries
         const queryOptions = { filters: { email: { eq: email.toLowerCase() } } };
-        const rawUsers = await this.database.find<IUser>(queryOptions, 'users');
-        if (rawUsers.length === 0) {
+        const rawUser = await this.database.findOne<IUser>(queryOptions, 'users');
+        if (!rawUser) {
             return null;
         }
-        // Use system user context for postprocessing (it has _orgId required by MultiTenantApiService)
-        const systemUserContext = getSystemUserContext();
-        return this.postprocessEntity(systemUserContext, rawUsers[0]);
+        const userContext = {
+            _orgId: rawUser._orgId,
+            user: rawUser
+        };
+
+        return this.postprocessEntity(userContext, rawUser);
     }
 
     async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
@@ -127,28 +121,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return createdUser;
     }
 
-    async requestTokenUsingRefreshToken(req: Request): Promise<ITokenResponse | null> {
-        const refreshToken = req.query.refreshToken;
-        const deviceId = this.getDeviceIdFromCookie(req);
+    async requestTokenUsingRefreshToken(userContext: IUserContext, refreshToken: string, deviceId: string): Promise<ITokenResponse | null> {
         let tokens: ITokenResponse | null = null;
-
-        if (refreshToken && typeof refreshToken === 'string' && deviceId && typeof deviceId === 'string') {
-            let userId = null;
-
-            // look for this particular refreshToken in our database. refreshTokens are assigned to deviceIds,
-            //  so they can only be retrieved together.
-            const activeRefreshToken = await this.getActiveRefreshToken(EmptyUserContext, refreshToken, deviceId);
-            if (activeRefreshToken) {
-                userId = activeRefreshToken.userId;
-
-                if (userId) {
-                    // todo: why do we need to create a new refreshToken? Can we just let the original one expire and create a new one after they login at that time?
-                    // we found an activeRefreshToken, and we know what user it was assigned to
-                    //  - create a new refreshToken and persist it to the database
-                    // upon refresh, we want to create a new refreshToken maintaining the existing expiresOn expiration
-                    tokens = await this.createNewTokens(userId, deviceId, activeRefreshToken.expiresOn);
-                }
-            }
+        const activeRefreshToken = await this.getActiveRefreshToken(userContext, refreshToken, deviceId);
+        if (activeRefreshToken) {
+            tokens = await this.createNewTokens(userContext, activeRefreshToken);
         }
         return tokens;
     }
@@ -160,7 +137,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
     }
 
     async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
-        // queryObject will either be {_id: someUserId} for loggedInUser change or {email: someEmail} from forgotPassword
         // Note: We pass the plain password here - prepareEntity will hash it
         const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
         const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
@@ -173,39 +149,16 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return result;
     }
 
-    async createNewTokens(userId: string, deviceId: string, refreshTokenExpiresOn: number) {
-        let createdRefreshTokenObject: any = null;
+    async createNewTokens(userContext: IUserContext, activeRefreshToken: IRefreshToken) {
+        const payload = userContext;
+        const accessToken = this.generateJwt(payload);
+        const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
+        const tokenResponse = {
+            accessToken,
+            refreshToken: activeRefreshToken.token,
+            expiresOn: accessTokenExpiresOn
+        };
 
-        // Get user first to get _orgId
-        const user = await this.getUserById(userId);
-
-        // todo: do we really need to create a new refreshToken? Can we just let the original one expire and create a new one at that time?
-        const newRefreshToken = await this.createNewRefreshToken(userId, deviceId, refreshTokenExpiresOn, user?._orgId);
-        if (newRefreshToken) {
-            // we created a brand new refreshToken - now get the user object associated with this refreshToken
-            createdRefreshTokenObject = newRefreshToken;
-        }
-
-        //  return the new refreshToken and accessToken in a tokenResponse (just like we did in login)
-        let tokenResponse = null;
-        if (user && createdRefreshTokenObject) {
-            // todo: there's a really good chance this will introduce a bug where selectedOrgContext is lost when using refreshToken
-            //  to get a new accessToken because we are hard-coding it to the user's org right here.
-            //  We'll need to find a way to have the client tell us what the selectedOrg should be when they
-            //  call requestTokenUsingRefreshToken() - AND we'll need to VALIDATE that they can select that org
-            //  if (selectedOrgId !== user._orgIdorgId) then user.isMetaAdmin must be true.
-            const payload = {
-                user: user,
-                _orgId: user._orgId
-            };  // _orgId is the selectedOrg (the org of the user for any non-metaAdmins)
-            const accessToken = this.generateJwt(payload);
-            const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
-            tokenResponse = {
-                accessToken,
-                refreshToken: createdRefreshTokenObject.token,
-                expiresOn: accessTokenExpiresOn
-            };
-        }
         return tokenResponse;
     }
 
@@ -303,18 +256,12 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return this.refreshTokenService.deleteMany(EmptyUserContext, { filters: { deviceId: { eq: deviceId } } });
     }
 
-    generateJwt(payload: any) {
-        // Ensure orgId is a string before signing to prevent type inconsistencies when deserializing
-        if (payload._orgId !== undefined) {
-            payload._orgId = String(payload._orgId);
-        }
-
-        // generate the jwt (uses jsonwebtoken library)
+    generateJwt(userContext: IUserContext) {
         const jwtExpiryConfig = config.auth.jwtExpirationInSeconds;
         const jwtExpirationInSeconds = (typeof jwtExpiryConfig === 'string') ? parseInt(jwtExpiryConfig) : jwtExpiryConfig;
 
         const accessToken = JwtService.sign(
-            payload,
+            userContext,
             config.clientSecret,
             {
                 expiresIn: jwtExpirationInSeconds
@@ -406,9 +353,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
      */
     private async updateLastLoggedIn(userId: string): Promise<void> {
         try {
-            // Use Date object so it's consistent with other date fields
             const updates: Partial<IUser> = { _lastLoggedIn: moment().utc().toDate() };
-            // Use system user context to allow updating system properties
             const systemUserContext = getSystemUserContext();
             await this.partialUpdateById(systemUserContext, userId, updates);
         } catch (error) {

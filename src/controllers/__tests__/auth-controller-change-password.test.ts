@@ -48,8 +48,12 @@ describe('AuthController.changePassword', () => {
 
     expect(changePasswordResponse.status).toBe(200);
 
+    const userContext = {
+      user: getTestMetaOrgUser(),
+      _orgId: getTestMetaOrgUser()._orgId
+    };
     // 3. Fetch the user directly from the database
-    const userFromDb = await authService.getUserById(getTestMetaOrgUser()._id);
+    const userFromDb = await authService.findOne(userContext, { filters: { _id: { eq: getTestMetaOrgUser()._id } } });
 
     // 4. Verify the password in the DB is not the plain text password
     expect(userFromDb).toBeDefined();

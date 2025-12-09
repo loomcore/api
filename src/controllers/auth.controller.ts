@@ -58,14 +58,25 @@ export class AuthController {
     const validationErrors = this.authService.validate(body);
     entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
 
-    // we're not handling errors here because createUser throws errors and middleware handles them
-    const user = await this.authService.createUser(userContext!, body);
+    if (!userContext) {
+      throw new BadRequestError('Missing required fields: userContext is required.');
+    }
+
+    const user = await this.authService.createUser(userContext, body);
 
     apiUtils.apiResponse<IUser>(res, 201, { data: user || undefined }, UserSpec, PublicUserSchema);
   }
 
   async requestTokenUsingRefreshToken(req: Request, res: Response, next: NextFunction) {
-    let tokens: ITokenResponse | null = await this.authService.requestTokenUsingRefreshToken(req);
+    const userContext = req.userContext;
+    const refreshToken = req.query.refreshToken;
+
+    if (!userContext || !refreshToken || typeof refreshToken !== 'string') {
+      throw new BadRequestError('Missing required fields: userContext and refreshToken are required.');
+    }
+    const deviceId = this.authService.getDeviceIdFromCookie(req);
+
+    const tokens = await this.authService.requestTokenUsingRefreshToken(userContext, refreshToken, deviceId);
 
     if (tokens) {
       apiUtils.apiResponse<ITokenResponse>(res, 200, { data: tokens }, TokenResponseSpec);
@@ -77,7 +88,6 @@ export class AuthController {
 
   async getUserContext(req: Request, res: Response, next: NextFunction) {
     const userContext = req.userContext;
-    //const clientUserContext = {user: userContext!.user};
     apiUtils.apiResponse<IUserContext>(res, 200, { data: userContext }, UserContextSpec);
   }
 

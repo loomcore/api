@@ -117,20 +117,23 @@ describe('AuthController', () => {
     });
 
     it('should update the user\'s _lastLoggedIn property in the database after successful login', async () => {
-      const user = {
-        email: getTestMetaOrgUser().email,
-        password: getTestMetaOrgUser().password
+      const user = getTestMetaOrgUser();
+      const userContext = {
+        user: user,
+        _orgId: user._orgId
       };
-
       // Get the user before login to check initial state
-      const userBeforeLogin = await authService.getUserById(getTestMetaOrgUser()._id);
+      const userBeforeLogin = await authService.findOne(userContext, { filters: { _id: { eq: user._id } } });
 
       // Set a device ID cookie before making the request
       testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
       const response = await testAgent
         .post(apiEndpoint)
-        .send(user)
+        .send({
+          email: user.email,
+          password: user.password
+        })
         .expect(200);
 
       expect(response.body?.data?.tokens?.accessToken).toBeDefined();
@@ -139,7 +142,7 @@ describe('AuthController', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await authService.getUserById(getTestMetaOrgUser()._id);
+      const userAfterLogin = await authService.findOne(userContext, { filters: { _id: { eq: user._id } } });
 
       // The user should have a _lastLoggedIn property after login
       expect(userAfterLogin?._lastLoggedIn).toBeDefined();

@@ -63,9 +63,10 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     // First call the base class implementation to handle standard entity preparation
     const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
 
-    // Then apply tenant ID
-    const orgIdField = this.tenantDecorator!.getOrgIdField();
-    (preparedEntity as any)[orgIdField] = userContext._orgId;
+    // Any new item should be created in the user's organization unless it's a system-initiated action
+    if (isCreate && userContext.user._id !== 'system') {
+      preparedEntity._orgId = userContext._orgId;
+    }
 
     return preparedEntity;
   }
