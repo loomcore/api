@@ -68,15 +68,14 @@ export class AuthController {
   }
 
   async requestTokenUsingRefreshToken(req: Request, res: Response, next: NextFunction) {
-    const userContext = req.userContext;
     const refreshToken = req.query.refreshToken;
 
-    if (!userContext || !refreshToken || typeof refreshToken !== 'string') {
-      throw new BadRequestError('Missing required fields: userContext and refreshToken are required.');
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      throw new BadRequestError('Missing required fields: refreshToken is required.');
     }
     const deviceId = this.authService.getDeviceIdFromCookie(req);
 
-    const tokens = await this.authService.requestTokenUsingRefreshToken(userContext, refreshToken, deviceId);
+    const tokens = await this.authService.requestTokenUsingRefreshToken(refreshToken, deviceId);
 
     if (tokens) {
       apiUtils.apiResponse<ITokenResponse>(res, 200, { data: tokens }, TokenResponseSpec);

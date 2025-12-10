@@ -60,7 +60,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         // upon login, we want to create a new refreshToken with a full expiresOn expiration. If the client is capable of finding an unexpired refreshToken
         //  persisted locally, it can use that to request a new accessToken - it should NOT try to log in again. Every time there's a successful cred swap, 
         //  we start with a brand new refreshToken.
-        const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, null, userContext._orgId);
+        const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, userContext._orgId);
         const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
 
         let loginResponse = null;
@@ -121,10 +121,16 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return createdUser;
     }
 
-    async requestTokenUsingRefreshToken(userContext: IUserContext, refreshToken: string, deviceId: string): Promise<ITokenResponse | null> {
+    async requestTokenUsingRefreshToken(refreshToken: string, deviceId: string): Promise<ITokenResponse | null> {
         let tokens: ITokenResponse | null = null;
-        const activeRefreshToken = await this.getActiveRefreshToken(userContext, refreshToken, deviceId);
+        const activeRefreshToken = await this.getActiveRefreshToken(refreshToken, deviceId);
         if (activeRefreshToken) {
+            const systemUserContext = getSystemUserContext();
+            const user = await this.getById(systemUserContext, activeRefreshToken.userId);
+            const userContext = {
+                _orgId: user._orgId,
+                user: user
+            };
             tokens = await this.createNewTokens(userContext, activeRefreshToken);
         }
         return tokens;
@@ -162,8 +168,8 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return tokenResponse;
     }
 
-    async getActiveRefreshToken(userContext: IUserContext, refreshToken: string, deviceId: string) {
-        const refreshTokenResult = await this.refreshTokenService.findOne(userContext, { filters: { token: { eq: refreshToken }, deviceId: { eq: deviceId } } });
+    async getActiveRefreshToken(refreshToken: string, deviceId: string) {
+        const refreshTokenResult = await this.refreshTokenService.findOne(EmptyUserContext, { filters: { token: { eq: refreshToken }, deviceId: { eq: deviceId } } });
         let activeRefreshToken = null;
 
         if (refreshTokenResult) {
@@ -178,10 +184,8 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return activeRefreshToken;
     }
 
-    async createNewRefreshToken(userId: string, deviceId: string, existingExpiresOn: number | null = null, orgId?: string) {
-        // if existingExpiresOn is provided, use it, otherwise we start over.  The expiresOn on the refreshToken basically represents
-        //  how often the user must log in.  If we are refreshing from an existing token, we should maintain the existing expiresOn.
-        const expiresOn = existingExpiresOn ? existingExpiresOn : this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
+    async createNewRefreshToken(userId: string, deviceId: string, orgId?: string) {
+        const expiresOn = this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
 
         const newRefreshToken: Partial<IRefreshToken> = {
             _orgId: orgId,

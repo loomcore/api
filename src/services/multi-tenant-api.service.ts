@@ -31,7 +31,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the query preparation hook to add tenant filtering
    */
   override prepareQuery(userContext: IUserContext, queryOptions: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
-    if (!config?.app?.isMultiTenant) {
+    if (!config?.app?.isMultiTenant || userContext?.user?._id === 'system') {
       return super.prepareQuery(userContext, queryOptions, operations);
     }
     if (!userContext || !userContext._orgId) {
