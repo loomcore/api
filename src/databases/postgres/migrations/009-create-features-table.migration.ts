@@ -1,40 +1,46 @@
 import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
+import { doesTableExist } from "../utils/does-table-exist.util.js";
 
-export class CreateMetaOrgMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgName: string, private readonly orgCode: string) {
+export class CreateFeaturesTableMigration implements IMigration {
+    constructor(private readonly client: Client) {
     }
 
-    index = 5;
+    index = 9;
 
-    async execute() {
+    async execute(_orgId?: string) {
         const _id = randomUUID().toString();
 
         try {
             await this.client.query('BEGIN');
 
-            const orgResult = await this.client.query(`
-                INSERT INTO "organizations" ("_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
-                VALUES ('${_id}', '${this.orgName}', '${this.orgCode}', 1, true, NOW(), 'system', NOW(), 'system');
-            `);
+            const tableExists = await doesTableExist(this.client, 'features');
 
-            if (orgResult.rowCount === 0) {
-                await this.client.query('ROLLBACK');
-                return { success: false, error: new Error(`Error creating meta org: No row returned`) };
+            if (!tableExists) {
+                await this.client.query(`
+                    CREATE TABLE "features" (
+                        "_id" VARCHAR(255) PRIMARY KEY,
+                        "_orgId" VARCHAR(255),
+                        "name" VARCHAR(255) NOT NULL,
+                        CONSTRAINT "fk_features_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "uk_features" UNIQUE ("_orgId", "name")
+                    )
+                `);
             }
 
-            const migrationResult = await this.client.query(`
-                INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
-                VALUES ('${_id}', ${this.index}, TRUE, FALSE);
-            `);
-            if (migrationResult.rowCount === 0) {
+            const result = await this.client.query(`
+                    INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
+                    VALUES ('${_id}', ${this.index}, TRUE, FALSE);
+                `);
+
+            if (result.rowCount === 0) {
                 await this.client.query('ROLLBACK');
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
             }
 
             await this.client.query('COMMIT');
-            return { success: true, metaOrgId: _id, error: null };
+            return { success: true, error: null };
         } catch (error: any) {
             await this.client.query('ROLLBACK');
             return { success: false, error: new Error(`Error executing migration ${this.index}: ${error.message}`) };
@@ -45,11 +51,9 @@ export class CreateMetaOrgMigration implements IMigration {
         try {
             await this.client.query('BEGIN');
 
-            const deleteResult = await this.client.query(`DELETE FROM "organizations" WHERE "isMetaOrg" = TRUE;`);
-            if (deleteResult.rowCount === 0) {
-                await this.client.query('ROLLBACK');
-                return { success: false, error: new Error(`Error reverting meta org: No row returned`) };
-            }
+            await this.client.query(`
+                DROP TABLE "features";
+            `);
 
             const updateResult = await this.client.query(`
                 UPDATE "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}';
@@ -67,5 +71,3 @@ export class CreateMetaOrgMigration implements IMigration {
         }
     }
 }
-
-export default CreateMetaOrgMigration;

@@ -3,11 +3,11 @@ import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 
-export class CreateUsersTableMigration implements IMigration {
+export class CreateUserRolesTableMigration implements IMigration {
     constructor(private readonly client: Client) {
     }
 
-    index = 3;
+    index = 8;
 
     async execute(_orgId?: string) {
         const _id = randomUUID().toString();
@@ -15,29 +15,19 @@ export class CreateUsersTableMigration implements IMigration {
         try {
             await this.client.query('BEGIN');
 
-            const tableExists = await doesTableExist(this.client, 'users');
+            const tableExists = await doesTableExist(this.client, 'user_roles');
 
             if (!tableExists) {
                 await this.client.query(`
-                    CREATE TABLE "users" (
+                    CREATE TABLE "user_roles" (
                         "_id" VARCHAR(255) PRIMARY KEY,
                         "_orgId" VARCHAR(255),
-                        "email" VARCHAR(255) NOT NULL,
-                        "firstName" VARCHAR(255),
-                        "lastName" VARCHAR(255),
-                        "displayName" VARCHAR(255),
-                        "password" VARCHAR(255) NOT NULL,
-                        "roles" TEXT[],
-                        "_lastLoggedIn" TIMESTAMP,
-                        "_lastPasswordChange" TIMESTAMP,
-                        "_created" TIMESTAMP NOT NULL,
-                        "_createdBy" VARCHAR(255) NOT NULL,
-                        "_updated" TIMESTAMP NOT NULL,
-                        "_updatedBy" VARCHAR(255) NOT NULL,
-                        "_deleted" TIMESTAMP,
-                        "_deletedBy" VARCHAR(255),
-                        CONSTRAINT "fk_users_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")
+                        "_userId" VARCHAR(255) NOT NULL,
+                        "_roleId" VARCHAR(255) NOT NULL,
+                        CONSTRAINT "fk_user_roles_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE
+                        CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("_userId") REFERENCES "users"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("_roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "_userId", "_roleId")
                     )
                 `);
             }
@@ -65,7 +55,7 @@ export class CreateUsersTableMigration implements IMigration {
             await this.client.query('BEGIN');
 
             await this.client.query(`
-                DROP TABLE "users";
+                DROP TABLE "user_roles";
             `);
 
             const updateResult = await this.client.query(`

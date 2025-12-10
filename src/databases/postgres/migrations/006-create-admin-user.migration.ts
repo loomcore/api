@@ -1,33 +1,43 @@
 import { Client } from "pg";
 import { IMigration, PostgresDatabase } from "../index.js";
 import { randomUUID } from "crypto";
-import { EmptyUserContext, getSystemUserContext, initializeSystemUserContext } from "@loomcore/common/models";
+import { getSystemUserContext } from "@loomcore/common/models";
 import { AuthService } from "../../../services/auth.service.js";
-import { OrganizationService } from "../../../services/index.js";
 
 export class CreateAdminUserMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly adminEmail: string, private readonly adminPassword: string, private readonly _orgId?: string) {
+    constructor(private readonly client: Client, private readonly adminEmail: string, private readonly adminPassword: string) {
     }
 
     index = 6;
 
     async execute() {
         const _id = randomUUID().toString();
+        const systemUserContext = getSystemUserContext();
         try {
             const database = new PostgresDatabase(this.client);
             const authService = new AuthService(database);
-            const adminUser = await authService.createUser(getSystemUserContext(), {
+            const adminUser = await authService.createUser(systemUserContext, {
                 _id: _id,
-                _orgId: this._orgId,
+                _orgId: systemUserContext._orgId,
                 email: this.adminEmail,
                 password: this.adminPassword,
                 firstName: 'Admin',
                 lastName: 'User',
                 displayName: 'Admin User',
-                roles: ['admin'],
+                authorizations: [{
+                    _id: randomUUID().toString(),
+                    feature: 'metaorgAdmin',
+                    config: {},
+                    _created: new Date(),
+                    _createdBy: systemUserContext.user._id,
+                    _updated: new Date(),
+                    _updatedBy: systemUserContext.user._id
+                }],
             });
         } catch (error: any) {
-            return { success: false, error: new Error(`Error creating admin user: ${error.message}`) };
+            return {
+                success: false, error: new Error(`Error creating admin user: ${error.message}`)
+            };
         }
 
         try {
