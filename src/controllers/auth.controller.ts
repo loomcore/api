@@ -8,8 +8,8 @@ import {
   IUserContext,
   UserSpec,
   PublicUserSchema,
-  UserContextSpec,
   passwordValidator,
+  PublicUserContextSpec,
 } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -87,7 +87,7 @@ export class AuthController {
 
   async getUserContext(req: Request, res: Response, next: NextFunction) {
     const userContext = req.userContext;
-    apiUtils.apiResponse<IUserContext>(res, 200, { data: userContext }, UserContextSpec);
+    apiUtils.apiResponse<IUserContext>(res, 200, { data: userContext }, PublicUserContextSpec);
   }
 
   afterAuth(req: Request, res: Response, loginResponse: any) {

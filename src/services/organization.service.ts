@@ -15,9 +15,6 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 				throw new BadRequestError('Meta organization already exists');
 			}
 			if (metaOrg && userContext._orgId !== metaOrg._id) {
-				console.log('metaOrg', metaOrg);
-				console.log('userContext._orgId', userContext._orgId);
-				console.log('metaOrg._id', metaOrg?._id);
 				throw new BadRequestError('User is not authorized to create an organization');
 			}
 		}
