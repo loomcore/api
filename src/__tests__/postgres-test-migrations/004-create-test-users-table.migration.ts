@@ -19,7 +19,6 @@ export class CreateTestUsersTableMigration implements IMigration {
                     "firstName" VARCHAR(255),
                     "lastName" VARCHAR(255),
                     "displayName" VARCHAR(255),
-                    "roles" TEXT[],
                     "_lastLoggedIn" TIMESTAMP,
                     "_lastPasswordChange" TIMESTAMP,
                     "_created" TIMESTAMP NOT NULL,

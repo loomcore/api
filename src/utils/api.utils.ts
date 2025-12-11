@@ -1,16 +1,16 @@
-import {Request, Response} from 'express';
+import { Request, Response } from 'express';
 import { TSchema } from '@sinclair/typebox';
 import { entityUtils } from '@loomcore/common/utils';
 import {
-  IApiResponse,
+	IApiResponse,
 	IQueryOptions,
 	IError,
-  Filter,
-  DefaultQueryOptions,
-  IPagedResult,
-  IModelSpec
+	Filter,
+	DefaultQueryOptions,
+	IPagedResult,
+	IModelSpec
 } from '@loomcore/common/models';
-import {SortDirection} from '@loomcore/common/types';
+import { SortDirection } from '@loomcore/common/types';
 
 export interface IApiResponseOptions<T> {
 	messages?: string[];
@@ -19,8 +19,8 @@ export interface IApiResponseOptions<T> {
 }
 
 function apiResponse<T>(
-	response: Response, 
-	status: number, 
+	response: Response,
+	status: number,
 	options: IApiResponseOptions<T> = {},
 	modelSpec?: IModelSpec,
 	publicSchema?: TSchema
@@ -37,14 +37,14 @@ function apiResponse<T>(
 		if (Array.isArray(options.data)) {
 			// For arrays, encode each item
 			options.data = options.data.map((item: any) => specForEncoding.encode(item)) as T;
-		} 
+		}
 		// Special handling for paged results (objects with 'entities' property)
 		else if (typeof options.data === 'object' && options.data !== null && 'entities' in options.data && Array.isArray((options.data as any).entities)) {
 			const pagedResult = options.data as any;
 			// Encode just the entities array, not the whole paged result
 			pagedResult.entities = pagedResult.entities.map((item: any) => specForEncoding.encode(item));
 			options.data = pagedResult as T;
-		} 
+		}
 		else {
 			// For single entity
 			const encodedData = specForEncoding.encode(options.data);
@@ -96,7 +96,7 @@ function getPagedResult<T>(entities: T[], totalRows: number, queryOptions: IQuer
 	return pagedResult;
 }
 
-export const apiUtils =  {
+export const apiUtils = {
 	apiResponse,
 	getQueryOptionsFromRequest,
 	getPagedResult,

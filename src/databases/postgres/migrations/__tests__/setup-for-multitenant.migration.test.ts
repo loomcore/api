@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { newDb } from 'pg-mem';
 import { Client } from 'pg';
 import { setupDatabaseForMultitenant } from '../setup-for-multitenant.migration.js';
+import { getTestMetaOrg } from '../../../../__tests__/test-objects.js';
 
 describe('setupDatabaseForMultitenant', () => {
     let client: Client;
@@ -21,11 +22,10 @@ describe('setupDatabaseForMultitenant', () => {
 
     it('should create migrations with indices 1, 2, and 5 on first run', async () => {
         // Arrange
-        const orgName = 'Test Org';
-        const orgCode = 'test-org';
+        const metaOrg = getTestMetaOrg();
 
         // Act: Run setupDatabaseForMultitenant once
-        const result = await setupDatabaseForMultitenant(client, orgName, orgCode);
+        const result = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
 
         // Assert: Verify success
         expect(result.success).toBe(true);
@@ -52,11 +52,10 @@ describe('setupDatabaseForMultitenant', () => {
 
     it('should not create new migration entries when run a second time', async () => {
         // Arrange
-        const orgName = 'Test Org';
-        const orgCode = 'test-org';
+        const metaOrg = getTestMetaOrg();
 
         // Act: Run setupDatabaseForMultitenant first time
-        const firstResult = await setupDatabaseForMultitenant(client, orgName, orgCode);
+        const firstResult = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
         expect(firstResult.success).toBe(true);
 
         // Get the count of migrations after first run
@@ -70,7 +69,7 @@ describe('setupDatabaseForMultitenant', () => {
         const firstRunIndices = firstRunMigrations.rows.map((row) => row.index as number);
 
         // Act: Run setupDatabaseForMultitenant second time
-        const secondResult = await setupDatabaseForMultitenant(client, orgName, orgCode);
+        const secondResult = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
         expect(secondResult.success).toBe(true);
 
         // Get the count of migrations after second run

@@ -15,7 +15,7 @@ import { IEntity, IAuditable } from '@loomcore/common/models';
 import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { TestEntity, testModelSpec } from '../../../__tests__/index.js';
 import { IDatabase } from '../../models/index.js';
-import { testMetaOrgUserContext } from '../../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext } from '../../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -23,16 +23,14 @@ beforeAll(() => {
 });
 
 // Define test entity interfaces
-interface Order {
-  _id?: string;
+interface Order extends IEntity {
   orderNumber: string;
   customerId: string;
   total: number;
   status: string;
 }
 
-interface Customer {
-  _id?: string;
+interface Customer extends IEntity {
   name: string;
   email: string;
 }
@@ -528,7 +526,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
 
       // Act
-      const preparedEntity = await objectIdService.preprocessEntity(testMetaOrgUserContext, stringIdEntity, true);
+      const preparedEntity = await objectIdService.preprocessEntity(getTestMetaOrgUserContext(), stringIdEntity, true);
 
       // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -582,7 +580,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
 
       // Act
-      const preparedEntity = await complexService.preprocessEntity(testMetaOrgUserContext, complexJsonEntity, true);
+      const preparedEntity = await complexService.preprocessEntity(getTestMetaOrgUserContext(), complexJsonEntity, true);
 
       // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);
@@ -632,14 +630,14 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
         }
 
         // Act
-        const retrievedEntity = await service.getById(testMetaOrgUserContext, createdEntity._id);
+        const retrievedEntity = await service.getById(getTestMetaOrgUserContext(), createdEntity._id);
 
         // Assert
         expect(retrievedEntity).toBeDefined();
@@ -657,7 +655,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.getById(testMetaOrgUserContext, invalidId)
+          service.getById(getTestMetaOrgUserContext(), invalidId)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -667,7 +665,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.getById(testMetaOrgUserContext, invalidId)
+          service.getById(getTestMetaOrgUserContext(), invalidId)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -677,7 +675,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.getById(testMetaOrgUserContext, nonExistentId)
+          service.getById(getTestMetaOrgUserContext(), nonExistentId)
         ).rejects.toThrow(IdNotFoundError);
       });
 
@@ -687,7 +685,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.getById(testMetaOrgUserContext, invalidId)
+          service.getById(getTestMetaOrgUserContext(), invalidId)
         ).rejects.toThrow(BadRequestError);
       });
     });
@@ -701,7 +699,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -714,7 +712,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         };
 
         // Act
-        const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, [updateEntity]);
+        const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), [updateEntity]);
 
         // Assert
         expect(updatedEntities).toHaveLength(1);
@@ -734,7 +732,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.fullUpdateById(testMetaOrgUserContext, invalidId, updateEntity)
+          service.fullUpdateById(getTestMetaOrgUserContext(), invalidId, updateEntity)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -747,7 +745,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.fullUpdateById(testMetaOrgUserContext, nonExistentId, updateEntity)
+          service.fullUpdateById(getTestMetaOrgUserContext(), nonExistentId, updateEntity)
         ).rejects.toThrow(IdNotFoundError);
       });
 
@@ -757,7 +755,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -769,7 +767,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         } as TestEntity;
 
         const updatedEntity = await service.fullUpdateById(
-          testMetaOrgUserContext,
+          getTestMetaOrgUserContext(),
           createdEntity._id,
           updateEntity
         );
@@ -791,7 +789,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.partialUpdateById(testMetaOrgUserContext, invalidId, updateEntity)
+          service.partialUpdateById(getTestMetaOrgUserContext(), invalidId, updateEntity)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -804,7 +802,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.partialUpdateById(testMetaOrgUserContext, nonExistentId, updateEntity)
+          service.partialUpdateById(getTestMetaOrgUserContext(), nonExistentId, updateEntity)
         ).rejects.toThrow(IdNotFoundError);
       });
 
@@ -814,7 +812,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -826,7 +824,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         };
 
         const updatedEntity = await service.partialUpdateById(
-          testMetaOrgUserContext,
+          getTestMetaOrgUserContext(),
           createdEntity._id,
           updateEntity
         );
@@ -848,7 +846,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.partialUpdateByIdWithoutPreAndPostProcessing(testMetaOrgUserContext, invalidId, updateEntity)
+          service.partialUpdateByIdWithoutPreAndPostProcessing(getTestMetaOrgUserContext(), invalidId, updateEntity)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -858,7 +856,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for ID transformation test'
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -870,7 +868,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         } as TestEntity;
 
         const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-          testMetaOrgUserContext,
+          getTestMetaOrgUserContext(),
           createdEntity._id,
           updateEntity
         );
@@ -890,7 +888,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           { name: 'Entity 2', isActive: true }
         ];
 
-        const createdEntities = await service.createMany(testMetaOrgUserContext, initialEntities);
+        const createdEntities = await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
         // Act
         const updateEntity: Partial<TestEntity> = {
@@ -901,7 +899,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           ...DefaultQueryOptions,
           filters: { isActive: { eq: true } }
         };
-        const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+        const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
         // Assert
         expect(updatedEntities).toHaveLength(2);
@@ -919,7 +917,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.deleteById(testMetaOrgUserContext, invalidId)
+          service.deleteById(getTestMetaOrgUserContext(), invalidId)
         ).rejects.toThrow(BadRequestError);
       });
 
@@ -929,7 +927,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act & Assert
         await expect(
-          service.deleteById(testMetaOrgUserContext, nonExistentId)
+          service.deleteById(getTestMetaOrgUserContext(), nonExistentId)
         ).rejects.toThrow(IdNotFoundError);
       });
 
@@ -939,7 +937,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           name: 'Entity for delete test'
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -949,7 +947,7 @@ describe('MongoDBDatabase - Join Operations', () => {
         expect(typeof createdEntity._id).toBe('string');
 
         // Act
-        const deleteResult = await service.deleteById(testMetaOrgUserContext, createdEntity._id);
+        const deleteResult = await service.deleteById(getTestMetaOrgUserContext(), createdEntity._id);
 
         // Assert
         expect(deleteResult.count).toBe(1);
@@ -965,11 +963,11 @@ describe('MongoDBDatabase - Join Operations', () => {
           { name: 'Entity 2', isActive: true }
         ];
 
-        await service.createMany(testMetaOrgUserContext, testEntities);
+        await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
         // Act
         const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-        const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+        const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
         // Assert
         expect(foundEntities).toHaveLength(2);
@@ -988,7 +986,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           isActive: true
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -996,7 +994,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act
         const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-        const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+        const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
         // Assert
         expect(foundEntity?._id).toBeDefined();
@@ -1011,7 +1009,7 @@ describe('MongoDBDatabase - Join Operations', () => {
           isActive: true
         };
 
-        const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+        const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
         if (!createdEntity || !createdEntity._id) {
           throw new Error('Entity not created or missing ID');
@@ -1019,7 +1017,7 @@ describe('MongoDBDatabase - Join Operations', () => {
 
         // Act - Find by _id using string (should be converted to ObjectId)
         const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-        const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+        const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
         // Assert
         expect(foundEntity).toBeDefined();

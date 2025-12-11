@@ -6,7 +6,7 @@ import { OrganizationService } from '../organization.service.js';
 import { BadRequestError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { testMetaOrgUserContext, testMetaOrg, testOrgUserContext, getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, getTestMetaOrg, getTestOrgUserContext, getTestOrgUser, getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -45,7 +45,7 @@ describe('OrganizationService', () => {
                 isMetaOrg: true,
             };
 
-            await service.create(testMetaOrgUserContext, firstMetaOrg);
+            await service.create(getTestMetaOrgUserContext(), firstMetaOrg);
 
             // Act & Assert: Try to create a second metaOrg and expect BadRequestError
             const secondMetaOrg: Partial<IOrganization> = {
@@ -56,25 +56,20 @@ describe('OrganizationService', () => {
             };
 
             await expect(
-                service.create(testMetaOrgUserContext, secondMetaOrg)
+                service.create(getTestMetaOrgUserContext(), secondMetaOrg)
             ).rejects.toThrow(BadRequestError);
 
             await expect(
-                service.create(testMetaOrgUserContext, secondMetaOrg)
+                service.create(getTestMetaOrgUserContext(), secondMetaOrg)
             ).rejects.toThrow('Meta organization already exists');
         });
 
         it('should allow creating a metaOrg when none exists', async () => {
             // Arrange
-            const metaOrg: Partial<IOrganization> = {
-                name: 'Test Meta Organization',
-                code: 'test-meta-org',
-                status: 1,
-                isMetaOrg: true,
-            };
+            const metaOrg = getTestMetaOrg();
 
             // Act
-            const result = await service.create(testMetaOrgUserContext, metaOrg);
+            const result = await service.create(getTestMetaOrgUserContext(), metaOrg);
 
             // Assert
             expect(result).toBeDefined();
@@ -84,14 +79,9 @@ describe('OrganizationService', () => {
 
         it('should throw BadRequestError when non-metaOrg user tries to create an organization', async () => {
             // Arrange: Create a metaOrg first
-            const metaOrg: Partial<IOrganization> = {
-                name: 'Test Meta Organization',
-                code: 'test-meta-org',
-                status: 1,
-                isMetaOrg: true,
-            };
+            const metaOrg = getTestMetaOrg();
 
-            const createdMetaOrg = await service.create(testMetaOrgUserContext, metaOrg);
+            const createdMetaOrg = await service.create(getTestMetaOrgUserContext(), metaOrg);
             expect(createdMetaOrg).toBeDefined();
 
             // Act & Assert: Try to create a regular org with a non-metaOrg userContext
@@ -103,24 +93,19 @@ describe('OrganizationService', () => {
             };
 
             await expect(
-                service.create(testOrgUserContext, regularOrg)
+                service.create(getTestOrgUserContext(), regularOrg)
             ).rejects.toThrow(BadRequestError);
 
             await expect(
-                service.create(testOrgUserContext, regularOrg)
+                service.create(getTestOrgUserContext(), regularOrg)
             ).rejects.toThrow('User is not authorized to create an organization');
         });
 
         it('should allow metaOrg user to create a regular organization', async () => {
             // Arrange: Create a metaOrg first
-            const metaOrg: Partial<IOrganization> = {
-                name: 'Test Meta Organization',
-                code: 'test-meta-org',
-                status: 1,
-                isMetaOrg: true,
-            };
+            const metaOrg = getTestMetaOrg();
 
-            const createdMetaOrg = await service.create(testMetaOrgUserContext, metaOrg);
+            const createdMetaOrg = await service.create(getTestMetaOrgUserContext(), metaOrg);
             expect(createdMetaOrg).toBeDefined();
             expect(createdMetaOrg?._id).toBeDefined();
 

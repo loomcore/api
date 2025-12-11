@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 
 export class CreateOrganizationsTableMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgName: string, private readonly orgCode: string) {
+    constructor(private readonly client: Client) {
     }
 
     index = 2;
@@ -25,7 +25,7 @@ export class CreateOrganizationsTableMigration implements IMigration {
                         "code" VARCHAR(255) NOT NULL UNIQUE,
                         "description" TEXT,
                         "status" INTEGER NOT NULL,
-                        "isMetaOrg" BOOLEAN NOT NULL UNIQUE,
+                        "isMetaOrg" BOOLEAN NOT NULL,
                         "authToken" TEXT,
                         "_created" TIMESTAMP NOT NULL,
                         "_createdBy" VARCHAR(255) NOT NULL,

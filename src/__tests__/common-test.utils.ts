@@ -14,7 +14,7 @@ import { IdNotFoundError } from '../errors/index.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
-import { testMetaOrg, testOrg, getTestMetaOrgUser, testMetaOrgUserContext } from './test-objects.js';
+import { getTestMetaOrg, getTestOrg, getTestMetaOrgUser, getTestMetaOrgUserContext } from './test-objects.js';
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 
@@ -44,9 +44,9 @@ async function createMetaOrg() {
   }
   try {
     // Create a meta organization (required for system user context)
-    const existingMetaOrg = await organizationService.findOne(testMetaOrgUserContext, { filters: { isMetaOrg: { eq: true } } });
+    const existingMetaOrg = await organizationService.getMetaOrg(getTestMetaOrgUserContext());
     if (!existingMetaOrg) {
-      const metaOrgInsertResult = await organizationService.create(testMetaOrgUserContext, testMetaOrg);
+      const metaOrgInsertResult = await organizationService.create(getTestMetaOrgUserContext(), getTestMetaOrg());
     }
   }
   catch (error: any) {
@@ -61,7 +61,7 @@ async function deleteMetaOrg() {
   }
 
   try {
-    await organizationService.deleteMany(testMetaOrgUserContext, { filters: { isMetaOrg: { eq: true } } });
+    await organizationService.deleteMany(getTestMetaOrgUserContext(), { filters: { isMetaOrg: { eq: true } } });
   }
   catch (error: any) {
     console.log('Error deleting meta org:', error);
@@ -87,26 +87,19 @@ async function createTestUser(): Promise<IUser> {
   }
 
   try {
-    // Create a test meta organization if it doesn't exist
-    let existingMetaOrg;
-    try {
-      existingMetaOrg = await organizationService.getMetaOrg(testMetaOrgUserContext);
-    } catch (error: any) {
-      // If organization doesn't exist, create it
-      if (error instanceof IdNotFoundError) {
-        existingMetaOrg = null;
-      } else {
-        throw error;
-      }
-    }
+    const existingMetaOrg = await organizationService.getMetaOrg(getTestMetaOrgUserContext());
 
     if (!existingMetaOrg) {
-      await organizationService.create(testMetaOrgUserContext, testMetaOrg);
+      await organizationService.create(getTestMetaOrgUserContext(), getTestMetaOrg());
     }
 
-    const systemUserContext = getSystemUserContext();
+    const existingTestOrg = await organizationService.findOne(getTestMetaOrgUserContext(), { filters: { _id: { eq: getTestOrg()._id } } });
 
-    const createdUser = await authService.createUser(systemUserContext, getTestMetaOrgUser());
+    if (!existingTestOrg) {
+      await organizationService.create(getTestMetaOrgUserContext(), getTestOrg());
+    }
+
+    const createdUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
 
     if (!createdUser) {
       throw new Error('Failed to create test user');
@@ -122,13 +115,13 @@ async function createTestUser(): Promise<IUser> {
 
 async function deleteTestUser() {
   // Delete test user
-  await authService.deleteById(testMetaOrgUserContext, getTestMetaOrgUser()._id).catch((error: any) => {
+  await authService.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
     return null;
   });
 
   // Delete test organization (regular org only, not meta)
-  await organizationService.deleteById(testMetaOrgUserContext, testOrg._id).catch((error: any) => {
+  await organizationService.deleteById(getTestMetaOrgUserContext(), getTestOrg()._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
     return null;
   });

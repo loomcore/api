@@ -9,7 +9,7 @@ import { setupDatabaseForAuth } from '../databases/postgres/migrations/setup-for
 import { runTestMigrations } from './postgres-test-migrations/run-test-migrations.js';
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
-import { testOrg } from './test-objects.js';
+import { getTestMetaOrg, getTestOrg, setTestMetaOrgId, TEST_META_ORG_ID } from './test-objects.js';
 import { getSystemUserContext } from '@loomcore/common/models';
 /**
  * Utility class for setting up a PostgreSQL test database for testing
@@ -49,10 +49,13 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       this.database = testDatabase;
       this.postgresClient = postgresClient;
-      let success = (await setupDatabaseForMultitenant(postgresClient, 'Test Org', 'test-org')).success;
-      if (!success) {
+      const metaOrg = getTestMetaOrg();
+      const multitenantResult = await setupDatabaseForMultitenant(postgresClient, metaOrg.name, metaOrg.code);
+      let success = multitenantResult.success;
+      if (!success || !multitenantResult.metaOrgId) {
         throw new Error('Failed to setup for multitenant');
       }
+      setTestMetaOrgId(multitenantResult.metaOrgId);
 
       await initSystemUserContext(this.database);
 

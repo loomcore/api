@@ -9,7 +9,7 @@ import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
-import { getTestMetaOrgUser, testMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
 
 describe('ApiController Batch Update', () => {
@@ -57,7 +57,7 @@ describe('ApiController Batch Update', () => {
     categoryId = categoryResult._id;
 
 
-    const multiTenantCategoryResult = await multiTenantCategoryService.create(testMetaOrgUserContext, { name: 'Test Category' });
+    const multiTenantCategoryResult = await multiTenantCategoryService.create(getTestMetaOrgUserContext(), { name: 'Test Category' });
     if (!multiTenantCategoryResult) throw new Error("multi-tenant category creation failed");
     multiTenantCategoryId = multiTenantCategoryResult._id;
     // Create products using services
@@ -84,24 +84,24 @@ describe('ApiController Batch Update', () => {
 
     productIds = [productA._id, productB._id, productC._id];
 
-    const multiTenantProductA = await multiTenantProductService.create(testMetaOrgUserContext, {
+    const multiTenantProductA = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productA,
       _id: undefined,
-      _orgId: testMetaOrgUserContext._orgId
+      _orgId: getTestMetaOrgUserContext()._orgId
     });
     if (!multiTenantProductA) throw new Error("multi-tenant product A creation failed");
 
-    const multiTenantProductB = await multiTenantProductService.create(testMetaOrgUserContext, {
+    const multiTenantProductB = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productB,
       _id: undefined,
-      _orgId: testMetaOrgUserContext._orgId
+      _orgId: getTestMetaOrgUserContext()._orgId
     });
     if (!multiTenantProductB) throw new Error("multi-tenant product B creation failed");
 
-    const multiTenantProductC = await multiTenantProductService.create(testMetaOrgUserContext, {
+    const multiTenantProductC = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productC,
       _id: undefined,
-      _orgId: testMetaOrgUserContext._orgId
+      _orgId: getTestMetaOrgUserContext()._orgId
     });
     if (!multiTenantProductC) throw new Error("multi-tenant product C creation failed");
 
@@ -170,7 +170,7 @@ describe('ApiController Batch Update', () => {
     expect(updatedProductA!.name).toBe('Product A Updated');
 
     // Verify directly from service
-    const productAFromDb = await multiTenantProductService.getById(testMetaOrgUserContext, multiTenantProductIds[0]);
+    const productAFromDb = await multiTenantProductService.getById(getTestMetaOrgUserContext(), multiTenantProductIds[0]);
     expect(productAFromDb.name).toBe('Product A Updated');
   });
 });

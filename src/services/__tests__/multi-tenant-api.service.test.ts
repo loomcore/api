@@ -8,7 +8,7 @@ import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
-import { getTestMetaOrgUser, testMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -52,7 +52,7 @@ describe('MultiTenantApiService', () => {
   describe('prepareQuery', () => {
     it('should call TenantQueryDecorator.applyTenantToQuery with correct parameters', () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const query = { name: 'Test' };
 
       // Get the protected method and bind it to the service instance
@@ -82,7 +82,6 @@ describe('MultiTenantApiService', () => {
 
     it('should override consumer-supplied _orgId with userContext _orgId', () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
       // Consumer is trying to supply their own _orgId (this should be ignored/overwritten)
       const query: IQueryOptions = {
         ...DefaultQueryOptions,
@@ -90,7 +89,7 @@ describe('MultiTenantApiService', () => {
       };
 
       // Act
-      const result = service.prepareQuery(userContext, query, []);
+      const result = service.prepareQuery(getTestMetaOrgUserContext(), query, []);
 
       // Assert
       // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
@@ -102,7 +101,7 @@ describe('MultiTenantApiService', () => {
   describe('prepareQueryOptions', () => {
     it('should call TenantQueryDecorator.applyTenantToQueryOptions with the provided options', () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
         filters: { name: { eq: 'Test' } }
@@ -129,7 +128,7 @@ describe('MultiTenantApiService', () => {
 
     it('should override consumer-supplied _orgId filter with userContext _orgId', () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
         // Consumer is trying to supply their own _orgId (this should be ignored/overwritten)
@@ -151,7 +150,7 @@ describe('MultiTenantApiService', () => {
   describe('prepareEntity', () => {
     it('should add tenant ID to entity', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const entity: Partial<TestEntity> = {
         name: 'Test Entity'
       };
@@ -186,6 +185,7 @@ describe('MultiTenantApiService', () => {
           _id: getTestMetaOrgUser()._id,
           email: 'test@example.com',
           password: '',
+          authorizations: [],
           _created: new Date(),
           _createdBy: 'system',
           _updated: new Date(),
@@ -208,7 +208,7 @@ describe('MultiTenantApiService', () => {
   describe('getAll', () => {
     it('should call prepareQuery and return entities', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const testEntity: TestEntity = {
         _id: testUtils.getRandomId(),
         name: 'Test Entity',
@@ -243,7 +243,7 @@ describe('MultiTenantApiService', () => {
   describe('get', () => {
     it('should call prepareQueryOptions with the provided options', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
         filters: { name: { eq: 'Test' } }
@@ -262,7 +262,7 @@ describe('MultiTenantApiService', () => {
   describe('create', () => {
     it('should create an entity with tenant ID', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const entity: Partial<TestEntity> = {
         name: 'Test Entity'
       };
@@ -287,7 +287,7 @@ describe('MultiTenantApiService', () => {
   describe('partialUpdateById', () => {
     it('should update an entity by ID', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const testEntityId = testUtils.getRandomId();
 
       // Insert a test entity directly into the database
@@ -313,7 +313,7 @@ describe('MultiTenantApiService', () => {
 
     it('should throw IdNotFoundError if entity not found', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const nonExistentId = testUtils.getRandomId();
       const entity: Partial<TestEntity> = {
         name: 'Updated Name'
@@ -329,7 +329,7 @@ describe('MultiTenantApiService', () => {
   describe('deleteById', () => {
     it('should delete an entity by ID', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const testEntityId = testUtils.getRandomId();
 
       // Insert a test entity directly into the database
@@ -357,7 +357,7 @@ describe('MultiTenantApiService', () => {
 
     it('should throw IdNotFoundError if no entity found', async () => {
       // Arrange
-      const userContext = testMetaOrgUserContext;
+      const userContext = getTestMetaOrgUserContext();
       const nonExistentId = testUtils.getRandomId();
 
       // Act & Assert

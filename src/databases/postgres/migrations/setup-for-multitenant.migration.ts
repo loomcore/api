@@ -8,9 +8,9 @@ import { PostgresDatabase } from "../postgres.database.js";
 import { OrganizationService } from "../../../services/index.js";
 import { EmptyUserContext } from "@loomcore/common/models";
 
-export async function setupDatabaseForMultitenant(client: Client, orgName: string, orgCode: string): Promise<{ success: boolean, metaOrgId: string | undefined, error: Error | null }> {
+export async function setupDatabaseForMultitenant(client: Client, metaOrgName: string, metaOrgCode: string): Promise<{ success: boolean, metaOrgId: string | undefined, error: Error | null }> {
     let runMigrations: number[] = [];
-    let metaOrgId: string = randomUUID().toString();
+    let metaOrgId: string | undefined;
 
     if (await doesTableExist(client, 'migrations')) {
         const migrations = await client.query(`
@@ -33,7 +33,7 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
     }
 
     if (!runMigrations.includes(2)) {
-        const createOrganizationTableMigration = new CreateOrganizationsTableMigration(client, orgName, orgCode);
+        const createOrganizationTableMigration = new CreateOrganizationsTableMigration(client);
         const result = await createOrganizationTableMigration.execute();
         if (!result.success) {
             console.log('setupDatabaseForMultitenant: error creating organizations table', result.error);
@@ -49,11 +49,22 @@ export async function setupDatabaseForMultitenant(client: Client, orgName: strin
     }
 
     if (!runMigrations.includes(5)) {
-        const createMetaOrgMigration = new CreateMetaOrgMigration(client, orgName, orgCode);
+        const createMetaOrgMigration = new CreateMetaOrgMigration(client, metaOrgName, metaOrgCode);
         const result = await createMetaOrgMigration.execute();
         if (!result.success || !result.metaOrgId) {
             console.log('setupDatabaseForMultitenant: error creating meta org', result.error);
-            return { success: false, metaOrgId: metaOrgId, error: result.error };
+            return { success: false, metaOrgId: result.metaOrgId, error: result.error };
+        }
+        metaOrgId = result.metaOrgId;
+    } else {
+        // Migration already ran, but we need to get the meta org ID
+        if (!metaOrgId) {
+            const database = new PostgresDatabase(client);
+            const organizationService = new OrganizationService(database);
+            const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+            if (metaOrg) {
+                metaOrgId = metaOrg._id;
+            }
         }
     }
 

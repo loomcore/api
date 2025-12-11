@@ -15,90 +15,92 @@ interface TestEntity extends IEntity {
 describe('TenantQueryDecorator', () => {
   // Test data
   const orgId = 'test-org-123';
-  
+
   // Helper function to create user context with or without orgId
   const createUserContext = (includeOrgId = true): IUserContext => ({
-    user: { 
-      _id: testUtils.getRandomId(), 
+    user: {
+      _id: testUtils.getRandomId(),
       email: 'test@example.com',
       password: '',
+      authorizations: [],
       _created: new Date(),
       _createdBy: 'system',
       _updated: new Date(),
       _updatedBy: 'system'
     },
-    ...(includeOrgId ? { _orgId:orgId } : {})
+    ...(includeOrgId ? { _orgId: orgId } : {})
   });
 
   const createUserContextWithoutOrgId = () => ({
-    user: { 
-      _id: testUtils.getRandomId(), 
+    user: {
+      _id: testUtils.getRandomId(),
       email: 'test@example.com',
       password: '',
+      authorizations: [],
       _created: new Date(),
       _createdBy: 'system',
       _updated: new Date(),
       _updatedBy: 'system'
     }
   });
-  
+
   const collectionName = 'testCollection';
   const excludedCollectionName = 'excludedCollection';
-  
+
   describe('constructor', () => {
     it('should use default options when none provided', () => {
       // Arrange & Act
       const decorator = new TenantQueryDecorator();
-      
+
       // Assert - testing private property via the getter
       expect(decorator.getOrgIdField()).toBe(DEFAULT_TENANT_OPTIONS.orgIdField);
     });
-    
+
     it('should use custom options when provided', () => {
       // Arrange
       const customOptions: ITenantQueryOptions = {
         orgIdField: 'customOrgField',
         excludedCollections: ['collection1', 'collection2']
       };
-      
+
       // Act
       const decorator = new TenantQueryDecorator(customOptions);
-      
+
       // Assert
       expect(decorator.getOrgIdField()).toBe('customOrgField');
     });
-    
+
     it('should merge custom options with defaults', () => {
       // Arrange
       const partialOptions: Partial<ITenantQueryOptions> = {
         orgIdField: 'customOrgField'
       };
-      
+
       // Act
       const decorator = new TenantQueryDecorator(partialOptions);
-      
+
       // Assert
       expect(decorator.getOrgIdField()).toBe('customOrgField');
       // Even though we didn't specify excludedCollections, it should exist with default value
       // We can't easily test this directly because options is private
     });
   });
-  
+
   describe('applyTenantToQuery', () => {
     it('should add orgId to query for normal collection', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
       const query = { filters: { name: { eq: 'Test' } } };
-      
+
       // Act
       const result = decorator.applyTenantToQuery(createUserContext(), query, collectionName);
-      
+
       // Assert
       expect(result).toEqual({
         filters: { name: { eq: 'Test' }, _orgId: { eq: orgId } }
       });
     });
-    
+
     it('should not add orgId to excluded collections', () => {
       // Arrange
       const customOptions: ITenantQueryOptions = {
@@ -106,14 +108,14 @@ describe('TenantQueryDecorator', () => {
       };
       const decorator = new TenantQueryDecorator(customOptions);
       const query = { filters: { name: { eq: 'Test' } } };
-      
+
       // Act
       const result = decorator.applyTenantToQuery(createUserContext(), query, excludedCollectionName);
-      
+
       // Assert - should return original query unchanged
       expect(result).toEqual(query);
     });
-    
+
     it('should use custom orgId field name when specified', () => {
       // Arrange
       const customOptions: ITenantQueryOptions = {
@@ -121,28 +123,28 @@ describe('TenantQueryDecorator', () => {
       };
       const decorator = new TenantQueryDecorator(customOptions);
       const query = { filters: { name: { eq: 'Test' } } };
-      
+
       // Act
       const result = decorator.applyTenantToQuery(createUserContext(), query, collectionName);
-      
+
       // Assert
       expect(result).toEqual({
         filters: { name: { eq: 'Test' }, tenantId: { eq: orgId } }
       });
     });
-    
+
     it('should throw ServerError if userContext has no orgId', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
       const query = { filters: { name: { eq: 'Test' } } };
-      
+
       // Act & Assert
       expect(() => {
         decorator.applyTenantToQuery(createUserContext(false), query, collectionName);
       }).toThrow(ServerError);
     });
   });
-  
+
   describe('applyTenantToQueryOptions', () => {
     it('should add orgId filter to query options', () => {
       // Arrange
@@ -229,17 +231,17 @@ describe('TenantQueryDecorator', () => {
       expect(result.filters!['_orgId']).toEqual({ eq: orgId });
     });
   });
-  
+
   describe('applyTenantToEntity', () => {
     it('should add orgId to entity', () => {
       // Arrange
       const newId = testUtils.getRandomId();
       const decorator = new TenantQueryDecorator();
       const entity: TestEntity = { _id: newId, name: 'Test Entity' };
-      
+
       // Act
       const result = decorator.applyTenantToEntity(createUserContext(), entity, collectionName);
-      
+
       // Assert
       expect(result).toEqual({
         _id: newId,
@@ -247,7 +249,7 @@ describe('TenantQueryDecorator', () => {
         _orgId: orgId
       });
     });
-    
+
     it('should not modify entity for excluded collections', () => {
       // Arrange
       const newId = testUtils.getRandomId();
@@ -256,14 +258,14 @@ describe('TenantQueryDecorator', () => {
       };
       const decorator = new TenantQueryDecorator(customOptions);
       const entity: TestEntity = { _id: newId, name: 'Test Entity' };
-      
+
       // Act
       const result = decorator.applyTenantToEntity(createUserContext(), entity, excludedCollectionName);
-      
+
       // Assert
       expect(result).toEqual(entity);
     });
-    
+
     it('should use custom orgId field name when specified', () => {
       // Arrange
       const newId = testUtils.getRandomId();
@@ -272,10 +274,10 @@ describe('TenantQueryDecorator', () => {
       };
       const decorator = new TenantQueryDecorator(customOptions);
       const entity: TestEntity = { _id: newId, name: 'Test Entity' };
-      
+
       // Act
       const result = decorator.applyTenantToEntity(createUserContext(), entity, collectionName);
-      
+
       // Assert
       expect(result).toEqual({
         _id: newId,
@@ -283,53 +285,53 @@ describe('TenantQueryDecorator', () => {
         tenantId: orgId
       });
     });
-    
+
     it('should throw ServerError if userContext has no orgId', () => {
       // Arrange
       const newId = testUtils.getRandomId();
       const decorator = new TenantQueryDecorator();
       const entity: TestEntity = { _id: newId, name: 'Test Entity' };
-      
+
       // Act & Assert
       expect(() => {
         decorator.applyTenantToEntity(createUserContext(false), entity, collectionName);
       }).toThrow(ServerError);
     });
-    
+
     it('should override entity orgId if already exists', () => {
       // Arrange
       const newId = testUtils.getRandomId();
       const decorator = new TenantQueryDecorator();
-      const entity: TestEntity & { _orgId: string } = { 
+      const entity: TestEntity & { _orgId: string } = {
         _id: newId,
         name: 'Test Entity',
         _orgId: 'old-org-id'
       };
-      
+
       // Act
       const result = decorator.applyTenantToEntity(createUserContext(), entity, collectionName);
-      
+
       // Assert
       expect(result._orgId).toBe(orgId);
     });
   });
-  
+
   describe('getOrgIdField', () => {
     it('should return default orgId field name when not specified', () => {
       // Arrange
       const decorator = new TenantQueryDecorator();
-      
+
       // Act & Assert
       expect(decorator.getOrgIdField()).toBe('_orgId');
     });
-    
+
     it('should return custom orgId field name when specified', () => {
       // Arrange
       const customOptions: ITenantQueryOptions = {
         orgIdField: 'tenantId'
       };
       const decorator = new TenantQueryDecorator(customOptions);
-      
+
       // Act & Assert
       expect(decorator.getOrgIdField()).toBe('tenantId');
     });

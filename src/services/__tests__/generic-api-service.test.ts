@@ -12,7 +12,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, TestEntitySchema, testModelSpec } from '../../__tests__/index.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { testMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 describe('GenericApiService - Integration Tests', () => {
   let database: IDatabase;
@@ -52,7 +52,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       // Assert
       expect(createdEntity).toBeDefined();
@@ -70,9 +70,9 @@ describe('GenericApiService - Integration Tests', () => {
       ];
 
       // Act
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
-      const allEntities = await service.getAll(testMetaOrgUserContext);
+      const allEntities = await service.getAll(getTestMetaOrgUserContext());
       // Assert
       expect(allEntities).toHaveLength(3);
     });
@@ -84,7 +84,7 @@ describe('GenericApiService - Integration Tests', () => {
         description: 'This is a test entity',
         isActive: true
       };
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity) {
         throw new Error('Entity not created');
@@ -104,7 +104,7 @@ describe('GenericApiService - Integration Tests', () => {
       ];
 
       // Act
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Assert
       expect(createdEntities).toHaveLength(3);
@@ -136,8 +136,8 @@ describe('GenericApiService - Integration Tests', () => {
       ];
 
       // Act
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
-      const allEntities = await service.getAll(testMetaOrgUserContext);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
+      const allEntities = await service.getAll(getTestMetaOrgUserContext());
 
       // Assert
       expect(createdEntities).toHaveLength(3);
@@ -153,7 +153,7 @@ describe('GenericApiService - Integration Tests', () => {
       const testEntities: TestEntity[] = [];
 
       // Act
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Assert
       expect(createdEntities).toHaveLength(0);
@@ -168,14 +168,14 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       // Act
-      const retrievedEntity = await service.getById(testMetaOrgUserContext, createdEntity._id);
+      const retrievedEntity = await service.getById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Assert
       expect(retrievedEntity).toBeDefined();
@@ -195,14 +195,14 @@ describe('GenericApiService - Integration Tests', () => {
         count: 42
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       // Act
-      const retrievedEntity = await service.getById(testMetaOrgUserContext, createdEntity._id);
+      const retrievedEntity = await service.getById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Assert
       expect(retrievedEntity).toBeDefined();
@@ -223,7 +223,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', description: 'Third entity' }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       if (createdEntities.length < 2 || !createdEntities[1]._id) {
         throw new Error('Entities not created properly');
@@ -232,7 +232,7 @@ describe('GenericApiService - Integration Tests', () => {
       const targetId = createdEntities[1]._id;
 
       // Act
-      const retrievedEntity = await service.getById(testMetaOrgUserContext, targetId);
+      const retrievedEntity = await service.getById(getTestMetaOrgUserContext(), targetId);
 
       // Assert
       expect(retrievedEntity).toBeDefined();
@@ -247,7 +247,7 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Entity with audit fields'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -260,7 +260,7 @@ describe('GenericApiService - Integration Tests', () => {
       expect(createdEntity._updatedBy).toBeDefined();
 
       // Act
-      const retrievedEntity = await service.getById(testMetaOrgUserContext, createdEntity._id);
+      const retrievedEntity = await service.getById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Assert
       expect(retrievedEntity).toBeDefined();
@@ -282,7 +282,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.getById(testMetaOrgUserContext, emptyId)
+        service.getById(getTestMetaOrgUserContext(), emptyId)
       ).rejects.toThrow(BadRequestError);
     });
 
@@ -293,18 +293,18 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Entity to be deleted'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       // Delete the entity directly from the collection
-      await service.deleteById(testMetaOrgUserContext, createdEntity._id);
+      await service.deleteById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Act & Assert
       await expect(
-        service.getById(testMetaOrgUserContext, createdEntity._id)
+        service.getById(getTestMetaOrgUserContext(), createdEntity._id)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -314,7 +314,7 @@ describe('GenericApiService - Integration Tests', () => {
       const entity1: Partial<TestEntity> = {
         name: 'Unique Name'
       };
-      const createdEntity1 = await service.create(testMetaOrgUserContext, entity1);
+      const createdEntity1 = await service.create(getTestMetaOrgUserContext(), entity1);
 
       if (!createdEntity1 || !createdEntity1._id) {
         throw new Error('Entity not created or missing ID');
@@ -327,7 +327,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.create(testMetaOrgUserContext, entity2)
+        service.create(getTestMetaOrgUserContext(), entity2)
       ).rejects.toThrow(DuplicateKeyError);
     });
 
@@ -339,7 +339,7 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Existing Unique Name'
       };
 
-      const createdEntity1 = await service.create(testMetaOrgUserContext, entity1);
+      const createdEntity1 = await service.create(getTestMetaOrgUserContext(), entity1);
       if (!createdEntity1 || !createdEntity1._id) {
         throw new Error('Entity not created or missing ID');
       }
@@ -353,7 +353,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.createMany(testMetaOrgUserContext, testEntities)
+        service.createMany(getTestMetaOrgUserContext(), testEntities)
       ).rejects.toThrow(DuplicateKeyError);
     });
 
@@ -365,7 +365,7 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Existing Unique Name'
       };
 
-      const createdEntity1 = await service.create(testMetaOrgUserContext, entity1);
+      const createdEntity1 = await service.create(getTestMetaOrgUserContext(), entity1);
       if (!createdEntity1 || !createdEntity1._id) {
         throw new Error('Entity not created or missing ID');
       }
@@ -381,7 +381,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.createMany(testMetaOrgUserContext, testEntities)
+        service.createMany(getTestMetaOrgUserContext(), testEntities)
       ).rejects.toThrow(DuplicateKeyError);
     });
   });
@@ -515,7 +515,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity E', tags: ['tag1', 'tag4'], count: 50, isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
     });
 
 
@@ -523,7 +523,7 @@ describe('GenericApiService - Integration Tests', () => {
       // Arrange
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext);
+      const pagedResult = await service.get(getTestMetaOrgUserContext());
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -543,7 +543,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -563,7 +563,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -583,7 +583,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -602,7 +602,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -622,7 +622,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -641,7 +641,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -660,7 +660,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -681,7 +681,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -704,7 +704,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -728,7 +728,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -749,7 +749,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const pagedResult = await service.get(testMetaOrgUserContext, queryOptions);
+      const pagedResult = await service.get(getTestMetaOrgUserContext(), queryOptions);
 
       // Assert
       expect(pagedResult.entities).toBeDefined();
@@ -764,7 +764,7 @@ describe('GenericApiService - Integration Tests', () => {
       // Arrange
 
       // Act
-      const count = await service.getCount(testMetaOrgUserContext);
+      const count = await service.getCount(getTestMetaOrgUserContext());
 
       // Assert
       expect(count).toBe(0);
@@ -778,10 +778,10 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Count Entity 3', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act
-      const count = await service.getCount(testMetaOrgUserContext);
+      const count = await service.getCount(getTestMetaOrgUserContext());
 
       // Assert
       expect(count).toBe(3);
@@ -797,11 +797,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Count Match Entity 5' }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act
-      const count = await service.getCount(testMetaOrgUserContext);
-      const allEntities = await service.getAll(testMetaOrgUserContext);
+      const count = await service.getCount(getTestMetaOrgUserContext());
+      const allEntities = await service.getAll(getTestMetaOrgUserContext());
 
       // Assert
       expect(count).toBe(5);
@@ -815,10 +815,10 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Single Count Entity'
       };
 
-      await service.create(testMetaOrgUserContext, testEntity);
+      await service.create(getTestMetaOrgUserContext(), testEntity);
 
       // Act
-      const count = await service.getCount(testMetaOrgUserContext);
+      const count = await service.getCount(getTestMetaOrgUserContext());
 
       // Assert
       expect(count).toBe(1);
@@ -828,21 +828,21 @@ describe('GenericApiService - Integration Tests', () => {
       // Arrange
 
       // Initial count should be 0
-      let count = await service.getCount(testMetaOrgUserContext);
+      let count = await service.getCount(getTestMetaOrgUserContext());
       expect(count).toBe(0);
 
       // Create first entity
       const entity1: Partial<TestEntity> = { name: 'Entity 1' };
-      await service.create(testMetaOrgUserContext, entity1);
+      await service.create(getTestMetaOrgUserContext(), entity1);
 
-      count = await service.getCount(testMetaOrgUserContext);
+      count = await service.getCount(getTestMetaOrgUserContext());
       expect(count).toBe(1);
 
       // Create second entity
       const entity2: Partial<TestEntity> = { name: 'Entity 2' };
-      await service.create(testMetaOrgUserContext, entity2);
+      await service.create(getTestMetaOrgUserContext(), entity2);
 
-      count = await service.getCount(testMetaOrgUserContext);
+      count = await service.getCount(getTestMetaOrgUserContext());
       expect(count).toBe(2);
 
       // Create multiple entities at once
@@ -851,10 +851,10 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4' },
         { name: 'Entity 5' }
       ];
-      await service.createMany(testMetaOrgUserContext, entities);
+      await service.createMany(getTestMetaOrgUserContext(), entities);
 
       // Final count should be 5
-      count = await service.getCount(testMetaOrgUserContext);
+      count = await service.getCount(getTestMetaOrgUserContext());
       expect(count).toBe(5);
     });
   });
@@ -870,7 +870,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', description: 'Original description 3', isActive: true }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Prepare update entities with IDs
       const updateEntities: Partial<TestEntity>[] = [
@@ -880,7 +880,7 @@ describe('GenericApiService - Integration Tests', () => {
       ];
 
       // Act
-      const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, updateEntities);
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), updateEntities);
 
       // Assert
       expect(updatedEntities).toHaveLength(3);
@@ -902,7 +902,7 @@ describe('GenericApiService - Integration Tests', () => {
       const emptyEntities: Partial<TestEntity>[] = [];
 
       // Act
-      const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, emptyEntities);
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), emptyEntities);
 
       // Assert
       expect(updatedEntities).toHaveLength(0);
@@ -918,7 +918,7 @@ describe('GenericApiService - Integration Tests', () => {
         description: 'Original description'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -938,7 +938,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, [updateEntity]);
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), [updateEntity]);
 
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -962,7 +962,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 42
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -975,7 +975,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, [updateEntity]);
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), [updateEntity]);
 
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -997,7 +997,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity C', isActive: true, count: 30 }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Prepare updates with different field combinations
       const updateEntities: Partial<TestEntity>[] = [
@@ -1007,7 +1007,7 @@ describe('GenericApiService - Integration Tests', () => {
       ];
 
       // Act
-      const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, updateEntities);
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), updateEntities);
 
       // Assert
       expect(updatedEntities).toHaveLength(3);
@@ -1036,7 +1036,7 @@ describe('GenericApiService - Integration Tests', () => {
         description: 'Original'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1049,7 +1049,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       // Act
-      const updatedEntities = await service.batchUpdate(testMetaOrgUserContext, [updateEntity]);
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), [updateEntity]);
 
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1070,7 +1070,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 10
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1086,7 +1086,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.fullUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1108,7 +1108,7 @@ describe('GenericApiService - Integration Tests', () => {
         description: 'Original description'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1128,7 +1128,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.fullUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1149,7 +1149,7 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Entity for audit update test'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1167,7 +1167,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.fullUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1176,7 +1176,7 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updated).toBeDefined();
       expect(updatedEntity._updatedBy).toBeDefined();
       expect(updatedEntity._updated).not.toEqual(originalUpdated);
-      expect(updatedEntity._updatedBy).toBe(testMetaOrgUserContext.user._id);
+      expect(updatedEntity._updatedBy).toBe(getTestMetaOrgUserContext().user._id);
     });
 
 
@@ -1190,7 +1190,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 100
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1206,7 +1206,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.fullUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1228,7 +1228,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1240,7 +1240,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.fullUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1264,7 +1264,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 10
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1277,7 +1277,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1303,7 +1303,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 100
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1315,7 +1315,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1335,7 +1335,7 @@ describe('GenericApiService - Integration Tests', () => {
         description: 'Original description'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1354,7 +1354,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1375,7 +1375,7 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Entity for audit update test'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1393,7 +1393,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1402,7 +1402,7 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updated).toBeDefined();
       expect(updatedEntity._updatedBy).toBeDefined();
       expect(updatedEntity._updated).not.toEqual(originalUpdated);
-      expect(updatedEntity._updatedBy).toBe(testMetaOrgUserContext.user._id);
+      expect(updatedEntity._updatedBy).toBe(getTestMetaOrgUserContext().user._id);
     });
 
 
@@ -1415,7 +1415,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 10
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1430,7 +1430,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1453,7 +1453,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1465,7 +1465,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1483,7 +1483,7 @@ describe('GenericApiService - Integration Tests', () => {
         tags: ['tag1', 'tag2']
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1495,7 +1495,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const updatedEntity = await service.partialUpdateById(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1517,7 +1517,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 10
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1530,7 +1530,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1555,7 +1555,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 100
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1567,7 +1567,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1585,7 +1585,7 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Entity for audit update test'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1603,7 +1603,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1612,7 +1612,7 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updated).toBeDefined();
       expect(updatedEntity._updatedBy).toBeDefined();
       expect(updatedEntity._updated).toEqual(originalUpdated);
-      expect(updatedEntity._updatedBy).toBe(testMetaOrgUserContext.user._id);
+      expect(updatedEntity._updatedBy).toBe(getTestMetaOrgUserContext().user._id);
     });
 
 
@@ -1626,7 +1626,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.partialUpdateByIdWithoutPreAndPostProcessing(testMetaOrgUserContext, nonExistentId, updateEntity)
+        service.partialUpdateByIdWithoutPreAndPostProcessing(getTestMetaOrgUserContext(), nonExistentId, updateEntity)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -1640,7 +1640,7 @@ describe('GenericApiService - Integration Tests', () => {
         count: 5
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1654,7 +1654,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1673,7 +1673,7 @@ describe('GenericApiService - Integration Tests', () => {
         tags: ['tag1', 'tag2']
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1685,7 +1685,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1703,7 +1703,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1715,7 +1715,7 @@ describe('GenericApiService - Integration Tests', () => {
       } as TestEntity;
 
       const updatedEntity = await service.partialUpdateByIdWithoutPreAndPostProcessing(
-        testMetaOrgUserContext,
+        getTestMetaOrgUserContext(),
         createdEntity._id,
         updateEntity
       );
@@ -1736,7 +1736,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: false, count: 30 }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, initialEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
       // Act - Update all active entities
       const updateEntity: Partial<TestEntity> = {
@@ -1744,7 +1744,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const queryObject = { filters: { isActive: { eq: true } } };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
       expect(updatedEntities).toHaveLength(2);
@@ -1767,7 +1767,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, initialEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), initialEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -1779,7 +1779,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
       expect(updatedEntities).toHaveLength(1);
@@ -1796,7 +1796,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity B', description: 'Original B', isActive: true, count: 200 }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, initialEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
       // Act - Update only description field (doesn't affect the query)
       const updateEntity: Partial<TestEntity> = {
@@ -1804,7 +1804,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert - Verify the update worked
       expect(updatedEntities).toHaveLength(2);
@@ -1832,7 +1832,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 2', isActive: true }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, initialEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
       const originalUpdated1 = createdEntities[0]._updated;
       const originalUpdated2 = createdEntities[1]._updated;
@@ -1846,14 +1846,14 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
       expect(updatedEntities).toHaveLength(2);
       updatedEntities.forEach(entity => {
         expect(entity._updated).toBeDefined();
         expect(entity._updatedBy).toBeDefined();
-        expect(entity._updatedBy).toBe(testMetaOrgUserContext.user._id);
+        expect(entity._updatedBy).toBe(getTestMetaOrgUserContext().user._id);
       });
 
       expect(updatedEntities[0]._updated).not.toEqual(originalUpdated1);
@@ -1870,7 +1870,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.update(testMetaOrgUserContext, queryObject, updateEntity)
+        service.update(getTestMetaOrgUserContext(), queryObject, updateEntity)
       ).rejects.toThrow(NotFoundError);
     });
 
@@ -1883,7 +1883,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, initialEntities);
+      await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
       // Act - Update entities that are active AND have count >= 20
       const updateEntity: Partial<TestEntity> = {
@@ -1891,7 +1891,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const queryObject = { filters: { isActive: { eq: true }, count: { gte: 20 } } };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
       expect(updatedEntities).toHaveLength(2);
@@ -1911,7 +1911,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, initialEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
       // Act - Update specific entities by _id using $in
       const updateEntity: Partial<TestEntity> = {
@@ -1920,7 +1920,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
       const queryObject = { filters: { _id: { in: targetIds } } };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
       expect(updatedEntities).toHaveLength(2);
@@ -1940,7 +1940,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, initialEntities);
+      await service.createMany(getTestMetaOrgUserContext(), initialEntities);
 
       // Act - Update all entities (empty query matches all)
       const updateEntity: Partial<TestEntity> = {
@@ -1948,7 +1948,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const queryObject = { ...DefaultQueryOptions };
-      const updatedEntities = await service.update(testMetaOrgUserContext, queryObject, updateEntity);
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
       expect(updatedEntities).toHaveLength(3);
@@ -1967,14 +1967,14 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       // Act
-      const deleteResult = await service.deleteById(testMetaOrgUserContext, createdEntity._id);
+      const deleteResult = await service.deleteById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Assert
       expect(deleteResult).toBeDefined();
@@ -1983,7 +1983,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Verify the entity is deleted by trying to retrieve it
       await expect(
-        service.getById(testMetaOrgUserContext, createdEntity._id)
+        service.getById(getTestMetaOrgUserContext(), createdEntity._id)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -1995,19 +1995,19 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       // Verify entity exists before deletion
-      const beforeDelete = await service.getById(testMetaOrgUserContext, createdEntity._id);
+      const beforeDelete = await service.getById(getTestMetaOrgUserContext(), createdEntity._id);
       expect(beforeDelete).toBeDefined();
       expect(beforeDelete._id).toBe(createdEntity._id);
 
       // Act
-      const deleteResult = await service.deleteById(testMetaOrgUserContext, createdEntity._id);
+      const deleteResult = await service.deleteById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Assert
       expect(deleteResult.count).toBe(1);
@@ -2015,7 +2015,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Verify entity no longer exists
       await expect(
-        service.getById(testMetaOrgUserContext, createdEntity._id)
+        service.getById(getTestMetaOrgUserContext(), createdEntity._id)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -2027,10 +2027,10 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: false }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Verify initial count
-      const initialCount = await service.getCount(testMetaOrgUserContext);
+      const initialCount = await service.getCount(getTestMetaOrgUserContext());
       expect(initialCount).toBe(3);
 
       if (!createdEntities[0] || !createdEntities[0]._id) {
@@ -2038,14 +2038,14 @@ describe('GenericApiService - Integration Tests', () => {
       }
 
       // Act
-      const deleteResult = await service.deleteById(testMetaOrgUserContext, createdEntities[0]._id);
+      const deleteResult = await service.deleteById(getTestMetaOrgUserContext(), createdEntities[0]._id);
 
       // Assert
       expect(deleteResult.count).toBe(1);
       expect(deleteResult.success).toBe(true);
 
       // Verify count decreased
-      const finalCount = await service.getCount(testMetaOrgUserContext);
+      const finalCount = await service.getCount(getTestMetaOrgUserContext());
       expect(finalCount).toBe(2);
     });
 
@@ -2057,7 +2057,7 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity C', description: 'Third entity' }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       if (!createdEntities[1] || !createdEntities[1]._id) {
         throw new Error('Entity not created or missing ID');
@@ -2066,18 +2066,18 @@ describe('GenericApiService - Integration Tests', () => {
       const entityToDeleteId = createdEntities[1]._id;
 
       // Act
-      const deleteResult = await service.deleteById(testMetaOrgUserContext, entityToDeleteId);
+      const deleteResult = await service.deleteById(getTestMetaOrgUserContext(), entityToDeleteId);
 
       // Assert
       expect(deleteResult.count).toBe(1);
 
       // Verify deleted entity is gone
       await expect(
-        service.getById(testMetaOrgUserContext, entityToDeleteId)
+        service.getById(getTestMetaOrgUserContext(), entityToDeleteId)
       ).rejects.toThrow(IdNotFoundError);
 
       // Verify other entities still exist
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(2);
       expect(remainingEntities.find(e => e.name === 'Entity A')).toBeDefined();
       expect(remainingEntities.find(e => e.name === 'Entity C')).toBeDefined();
@@ -2091,14 +2091,14 @@ describe('GenericApiService - Integration Tests', () => {
         name: 'Entity for DeleteResult test'
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       // Act
-      const deleteResult = await service.deleteById(testMetaOrgUserContext, createdEntity._id);
+      const deleteResult = await service.deleteById(getTestMetaOrgUserContext(), createdEntity._id);
 
       // Assert
       expect(deleteResult).toBeDefined();
@@ -2120,15 +2120,15 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: false }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Verify initial count
-      const initialCount = await service.getCount(testMetaOrgUserContext);
+      const initialCount = await service.getCount(getTestMetaOrgUserContext());
       expect(initialCount).toBe(3);
 
       // Act - Delete all active entities
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult).toBeDefined();
@@ -2136,11 +2136,11 @@ describe('GenericApiService - Integration Tests', () => {
       expect(deleteResult.success).toBe(true);
 
       // Verify count decreased
-      const finalCount = await service.getCount(testMetaOrgUserContext);
+      const finalCount = await service.getCount(getTestMetaOrgUserContext());
       expect(finalCount).toBe(1);
 
       // Verify only inactive entity remains
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(1);
       expect(remainingEntities[0].isActive).toBe(false);
     });
@@ -2153,25 +2153,25 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Verify initial count
-      const initialCount = await service.getCount(testMetaOrgUserContext);
+      const initialCount = await service.getCount(getTestMetaOrgUserContext());
       expect(initialCount).toBe(3);
 
       // Act - Delete all entities (empty query matches all)
       const queryObject: IQueryOptions = { ...DefaultQueryOptions };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(3);
       expect(deleteResult.success).toBe(true);
 
       // Verify all entities are deleted
-      const finalCount = await service.getCount(testMetaOrgUserContext);
+      const finalCount = await service.getCount(getTestMetaOrgUserContext());
       expect(finalCount).toBe(0);
 
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(0);
     });
 
@@ -2184,17 +2184,17 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Delete entities that are active AND have count >= 20
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true }, count: { gte: 20 } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(2);
 
       // Verify remaining entities
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(2);
 
       // Entity 1 should remain (active but count < 20)
@@ -2214,19 +2214,19 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
 
       // Act - Delete specific entities by _id using $in
       const queryObject: IQueryOptions = { filters: { _id: { in: targetIds } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(2);
 
       // Verify only Entity 2 remains
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(1);
       expect(remainingEntities[0].name).toBe('Entity 2');
     });
@@ -2238,18 +2238,18 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 2', isActive: false }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Delete entities that don't exist
       const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(0);
       expect(deleteResult.success).toBe(true);
 
       // Verify all entities still exist
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(2);
     });
 
@@ -2261,21 +2261,21 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity C', description: 'Third', isActive: false }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Verify entities exist before deletion
-      const beforeDelete = await service.getAll(testMetaOrgUserContext);
+      const beforeDelete = await service.getAll(getTestMetaOrgUserContext());
       expect(beforeDelete).toHaveLength(3);
 
       // Act
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(2);
 
       // Verify entities are removed
-      const afterDelete = await service.getAll(testMetaOrgUserContext);
+      const afterDelete = await service.getAll(getTestMetaOrgUserContext());
       expect(afterDelete).toHaveLength(1);
       expect(afterDelete[0].name).toBe('Entity C');
     });
@@ -2287,7 +2287,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -2295,14 +2295,14 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act - Delete using string _id
       const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(1);
 
       // Verify entity is deleted
       await expect(
-        service.getById(testMetaOrgUserContext, createdEntity._id)
+        service.getById(getTestMetaOrgUserContext(), createdEntity._id)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -2313,11 +2313,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 2', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult).toBeDefined();
@@ -2338,17 +2338,17 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', count: 40 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Delete entities with count >= 30
       const queryObject: IQueryOptions = { filters: { count: { gte: 30 } } };
-      const deleteResult = await service.deleteMany(testMetaOrgUserContext, queryObject);
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(deleteResult.count).toBe(2);
 
       // Verify remaining entities
-      const remainingEntities = await service.getAll(testMetaOrgUserContext);
+      const remainingEntities = await service.getAll(getTestMetaOrgUserContext());
       expect(remainingEntities).toHaveLength(2);
       expect(remainingEntities.find(e => e.name === 'Entity 1')).toBeDefined();
       expect(remainingEntities.find(e => e.name === 'Entity 2')).toBeDefined();
@@ -2366,11 +2366,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: false, count: 30 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find all active entities
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toBeDefined();
@@ -2388,11 +2388,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find all entities (empty query)
       const queryObject = {};
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(3);
@@ -2407,11 +2407,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find entities that are active AND have count >= 20
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true }, count: { gte: 20 } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -2428,7 +2428,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -2436,7 +2436,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act - Find by _id
       const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(1);
@@ -2452,13 +2452,13 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      const createdEntities = await service.createMany(testMetaOrgUserContext, testEntities);
+      const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
 
       // Act - Find specific entities by _id using $in
       const queryObject: IQueryOptions = { filters: { _id: { in: targetIds } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -2474,11 +2474,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 2', isActive: false }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find entities that don't exist
       const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toBeDefined();
@@ -2496,11 +2496,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', count: 40 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find entities with count >= 30
       const queryObject: IQueryOptions = { filters: { count: { gte: 30 } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -2517,11 +2517,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity C', description: 'First' }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find entities with specific description
       const queryObject: IQueryOptions = { filters: { description: { eq: 'First' } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -2538,11 +2538,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find with limit option
       const queryObject: IQueryOptions = { ...DefaultQueryOptions, page: 1, pageSize: 2 };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -2557,11 +2557,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', isActive: false }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find inactive entities
       const queryObject: IQueryOptions = { filters: { isActive: { eq: false } } };
-      const foundEntities = await service.find(testMetaOrgUserContext, queryObject);
+      const foundEntities = await service.find(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntities).toHaveLength(2);
@@ -2580,11 +2580,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: false, count: 30 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one active entity
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2599,7 +2599,7 @@ describe('GenericApiService - Integration Tests', () => {
         isActive: true
       };
 
-      const createdEntity = await service.create(testMetaOrgUserContext, testEntity);
+      const createdEntity = await service.create(getTestMetaOrgUserContext(), testEntity);
 
       if (!createdEntity || !createdEntity._id) {
         throw new Error('Entity not created or missing ID');
@@ -2607,7 +2607,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       // Act - Find by _id
       const queryObject: IQueryOptions = { filters: { _id: { eq: createdEntity._id } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2624,11 +2624,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 4', isActive: false, count: 40 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one entity that is active AND has count = 20
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true }, count: { eq: 20 } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2644,11 +2644,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 2', isActive: false }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act & Assert - Find entity that doesn't exist
       const queryObject: IQueryOptions = { filters: { name: { eq: 'Non-existent Entity' } } };
-      const entity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const entity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
       expect(entity).toBeNull();
     });
 
@@ -2661,11 +2661,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one entity with count >= 20
       const queryObject: IQueryOptions = { filters: { count: { gte: 20 } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2681,11 +2681,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity C', description: 'First' }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one entity with specific description
       const queryObject: IQueryOptions = { filters: { description: { eq: 'First' } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2701,11 +2701,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one inactive entity
       const queryObject: IQueryOptions = { filters: { isActive: { eq: false } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2721,11 +2721,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', count: 30 }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one with sort option (descending by count)
       const queryObject: IQueryOptions = { filters: {}, orderBy: 'count', sortDirection: 'desc' };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2741,11 +2741,11 @@ describe('GenericApiService - Integration Tests', () => {
         { name: 'Entity 3', isActive: true }
       ];
 
-      await service.createMany(testMetaOrgUserContext, testEntities);
+      await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
       // Act - Find one active entity (multiple match)
       const queryObject: IQueryOptions = { filters: { isActive: { eq: true } } };
-      const foundEntity = await service.findOne(testMetaOrgUserContext, queryObject);
+      const foundEntity = await service.findOne(getTestMetaOrgUserContext(), queryObject);
 
       // Assert
       expect(foundEntity).toBeDefined();
@@ -2766,7 +2766,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
 
         // Act
-        const preparedEntity = await service.preprocessEntity(testMetaOrgUserContext, entityWithExtraProps, true);
+        const preparedEntity = await service.preprocessEntity(getTestMetaOrgUserContext(), entityWithExtraProps, true);
 
         // Assert
         expect(preparedEntity.name).toBe('Entity with extra props');
@@ -2786,7 +2786,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
 
         // Act
-        const preparedEntity = await service.preprocessEntity(testMetaOrgUserContext, validEntity, true);
+        const preparedEntity = await service.preprocessEntity(getTestMetaOrgUserContext(), validEntity, true);
 
         // Assert
         expect(preparedEntity.name).toBe(validEntity.name);
@@ -2803,13 +2803,13 @@ describe('GenericApiService - Integration Tests', () => {
         const entity = { name: 'AuditTest' };
 
         // Act
-        const preparedEntity = await service.preprocessEntity(testMetaOrgUserContext, entity, true);
+        const preparedEntity = await service.preprocessEntity(getTestMetaOrgUserContext(), entity, true);
 
         // Assert
         expect(preparedEntity._created).toBeDefined();
-        expect(preparedEntity._createdBy).toBe(testMetaOrgUserContext.user._id.toString());
+        expect(preparedEntity._createdBy).toBe(getTestMetaOrgUserContext().user._id.toString());
         expect(preparedEntity._updated).toBeDefined();
-        expect(preparedEntity._updatedBy).toBe(testMetaOrgUserContext.user._id.toString());
+        expect(preparedEntity._updatedBy).toBe(getTestMetaOrgUserContext().user._id.toString());
       });
 
       it('should not add audit properties when model is not auditable', async () => {
@@ -2826,7 +2826,7 @@ describe('GenericApiService - Integration Tests', () => {
         const entity = { name: 'NonAuditTest' };
 
         // Act
-        const preparedEntity = await nonAuditableService.preprocessEntity(testMetaOrgUserContext, entity, true);
+        const preparedEntity = await nonAuditableService.preprocessEntity(getTestMetaOrgUserContext(), entity, true);
 
         // Assert
         expect((preparedEntity as any)._created).toBeUndefined();
@@ -2843,6 +2843,7 @@ describe('GenericApiService - Integration Tests', () => {
             _id: testUtils.getRandomId(),
             email: 'updater@example.com',
             password: '',
+            authorizations: [],
             _created: new Date(),
             _createdBy: 'system',
             _updated: new Date(),
@@ -2874,14 +2875,14 @@ describe('GenericApiService - Integration Tests', () => {
         };
 
         // Act
-        const preparedEntity = await service.preprocessEntity(testMetaOrgUserContext, entityWithHackedAudit, true);
+        const preparedEntity = await service.preprocessEntity(getTestMetaOrgUserContext(), entityWithHackedAudit, true);
 
         // Assert
         expect(preparedEntity._created).not.toEqual(hackDate);
         expect(preparedEntity._createdBy).not.toEqual('hacker');
         expect(preparedEntity._updated).not.toEqual(hackDate);
         expect(preparedEntity._updatedBy).not.toEqual('hacker');
-        expect(preparedEntity._createdBy).toEqual(testMetaOrgUserContext.user._id.toString());
+        expect(preparedEntity._createdBy).toEqual(getTestMetaOrgUserContext().user._id.toString());
       });
 
       it('should strip client-provided audit properties on update', async () => {
@@ -2896,14 +2897,14 @@ describe('GenericApiService - Integration Tests', () => {
         };
 
         // Act
-        const preparedEntity = await service.preprocessEntity(testMetaOrgUserContext, tamperedUpdate, false);
+        const preparedEntity = await service.preprocessEntity(getTestMetaOrgUserContext(), tamperedUpdate, false);
 
         // Assert
         expect(preparedEntity.name).toBe('Updated Name'); // Valid property preserved
         expect(preparedEntity._created).toBeUndefined(); // Stripped (shouldn't be in updates anyway)
         expect(preparedEntity._createdBy).toBeUndefined(); // Stripped
         expect(preparedEntity._updated).not.toEqual(hackDate); // Should be current timestamp
-        expect(preparedEntity._updatedBy).toEqual(testMetaOrgUserContext.user._id.toString()); // Should be real user
+        expect(preparedEntity._updatedBy).toEqual(getTestMetaOrgUserContext().user._id.toString()); // Should be real user
       });
 
       it('should handle system updates', async () => {
@@ -2946,7 +2947,7 @@ describe('GenericApiService - Integration Tests', () => {
         };
 
         // Act
-        const preparedEntity = await dateService.preprocessEntity(testMetaOrgUserContext, entityWithDateString, true);
+        const preparedEntity = await dateService.preprocessEntity(getTestMetaOrgUserContext(), entityWithDateString, true);
 
         // Assert
         expect(preparedEntity.eventDate instanceof Date).toBe(true);
@@ -2990,14 +2991,14 @@ describe('OrganizationService - Integration Tests', () => {
         authToken: authToken
       };
 
-      const createdOrg = await service.create(testMetaOrgUserContext, orgData);
+      const createdOrg = await service.create(getTestMetaOrgUserContext(), orgData);
 
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
       }
 
       // Act
-      const result = await service.getAuthTokenByRepoCode(testMetaOrgUserContext, createdOrg._id);
+      const result = await service.getAuthTokenByRepoCode(getTestMetaOrgUserContext(), createdOrg._id);
 
       // Assert
       expect(result).toBe(authToken);
@@ -3009,7 +3010,7 @@ describe('OrganizationService - Integration Tests', () => {
 
       // Act & Assert
       await expect(
-        service.getAuthTokenByRepoCode(testMetaOrgUserContext, nonExistentOrgId)
+        service.getAuthTokenByRepoCode(getTestMetaOrgUserContext(), nonExistentOrgId)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -3023,14 +3024,14 @@ describe('OrganizationService - Integration Tests', () => {
         // authToken is intentionally omitted
       };
 
-      const createdOrg = await service.create(testMetaOrgUserContext, orgData);
+      const createdOrg = await service.create(getTestMetaOrgUserContext(), orgData);
 
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
       }
 
       // Act
-      const result = await service.getAuthTokenByRepoCode(testMetaOrgUserContext, createdOrg._id);
+      const result = await service.getAuthTokenByRepoCode(getTestMetaOrgUserContext(), createdOrg._id);
 
       // Assert
       expect(result).toBeNull();
@@ -3050,14 +3051,14 @@ describe('OrganizationService - Integration Tests', () => {
         authToken: authToken
       };
 
-      const createdOrg = await service.create(testMetaOrgUserContext, orgData);
+      const createdOrg = await service.create(getTestMetaOrgUserContext(), orgData);
 
       if (!createdOrg || !createdOrg._id) {
         throw new Error('Organization not created');
       }
 
       // Act
-      const result = await service.validateRepoAuthToken(testMetaOrgUserContext, orgCode, authToken);
+      const result = await service.validateRepoAuthToken(getTestMetaOrgUserContext(), orgCode, authToken);
 
       // Assert
       expect(result).toBe(createdOrg._id);
@@ -3076,10 +3077,10 @@ describe('OrganizationService - Integration Tests', () => {
         authToken: validAuthToken
       };
 
-      await service.create(testMetaOrgUserContext, orgData);
+      await service.create(getTestMetaOrgUserContext(), orgData);
 
       // Act
-      const result = await service.validateRepoAuthToken(testMetaOrgUserContext, orgCode, invalidAuthToken);
+      const result = await service.validateRepoAuthToken(getTestMetaOrgUserContext(), orgCode, invalidAuthToken);
 
       // Assert
       expect(result).toBeNull();
@@ -3091,7 +3092,7 @@ describe('OrganizationService - Integration Tests', () => {
       const authToken = 'some-auth-token';
 
       // Act
-      const result = await service.validateRepoAuthToken(testMetaOrgUserContext, nonExistentCode, authToken);
+      const result = await service.validateRepoAuthToken(getTestMetaOrgUserContext(), nonExistentCode, authToken);
 
       // Assert
       expect(result).toBeNull();
@@ -3108,10 +3109,10 @@ describe('OrganizationService - Integration Tests', () => {
         // authToken is intentionally omitted
       };
 
-      await service.create(testMetaOrgUserContext, orgData);
+      await service.create(getTestMetaOrgUserContext(), orgData);
 
       // Act
-      const result = await service.validateRepoAuthToken(testMetaOrgUserContext, orgCode, 'some-token');
+      const result = await service.validateRepoAuthToken(getTestMetaOrgUserContext(), orgCode, 'some-token');
 
       // Assert
       expect(result).toBeNull();
@@ -3128,14 +3129,14 @@ describe('OrganizationService - Integration Tests', () => {
         status: 1
       };
 
-      const createdOrg = await service.create(testMetaOrgUserContext, metaOrgData);
+      const createdOrg = await service.create(getTestMetaOrgUserContext(), metaOrgData);
 
       if (!createdOrg) {
         throw new Error('Meta organization not created');
       }
 
       // Act
-      const result = await service.getMetaOrg(testMetaOrgUserContext);
+      const result = await service.getMetaOrg(getTestMetaOrgUserContext());
 
       // Assert
       expect(result).toBeDefined();
@@ -3155,10 +3156,10 @@ describe('OrganizationService - Integration Tests', () => {
         isMetaOrg: false
       };
 
-      await service.create(testMetaOrgUserContext, regularOrgData);
+      await service.create(getTestMetaOrgUserContext(), regularOrgData);
 
       // Act & Assert
-      const result = await service.getMetaOrg(testMetaOrgUserContext);
+      const result = await service.getMetaOrg(getTestMetaOrgUserContext());
       expect(result).toBeNull();
     });
 
@@ -3185,16 +3186,16 @@ describe('OrganizationService - Integration Tests', () => {
         isMetaOrg: true
       };
 
-      await service.create(testMetaOrgUserContext, regularOrgData1);
-      await service.create(testMetaOrgUserContext, regularOrgData2);
-      const createdMeta = await service.create(testMetaOrgUserContext, metaOrgData);
+      await service.create(getTestMetaOrgUserContext(), regularOrgData1);
+      await service.create(getTestMetaOrgUserContext(), regularOrgData2);
+      const createdMeta = await service.create(getTestMetaOrgUserContext(), metaOrgData);
 
       if (!createdMeta) {
         throw new Error('Meta organization not created');
       }
 
       // Act
-      const result = await service.getMetaOrg(testMetaOrgUserContext);
+      const result = await service.getMetaOrg(getTestMetaOrgUserContext());
 
       // Assert
       expect(result).toBeDefined();

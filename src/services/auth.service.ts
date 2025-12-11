@@ -341,11 +341,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
             entity.password = hash;
         }
 
-        // Need to set default roles if new user created without a role.
-        if (isCreate && !entity.roles) {
-            entity.roles = ["user"];
-        }
-
         const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
         return preparedEntity;
     }
