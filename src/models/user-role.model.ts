@@ -1,8 +1,8 @@
-import { IEntity } from "@loomcore/common/models";
+import { IAuditable, IEntity } from "@loomcore/common/models";
 import { entityUtils } from "@loomcore/common/utils";
 import { TSchema, Type } from "@sinclair/typebox";
 
-export interface IUserRole extends IEntity {
+export interface IUserRole extends IEntity, IAuditable {
     userId: string;
     roleId: string;
 }
@@ -12,4 +12,4 @@ export const UserRoleSchema: TSchema = Type.Object({
     roleId: Type.String({ minLength: 1 }),
 });
 
-export const UserRoleModelSpec = entityUtils.getModelSpec(UserRoleSchema);
+export const UserRoleModelSpec = entityUtils.getModelSpec(UserRoleSchema, { isAuditable: true });

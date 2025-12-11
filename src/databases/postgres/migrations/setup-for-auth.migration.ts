@@ -27,15 +27,27 @@ export async function setupDatabaseForAuth(client: Client, adminUsername: string
     let adminUserId: string | undefined;
     if (!runMigrations.includes(1)) {
         const migration = new CreateMigrationTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating migrations table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(3)) {
         const migration = new CreateUsersTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating users table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(4)) {
         const migration = new CreateRefreshTokenTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating refresh_tokens table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(6)) {
         const migration = new CreateAdminUserMigration(client);
@@ -44,27 +56,47 @@ export async function setupDatabaseForAuth(client: Client, adminUsername: string
     }
     if (!runMigrations.includes(7)) {
         const migration = new CreateRoleTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating roles table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(8)) {
         const migration = new CreateUserRolesTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating user_roles table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(9)) {
         const migration = new CreateFeaturesTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating features table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(10)) {
         const migration = new CreateAuthorizationsTableMigration(client);
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating authorizations table', result.error);
+            return { success: false, error: result.error };
+        }
     }
     if (!runMigrations.includes(11)) {
         if (!adminUserId) {
-            return { success: false, error: new Error('Admin user ID is required') };
+            console.error('setupDatabaseForAuth: Admin user ID is required');
+            return { success: true, error: null };
         }
         const migration = new CreateAdminAuthorizationMigration(client, adminUserId, metaOrgId);
-
-        await migration.execute();
+        const result = await migration.execute();
+        if (!result.success) {
+            console.error('setupDatabaseForAuth: error creating admin authorization', result.error);
+            return { success: false, error: result.error };
+        }
     }
 
     return { success: true, error: null };

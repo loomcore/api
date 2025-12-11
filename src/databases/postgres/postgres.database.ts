@@ -104,9 +104,7 @@ export class PostgresDatabase implements IDatabase {
             INNER JOIN "features" f ON a."_featureId" = f."_id"
             WHERE ur."_userId" IN (${placeholders})
                 AND ur."_deleted" IS NULL
-                AND r."_deleted" IS NULL
                 AND a."_deleted" IS NULL
-                AND f."_deleted" IS NULL
                 AND (a."startDate" IS NULL OR a."startDate" <= $${userIds.length + 1})
                 AND (a."endDate" IS NULL OR a."endDate" >= $${userIds.length + 1})
         `;

@@ -21,7 +21,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
                 VALUES ($1, $2, 'admin')
             `, [roleId, this.metaOrgId]);
 
-            if (roleResult.rows.length === 0) {
+            if (roleResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
                 return { success: false, error: new Error('Failed to create admin role') };
             }
@@ -29,11 +29,11 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             // 2) Add mapping of admin role and adminUserId in the userRoles table
             const userRoleId = randomUUID().toString();
             const userRoleResult = await this.client.query(`
-                INSERT INTO "user_roles" ("_id", "_orgId", "_userId", "_roleId")
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO "user_roles" ("_id", "_orgId", "_userId", "_roleId", "_created", "_createdBy", "_updated", "_updatedBy")
+                VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
             `, [userRoleId, this.metaOrgId, this.adminUserId, roleId]);
 
-            if (userRoleResult.rows.length === 0) {
+            if (userRoleResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
                 return { success: false, error: new Error('Failed to create user role') };
             }
@@ -45,7 +45,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
                 VALUES ($1, $2, 'admin')
             `, [featureId, this.metaOrgId]);
 
-            if (featureResult.rows.length === 0) {
+            if (featureResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
                 return { success: false, error: new Error('Failed to create admin feature') };
             }
@@ -60,7 +60,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
             `, [authorizationId, this.metaOrgId, roleId, featureId]);
 
-            if (authorizationResult.rows.length === 0) {
+            if (authorizationResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
                 return { success: false, error: new Error('Failed to create admin authorization') };
             }
