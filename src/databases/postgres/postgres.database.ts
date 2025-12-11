@@ -73,4 +73,81 @@ export class PostgresDatabase implements IDatabase {
     async findOne<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
         return findOneQuery(this.client, queryObject, pluralResourceName);
     }
+
+    /**
+     * Fetches current authorizations for one or more users.
+     * Returns a map of userId -> IAuthorization[] where authorizations are current
+     * (after startDate and before endDate if present).
+     */
+    async getUserAuthorizations(userIds: string[], orgId?: string): Promise<Map<string, any[]>> {
+        if (userIds.length === 0) {
+            return new Map();
+        }
+
+        const now = new Date();
+        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(', ');
+        let query = `
+            SELECT DISTINCT
+                ur."_userId" as "userId",
+                r."name" as "role",
+                f."name" as "feature",
+                a."config",
+                a."_id",
+                a."_orgId",
+                a."_created",
+                a."_createdBy",
+                a."_updated",
+                a."_updatedBy"
+            FROM "user_roles" ur
+            INNER JOIN "roles" r ON ur."_roleId" = r."_id"
+            INNER JOIN "authorizations" a ON r."_id" = a."_roleId"
+            INNER JOIN "features" f ON a."_featureId" = f."_id"
+            WHERE ur."_userId" IN (${placeholders})
+                AND ur."_deleted" IS NULL
+                AND r."_deleted" IS NULL
+                AND a."_deleted" IS NULL
+                AND f."_deleted" IS NULL
+                AND (a."startDate" IS NULL OR a."startDate" <= $${userIds.length + 1})
+                AND (a."endDate" IS NULL OR a."endDate" >= $${userIds.length + 1})
+        `;
+
+        const values: any[] = [...userIds, now];
+
+        if (orgId) {
+            query += ` AND ur."_orgId" = $${userIds.length + 2} AND r."_orgId" = $${userIds.length + 2} AND a."_orgId" = $${userIds.length + 2} AND f."_orgId" = $${userIds.length + 2}`;
+            values.push(orgId);
+        }
+
+        const result = await this.client.query(query, values);
+
+        const authorizationsMap = new Map<string, any[]>();
+
+        for (const row of result.rows) {
+            const userId = row.userId;
+            if (!authorizationsMap.has(userId)) {
+                authorizationsMap.set(userId, []);
+            }
+
+            authorizationsMap.get(userId)!.push({
+                _id: row._id,
+                _orgId: row._orgId,
+                role: row.role,
+                feature: row.feature,
+                config: row.config || undefined,
+                _created: row._created,
+                _createdBy: row._createdBy,
+                _updated: row._updated,
+                _updatedBy: row._updatedBy,
+            });
+        }
+
+        // Ensure all userIds have an entry (even if empty array)
+        for (const userId of userIds) {
+            if (!authorizationsMap.has(userId)) {
+                authorizationsMap.set(userId, []);
+            }
+        }
+
+        return authorizationsMap;
+    }
 }

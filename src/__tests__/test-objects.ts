@@ -32,6 +32,7 @@ export function getTestMetaOrgUser(): IUser {
         authorizations: [{
             _id: '6939c54e57a1c6576a40c590',
             _orgId: getTestMetaOrg()._id,
+            role: 'metaorgUser',
             feature: 'metaorgUser',
             config: {},
             _created: new Date(),
@@ -80,6 +81,7 @@ export function getTestOrgUser(): IUser {
         authorizations: [{
             _id: '6939c54e57a1c6576a40c591',
             _orgId: getTestOrg()._id,
+            role: 'testOrgUser',
             feature: 'testOrgUser',
             config: {},
             _created: new Date(),
