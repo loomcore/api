@@ -39,13 +39,6 @@ export async function setupDatabaseForMultitenant(client: Client, metaOrgName: s
             console.log('setupDatabaseForMultitenant: error creating organizations table', result.error);
             return { success: false, metaOrgId: metaOrgId, error: result.error };
         }
-    } else {
-        const database = new PostgresDatabase(client);
-        const organizationService = new OrganizationService(database);
-        const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
-        if (metaOrg) {
-            metaOrgId = metaOrg._id;
-        }
     }
 
     if (!runMigrations.includes(5)) {
@@ -56,16 +49,6 @@ export async function setupDatabaseForMultitenant(client: Client, metaOrgName: s
             return { success: false, metaOrgId: result.metaOrgId, error: result.error };
         }
         metaOrgId = result.metaOrgId;
-    } else {
-        // Migration already ran, but we need to get the meta org ID
-        if (!metaOrgId) {
-            const database = new PostgresDatabase(client);
-            const organizationService = new OrganizationService(database);
-            const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
-            if (metaOrg) {
-                metaOrgId = metaOrg._id;
-            }
-        }
     }
 
     return { success: true, metaOrgId: metaOrgId, error: null };

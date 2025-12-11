@@ -10,16 +10,17 @@ export class CreateAdminUserMigration implements IMigration {
 
     index = 6;
 
-    async execute(adminEmail?: string, adminPassword?: string): Promise<{ success: boolean, adminUserId: string | undefined, error: Error | null }> {
+    async execute(adminEmail?: string, adminPassword?: string, metaOrgId?: string): Promise<{ success: boolean, adminUserId: string | undefined, error: Error | null }> {
         const _id = randomUUID().toString();
         const systemUserContext = getSystemUserContext();
+
         let createdUser: IUser | null;
         try {
             const database = new PostgresDatabase(this.client);
             const authService = new AuthService(database);
             createdUser = await authService.createUser(systemUserContext, {
                 _id: _id,
-                _orgId: systemUserContext._orgId,
+                _orgId: metaOrgId,
                 email: adminEmail,
                 password: adminPassword,
                 firstName: 'Admin',
