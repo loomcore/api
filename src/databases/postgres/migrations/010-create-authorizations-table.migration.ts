@@ -26,8 +26,8 @@ export class CreateAuthorizationsTableMigration implements IMigration {
                     CREATE TABLE "authorizations" (
                         "_id" VARCHAR(255) PRIMARY KEY,
                         "_orgId" VARCHAR(255),
-                        "_roleId" VARCHAR(255) NOT NULL,
-                        "_featureId" VARCHAR(255) NOT NULL,
+                        "roleId" VARCHAR(255) NOT NULL,
+                        "featureId" VARCHAR(255) NOT NULL,
                         "startDate" TIMESTAMP,
                         "endDate" TIMESTAMP,
                         "config" JSONB,
@@ -37,9 +37,9 @@ export class CreateAuthorizationsTableMigration implements IMigration {
                         "_updatedBy" VARCHAR(255) NOT NULL,
                         "_deleted" TIMESTAMP,
                         "_deletedBy" VARCHAR(255),
-                        CONSTRAINT "fk_authorizations_role" FOREIGN KEY ("_roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "fk_authorizations_feature" FOREIGN KEY ("_featureId") REFERENCES "features"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "uk_authorizations" UNIQUE ("_orgId", "_roleId", "_featureId")${fkConstraint}
+                        CONSTRAINT "fk_authorizations_role" FOREIGN KEY ("roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "fk_authorizations_feature" FOREIGN KEY ("featureId") REFERENCES "features"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "uk_authorizations" UNIQUE ("_orgId", "roleId", "featureId")${fkConstraint}
                     )
                 `);
             }

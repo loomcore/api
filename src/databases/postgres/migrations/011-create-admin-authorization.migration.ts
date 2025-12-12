@@ -46,7 +46,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             // 2) Add mapping of admin role and adminUserId in the userRoles table
             const userRoleId = randomUUID().toString();
             const userRoleResult = await this.client.query(`
-                INSERT INTO "user_roles" ("_id", "_orgId", "_userId", "_roleId", "_created", "_createdBy", "_updated", "_updatedBy")
+                INSERT INTO "user_roles" ("_id", "_orgId", "userId", "roleId", "_created", "_createdBy", "_updated", "_updatedBy")
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
             `, [userRoleId, metaOrg?._id, adminUser?._id, roleId]);
 
@@ -71,7 +71,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const authorizationId = randomUUID().toString();
             const authorizationResult = await this.client.query(`
                 INSERT INTO "authorizations" (
-                    "_id", "_orgId", "_roleId", "_featureId", 
+                    "_id", "_orgId", "roleId", "featureId", 
                     "_created", "_createdBy", "_updated", "_updatedBy"
                 )
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')

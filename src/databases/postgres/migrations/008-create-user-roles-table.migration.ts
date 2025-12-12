@@ -28,8 +28,8 @@ export class CreateUserRolesTableMigration implements IMigration {
                     CREATE TABLE "user_roles" (
                         "_id" VARCHAR(255) PRIMARY KEY,
                         "_orgId" VARCHAR(255),
-                        "_userId" VARCHAR(255) NOT NULL,
-                        "_roleId" VARCHAR(255) NOT NULL,
+                        "userId" VARCHAR(255) NOT NULL,
+                        "roleId" VARCHAR(255) NOT NULL,
                         "_created" TIMESTAMP NOT NULL,
                         "_createdBy" VARCHAR(255) NOT NULL,
                         "_updated" TIMESTAMP NOT NULL,
@@ -37,9 +37,9 @@ export class CreateUserRolesTableMigration implements IMigration {
                         "_deleted" TIMESTAMP,
                         "_deletedBy" VARCHAR(255),
                         ${fkConstraint}
-                        CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("_userId") REFERENCES "users"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("_roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "_userId", "_roleId")
+                        CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("userId") REFERENCES "users"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
+                        CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "userId", "roleId")
                     )
                 `);
             }

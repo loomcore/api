@@ -88,7 +88,7 @@ export class PostgresDatabase implements IDatabase {
         const placeholders = userIds.map((_, i) => `$${i + 1}`).join(', ');
         let query = `
             SELECT DISTINCT
-                ur."_userId" as "userId",
+                ur."userId" as "userId",
                 r."name" as "role",
                 f."name" as "feature",
                 a."config",
@@ -99,10 +99,10 @@ export class PostgresDatabase implements IDatabase {
                 a."_updated",
                 a."_updatedBy"
             FROM "user_roles" ur
-            INNER JOIN "roles" r ON ur."_roleId" = r."_id"
-            INNER JOIN "authorizations" a ON r."_id" = a."_roleId"
-            INNER JOIN "features" f ON a."_featureId" = f."_id"
-            WHERE ur."_userId" IN (${placeholders})
+            INNER JOIN "roles" r ON ur."roleId" = r."_id"
+            INNER JOIN "authorizations" a ON r."_id" = a."roleId"
+            INNER JOIN "features" f ON a."featureId" = f."_id"
+            WHERE ur."userId" IN (${placeholders})
                 AND ur."_deleted" IS NULL
                 AND a."_deleted" IS NULL
                 AND (a."startDate" IS NULL OR a."startDate" <= $${userIds.length + 1})
