@@ -1,4 +1,5 @@
 import { Client } from "pg";
+import _ from "lodash";
 import { IDatabaseBuilder } from "./database-builder.interface.js";
 import { IMigration } from "./migration.interface.js";
 import { CreateMigrationTableMigration } from "./001-create-migrations-table.migration.js";
@@ -63,11 +64,16 @@ export class DatabaseBuilder implements IDatabaseBuilder {
             });
         }
 
-        const orderedMigrations = this.migrationsToRun.filter((migration) => !runMigrations.includes(migration.index)).sort((migration) => migration.index);
+        const orderedMigrations = _.uniqBy(
+            this.migrationsToRun
+                .filter((migration) => !runMigrations.includes(migration.index))
+                .sort((a, b) => a.index - b.index),
+            'index'
+        );
         for (const migration of orderedMigrations) {
             const result = await migration.execute();
             if (!result.success) {
-                return result;
+                throw result.error;
             }
         }
         return { success: true, error: null };

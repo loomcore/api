@@ -1,16 +1,12 @@
 import { randomUUID } from 'crypto';
 import testUtils from './common-test.utils.js';
-import { initSystemUserContext } from '../config/base-api-config.js';
 import { ITestDatabase } from './test-database.interface.js';
 import { newDb } from "pg-mem";
 import { Client } from 'pg';
-import { setupDatabaseForMultitenant } from '../databases/postgres/migrations/setup-for-multitenant.migration.js';
-import { setupDatabaseForAuth } from '../databases/postgres/migrations/setup-for-auth.migration.js';
-import { runTestMigrations } from './postgres-test-migrations/run-test-migrations.js';
+import { testMigrations } from './postgres-test-migrations/test-migrations.js';
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
-import { getSystemUserContext } from '@loomcore/common/models';
-import { setTestMetaOrgId } from './test-objects.js';
+import { DatabaseBuilder } from '../databases/postgres/migrations/database-builder.js';
 /**
  * Utility class for setting up a PostgreSQL test database for testing
  * Implements ITestDatabase
@@ -50,28 +46,10 @@ export class TestPostgresDatabase implements ITestDatabase {
       this.database = testDatabase;
       this.postgresClient = postgresClient;
 
-      const multitenantResult = await setupDatabaseForMultitenant(postgresClient);
-      let success = multitenantResult.success;
-      if (!success) {
-        throw new Error('Failed to setup for multitenant');
-      }
-
-      await initSystemUserContext(this.database);
-
-      success = (await setupDatabaseForAuth(postgresClient)).success;
-      if (!success) {
-        throw new Error('Failed to setup for auth');
-      }
-
-      const systemUserContext = getSystemUserContext();
-
-      if (systemUserContext._orgId) {
-        setTestMetaOrgId(systemUserContext._orgId);
-      }
-
-      success = (await runTestMigrations(postgresClient, systemUserContext._orgId)).success;
-      if (!success) {
-        throw new Error('Failed to run test migrations');
+      const builder = new DatabaseBuilder(postgresClient);
+      const result = await builder.withMultitenant().withAuth().withMigrations(testMigrations(postgresClient)).build();
+      if (!result.success) {
+        throw new Error('Failed to setup test database');
       }
 
       // Initialize test utilities with the database

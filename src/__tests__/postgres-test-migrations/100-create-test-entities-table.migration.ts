@@ -5,9 +5,9 @@ import { randomUUID } from "crypto";
 export class CreateTestEntitiesTableMigration implements IMigration {
     constructor(private readonly client: Client) {
     }
-    index = 1;
+    index = 100;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
         try {
             await this.client.query(`
@@ -31,28 +31,19 @@ export class CreateTestEntitiesTableMigration implements IMigration {
             return { success: false, error: new Error(`Error creating test entities table: ${error.message}`) };
         }
 
-        if (_orgId) {
-            try {
-                await this.client.query(`
-                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
-                `);
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
-            }
-        } else {
-            try {
-                await this.client.query(`
+        try {
+            await this.client.query(`
                     Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${_id}', ${this.index}, TRUE, FALSE);
                 `);
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
-            }
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
+
 
         return { success: true, error: null };
     }
 
-    async revert(_orgId?: string) {
+    async revert() {
         try {
             await this.client.query(`
                 DROP TABLE test_entities;
@@ -63,7 +54,7 @@ export class CreateTestEntitiesTableMigration implements IMigration {
 
         try {
             await this.client.query(`
-                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
+                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}';
             `);
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };

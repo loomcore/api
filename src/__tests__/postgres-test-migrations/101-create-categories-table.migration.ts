@@ -7,8 +7,8 @@ export class CreateCategoriesTableMigration implements IMigration {
     constructor(private readonly client: Client) {
     }
 
-    index = 2;
-    async execute(_orgId?: string) {
+    index = 101;
+    async execute() {
         const _id = randomUUID().toString();
         try {
             await this.client.query(`
@@ -22,28 +22,18 @@ export class CreateCategoriesTableMigration implements IMigration {
             return { success: false, error: new Error(`Error creating categories table: ${error.message}`) };
         }
 
-        if (_orgId) {
-            try {
-                await this.client.query(`
-                    Insert into "migrations" ("_id", "_orgId", "index", "hasRun", "reverted") values ('${_id}', '${_orgId}', ${this.index}, TRUE, FALSE);
-                `);
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
-            }
-        } else {
-            try {
-                await this.client.query(`
+        try {
+            await this.client.query(`
                     Insert into "migrations" ("_id", "index", "hasRun", "reverted") values ('${_id}', ${this.index}, TRUE, FALSE);
                 `);
-            } catch (error: any) {
-                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
-            }
+        } catch (error: any) {
+            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
 
         return { success: true, error: null };
     }
 
-    async revert(_orgId?: string) {
+    async revert() {
         try {
             await this.client.query(`
                 DROP TABLE "categories";
@@ -54,7 +44,7 @@ export class CreateCategoriesTableMigration implements IMigration {
 
         try {
             await this.client.query(`
-                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}' AND "_orgId" = '${_orgId}';
+                Update "migrations" SET "reverted" = TRUE WHERE "index" = '${this.index}';
             `);
         } catch (error: any) {
             return { success: false, error: new Error(`Error updating migration record: ${error.message}`) };

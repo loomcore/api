@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { newDb } from 'pg-mem';
 import { Client } from 'pg';
-import { setupDatabaseForMultitenant } from '../setup-for-multitenant.migration.js';
-import { setupDatabaseForAuth } from '../setup-for-auth.migration.js';
 import { PostgresDatabase } from '../../postgres.database.js';
 import { UserService } from '../../../../services/user-service/user.service.js';
 import { getSystemUserContext, isSystemUserContextInitialized, initializeSystemUserContext } from '@loomcore/common/models';

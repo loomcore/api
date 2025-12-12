@@ -1,4 +1,4 @@
-export * from './postgres-test-migrations/001-create-test-entities-table.migration.js';
+export * from './postgres-test-migrations/100-create-test-entities-table.migration.js';
 export * from './models/test-entity.model.js';
 export * from './postgres.test-database.js';
 export * from './mongo-db.test-database.js';
