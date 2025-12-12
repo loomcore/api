@@ -9,6 +9,7 @@ import { CreateRoleTableMigration } from "./007-create-roles-table.migration.js"
 import { CreateAuthorizationsTableMigration } from "./010-create-authorizations-table.migration.js";
 import { CreateFeaturesTableMigration } from "./009-create-features-table.migration.js";
 import { CreateAdminAuthorizationMigration } from "./011-create-admin-authorization.migration.js";
+import { IMigration } from "./migration.interface.js";
 
 export async function setupDatabaseForAuth(client: Client) {
     let runMigrations: number[] = [];
