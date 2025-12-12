@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
-import { Type } from '@sinclair/typebox';
-import { IEntity, IAuditable } from '@loomcore/common/models';
-import { entityUtils } from '@loomcore/common/utils';
 
 import { ApiController } from '../api.controller.js';
 
@@ -10,8 +7,12 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestOrgUser } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
+import { UserService, OrganizationService } from '../../services/index.js';
+import { UsersController } from '../users.controller.js';
+import { AuthController } from '../auth.controller.js';
+import { getTestOrg, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
@@ -31,45 +32,6 @@ class TestItemController extends ApiController<ITestItem> {
   }
 }
 
-
-// For testing user creation with explicit public schema
-interface ITestUser extends IEntity, IAuditable {
-  email: string;
-  password: string;
-  firstName?: string;
-  lastName?: string;
-}
-
-const TestUserSchema = Type.Object({
-  email: Type.String({ format: 'email' }),
-  password: Type.String({ minLength: 6 }),
-  firstName: Type.Optional(Type.String()),
-  lastName: Type.Optional(Type.String())
-});
-
-// Create user model spec with auditable
-const TestUserSpec = entityUtils.getModelSpec(TestUserSchema, { isAuditable: true });
-
-// Create a public schema that omits password
-const TestPublicUserSchema = Type.Omit(TestUserSpec.fullSchema, ['password']);
-
-class TestUserService extends GenericApiService<ITestUser> {
-  constructor(database: IDatabase) {
-    super(database, 'testUsers', 'testUser', TestUserSpec);
-  }
-}
-
-class TestUserController extends ApiController<ITestUser> {
-  public testUserService: TestUserService;
-
-  constructor(app: Application, database: IDatabase) {
-    const testUserService = new TestUserService(database);
-    super('test-users', app, testUserService, 'testUser', TestUserSpec, TestPublicUserSchema);
-
-    this.testUserService = testUserService;
-  }
-}
-
 /**
  * This suite tests the ApiController.
  * It uses our custom test utilities for MongoDB and Express.
@@ -79,10 +41,10 @@ describe('ApiController - Integration Tests', () => {
   let app: Application;
   let testAgent: any;
   let authToken: string;
-  let service: TestItemService;
-  let controller: TestItemController;
-  let userService: TestUserService;
-  let usersController: TestUserController;
+  let testItemService: TestItemService;
+  let testItemController: TestItemController;
+  let userService: UserService;
+  let usersController: UsersController;
   let userId: string;
 
   beforeAll(async () => {
@@ -92,19 +54,25 @@ describe('ApiController - Integration Tests', () => {
     database = testSetup.database;
     testAgent = testSetup.agent;
 
-    // Get auth token and user ID from testUtils
-    authToken = testUtils.getAuthToken();
-    userId = getTestMetaOrgUser()._id;
-
     // Create service and controller instances
-    controller = new TestItemController(app, database);
-    service = controller.testItemService;
+    testItemController = new TestItemController(app, database);
+    testItemService = testItemController.testItemService;
 
     // Create user service and controller
-    usersController = new TestUserController(app, database);
-    userService = usersController.testUserService;
+    usersController = new UsersController(app, database);
+    userService = usersController.userService;
+
+    // Initialize AuthController (needed for loginWithTestUser)
+    new AuthController(app, database);
 
     await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created
+
+    // Set up test users and organizations (required for foreign key constraints)
+    await testUtils.setupTestUsers();
+
+    // Get auth token from actual login (has proper userContext structure)
+    authToken = await testUtils.loginWithTestUser(testAgent);
+    userId = getTestMetaOrgUser()._id;
   });
 
   afterAll(async () => {
@@ -114,6 +82,10 @@ describe('ApiController - Integration Tests', () => {
   beforeEach(async () => {
     // Clear collections before each test
     await TestExpressApp.clearCollections();
+    // Recreate test users and organizations after clearing (required for foreign key constraints)
+    await testUtils.setupTestUsers();
+    // Refresh auth token after recreating users (ensures token has correct userContext)
+    authToken = await testUtils.loginWithTestUser(testAgent);
   });
 
   describe('GET /:id - _id as string', () => {
@@ -358,20 +330,32 @@ describe('ApiController - Integration Tests', () => {
   describe('user creation with public schema', () => {
     it('should include audit properties and exclude properties not in public schema', async () => {
       // Log that we're preparing the test user data
-      const testUser = {
-        email: 'testuser@example.com',
-        password: 'password123',
-        firstName: 'Test',
-        lastName: 'User'
+      const testUser = getTestOrgUser();
+
+      // Use a unique email to avoid conflict with the test user created by setupTestUsers()
+      // which already creates a user with testUser.email ('test-org-user@example.com')
+      const uniqueEmail = `test-user-${Date.now()}@example.com`;
+
+      // Only send properties allowed for user creation (exclude system properties)
+      const userDataForCreation = {
+        email: uniqueEmail,
+        password: testUser.password,
+        firstName: testUser.firstName,
+        lastName: testUser.lastName,
+        _orgId: testUser._orgId
       };
 
       try {
         // Create a new user with auth
         const response = await testAgent
-          .post('/api/test-users')
+          .post('/api/users')
           .set('Authorization', authToken)
-          .send(testUser);
+          .send(userDataForCreation);
 
+        if (response.status !== 201) {
+          console.error('Response status:', response.status);
+          console.error('Response body:', JSON.stringify(response.body, null, 2));
+        }
         expect(response.status).toBe(201);
 
         // Check if the response is wrapped in a success/data format
@@ -380,9 +364,9 @@ describe('ApiController - Integration Tests', () => {
         expect(entity).toBeDefined();
 
         // Verify user properties
-        expect(entity.email).toBe('testuser@example.com');
-        expect(entity.firstName).toBe('Test');
-        expect(entity.lastName).toBe('User');
+        expect(entity.email).toBe(uniqueEmail);
+        expect(entity.firstName).toBe(testUser.firstName);
+        expect(entity.lastName).toBe(testUser.lastName);
 
         // Verify password is not included (removed by public schema)
         expect(entity).not.toHaveProperty('password');
@@ -401,7 +385,7 @@ describe('ApiController - Integration Tests', () => {
     it('should return 401 when trying to access secured endpoint without authentication', async () => {
       // Make a request without authorization header
       const response = await testAgent
-        .post('/api/test-users')
+        .post('/api/users')
         .send({
           email: 'unauthorized@example.com',
           password: 'password123'

@@ -14,9 +14,11 @@ import { IdNotFoundError } from '../errors/index.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
-import { getTestMetaOrg, getTestOrg, getTestMetaOrgUser, getTestMetaOrgUserContext } from './test-objects.js';
+import * as testObjectsModule from './test-objects.js';
+const { getTestMetaOrg, getTestOrg, getTestMetaOrgUser, getTestMetaOrgUserContext, getTestOrgUser, getTestOrgUserContext, setTestOrgId, setTestMetaOrgId } = testObjectsModule;
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
+import { setBaseApiConfig } from '../config/index.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;
@@ -69,11 +71,11 @@ async function deleteMetaOrg() {
   }
 }
 
-async function setupTestUser(): Promise<IUser> {
+async function setupTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
   try {
     // Clean up any existing test data, then create fresh test user
     await deleteTestUser();
-    return createTestUser();
+    return createTestUsers();
   }
   catch (error: any) {
     console.log(error);
@@ -81,7 +83,7 @@ async function setupTestUser(): Promise<IUser> {
   }
 }
 
-async function createTestUser(): Promise<IUser> {
+async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
   if (!authService || !organizationService) {
     throw new Error('Database not initialized. Call initialize() first.');
   }
@@ -91,21 +93,30 @@ async function createTestUser(): Promise<IUser> {
 
     if (!existingMetaOrg) {
       await organizationService.create(getTestMetaOrgUserContext(), getTestMetaOrg());
+    } else {
+      setTestMetaOrgId(existingMetaOrg._id);
     }
 
     const existingTestOrg = await organizationService.findOne(getTestMetaOrgUserContext(), { filters: { _id: { eq: getTestOrg()._id } } });
 
     if (!existingTestOrg) {
-      await organizationService.create(getTestMetaOrgUserContext(), getTestOrg());
+      const createdTestOrg = await organizationService.create(getTestMetaOrgUserContext(), getTestOrg());
+      if (!createdTestOrg) {
+        throw new Error('Failed to create test organization');
+      }
+      setTestOrgId(createdTestOrg._id);
+    } else {
+      setTestOrgId(existingTestOrg._id);
     }
 
-    const createdUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
+    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser());
+    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
 
-    if (!createdUser) {
+    if (!createdTestOrgUser || !createdMetaOrgUser) {
       throw new Error('Failed to create test user');
     }
 
-    return createdUser;
+    return { metaOrgUser: createdMetaOrgUser, testOrgUser: createdTestOrgUser };
   }
   catch (error: any) {
     console.log('Error in createTestUser:', error);
@@ -216,6 +227,44 @@ export class CategoryController extends ApiController<ICategory> {
     const categoryService = new CategoryService(database);
     super('categories', app, categoryService, 'category', CategorySpec);
   }
+}
+
+export function setupTestConfig() {
+  setBaseApiConfig({
+    env: 'test',
+    hostName: 'localhost',
+    appName: 'test-app',
+    clientSecret: 'test-secret',
+    database: {
+      name: 'test-db',
+    },
+    externalPort: 4000,
+    internalPort: 8083,
+    corsAllowedOrigins: ['*'],
+    saltWorkFactor: 10,
+    jobTypes: '',
+    deployedBranch: '',
+    debug: {
+      showErrors: false
+    },
+    app: { isMultiTenant: true },
+    auth: {
+      jwtExpirationInSeconds: 3600,
+      refreshTokenExpirationInDays: 7,
+      deviceIdCookieMaxAgeInDays: 730,
+      passwordResetTokenExpirationInMinutes: 20
+    },
+    email: {
+      emailApiKey: 'WeDontHaveAKeyYet',
+      emailApiSecret: 'WeDontHaveASecretYet',
+      fromAddress: undefined,
+      systemEmailAddress: 'system@test.com'
+    },
+    adminUser: {
+      email: 'admin@test.com',
+      password: 'admin-password'
+    }
+  });
 }
 
 // Test service with aggregation pipeline
@@ -372,10 +421,11 @@ const testUtils = {
   deleteTestUser,
   getAuthToken,
   initialize,
+  SetupTestConfig: setupTestConfig,
   loginWithTestUser,
   newUser1Email,
   newUser1Password,
-  setupTestUser,
+  setupTestUsers,
   simulateloginWithTestUser,
   verifyToken
 };

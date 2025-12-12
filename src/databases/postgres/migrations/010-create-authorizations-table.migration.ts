@@ -9,7 +9,7 @@ export class CreateAuthorizationsTableMigration implements IMigration {
 
     index = 10;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
 
         try {

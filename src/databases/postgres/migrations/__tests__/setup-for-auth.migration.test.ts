@@ -3,12 +3,11 @@ import { newDb } from 'pg-mem';
 import { Client } from 'pg';
 import { setupDatabaseForMultitenant } from '../setup-for-multitenant.migration.js';
 import { setupDatabaseForAuth } from '../setup-for-auth.migration.js';
-import { getTestMetaOrg, setTestMetaOrgId } from '../../../../__tests__/test-objects.js';
 import { PostgresDatabase } from '../../postgres.database.js';
 import { UserService } from '../../../../services/user-service/user.service.js';
 import { getSystemUserContext } from '@loomcore/common/models';
-import { initSystemUserContext } from '../../../../config/base-api-config.js';
-import { setBaseApiConfig } from '../../../../config/base-api-config.js';
+import { config } from '../../../../config/base-api-config.js';
+import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';
 
 describe('setupDatabaseForAuth', () => {
     let client: Client;
@@ -21,48 +20,13 @@ describe('setupDatabaseForAuth', () => {
         await client.connect();
         database = new PostgresDatabase(client);
 
-        // Set up base API config (required for initSystemUserContext)
-        setBaseApiConfig({
-            env: 'test',
-            hostName: 'localhost',
-            appName: 'test-app',
-            clientSecret: 'test-secret',
-            database: {
-                name: 'test-db',
-            },
-            externalPort: 4000,
-            internalPort: 8083,
-            corsAllowedOrigins: ['*'],
-            saltWorkFactor: 10,
-            jobTypes: '',
-            deployedBranch: '',
-            debug: {
-                showErrors: false
-            },
-            app: { isMultiTenant: true },
-            auth: {
-                jwtExpirationInSeconds: 3600,
-                refreshTokenExpirationInDays: 7,
-                deviceIdCookieMaxAgeInDays: 730,
-                passwordResetTokenExpirationInMinutes: 20
-            },
-            email: {
-                emailApiKey: 'WeDontHaveAKeyYet',
-                emailApiSecret: 'WeDontHaveASecretYet',
-                fromAddress: undefined
-            }
-        });
+        setupTestConfig();
 
         // Set up multitenant first (required before auth setup)
-        const metaOrg = getTestMetaOrg();
-        const multitenantResult = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
-        if (!multitenantResult.success || !multitenantResult.metaOrgId) {
+        const multitenantResult = await setupDatabaseForMultitenant(client);
+        if (!multitenantResult.success) {
             throw new Error('Failed to setup for multitenant');
         }
-        setTestMetaOrgId(multitenantResult.metaOrgId);
-
-        // Initialize system user context (required for UserService)
-        await initSystemUserContext(database);
     });
 
     afterAll(async () => {
@@ -73,12 +37,11 @@ describe('setupDatabaseForAuth', () => {
 
     it('should return admin user with authorization array after running setupDatabaseForAuth', async () => {
         // Arrange
-        const adminEmail = 'admin@example.com';
-        const adminPassword = 'password';
+
         const systemUserContext = getSystemUserContext();
 
         // Act: Run setupDatabaseForAuth
-        const result = await setupDatabaseForAuth(client, adminEmail, adminPassword, systemUserContext._orgId);
+        const result = await setupDatabaseForAuth(client);
 
         // Assert: Verify success
         expect(result.success).toBe(true);
@@ -90,12 +53,12 @@ describe('setupDatabaseForAuth', () => {
 
         // Find the admin user by email
         // Note: The admin user should exist after setupDatabaseForAuth runs
-        const adminUser = allUsers.find(user => user.email === adminEmail);
+        const adminUser = allUsers.find(user => user.email === config.adminUser?.email);
 
         // Assert: Verify admin user exists
         // If this fails, it means migration 6 (CreateAdminUserMigration) didn't run successfully
         expect(adminUser).toBeDefined();
-        expect(adminUser?.email).toBe(adminEmail);
+        expect(adminUser?.email).toBe(config.adminUser?.email);
 
         // Assert: Verify admin user has authorizations array with one entry
         // This test should fail because currently the authorizations array is empty

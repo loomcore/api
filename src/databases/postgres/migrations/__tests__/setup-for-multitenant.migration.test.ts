@@ -3,6 +3,7 @@ import { newDb } from 'pg-mem';
 import { Client } from 'pg';
 import { setupDatabaseForMultitenant } from '../setup-for-multitenant.migration.js';
 import { getTestMetaOrg } from '../../../../__tests__/test-objects.js';
+import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';
 
 describe('setupDatabaseForMultitenant', () => {
     let client: Client;
@@ -12,6 +13,8 @@ describe('setupDatabaseForMultitenant', () => {
         const { Client } = newDb().adapters.createPg();
         client = new Client();
         await client.connect();
+
+        setupTestConfig();
     });
 
     afterAll(async () => {
@@ -25,7 +28,7 @@ describe('setupDatabaseForMultitenant', () => {
         const metaOrg = getTestMetaOrg();
 
         // Act: Run setupDatabaseForMultitenant once
-        const result = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
+        const result = await setupDatabaseForMultitenant(client);
 
         // Assert: Verify success
         expect(result.success).toBe(true);
@@ -55,7 +58,7 @@ describe('setupDatabaseForMultitenant', () => {
         const metaOrg = getTestMetaOrg();
 
         // Act: Run setupDatabaseForMultitenant first time
-        const firstResult = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
+        const firstResult = await setupDatabaseForMultitenant(client);
         expect(firstResult.success).toBe(true);
 
         // Get the count of migrations after first run
@@ -69,7 +72,7 @@ describe('setupDatabaseForMultitenant', () => {
         const firstRunIndices = firstRunMigrations.rows.map((row) => row.index as number);
 
         // Act: Run setupDatabaseForMultitenant second time
-        const secondResult = await setupDatabaseForMultitenant(client, metaOrg.name, metaOrg.code);
+        const secondResult = await setupDatabaseForMultitenant(client);
         expect(secondResult.success).toBe(true);
 
         // Get the count of migrations after second run

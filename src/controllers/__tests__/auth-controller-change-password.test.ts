@@ -27,7 +27,7 @@ describe('AuthController.changePassword', () => {
     // Clear collections before each test to avoid interference
     await TestExpressApp.clearCollections();
     // Re-create test user for tests that need it
-    await testUtils.setupTestUser();
+    await testUtils.setupTestUsers();
   });
 
   afterAll(async () => {

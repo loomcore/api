@@ -9,7 +9,7 @@ export class CreateRoleTableMigration implements IMigration {
 
     index = 7;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
 
         try {

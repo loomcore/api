@@ -25,7 +25,7 @@ describe('AuthController', () => {
     await TestExpressApp.setupErrorHandling();
 
     // Set up test user data
-    await testUtils.setupTestUser();
+    await testUtils.setupTestUsers();
 
     // Create auth token for test user with orgId
     const payload = {
@@ -50,7 +50,7 @@ describe('AuthController', () => {
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
     // Re-create test user for tests that need it
-    await testUtils.setupTestUser();
+    await testUtils.setupTestUsers();
   });
 
   describe('POST /auth/register', () => {

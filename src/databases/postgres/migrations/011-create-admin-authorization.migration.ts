@@ -1,17 +1,34 @@
 import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
+import { AuthService, OrganizationService } from "../../../services/index.js";
+import { PostgresDatabase } from "../index.js";
+import { config } from "../../../config/index.js";
+import { EmptyUserContext } from "@loomcore/common/models";
 
 export class CreateAdminAuthorizationMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly adminUserId: string, private readonly metaOrgId?: string) {
+    constructor(private readonly client: Client) {
+        const database = new PostgresDatabase(this.client);
+        this.organizationService = new OrganizationService(database);
+        this.authService = new AuthService(database);
     }
 
+    private organizationService: OrganizationService;
+    private authService: AuthService;
     index = 11;
 
     async execute() {
         const _id = randomUUID().toString();
 
         try {
+            const metaOrg = await this.organizationService.getMetaOrg(EmptyUserContext);
+            if (!config.adminUser?.email) {
+                return { success: false, error: new Error('Create admin authorization: Admin user email not found in config') };
+            }
+            const adminUser = await this.authService.getUserByEmail(config.adminUser?.email);
+            if (!metaOrg || !adminUser) {
+                return { success: false, error: new Error('Create admin authorization: Meta organization or admin user not found') };
+            }
             await this.client.query('BEGIN');
 
             // 1) Add 'admin' role to the roles table
@@ -19,7 +36,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const roleResult = await this.client.query(`
                 INSERT INTO "roles" ("_id", "_orgId", "name")
                 VALUES ($1, $2, 'admin')
-            `, [roleId, this.metaOrgId]);
+            `, [roleId, metaOrg?._id]);
 
             if (roleResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
@@ -31,7 +48,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const userRoleResult = await this.client.query(`
                 INSERT INTO "user_roles" ("_id", "_orgId", "_userId", "_roleId", "_created", "_createdBy", "_updated", "_updatedBy")
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
-            `, [userRoleId, this.metaOrgId, this.adminUserId, roleId]);
+            `, [userRoleId, metaOrg?._id, adminUser?._id, roleId]);
 
             if (userRoleResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
@@ -43,7 +60,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const featureResult = await this.client.query(`
                 INSERT INTO "features" ("_id", "_orgId", "name")
                 VALUES ($1, $2, 'admin')
-            `, [featureId, this.metaOrgId]);
+            `, [featureId, metaOrg?._id]);
 
             if (featureResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
@@ -58,7 +75,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
                     "_created", "_createdBy", "_updated", "_updatedBy"
                 )
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
-            `, [authorizationId, this.metaOrgId, roleId, featureId]);
+            `, [authorizationId, metaOrg?._id, roleId, featureId]);
 
             if (authorizationResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');

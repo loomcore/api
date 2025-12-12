@@ -3,14 +3,9 @@ import { CreateMigrationTableMigration } from "./001-create-migrations-table.mig
 import { CreateOrganizationsTableMigration } from "./002-create-organizations-table.migration.js";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
 import { CreateMetaOrgMigration } from "./005-create-meta-org.migration.js";
-import { randomUUID } from 'crypto';
-import { PostgresDatabase } from "../postgres.database.js";
-import { OrganizationService } from "../../../services/index.js";
-import { EmptyUserContext } from "@loomcore/common/models";
 
-export async function setupDatabaseForMultitenant(client: Client, metaOrgName: string, metaOrgCode: string): Promise<{ success: boolean, metaOrgId: string | undefined, error: Error | null }> {
+export async function setupDatabaseForMultitenant(client: Client) {
     let runMigrations: number[] = [];
-    let metaOrgId: string | undefined;
 
     if (await doesTableExist(client, 'migrations')) {
         const migrations = await client.query(`
@@ -28,7 +23,7 @@ export async function setupDatabaseForMultitenant(client: Client, metaOrgName: s
         const result = await createMigrationTableMigration.execute();
         if (!result.success) {
             console.log('setupDatabaseForMultitenant: error creating migration table', result.error);
-            return { success: false, metaOrgId: metaOrgId, error: result.error };
+            return result;
         }
     }
 
@@ -37,19 +32,18 @@ export async function setupDatabaseForMultitenant(client: Client, metaOrgName: s
         const result = await createOrganizationTableMigration.execute();
         if (!result.success) {
             console.log('setupDatabaseForMultitenant: error creating organizations table', result.error);
-            return { success: false, metaOrgId: metaOrgId, error: result.error };
+            return result;
         }
     }
 
     if (!runMigrations.includes(5)) {
-        const createMetaOrgMigration = new CreateMetaOrgMigration(client, metaOrgName, metaOrgCode);
+        const createMetaOrgMigration = new CreateMetaOrgMigration(client);
         const result = await createMetaOrgMigration.execute();
-        if (!result.success || !result.metaOrgId) {
+        if (!result.success) {
             console.log('setupDatabaseForMultitenant: error creating meta org', result.error);
-            return { success: false, metaOrgId: result.metaOrgId, error: result.error };
+            return result;
         }
-        metaOrgId = result.metaOrgId;
     }
 
-    return { success: true, metaOrgId: metaOrgId, error: null };
+    return { success: true, error: null };
 }

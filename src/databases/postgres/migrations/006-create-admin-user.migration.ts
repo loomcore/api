@@ -3,6 +3,7 @@ import { IMigration, PostgresDatabase } from "../index.js";
 import { randomUUID } from "crypto";
 import { getSystemUserContext, IUser } from "@loomcore/common/models";
 import { AuthService } from "../../../services/auth.service.js";
+import { config } from "../../../config/index.js";
 
 export class CreateAdminUserMigration implements IMigration {
     constructor(private readonly client: Client) {
@@ -10,7 +11,7 @@ export class CreateAdminUserMigration implements IMigration {
 
     index = 6;
 
-    async execute(adminEmail?: string, adminPassword?: string, metaOrgId?: string): Promise<{ success: boolean, adminUserId: string | undefined, error: Error | null }> {
+    async execute() {
         const _id = randomUUID().toString();
         const systemUserContext = getSystemUserContext();
 
@@ -20,17 +21,17 @@ export class CreateAdminUserMigration implements IMigration {
             const authService = new AuthService(database);
             createdUser = await authService.createUser(systemUserContext, {
                 _id: _id,
-                _orgId: metaOrgId,
-                email: adminEmail,
-                password: adminPassword,
+                // this should be the meta org id
+                _orgId: systemUserContext._orgId,
+                email: config.adminUser?.email,
+                password: config.adminUser?.password,
                 firstName: 'Admin',
                 lastName: 'User',
                 displayName: 'Admin User',
             });
         } catch (error: any) {
-            return {
-                success: false, adminUserId: undefined, error: new Error(`Error creating admin user: ${error.message}`)
-            };
+            console.error(`Error creating admin user: ${error.message}`);
+            return { success: false, error: new Error(`Error creating admin user: ${error.message}`) };
         }
 
         try {
@@ -39,13 +40,15 @@ export class CreateAdminUserMigration implements IMigration {
                 VALUES ('${_id}', ${this.index}, TRUE, FALSE);
             `);
             if (result.rowCount === 0) {
-                return { success: false, adminUserId: undefined, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
+                console.error(`Error inserting migration ${this.index} to migrations table: No row returned`);
+                return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
             }
         } catch (error: any) {
-            return { success: false, adminUserId: undefined, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
+            console.error(`Error inserting migration ${this.index} to migrations table: ${error.message}`);
+            return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: ${error.message}`) };
         }
 
-        return { success: true, adminUserId: createdUser?._id, error: null };
+        return { success: true, error: null };
     }
 
     async revert(): Promise<{ success: boolean, error: Error | null }> {

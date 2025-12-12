@@ -21,7 +21,13 @@ export interface IBaseApiConfig {
    */
   app: {
     isMultiTenant: boolean;
+    metaOrgName?: string;
+    metaOrgCode?: string;
   },
+  adminUser?: {
+    email: string;
+    password: string;
+  }
   auth: {
     jwtExpirationInSeconds: number;
     refreshTokenExpirationInDays: number;

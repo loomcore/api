@@ -10,6 +10,7 @@ import { TestMongoDatabase } from './mongo-db.test-database.js';
 import { TestPostgresDatabase } from './postgres.test-database.js';
 import { ITestDatabase } from './test-database.interface.js';
 import { IDatabase } from '../databases/models/database.interface.js';
+import { setupTestConfig } from './common-test.utils.js';
 
 /**
  * Utility class for setting up a minimal Express application for testing
@@ -55,38 +56,7 @@ export class TestExpressApp {
     agent: any
   }> {
     // Set up a fake clientSecret for authentication
-    // IMPORTANT: Must set the base API config using the proper function
-    setBaseApiConfig({
-      env: 'test',
-      hostName: 'localhost',
-      appName: 'test-app',
-      clientSecret: 'test-secret',
-      database: {
-        name: this.databaseName,
-      },
-      externalPort: 4000,
-      internalPort: 8083,
-      corsAllowedOrigins: ['*'],
-      saltWorkFactor: 10,
-      jobTypes: '',
-      deployedBranch: '',
-      debug: {
-        showErrors: false
-      },
-      app: { isMultiTenant: true },
-      auth: {
-        jwtExpirationInSeconds: 3600,
-        refreshTokenExpirationInDays: 7,
-        deviceIdCookieMaxAgeInDays: 730,
-        passwordResetTokenExpirationInMinutes: 20
-      },
-      email: {
-        // These can be empty/undefined in tests as specified by the interface
-        emailApiKey: 'WeDontHaveAKeyYet',
-        emailApiSecret: 'WeDontHaveASecretYet',
-        fromAddress: undefined
-      }
-    });
+    setupTestConfig();
 
     // Initialize TypeBox format validators
     initializeTypeBox();

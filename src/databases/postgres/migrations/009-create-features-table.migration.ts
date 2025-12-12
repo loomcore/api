@@ -9,7 +9,7 @@ export class CreateFeaturesTableMigration implements IMigration {
 
     index = 9;
 
-    async execute(_orgId?: string) {
+    async execute() {
         const _id = randomUUID().toString();
 
         try {

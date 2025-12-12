@@ -10,7 +10,7 @@ import { CreateAuthorizationsTableMigration } from "./010-create-authorizations-
 import { CreateFeaturesTableMigration } from "./009-create-features-table.migration.js";
 import { CreateAdminAuthorizationMigration } from "./011-create-admin-authorization.migration.js";
 
-export async function setupDatabaseForAuth(client: Client, adminEmail: string, adminPassword: string, metaOrgId?: string): Promise<{ success: boolean, error: Error | null }> {
+export async function setupDatabaseForAuth(client: Client) {
     let runMigrations: number[] = [];
 
     if (await doesTableExist(client, 'migrations')) {
@@ -24,13 +24,12 @@ export async function setupDatabaseForAuth(client: Client, adminEmail: string, a
         });
     }
 
-    let adminUserId: string | undefined;
     if (!runMigrations.includes(1)) {
         const migration = new CreateMigrationTableMigration(client);
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating migrations table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(3)) {
@@ -38,7 +37,7 @@ export async function setupDatabaseForAuth(client: Client, adminEmail: string, a
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating users table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(4)) {
@@ -46,24 +45,23 @@ export async function setupDatabaseForAuth(client: Client, adminEmail: string, a
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating refresh_tokens table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(6)) {
         const migration = new CreateAdminUserMigration(client);
-        const result = await migration.execute(adminEmail, adminPassword, metaOrgId);
+        const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating admin user', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
-        adminUserId = result.adminUserId;
     }
     if (!runMigrations.includes(7)) {
         const migration = new CreateRoleTableMigration(client);
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating roles table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(8)) {
@@ -71,7 +69,7 @@ export async function setupDatabaseForAuth(client: Client, adminEmail: string, a
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating user_roles table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(9)) {
@@ -79,7 +77,7 @@ export async function setupDatabaseForAuth(client: Client, adminEmail: string, a
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating features table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(10)) {
@@ -87,19 +85,15 @@ export async function setupDatabaseForAuth(client: Client, adminEmail: string, a
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating authorizations table', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
     if (!runMigrations.includes(11)) {
-        if (!adminUserId) {
-            console.error('setupDatabaseForAuth: Admin user ID is required');
-            return { success: false, error: new Error('Admin user ID is required') };
-        }
-        const migration = new CreateAdminAuthorizationMigration(client, adminUserId, metaOrgId);
+        const migration = new CreateAdminAuthorizationMigration(client);
         const result = await migration.execute();
         if (!result.success) {
             console.error('setupDatabaseForAuth: error creating admin authorization', result.error);
-            return { success: false, error: result.error };
+            return result;
         }
     }
 

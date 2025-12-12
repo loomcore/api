@@ -53,7 +53,7 @@ describe('ApiController with MultiTenantApiService', () => {
     database = testSetup.database;
     testAgent = testSetup.agent;
 
-    await testUtils.setupTestUser();
+    await testUtils.setupTestUsers();
 
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();

@@ -23,7 +23,7 @@ describe('UsersController', () => {
 		await TestExpressApp.setupErrorHandling();
 
 		// Set up test user data
-		await testUtils.setupTestUser();
+		await testUtils.setupTestUsers();
 	});
 
 	afterAll(async () => {

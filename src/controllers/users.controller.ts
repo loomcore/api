@@ -1,17 +1,17 @@
 import { Application } from 'express';
 
-import { IUser, UserSpec, PublicUserSchema } from '@loomcore/common/models';
+import { IUser, UserSpec, PublicUserSchema, PublicUserSpec } from '@loomcore/common/models';
 import { ApiController } from './api.controller.js';
 import { isAuthenticated } from '../middleware/index.js';
 import { UserService } from '../services/index.js';
 import { IDatabase } from '../databases/models/index.js';
 
 export class UsersController extends ApiController<IUser> {
-  private userService: UserService;
+  public userService: UserService;
 
   constructor(app: Application, database: IDatabase) {
     const userService = new UserService(database);
-    super('users', app, userService, 'user', UserSpec, PublicUserSchema);
+    super('users', app, userService, 'user', UserSpec, PublicUserSpec.fullSchema);
 
     this.userService = userService;
   }

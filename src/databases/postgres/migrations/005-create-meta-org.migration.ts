@@ -1,9 +1,11 @@
 import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
+import { config, initSystemUserContext } from "../../../config/index.js";
+import { initializeSystemUserContext } from "@loomcore/common/models";
 
 export class CreateMetaOrgMigration implements IMigration {
-    constructor(private readonly client: Client, private readonly orgName: string, private readonly orgCode: string) {
+    constructor(private readonly client: Client) {
     }
 
     index = 5;
@@ -16,7 +18,8 @@ export class CreateMetaOrgMigration implements IMigration {
 
             const orgResult = await this.client.query(`
                 INSERT INTO "organizations" ("_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
-                VALUES ('${_id}', '${this.orgName}', '${this.orgCode}', 1, true, NOW(), 'system', NOW(), 'system');
+                VALUES ('${_id}', '${config.app.metaOrgName}', '${config.app.metaOrgCode}', 1, true, NOW(), 'system', NOW(), 'system')
+                RETURNING "_id";
             `);
 
             if (orgResult.rowCount === 0) {
@@ -33,8 +36,10 @@ export class CreateMetaOrgMigration implements IMigration {
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
             }
 
+            initializeSystemUserContext(config.email.systemEmailAddress || 'system@example.com', orgResult.rows[0]._id);
+
             await this.client.query('COMMIT');
-            return { success: true, metaOrgId: _id, error: null };
+            return { success: true, error: null };
         } catch (error: any) {
             await this.client.query('ROLLBACK');
             return { success: false, error: new Error(`Error executing migration ${this.index}: ${error.message}`) };
