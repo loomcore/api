@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
+import { config } from "../../../config/index.js";
 
 export class CreateFeaturesTableMigration implements IMigration {
     constructor(private readonly client: Client) {
@@ -18,13 +19,15 @@ export class CreateFeaturesTableMigration implements IMigration {
             const tableExists = await doesTableExist(this.client, 'features');
 
             if (!tableExists) {
+                const fkConstraint = config.app.isMultiTenant
+                    ? ',\n                            CONSTRAINT "fk_features_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE'
+                    : '';
                 await this.client.query(`
                     CREATE TABLE "features" (
                         "_id" VARCHAR(255) PRIMARY KEY,
                         "_orgId" VARCHAR(255),
                         "name" VARCHAR(255) NOT NULL,
-                        CONSTRAINT "fk_features_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "uk_features" UNIQUE ("_orgId", "name")
+                        CONSTRAINT "uk_features" UNIQUE ("_orgId", "name")${fkConstraint}
                     )
                 `);
             }

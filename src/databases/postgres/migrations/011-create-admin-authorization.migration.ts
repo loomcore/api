@@ -21,13 +21,13 @@ export class CreateAdminAuthorizationMigration implements IMigration {
         const _id = randomUUID().toString();
 
         try {
-            const metaOrg = await this.organizationService.getMetaOrg(EmptyUserContext);
+            const metaOrg = await this.organizationService.getMetaOrg(EmptyUserContext).catch(() => null);
             if (!config.adminUser?.email) {
                 return { success: false, error: new Error('Create admin authorization: Admin user email not found in config') };
             }
             const adminUser = await this.authService.getUserByEmail(config.adminUser?.email);
-            if (!metaOrg || !adminUser) {
-                return { success: false, error: new Error('Create admin authorization: Meta organization or admin user not found') };
+            if (!adminUser) {
+                return { success: false, error: new Error('Create admin authorization: Admin user not found') };
             }
             await this.client.query('BEGIN');
 
@@ -36,7 +36,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const roleResult = await this.client.query(`
                 INSERT INTO "roles" ("_id", "_orgId", "name")
                 VALUES ($1, $2, 'admin')
-            `, [roleId, metaOrg?._id]);
+            `, [roleId, metaOrg?._id ?? null]);
 
             if (roleResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
@@ -48,7 +48,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const userRoleResult = await this.client.query(`
                 INSERT INTO "user_roles" ("_id", "_orgId", "_userId", "_roleId", "_created", "_createdBy", "_updated", "_updatedBy")
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
-            `, [userRoleId, metaOrg?._id, adminUser?._id, roleId]);
+            `, [userRoleId, metaOrg?._id ?? null, adminUser?._id, roleId]);
 
             if (userRoleResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
@@ -60,7 +60,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
             const featureResult = await this.client.query(`
                 INSERT INTO "features" ("_id", "_orgId", "name")
                 VALUES ($1, $2, 'admin')
-            `, [featureId, metaOrg?._id]);
+            `, [featureId, metaOrg?._id ?? null]);
 
             if (featureResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');
@@ -75,7 +75,7 @@ export class CreateAdminAuthorizationMigration implements IMigration {
                     "_created", "_createdBy", "_updated", "_updatedBy"
                 )
                 VALUES ($1, $2, $3, $4, NOW(), 'system', NOW(), 'system')
-            `, [authorizationId, metaOrg?._id, roleId, featureId]);
+            `, [authorizationId, metaOrg?._id ?? null, roleId, featureId]);
 
             if (authorizationResult.rowCount === 0) {
                 await this.client.query('ROLLBACK');

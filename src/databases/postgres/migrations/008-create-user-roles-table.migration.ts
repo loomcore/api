@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
+import { config } from "../../../config/index.js";
 
 export class CreateUserRolesTableMigration implements IMigration {
     constructor(private readonly client: Client) {
@@ -18,6 +19,11 @@ export class CreateUserRolesTableMigration implements IMigration {
             const tableExists = await doesTableExist(this.client, 'user_roles');
 
             if (!tableExists) {
+
+                const fkConstraint = config.app.isMultiTenant
+                    ? '\n                        CONSTRAINT "fk_user_roles_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE,'
+                    : '';
+
                 await this.client.query(`
                     CREATE TABLE "user_roles" (
                         "_id" VARCHAR(255) PRIMARY KEY,
@@ -30,7 +36,7 @@ export class CreateUserRolesTableMigration implements IMigration {
                         "_updatedBy" VARCHAR(255) NOT NULL,
                         "_deleted" TIMESTAMP,
                         "_deletedBy" VARCHAR(255),
-                        CONSTRAINT "fk_user_roles_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE,
+                        ${fkConstraint}
                         CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("_userId") REFERENCES "users"("_id") ON DELETE CASCADE,
                         CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("_roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
                         CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "_userId", "_roleId")

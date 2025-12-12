@@ -1,6 +1,6 @@
 import * as Mailjet from 'node-mailjet';
-import {ServerError} from '../errors/index.js';
-import {config} from '../config/index.js';
+import { ServerError } from '../errors/index.js';
+import { config } from '../config/index.js';
 
 export class EmailService {
 	private mailjet: Mailjet.Client;
@@ -8,17 +8,20 @@ export class EmailService {
 	constructor() {
 		// Initialize Mailjet client with API credentials from config
 		this.mailjet = new (Mailjet as any).default({
-			apiKey: config.email.emailApiKey || '',
-			apiSecret: config.email.emailApiSecret || ''
+			apiKey: config.email?.emailApiKey || '',
+			apiSecret: config.email?.emailApiSecret || ''
 		});
 	}
 
 	async sendHtmlEmail(emailAddress: string, subject: string, body: string) {
+		if (!config.email?.fromAddress) {
+			throw new ServerError('From address is not set in the config');
+		}
 		const messageData = {
 			Messages: [
 				{
 					From: {
-						Email: config.email.fromAddress!,
+						Email: config.email?.fromAddress,
 						Name: config.appName || 'Application'
 					},
 					To: [
@@ -36,7 +39,7 @@ export class EmailService {
 			const result = await this.mailjet
 				.post('send', { version: 'v3.1' })
 				.request(messageData);
-			
+
 			console.log(`Email sent to ${emailAddress} with subject ${subject}`);
 			return result;
 		}

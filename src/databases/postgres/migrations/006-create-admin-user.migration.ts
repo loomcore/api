@@ -1,27 +1,28 @@
 import { Client } from "pg";
 import { IMigration, PostgresDatabase } from "../index.js";
 import { randomUUID } from "crypto";
-import { getSystemUserContext, IUser } from "@loomcore/common/models";
+import { EmptyUserContext, getSystemUserContext, IUser } from "@loomcore/common/models";
 import { AuthService } from "../../../services/auth.service.js";
 import { config } from "../../../config/index.js";
 
 export class CreateAdminUserMigration implements IMigration {
     constructor(private readonly client: Client) {
+        const database = new PostgresDatabase(this.client);
+        this.authService = new AuthService(database);
     }
 
+    private authService: AuthService;
     index = 6;
 
     async execute() {
         const _id = randomUUID().toString();
-        const systemUserContext = getSystemUserContext();
 
+        const systemUserContext = getSystemUserContext();
         let createdUser: IUser | null;
         try {
-            const database = new PostgresDatabase(this.client);
-            const authService = new AuthService(database);
-            createdUser = await authService.createUser(systemUserContext, {
+            createdUser = await this.authService.createUser(systemUserContext, {
                 _id: _id,
-                // this should be the meta org id
+                // this should be the meta org id if multi-tenant, otherwise undefined
                 _orgId: systemUserContext._orgId,
                 email: config.adminUser?.email,
                 password: config.adminUser?.password,

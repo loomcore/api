@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
+import { config } from "../../../config/index.js";
 
 export class CreateRefreshTokenTableMigration implements IMigration {
     constructor(private readonly client: Client) {
@@ -16,6 +17,9 @@ export class CreateRefreshTokenTableMigration implements IMigration {
             const tableExists = await doesTableExist(this.client, 'refreshTokens');
 
             if (!tableExists) {
+                const fkConstraint = config.app.isMultiTenant
+                    ? ',\n                        CONSTRAINT "fk_refreshTokens_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE'
+                    : '';
                 await this.client.query(`
                     CREATE TABLE "refreshTokens" (
                         "_id" VARCHAR(255) PRIMARY KEY,
@@ -25,7 +29,7 @@ export class CreateRefreshTokenTableMigration implements IMigration {
                         "userId" VARCHAR(255) NOT NULL,
                         "expiresOn" BIGINT NOT NULL,
                         "created" TIMESTAMP NOT NULL,
-                        "createdBy" VARCHAR(255) NOT NULL
+                        "createdBy" VARCHAR(255) NOT NULL${fkConstraint}
                     )
                 `);
             }

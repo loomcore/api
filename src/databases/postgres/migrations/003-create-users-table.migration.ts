@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 import { doesTableExist } from "../utils/does-table-exist.util.js";
+import { config } from "../../../config/index.js";
 
 export class CreateUsersTableMigration implements IMigration {
     constructor(private readonly client: Client) {
@@ -18,6 +19,10 @@ export class CreateUsersTableMigration implements IMigration {
             const tableExists = await doesTableExist(this.client, 'users');
 
             if (!tableExists) {
+                const fkConstraint = config.app.isMultiTenant
+                    ? ',\n                            CONSTRAINT "fk_users_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE'
+                    : '';
+
                 await this.client.query(`
                     CREATE TABLE "users" (
                         "_id" VARCHAR(255) PRIMARY KEY,
@@ -35,8 +40,7 @@ export class CreateUsersTableMigration implements IMigration {
                         "_updatedBy" VARCHAR(255) NOT NULL,
                         "_deleted" TIMESTAMP,
                         "_deletedBy" VARCHAR(255),
-                        CONSTRAINT "fk_users_organization" FOREIGN KEY ("_orgId") REFERENCES "organizations"("_id") ON DELETE CASCADE,
-                        CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")
+                        CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")${fkConstraint}
                     )
                 `);
             }

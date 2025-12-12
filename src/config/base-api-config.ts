@@ -32,9 +32,9 @@ export async function initSystemUserContext(database: IDatabase) {
 
   if (!isSystemUserContextSet) {
     // Handle computed/configured properties
-    const systemEmail = config.email.systemEmailAddress || 'system@example.com';
+    const systemEmail = config.email?.systemEmailAddress || 'system@example.com';
     let metaOrgId = undefined;
-    
+
     if (config.app.isMultiTenant) {
       // Import OrganizationService only when needed to avoid circular dependencies
       const { OrganizationService } = await import('../services/organization.service.js');
@@ -48,7 +48,7 @@ export async function initSystemUserContext(database: IDatabase) {
 
       metaOrgId = metaOrg._id;
     }
-    
+
     // Initialize the SystemUserContext
     initializeSystemUserContext(systemEmail, metaOrgId);
     isSystemUserContextSet = true;

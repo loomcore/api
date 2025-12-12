@@ -230,7 +230,7 @@ export class CategoryController extends ApiController<ICategory> {
   }
 }
 
-export function setupTestConfig() {
+export function setupTestConfig(isMultiTenant: boolean = true) {
   setBaseApiConfig({
     env: 'test',
     hostName: 'localhost',
@@ -248,7 +248,7 @@ export function setupTestConfig() {
     debug: {
       showErrors: false
     },
-    app: { isMultiTenant: true },
+    app: { isMultiTenant: isMultiTenant },
     auth: {
       jwtExpirationInSeconds: 3600,
       refreshTokenExpirationInDays: 7,
@@ -258,7 +258,7 @@ export function setupTestConfig() {
     email: {
       emailApiKey: 'WeDontHaveAKeyYet',
       emailApiSecret: 'WeDontHaveASecretYet',
-      fromAddress: undefined,
+      fromAddress: 'test@test.com',
       systemEmailAddress: 'system@test.com'
     },
     adminUser: {

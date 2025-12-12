@@ -34,10 +34,10 @@ export interface IBaseApiConfig {
     deviceIdCookieMaxAgeInDays: number;
     passwordResetTokenExpirationInMinutes: number;
   },
-  email: {
-    emailApiKey?: string;
-    emailApiSecret?: string;
-    fromAddress?: string;
-    systemEmailAddress?: string;
+  email?: {
+    emailApiKey: string;
+    emailApiSecret: string;
+    fromAddress: string;
+    systemEmailAddress: string;
   }
 }

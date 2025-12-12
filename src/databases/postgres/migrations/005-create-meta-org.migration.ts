@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
-import { config, initSystemUserContext } from "../../../config/index.js";
+import { config } from "../../../config/index.js";
 import { initializeSystemUserContext } from "@loomcore/common/models";
 
 export class CreateMetaOrgMigration implements IMigration {
@@ -27,6 +27,8 @@ export class CreateMetaOrgMigration implements IMigration {
                 return { success: false, error: new Error(`Error creating meta org: No row returned`) };
             }
 
+            initializeSystemUserContext(config.email?.systemEmailAddress || 'system@example.com', orgResult.rows[0]._id);
+
             const migrationResult = await this.client.query(`
                 INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")
                 VALUES ('${_id}', ${this.index}, TRUE, FALSE);
@@ -35,8 +37,6 @@ export class CreateMetaOrgMigration implements IMigration {
                 await this.client.query('ROLLBACK');
                 return { success: false, error: new Error(`Error inserting migration ${this.index} to migrations table: No row returned`) };
             }
-
-            initializeSystemUserContext(config.email.systemEmailAddress || 'system@example.com', orgResult.rows[0]._id);
 
             await this.client.query('COMMIT');
             return { success: true, error: null };

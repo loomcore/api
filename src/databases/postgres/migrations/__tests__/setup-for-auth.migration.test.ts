@@ -5,28 +5,32 @@ import { setupDatabaseForMultitenant } from '../setup-for-multitenant.migration.
 import { setupDatabaseForAuth } from '../setup-for-auth.migration.js';
 import { PostgresDatabase } from '../../postgres.database.js';
 import { UserService } from '../../../../services/user-service/user.service.js';
-import { getSystemUserContext } from '@loomcore/common/models';
-import { config } from '../../../../config/base-api-config.js';
+import { getSystemUserContext, isSystemUserContextInitialized, initializeSystemUserContext } from '@loomcore/common/models';
+import { config, initSystemUserContext } from '../../../../config/base-api-config.js';
 import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';
+import { getTestMetaOrg } from '../../../../__tests__/test-objects.js';
+import { DatabaseBuilder } from '../database-builder.js';
 
 describe('setupDatabaseForAuth', () => {
     let client: Client;
     let database: PostgresDatabase;
 
     beforeAll(async () => {
+        setupTestConfig(false);
         // Create a fresh in-memory PostgreSQL database for each test suite
         const { Client } = newDb().adapters.createPg();
         client = new Client();
         await client.connect();
         database = new PostgresDatabase(client);
 
-        setupTestConfig();
-
-        // Set up multitenant first (required before auth setup)
-        const multitenantResult = await setupDatabaseForMultitenant(client);
-        if (!multitenantResult.success) {
-            throw new Error('Failed to setup for multitenant');
+        // Initialize system user context before running migrations since migration 6 needs it
+        // Since isMultiTenant is false, we initialize with undefined orgId
+        if (!isSystemUserContextInitialized()) {
+            initializeSystemUserContext(config.email?.systemEmailAddress || 'system@test.com', undefined);
         }
+
+        const builder = new DatabaseBuilder(client);
+        await builder.withAuth().build();
     });
 
     afterAll(async () => {
@@ -37,15 +41,7 @@ describe('setupDatabaseForAuth', () => {
 
     it('should return admin user with authorization array after running setupDatabaseForAuth', async () => {
         // Arrange
-
         const systemUserContext = getSystemUserContext();
-
-        // Act: Run setupDatabaseForAuth
-        const result = await setupDatabaseForAuth(client);
-
-        // Assert: Verify success
-        expect(result.success).toBe(true);
-        expect(result.error).toBeNull();
 
         // Get all users using UserService
         const userService = new UserService(database);
@@ -60,9 +56,9 @@ describe('setupDatabaseForAuth', () => {
         expect(adminUser).toBeDefined();
         expect(adminUser?.email).toBe(config.adminUser?.email);
 
+        expect(adminUser?._orgId).toBe(config.app.isMultiTenant ? getTestMetaOrg()._id : undefined);
+
         // Assert: Verify admin user has authorizations array with one entry
-        // This test should fail because currently the authorizations array is empty
-        // The expected behavior is that it should contain: [{ role: "admin", feature: "admin" }]
         expect(adminUser?.authorizations).toBeDefined();
         expect(Array.isArray(adminUser?.authorizations)).toBe(true);
         expect(adminUser?.authorizations?.length).toBe(1);
