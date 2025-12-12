@@ -23,14 +23,14 @@ function apiResponse<T>(
 	status: number,
 	options: IApiResponseOptions<T> = {},
 	modelSpec?: IModelSpec,
-	publicSchema?: TSchema
+	publicSpec?: IModelSpec
 ): Response {
 	const success = status! >= 200 && status! < 300;
 	let apiResponse: IApiResponse<T>;
 
 	// If a specific public schema is provided, it takes precedence for defining the response shape.
 	// Otherwise, we use the base modelSpec.
-	const specForEncoding = publicSchema ? entityUtils.getModelSpec(publicSchema) : modelSpec;
+	const specForEncoding = publicSpec ?? modelSpec;
 
 	// Encode data if a spec is available
 	if (specForEncoding && options.data) {

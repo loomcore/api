@@ -19,6 +19,7 @@ const { getTestMetaOrg, getTestOrg, getTestMetaOrgUser, getTestMetaOrgUserContex
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 import { setBaseApiConfig } from '../config/index.js';
+import { entityUtils } from '@loomcore/common/utils';
 
 let deviceIdCookie: string;
 let authService: AuthService;
@@ -310,10 +311,11 @@ export class ProductsController extends ApiController<IProduct> {
     // 2. Create a public version of the aggregated schema by omitting sensitive fields.
     const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
 
+    const PublicAggregatedProductSpec = entityUtils.getModelSpec(PublicAggregatedProductSchema);
     // 3. Pass the base ProductSpec for validation, and our new, more accurate public schema
     //    for client-facing responses. The updated apiUtils.apiResponse will use this
     //    public schema to correctly encode the final shape.
-    super('products', app, productService, 'product', ProductSpec, PublicAggregatedProductSchema);
+    super('products', app, productService, 'product', ProductSpec, PublicAggregatedProductSpec);
   }
 }
 
@@ -357,7 +359,9 @@ export class MultiTenantProductsController extends ApiController<IProduct> {
 
     const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
 
-    super('multi-tenant-products', app, productService, 'product', ProductSpec, PublicAggregatedProductSchema);
+
+    const PublicAggregatedProductSpec = entityUtils.getModelSpec(PublicAggregatedProductSchema);
+    super('multi-tenant-products', app, productService, 'product', ProductSpec, PublicAggregatedProductSpec);
   }
 }
 

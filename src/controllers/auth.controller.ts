@@ -7,7 +7,7 @@ import {
   TokenResponseSpec,
   IUserContext,
   UserSpec,
-  PublicUserSchema,
+  PublicUserSpec,
   passwordValidator,
   PublicUserContextSpec,
 } from '@loomcore/common/models';
@@ -64,7 +64,7 @@ export class AuthController {
 
     const user = await this.authService.createUser(userContext, body);
 
-    apiUtils.apiResponse<IUser>(res, 201, { data: user || undefined }, UserSpec, PublicUserSchema);
+    apiUtils.apiResponse<IUser>(res, 201, { data: user || undefined }, UserSpec, PublicUserSpec);
   }
 
   async requestTokenUsingRefreshToken(req: Request, res: Response, next: NextFunction) {
