@@ -7,7 +7,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/base-api-config.js';
 import { AuthController } from '../../controllers/auth.controller.js';
-import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
 
 describe('AuthController', () => {
   let authToken: string;
@@ -30,10 +30,10 @@ describe('AuthController', () => {
     // Create auth token for test user with orgId
     const payload = {
       user: {
-        _id: getTestMetaOrgUser()._id,
-        email: getTestMetaOrgUser().email
+        _id: getTestMetaOrgUserOut()._id,
+        email: getTestMetaOrgUserOut().email
       },
-      _orgId: getTestMetaOrgUser()._orgId
+      _orgId: getTestMetaOrgUserOut()._orgId
     };
     authToken = jwt.sign(
       payload,
@@ -60,7 +60,7 @@ describe('AuthController', () => {
       const newUser = {
         email: testUtils.newUser1Email,
         password: testUtils.newUser1Password,
-        _orgId: getTestMetaOrgUser()._orgId
+        _orgId: getTestMetaOrgUserOut()._orgId
       };
 
       const response = await testAgent
@@ -71,14 +71,14 @@ describe('AuthController', () => {
 
       expect(response.body?.data).toHaveProperty('_id');
       expect(response.body?.data).toHaveProperty('email', newUser.email);
-      expect(response.body?.data).toHaveProperty('_orgId', getTestMetaOrgUser()._orgId);
+      expect(response.body?.data).toHaveProperty('_orgId', getTestMetaOrgUserOut()._orgId);
     });
 
     it('should return a 400 with an invalid email', async () => {
       const newUser = {
         email: 'test',
         password: testUtils.newUser1Password,
-        _orgId: getTestMetaOrgUser()._orgId
+        _orgId: getTestMetaOrgUserOut()._orgId
       };
       return testAgent
         .post(apiEndpoint)
@@ -91,7 +91,7 @@ describe('AuthController', () => {
       const newUser = {
         email: testUtils.newUser1Email,
         password: 't',
-        _orgId: getTestMetaOrgUser()._orgId
+        _orgId: getTestMetaOrgUserOut()._orgId
       };
       return testAgent
         .post(apiEndpoint)
@@ -106,7 +106,7 @@ describe('AuthController', () => {
         .set('Authorization', `Bearer ${authToken}`) // Add auth token
         .send({ // missing password
           email: "shouldfail@test.com",
-          _orgId: getTestMetaOrgUser()._orgId
+          _orgId: getTestMetaOrgUserOut()._orgId
         }) // missing password
         .expect(400);
 
@@ -115,7 +115,7 @@ describe('AuthController', () => {
         .set('Authorization', `Bearer ${authToken}`) // Add auth token
         .send({ // missing email
           password: "shouldfail",
-          _orgId: getTestMetaOrgUser()._orgId
+          _orgId: getTestMetaOrgUserOut()._orgId
         }) // missing email
         .expect(400);
     });
@@ -124,9 +124,9 @@ describe('AuthController', () => {
       // Test user is already set up by beforeEach
 
       const newUser = {
-        email: getTestMetaOrgUser().email,
-        password: getTestMetaOrgUser().password,
-        _orgId: getTestMetaOrgUser()._orgId
+        email: getTestMetaOrgUserOut().email,
+        password: getTestMetaOrgUserOut().password,
+        _orgId: getTestMetaOrgUserOut()._orgId
       };
 
       return testAgent

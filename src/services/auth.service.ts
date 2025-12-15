@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
-import { IUserContext, IUser, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext } from '@loomcore/common/models';
+import { IUserContext, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext, PublicUserSpec, IUserIn, IUserOut } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { BadRequestError, ServerError, NotFoundError } from '../errors/index.js';
@@ -16,15 +16,15 @@ import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
 
-export class AuthService extends MultiTenantApiService<IUser> {
-    private refreshTokenService: GenericApiService<IRefreshToken>;
+export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
+    private refreshTokenService: GenericApiService<IRefreshToken, IRefreshToken>;
     private passwordResetTokenService: PasswordResetTokenService;
     private emailService: EmailService;
     private organizationService: OrganizationService;
 
     constructor(database: IDatabase) {
         super(database, 'users', 'user', UserSpec);
-        this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
+        this.refreshTokenService = new GenericApiService<IRefreshToken, IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
         this.emailService = new EmailService();
         this.organizationService = new OrganizationService(database);
@@ -82,26 +82,37 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return loginResponse;
     }
 
-    async getUserByEmail(email: string): Promise<IUser | null> {
+    async getUserByEmail(email: string): Promise<IUserIn | null> {
         // Query database directly to bypass tenant filtering for global email uniqueness check
         // Email addresses must be unique across all tenants, so we can't use tenant-filtered queries
         const queryOptions = { filters: { email: { eq: email.toLowerCase() } } };
-        const rawUser = await this.database.findOne<IUser>(queryOptions, 'users');
+        const rawUser = await this.database.findOne<IUserIn>(queryOptions, 'users');
         if (!rawUser) {
             return null;
         }
-        const userContext = {
-            _orgId: rawUser._orgId,
-            user: rawUser
-        };
 
-        return this.postprocessEntity(userContext, rawUser);
+        const dbPostprocessed = this.database.postprocessEntity(rawUser, this.modelSpec.fullSchema);
+        return dbPostprocessed;
     }
 
-    async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
+    async createUser(userContext: IUserContext, user: Partial<IUserIn>): Promise<IUserOut | null> {
         // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 
-        // Check if email already exists
+        if (userContext.user?._id === 'system') {
+            // Check if organization exists when _orgId is provided
+            if (user._orgId) {
+                const org = await this.organizationService.findOne(userContext, { filters: { _id: { eq: user._orgId } } });
+                if (!org) {
+                    throw new BadRequestError('The specified organization does not exist');
+                }
+            }
+
+            if (config.app.isMultiTenant && userContext._orgId !== user._orgId) {
+                throw new BadRequestError('User is not authorized to create a user in this organization');
+            }
+        }
+
+        // Check if email already exists across all organizations
         if (user.email) {
             const existingUser = await this.getUserByEmail(user.email);
             if (existingUser) {
@@ -109,16 +120,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
             }
         }
 
-        // Check if organization exists when _orgId is provided
-        if (user._orgId && userContext._orgId && userContext._orgId !== user._orgId && userContext.user?._id !== 'system') {
-            const org = await this.organizationService.findOne(userContext, { filters: { _id: { eq: user._orgId } } });
-            if (!org) {
-                throw new BadRequestError('The specified organization does not exist');
-            }
-        }
-
-        const createdUser = await this.create(userContext, user);
-        return createdUser;
+        return await this.create(userContext, user);
     }
 
     async requestTokenUsingRefreshToken(refreshToken: string, deviceId: string): Promise<ITokenResponse | null> {
@@ -145,7 +147,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
     async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
         // Note: We pass the plain password here - prepareEntity will hash it
         const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
-        const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
+        const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUserIn>);
 
         const result: UpdateResult = {
             success: true,
@@ -330,7 +332,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
     }
 
-    override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean): Promise<Partial<IUser>> {
+    override async preprocessEntity(userContext: IUserContext, entity: Partial<IUserIn>, isCreate: boolean, allowId: boolean): Promise<Partial<IUserIn>> {
         if (entity.email) {
             // lowercase the email
             entity.email = entity.email!.toLowerCase();
@@ -352,7 +354,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
      */
     private async updateLastLoggedIn(userId: string): Promise<void> {
         try {
-            const updates: Partial<IUser> = { _lastLoggedIn: moment().utc().toDate() };
+            const updates: Partial<IUserIn> = { _lastLoggedIn: moment().utc().toDate() };
             const systemUserContext = getSystemUserContext();
             await this.partialUpdateById(systemUserContext, userId, updates);
         } catch (error) {

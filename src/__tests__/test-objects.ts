@@ -1,10 +1,12 @@
-import { IOrganization, IUser, IUserContext } from "@loomcore/common/models";
+import { IOrganization, IUserContext, IUserIn, IUserOut } from "@loomcore/common/models";
 
 export let TEST_META_ORG_ID = '69261691f936c45f85da24d0';
 
 export function setTestMetaOrgId(metaOrgId: string) {
     TEST_META_ORG_ID = metaOrgId;
 }
+
+export const TEST_META_ORG_USER_PASSWORD = 'test-meta-org-user-password';
 
 export function getTestMetaOrg(): IOrganization {
     return {
@@ -20,12 +22,27 @@ export function getTestMetaOrg(): IOrganization {
     };
 };
 
-export function getTestMetaOrgUser(): IUser {
+export function getTestMetaOrgUserIn(): IUserIn {
     return {
         _id: '69261672f48fb7bf76e54dfb',
         _orgId: getTestMetaOrg()._id,
         email: 'test@example.com',
-        password: 'testpassword',
+        firstName: 'Test',
+        lastName: 'User',
+        displayName: 'Test User',
+        password: TEST_META_ORG_USER_PASSWORD,
+        _created: new Date(),
+        _createdBy: 'system',
+        _updated: new Date(),
+        _updatedBy: 'system',
+    };
+}
+
+export function getTestMetaOrgUserOut(): IUserOut {
+    return {
+        _id: '69261672f48fb7bf76e54dfb',
+        _orgId: getTestMetaOrg()._id,
+        email: 'test@example.com',
         firstName: 'Test',
         lastName: 'User',
         displayName: 'Test User',
@@ -35,10 +52,6 @@ export function getTestMetaOrgUser(): IUser {
             role: 'metaorgUser',
             feature: 'metaorgUser',
             config: {},
-            _created: new Date(),
-            _createdBy: 'system',
-            _updated: new Date(),
-            _updatedBy: 'system',
         }],
         _created: new Date(),
         _createdBy: 'system',
@@ -50,7 +63,7 @@ export function getTestMetaOrgUser(): IUser {
 
 export function getTestMetaOrgUserContext(): IUserContext {
     return {
-        user: getTestMetaOrgUser(),
+        user: getTestMetaOrgUserOut(),
         _orgId: getTestMetaOrg()._id,
     };
 };
@@ -74,13 +87,29 @@ export function getTestOrg(): IOrganization {
         _updatedBy: 'system',
     };
 };
+export const TEST_ORG_USER_PASSWORD = 'test-org-user-password';
 
-export function getTestOrgUser(): IUser {
+export function getTestOrgUserIn(): IUserIn {
     return {
         _id: '6926167d06c0073a778a1250',
         _orgId: getTestOrg()._id,
         email: 'test-org-user@example.com',
-        password: 'testpassword',
+        firstName: 'Test',
+        lastName: 'User',
+        displayName: 'Test User',
+        password: TEST_ORG_USER_PASSWORD,
+        _created: new Date(),
+        _createdBy: 'system',
+        _updated: new Date(),
+        _updatedBy: 'system',
+    };
+}
+
+export function getTestOrgUserOut(): IUserOut {
+    return {
+        _id: '6926167d06c0073a778a1250',
+        _orgId: getTestOrg()._id,
+        email: 'test-org-user@example.com',
         firstName: 'Test',
         lastName: 'User',
         displayName: 'Test User',
@@ -90,10 +119,6 @@ export function getTestOrgUser(): IUser {
             role: 'testOrgUser',
             feature: 'testOrgUser',
             config: {},
-            _created: new Date(),
-            _createdBy: 'system',
-            _updated: new Date(),
-            _updatedBy: 'system',
         }],
         _created: new Date(),
         _createdBy: 'system',
@@ -105,7 +130,7 @@ export function getTestOrgUser(): IUser {
 
 export function getTestOrgUserContext(): IUserContext {
     return {
-        user: getTestOrgUser(),
+        user: getTestOrgUserOut(),
         _orgId: getTestOrg()._id,
     };
 };

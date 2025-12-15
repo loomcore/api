@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { newDb } from 'pg-mem';
 import { Client } from 'pg';
 import { PostgresDatabase } from '../../postgres.database.js';
-import { UserService } from '../../../../services/user-service/user.service.js';
+import { UserService } from '../../../../services/user.service.js';
 import { getSystemUserContext, isSystemUserContextInitialized, initializeSystemUserContext } from '@loomcore/common/models';
 import { config, initSystemUserContext } from '../../../../config/base-api-config.js';
 import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';

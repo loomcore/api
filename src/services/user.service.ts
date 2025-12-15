@@ -1,23 +1,23 @@
 import { Value } from '@sinclair/typebox/value';
-import { IUser, IUserContext, UserSpec, PublicUserSchema, IPagedResult, IQueryOptions } from '@loomcore/common/models';
-import { MultiTenantApiService } from '../index.js';
-import { IdNotFoundError, ServerError } from '../../errors/index.js';
-import { IDatabase } from '../../databases/models/index.js';
-import { PostgresDatabase } from '../../databases/postgres/postgres.database.js';
+import { IUserIn, IUserContext, UserSpec, PublicUserSchema, IPagedResult, IQueryOptions, IUserOut } from '@loomcore/common/models';
+import { MultiTenantApiService } from './index.js';
+import { IdNotFoundError, ServerError } from '../errors/index.js';
+import { IDatabase } from '../databases/models/index.js';
+import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 
-export class UserService extends MultiTenantApiService<IUser> {
+export class UserService extends MultiTenantApiService<IUserIn, IUserOut> {
 	constructor(database: IDatabase) {
 		super(database, 'users', 'user', UserSpec);
 	}
 
 	// Can't full update a User. You can create, partial update, or explicitly change the password.
-	override async fullUpdateById(userContext: IUserContext, id: string, entity: IUser): Promise<IUser> {
+	override async fullUpdateById(userContext: IUserContext, id: string, entity: IUserIn): Promise<IUserOut> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 
-	override async getById(userContext: IUserContext, id: string): Promise<IUser> {
+	override async getById(userContext: IUserContext, id: string): Promise<IUserOut> {
 		const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
-		const user = await this.database.getById<IUser>(operations, queryObject, id, this.pluralResourceName);
+		const user = await this.database.getById<IUserIn>(operations, queryObject, id, this.pluralResourceName);
 		if (!user) {
 			throw new IdNotFoundError();
 		}
@@ -25,9 +25,9 @@ export class UserService extends MultiTenantApiService<IUser> {
 		return usersWithAuth[0];
 	}
 
-	override async get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<IUser>> {
+	override async get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<IUserOut>> {
 		const { operations, queryObject } = this.prepareQuery(userContext, queryOptions, []);
-		const pagedResult = await this.database.get<IUser>(operations, queryObject, this.modelSpec, this.pluralResourceName);
+		const pagedResult = await this.database.get<IUserIn>(operations, queryObject, this.modelSpec, this.pluralResourceName);
 		const transformedEntities = await this.addAuthorizationsToUsers(userContext, pagedResult.entities || []);
 		return {
 			...pagedResult,
@@ -35,13 +35,13 @@ export class UserService extends MultiTenantApiService<IUser> {
 		};
 	}
 
-	override async getAll(userContext: IUserContext): Promise<IUser[]> {
+	override async getAll(userContext: IUserContext): Promise<IUserOut[]> {
 		const { operations } = this.prepareQuery(userContext, {}, []);
-		const users = await this.database.getAll<IUser>(operations, this.pluralResourceName);
+		const users = await this.database.getAll<IUserIn>(operations, this.pluralResourceName);
 		return this.addAuthorizationsToUsers(userContext, users);
 	}
 
-	override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean = false): Promise<Partial<IUser>> {
+	override async preprocessEntity(userContext: IUserContext, entity: Partial<IUserIn>, isCreate: boolean, allowId: boolean = false): Promise<Partial<IUserIn>> {
 		// First, let the base class do its preparation
 		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate);
 
@@ -54,7 +54,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		if (!isCreate) {
 			// Use TypeBox's Value.Clean with PublicUserSchema to remove the password field.
 			// This will remove any properties not in the PublicUserSchema, including password
-			return Value.Clean(PublicUserSchema, preparedEntity) as Partial<IUser>;
+			return Value.Clean(PublicUserSchema, preparedEntity) as Partial<IUserIn>;
 		}
 
 		return preparedEntity;
@@ -62,9 +62,8 @@ export class UserService extends MultiTenantApiService<IUser> {
 
 	/**
 	 * Adds authorizations to users by fetching them from the database.
-	 * This method is reusable across getById, get, and getAll.
 	 */
-	private async addAuthorizationsToUsers(userContext: IUserContext, users: IUser[]): Promise<IUser[]> {
+	private async addAuthorizationsToUsers(userContext: IUserContext, users: IUserIn[]): Promise<IUserOut[]> {
 		if (users.length === 0) {
 			return users;
 		}

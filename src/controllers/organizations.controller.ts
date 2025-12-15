@@ -1,19 +1,19 @@
-import {Application, NextFunction, Request, Response} from 'express';
+import { Application, NextFunction, Request, Response } from 'express';
 
-import {IOrganization} from '@loomcore/common/models';
+import { IOrganization } from '@loomcore/common/models';
 
-import {ApiController} from './api.controller.js';
-import {isAuthenticated} from '../middleware/index.js';
-import {apiUtils} from '../utils/index.js';
-import {BadRequestError, IdNotFoundError} from '../errors/index.js';
-import {OrganizationService} from '../services/index.js';
+import { ApiController } from './api.controller.js';
+import { isAuthenticated } from '../middleware/index.js';
+import { apiUtils } from '../utils/index.js';
+import { BadRequestError, IdNotFoundError } from '../errors/index.js';
+import { OrganizationService } from '../services/index.js';
 import { IDatabase } from '../databases/models/index.js';
 
 /**
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
  * entities, requiring an orgId in addition to its primary key id. The primary key is the orgId.
  */
-export class OrganizationsController extends ApiController<IOrganization> {
+export class OrganizationsController extends ApiController<IOrganization, IOrganization> {
 	orgService: OrganizationService;
 
 	constructor(app: Application, database: IDatabase) {
@@ -37,7 +37,7 @@ export class OrganizationsController extends ApiController<IOrganization> {
 			const entity = await this.orgService.findOne(req.userContext!, { filters: { name: { contains: name } } });
 			if (!entity) throw new BadRequestError('Name not found');
 
-			apiUtils.apiResponse<IOrganization>(res, 200, {data: entity});
+			apiUtils.apiResponse<IOrganization>(res, 200, { data: entity });
 		}
 		catch (err: any) {
 			next(err);
@@ -52,7 +52,7 @@ export class OrganizationsController extends ApiController<IOrganization> {
 			const entity = await this.orgService.findOne(req.userContext!, { filters: { code: { eq: code } } });
 			if (!entity) throw new BadRequestError('Code not found');
 
-			apiUtils.apiResponse<IOrganization>(res, 200, {data: entity});
+			apiUtils.apiResponse<IOrganization>(res, 200, { data: entity });
 		}
 		catch (err: any) {
 			next(err);

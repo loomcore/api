@@ -7,4 +7,4 @@ export * from './multi-tenant-api.service.js';
 export * from './organization.service.js';
 export * from './password-reset-token.service.js';
 export * from './tenant-query-decorator.js';
-export * from './user-service/user.service.js';
+export * from './user.service.js';

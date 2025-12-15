@@ -8,9 +8,9 @@ import { isAuthenticated } from '../middleware/index.js';
 import { apiUtils } from '../utils/index.js';
 import { DeleteResult } from '../databases/models/delete-result.js';
 
-export abstract class ApiController<T extends IEntity> {
+export abstract class ApiController<TInput extends IEntity, TOutput extends IEntity> {
   protected app: Application;
-  protected service: IGenericApiService<T>;
+  protected service: IGenericApiService<TInput, TOutput>;
   protected slug: string;
   protected apiResourceName: string;
   protected modelSpec?: IModelSpec;
@@ -44,7 +44,7 @@ export abstract class ApiController<T extends IEntity> {
   protected constructor(
     slug: string,
     app: Application,
-    service: IGenericApiService<T>,
+    service: IGenericApiService<TInput, TOutput>,
     resourceName: string = '',
     modelSpec?: IModelSpec,
     publicSpec?: IModelSpec
@@ -96,7 +96,7 @@ export abstract class ApiController<T extends IEntity> {
   async getAll(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     const entities = await this.service.getAll(req.userContext!);
-    apiUtils.apiResponse<T[]>(res, 200, { data: entities }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<TOutput[]>(res, 200, { data: entities }, this.modelSpec, this.publicSpec);
   }
 
   async get(req: Request, res: Response, next: NextFunction) {
@@ -108,14 +108,14 @@ export abstract class ApiController<T extends IEntity> {
     // Get paged result from service
     const pagedResult = await this.service.get(req.userContext!, queryOptions);
     // Prepare API response
-    apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<IPagedResult<TOutput>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSpec);
   }
 
   async getById(req: Request, res: Response, next: NextFunction) {
     let id = req.params?.id;
     res.set('Content-Type', 'application/json');
     const entity = await this.service.getById(req.userContext!, id);
-    apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<TOutput>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
   }
 
   async getCount(req: Request, res: Response, next: NextFunction) {
@@ -131,13 +131,13 @@ export abstract class ApiController<T extends IEntity> {
     this.validate(req.body);
 
     const entity = await this.service.create(req.userContext!, req.body);
-    apiUtils.apiResponse<T>(res, 201, { data: entity || undefined }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<TOutput>(res, 201, { data: entity || undefined }, this.modelSpec, this.publicSpec);
   }
 
   async batchUpdate(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
 
-    const entities = req.body as Partial<T>[];
+    const entities = req.body as Partial<TInput>[];
 
     if (!Array.isArray(entities)) {
       // Using apiUtils to send a standardized error response would be better if available
@@ -148,7 +148,7 @@ export abstract class ApiController<T extends IEntity> {
     this.validateMany(entities, true);
 
     const updatedEntities = await this.service.batchUpdate(req.userContext!, entities);
-    apiUtils.apiResponse<T[]>(res, 200, { data: updatedEntities }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<TOutput[]>(res, 200, { data: updatedEntities }, this.modelSpec, this.publicSpec);
   }
 
   async fullUpdateById(req: Request, res: Response, next: NextFunction) {
@@ -158,7 +158,7 @@ export abstract class ApiController<T extends IEntity> {
     this.validate(req.body);
 
     const updateResult = await this.service.fullUpdateById(req.userContext!, req.params.id, req.body);
-    apiUtils.apiResponse<T>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<TOutput>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
   }
 
   async partialUpdateById(req: Request, res: Response, next: NextFunction) {
@@ -168,7 +168,7 @@ export abstract class ApiController<T extends IEntity> {
     this.validate(req.body, true);
 
     const updateResult = await this.service.partialUpdateById(req.userContext!, req.params.id, req.body);
-    apiUtils.apiResponse<T>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
+    apiUtils.apiResponse<TOutput>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
   }
 
   async deleteById(req: Request, res: Response, next: NextFunction) {

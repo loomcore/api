@@ -1,9 +1,9 @@
-import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import { IOrganization, IUserContext, OrganizationSpec } from '@loomcore/common/models';
 import { IDatabase } from '../databases/models/database.interface.js';
 import { BadRequestError } from '../errors/index.js';
+import { SimpleApiService } from './simple-api.service.js';
 
-export class OrganizationService extends GenericApiService<IOrganization> {
+export class OrganizationService extends SimpleApiService<IOrganization> {
 	constructor(database: IDatabase) {
 		super(database, 'organizations', 'organization', OrganizationSpec);
 	}

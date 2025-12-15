@@ -12,7 +12,7 @@ import { IDatabase } from '../databases/models/index.js';
  * This implementation extends GenericApiService and overrides the query preparation hooks
  * to transparently add tenant filtering to all database operations.
  */
-export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
+export class MultiTenantApiService<TInput extends IEntity, TOutput extends IEntity> extends GenericApiService<TInput, TOutput> {
   private tenantDecorator?: TenantQueryDecorator;
 
   constructor(
@@ -52,7 +52,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
    * Override the individual entity preparation hook to add tenant ID
    * This will be called for both create and update operations
    */
-  override async preprocessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<Partial<T>> {
+  override async preprocessEntity(userContext: IUserContext, entity: Partial<TInput>, isCreate: boolean, allowId: boolean = false): Promise<Partial<TInput>> {
     if (!config?.app?.isMultiTenant) {
       return super.preprocessEntity(userContext, entity, isCreate, allowId);
     }

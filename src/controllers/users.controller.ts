@@ -1,12 +1,12 @@
 import { Application } from 'express';
 
-import { IUser, UserSpec, PublicUserSpec } from '@loomcore/common/models';
+import { UserSpec, PublicUserSpec, IUserIn, IUserOut } from '@loomcore/common/models';
 import { ApiController } from './api.controller.js';
 import { isAuthenticated } from '../middleware/index.js';
 import { UserService } from '../services/index.js';
 import { IDatabase } from '../databases/models/index.js';
 
-export class UsersController extends ApiController<IUser> {
+export class UsersController extends ApiController<IUserIn, IUserOut> {
   public userService: UserService;
 
   constructor(app: Application, database: IDatabase) {

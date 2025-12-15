@@ -9,7 +9,7 @@ import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
-import { getTestMetaOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserOut, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
 
 describe('ApiController Batch Update', () => {

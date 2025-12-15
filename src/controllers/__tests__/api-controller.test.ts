@@ -7,7 +7,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUser, getTestOrgUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserOut, getTestOrgUserOut } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { UserService, OrganizationService } from '../../services/index.js';
 import { UsersController } from '../users.controller.js';
@@ -72,7 +72,7 @@ describe('ApiController - Integration Tests', () => {
 
     // Get auth token from actual login (has proper userContext structure)
     authToken = await testUtils.loginWithTestUser(testAgent);
-    userId = getTestMetaOrgUser()._id;
+    userId = getTestMetaOrgUserOut()._id;
   });
 
   afterAll(async () => {
@@ -330,7 +330,7 @@ describe('ApiController - Integration Tests', () => {
   describe('user creation with public schema', () => {
     it('should include audit properties and exclude properties not in public schema', async () => {
       // Log that we're preparing the test user data
-      const testUser = getTestOrgUser();
+      const testUser = getTestOrgUserOut();
 
       // Use a unique email to avoid conflict with the test user created by setupTestUsers()
       // which already creates a user with testUser.email ('test-org-user@example.com')

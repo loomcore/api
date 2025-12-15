@@ -6,7 +6,7 @@ import { OrganizationService } from '../organization.service.js';
 import { BadRequestError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { getTestMetaOrgUserContext, getTestMetaOrg, getTestOrgUserContext, getTestOrgUser, getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, getTestMetaOrg, getTestOrgUserContext, getTestOrgUserOut, getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -115,7 +115,7 @@ describe('OrganizationService', () => {
 
             // Create a userContext with the actual metaOrg _id
             const metaOrgUserContext: IUserContext = {
-                user: getTestMetaOrgUser(),
+                user: getTestMetaOrgUserOut(),
                 _orgId: createdMetaOrg._id,
             };
 

@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { IMigration, PostgresDatabase } from "../index.js";
 import { randomUUID } from "crypto";
-import { EmptyUserContext, getSystemUserContext, IUser } from "@loomcore/common/models";
+import { getSystemUserContext } from "@loomcore/common/models";
 import { AuthService } from "../../../services/auth.service.js";
 import { config } from "../../../config/index.js";
 
@@ -18,9 +18,8 @@ export class CreateAdminUserMigration implements IMigration {
         const _id = randomUUID().toString();
 
         const systemUserContext = getSystemUserContext();
-        let createdUser: IUser | null;
         try {
-            createdUser = await this.authService.createUser(systemUserContext, {
+            await this.authService.createUser(systemUserContext, {
                 _id: _id,
                 // this should be the meta org id if multi-tenant, otherwise undefined
                 _orgId: systemUserContext._orgId,

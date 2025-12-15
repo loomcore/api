@@ -4,7 +4,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import { AuthController } from '../auth.controller.js';
 import { UsersController } from '../users.controller.js';
-import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
 
 describe('UsersController', () => {
 	let testAgent: any;
@@ -32,7 +32,7 @@ describe('UsersController', () => {
 	});
 
 	describe('GET /users', () => {
-		const apiEndpoint = `/api/users/${getTestMetaOrgUser()._id}`;
+		const apiEndpoint = `/api/users/${getTestMetaOrgUserOut()._id}`;
 
 		it('should not return any sensitive information for a user', async () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
@@ -42,7 +42,7 @@ describe('UsersController', () => {
 				.set('Authorization', authorizationHeaderValue);
 
 			expect(response.status).toBe(200);
-			expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email);
+			expect(response.body?.data?.email).toEqual(getTestMetaOrgUserOut().email);
 			expect(response.body?.data?.password).toBeUndefined();
 		});
 	});

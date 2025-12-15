@@ -2,7 +2,7 @@ import { Application, Request, Response, NextFunction } from 'express';
 import {
   ILoginResponse,
   LoginResponseSpec,
-  IUser,
+  IUserOut,
   ITokenResponse,
   TokenResponseSpec,
   IUserContext,
@@ -64,7 +64,7 @@ export class AuthController {
 
     const user = await this.authService.createUser(userContext, body);
 
-    apiUtils.apiResponse<IUser>(res, 201, { data: user || undefined }, UserSpec, PublicUserSpec);
+    apiUtils.apiResponse<IUserOut>(res, 201, { data: user || undefined }, UserSpec, PublicUserSpec);
   }
 
   async requestTokenUsingRefreshToken(req: Request, res: Response, next: NextFunction) {

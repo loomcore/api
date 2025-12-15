@@ -1,9 +1,9 @@
 import crypto from 'crypto';
-import {EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec} from '@loomcore/common/models';
-import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { EmptyUserContext, IPasswordResetToken, PasswordResetTokenSpec } from '@loomcore/common/models';
 import { IDatabase } from '../databases/models/index.js';
+import { SimpleApiService } from './simple-api.service.js';
 
-export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
+export class PasswordResetTokenService extends SimpleApiService<IPasswordResetToken> {
 	constructor(database: IDatabase) {
 		super(database, 'passwordResetTokens', 'passwordResetToken', PasswordResetTokenSpec);
 	}
@@ -22,6 +22,6 @@ export class PasswordResetTokenService extends GenericApiService<IPasswordResetT
 	}
 
 	async getByEmail(email: string): Promise<IPasswordResetToken | null> {
-		return  await super.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
+		return await super.findOne(EmptyUserContext, { filters: { email: { eq: email.toLowerCase() } } });
 	}
 }

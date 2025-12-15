@@ -1,4 +1,4 @@
-import { IQueryOptions, IModelSpec, IPagedResult, IEntity } from "@loomcore/common/models";
+import { IQueryOptions, IModelSpec, IPagedResult, IEntity, IAuthorizationIn, IAuthorizationOut } from "@loomcore/common/models";
 import { TSchema } from "@sinclair/typebox";
 import { DeleteResult, IDatabase } from "../models/index.js";
 import { Operation } from "../operations/operation.js";
@@ -93,11 +93,7 @@ export class PostgresDatabase implements IDatabase {
                 f."name" as "feature",
                 a."config",
                 a."_id",
-                a."_orgId",
-                a."_created",
-                a."_createdBy",
-                a."_updated",
-                a."_updatedBy"
+                a."_orgId"
             FROM "user_roles" ur
             INNER JOIN "roles" r ON ur."roleId" = r."_id"
             INNER JOIN "authorizations" a ON r."_id" = a."roleId"
@@ -118,7 +114,7 @@ export class PostgresDatabase implements IDatabase {
 
         const result = await this.client.query(query, values);
 
-        const authorizationsMap = new Map<string, any[]>();
+        const authorizationsMap = new Map<string, IAuthorizationOut[]>();
 
         for (const row of result.rows) {
             const userId = row.userId;
@@ -132,10 +128,6 @@ export class PostgresDatabase implements IDatabase {
                 role: row.role,
                 feature: row.feature,
                 config: row.config || undefined,
-                _created: row._created,
-                _createdBy: row._createdBy,
-                _updated: row._updated,
-                _updatedBy: row._updatedBy,
             });
         }
 

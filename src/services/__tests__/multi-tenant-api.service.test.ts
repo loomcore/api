@@ -8,7 +8,7 @@ import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
-import { getTestMetaOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserOut, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -93,7 +93,7 @@ describe('MultiTenantApiService', () => {
 
       // Assert
       // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
-      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: getTestMetaOrgUser()._orgId });
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: getTestMetaOrgUserOut()._orgId });
       expect(result.queryObject.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
     });
   });
@@ -162,7 +162,7 @@ describe('MultiTenantApiService', () => {
       const result = await preparedEntity(userContext, entity, true);
 
       // Assert
-      expect(result).toHaveProperty('_orgId', getTestMetaOrgUser()._orgId);
+      expect(result).toHaveProperty('_orgId', getTestMetaOrgUserOut()._orgId);
     });
 
     it('should throw BadRequestError if userContext is undefined', async () => {
@@ -182,7 +182,7 @@ describe('MultiTenantApiService', () => {
       // Arrange
       const userContextWithoutOrg: IUserContext = {
         user: {
-          _id: getTestMetaOrgUser()._id,
+          _id: getTestMetaOrgUserOut()._id,
           email: 'test@example.com',
           password: '',
           authorizations: [],
@@ -212,7 +212,7 @@ describe('MultiTenantApiService', () => {
       const testEntity: TestEntity = {
         _id: testUtils.getRandomId(),
         name: 'Test Entity',
-        _orgId: getTestMetaOrgUser()._orgId,
+        _orgId: getTestMetaOrgUserOut()._orgId,
         _created: new Date(),
         _createdBy: 'system',
         _updated: new Date(),
@@ -274,13 +274,13 @@ describe('MultiTenantApiService', () => {
       expect(created).toBeDefined();
       expect(created?._id).toBeDefined();
       expect(created?.name).toBe('Test Entity');
-      expect(created?._orgId).toBe(getTestMetaOrgUser()._orgId);
+      expect(created?._orgId).toBe(getTestMetaOrgUserOut()._orgId);
 
       // Verify it was actually inserted into the database
       const dbEntity = await service.getById(userContext, created!._id);
       expect(dbEntity).toBeDefined();
       expect(dbEntity?.name).toBe('Test Entity');
-      expect(dbEntity?._orgId).toBe(getTestMetaOrgUser()._orgId);
+      expect(dbEntity?._orgId).toBe(getTestMetaOrgUserOut()._orgId);
     });
   });
 
@@ -294,7 +294,7 @@ describe('MultiTenantApiService', () => {
       await service.create(userContext, {
         _id: testEntityId,
         name: 'Original Name',
-        _orgId: getTestMetaOrgUser()._orgId
+        _orgId: getTestMetaOrgUserOut()._orgId
       } as Partial<TestEntity>);
 
       const updateEntity: Partial<TestEntity> = {
@@ -308,7 +308,7 @@ describe('MultiTenantApiService', () => {
       expect(updated).toBeDefined();
       expect(updated._id).toBe(testEntityId);
       expect(updated.name).toBe('Updated Name');
-      expect(updated._orgId).toBe(getTestMetaOrgUser()._orgId);
+      expect(updated._orgId).toBe(getTestMetaOrgUserOut()._orgId);
     });
 
     it('should throw IdNotFoundError if entity not found', async () => {
@@ -336,7 +336,7 @@ describe('MultiTenantApiService', () => {
       await service.create(userContext, {
         _id: testEntityId,
         name: 'Test Entity',
-        _orgId: getTestMetaOrgUser()._orgId
+        _orgId: getTestMetaOrgUserOut()._orgId
       } as Partial<TestEntity>);
 
       // Verify it exists
