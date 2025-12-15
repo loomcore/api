@@ -58,19 +58,4 @@ export class UserService extends MultiTenantApiService<IUser> {
 
 		return preparedEntity;
 	}
-
-	/**
-	 * Adds authorizations to users by fetching them from the database.
-	 */
-	private async getUserContextAuthorizations(user: IUser): Promise<IUserContextAuthorization[]> {
-		// Only fetch authorizations if using PostgresDatabase
-		if (!(this.database instanceof PostgresDatabase)) {
-			return [];
-		}
-
-		const orgId = user._orgId;
-		const authorizations = await (this.database as PostgresDatabase).getUserAuthorizations(user._id, orgId);
-
-		return authorizations;
-	}
 }

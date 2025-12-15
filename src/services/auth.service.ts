@@ -15,6 +15,7 @@ import { config } from '../config/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
+import { getUserContextAuthorizations } from './utils/getUserContextAuthorizations.util.js';
 
 export class AuthService extends MultiTenantApiService<IUser> {
     private refreshTokenService: GenericApiService<IRefreshToken>;
@@ -45,10 +46,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
             throw new BadRequestError('Invalid Credentials');
         }
 
+        const authorizations = await getUserContextAuthorizations(this.database, user);
         const userContext = {
             user: user,
             organization: organization ?? undefined,
-            authorizations: []
+            authorizations: authorizations
         };
 
         const deviceId = this.getAndSetDeviceIdCookie(req, res);
@@ -59,9 +61,8 @@ export class AuthService extends MultiTenantApiService<IUser> {
     async logUserIn(userContext: IUserContext, deviceId: string) {
         const payload = userContext;
         const accessToken = this.generateJwt(payload);
-        // upon login, we want to create a new refreshToken with a full expiresOn expiration. If the client is capable of finding an unexpired refreshToken
-        //  persisted locally, it can use that to request a new accessToken - it should NOT try to log in again. Every time there's a successful cred swap, 
-        //  we start with a brand new refreshToken.
+
+        // Every time there's a successful cred swap, we start with a brand new refreshToken.
         const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, userContext.organization?._id);
         const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
 
@@ -132,10 +133,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
             const systemUserContext = getSystemUserContext();
             const user = await this.getById(systemUserContext, activeRefreshToken.userId);
             const organization = await this.organizationService.findOne(EmptyUserContext, { filters: { _id: { eq: user?._orgId } } });
+            const authorizations = await getUserContextAuthorizations(this.database, user);
             const userContext: IUserContext = {
                 user: user,
                 organization: organization ?? undefined,
-                authorizations: []
+                authorizations: authorizations
             };
             tokens = await this.createNewTokens(userContext, activeRefreshToken);
         }
