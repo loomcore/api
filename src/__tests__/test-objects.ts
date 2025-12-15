@@ -1,4 +1,4 @@
-import { IOrganization, IUserContext, IUserIn, IUserOut } from "@loomcore/common/models";
+import { IOrganization, IUserContext, IUser } from "@loomcore/common/models";
 
 export let TEST_META_ORG_ID = '69261691f936c45f85da24d0';
 
@@ -22,7 +22,7 @@ export function getTestMetaOrg(): IOrganization {
     };
 };
 
-export function getTestMetaOrgUserIn(): IUserIn {
+export function getTestMetaOrgUser(): IUser {
     return {
         _id: '69261672f48fb7bf76e54dfb',
         _orgId: getTestMetaOrg()._id,
@@ -38,14 +38,10 @@ export function getTestMetaOrgUserIn(): IUserIn {
     };
 }
 
-export function getTestMetaOrgUserOut(): IUserOut {
+export function getTestMetaOrgUserContext(): IUserContext {
     return {
-        _id: '69261672f48fb7bf76e54dfb',
-        _orgId: getTestMetaOrg()._id,
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        displayName: 'Test User',
+        user: getTestMetaOrgUser(),
+        organization: getTestMetaOrg(),
         authorizations: [{
             _id: '6939c54e57a1c6576a40c590',
             _orgId: getTestMetaOrg()._id,
@@ -53,18 +49,6 @@ export function getTestMetaOrgUserOut(): IUserOut {
             feature: 'metaorgUser',
             config: {},
         }],
-        _created: new Date(),
-        _createdBy: 'system',
-        _lastLoggedIn: new Date(),
-        _updated: new Date(),
-        _updatedBy: 'system',
-    };
-};
-
-export function getTestMetaOrgUserContext(): IUserContext {
-    return {
-        user: getTestMetaOrgUserOut(),
-        _orgId: getTestMetaOrg()._id,
     };
 };
 
@@ -89,7 +73,7 @@ export function getTestOrg(): IOrganization {
 };
 export const TEST_ORG_USER_PASSWORD = 'test-org-user-password';
 
-export function getTestOrgUserIn(): IUserIn {
+export function getTestOrgUser(): IUser {
     return {
         _id: '6926167d06c0073a778a1250',
         _orgId: getTestOrg()._id,
@@ -105,14 +89,10 @@ export function getTestOrgUserIn(): IUserIn {
     };
 }
 
-export function getTestOrgUserOut(): IUserOut {
+export function getTestOrgUserContext(): IUserContext {
     return {
-        _id: '6926167d06c0073a778a1250',
-        _orgId: getTestOrg()._id,
-        email: 'test-org-user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        displayName: 'Test User',
+        user: getTestOrgUser(),
+        organization: getTestOrg(),
         authorizations: [{
             _id: '6939c54e57a1c6576a40c591',
             _orgId: getTestOrg()._id,
@@ -120,17 +100,5 @@ export function getTestOrgUserOut(): IUserOut {
             feature: 'testOrgUser',
             config: {},
         }],
-        _created: new Date(),
-        _createdBy: 'system',
-        _lastLoggedIn: new Date(),
-        _updated: new Date(),
-        _updatedBy: 'system',
-    };
-};
-
-export function getTestOrgUserContext(): IUserContext {
-    return {
-        user: getTestOrgUserOut(),
-        _orgId: getTestOrg()._id,
     };
 };

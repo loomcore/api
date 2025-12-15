@@ -1,9 +1,9 @@
 import { IOrganization, IUserContext, OrganizationSpec } from '@loomcore/common/models';
 import { IDatabase } from '../databases/models/database.interface.js';
 import { BadRequestError } from '../errors/index.js';
-import { SimpleApiService } from './simple-api.service.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
 
-export class OrganizationService extends SimpleApiService<IOrganization> {
+export class OrganizationService extends GenericApiService<IOrganization> {
 	constructor(database: IDatabase) {
 		super(database, 'organizations', 'organization', OrganizationSpec);
 	}
@@ -14,7 +14,7 @@ export class OrganizationService extends SimpleApiService<IOrganization> {
 			if (metaOrg && entity.isMetaOrg) {
 				throw new BadRequestError('Meta organization already exists');
 			}
-			if (metaOrg && userContext._orgId !== metaOrg._id) {
+			if (metaOrg && userContext.organization?._id !== metaOrg._id) {
 				throw new BadRequestError('User is not authorized to create an organization');
 			}
 		}

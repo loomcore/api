@@ -1,4 +1,4 @@
-import { IQueryOptions, IModelSpec, IPagedResult, IEntity, IAuthorizationIn, IAuthorizationOut } from "@loomcore/common/models";
+import { IQueryOptions, IModelSpec, IPagedResult, IEntity, IUserContextAuthorization } from "@loomcore/common/models";
 import { TSchema } from "@sinclair/typebox";
 import { DeleteResult, IDatabase } from "../models/index.js";
 import { Operation } from "../operations/operation.js";
@@ -79,13 +79,8 @@ export class PostgresDatabase implements IDatabase {
      * Returns a map of userId -> IAuthorization[] where authorizations are current
      * (after startDate and before endDate if present).
      */
-    async getUserAuthorizations(userIds: string[], orgId?: string): Promise<Map<string, any[]>> {
-        if (userIds.length === 0) {
-            return new Map();
-        }
-
+    async getUserAuthorizations(userId: string, orgId?: string): Promise<IUserContextAuthorization[]> {
         const now = new Date();
-        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(', ');
         let query = `
             SELECT DISTINCT
                 ur."userId" as "userId",
@@ -98,31 +93,27 @@ export class PostgresDatabase implements IDatabase {
             INNER JOIN "roles" r ON ur."roleId" = r."_id"
             INNER JOIN "authorizations" a ON r."_id" = a."roleId"
             INNER JOIN "features" f ON a."featureId" = f."_id"
-            WHERE ur."userId" IN (${placeholders})
+            WHERE ur."userId" = $1
                 AND ur."_deleted" IS NULL
                 AND a."_deleted" IS NULL
-                AND (a."startDate" IS NULL OR a."startDate" <= $${userIds.length + 1})
-                AND (a."endDate" IS NULL OR a."endDate" >= $${userIds.length + 1})
+                AND (a."startDate" IS NULL OR a."startDate" <= $2)
+                AND (a."endDate" IS NULL OR a."endDate" >= $2)
         `;
 
-        const values: any[] = [...userIds, now];
+        const values: any[] = [userId, now];
 
         if (orgId) {
-            query += ` AND ur."_orgId" = $${userIds.length + 2} AND r."_orgId" = $${userIds.length + 2} AND a."_orgId" = $${userIds.length + 2} AND f."_orgId" = $${userIds.length + 2}`;
+            query += ` AND ur."_orgId" = $3 AND r."_orgId" = $3 AND a."_orgId" = $3 AND f."_orgId" = $3`;
             values.push(orgId);
         }
 
         const result = await this.client.query(query, values);
 
-        const authorizationsMap = new Map<string, IAuthorizationOut[]>();
+        const authorizations: IUserContextAuthorization[] = [];
 
         for (const row of result.rows) {
             const userId = row.userId;
-            if (!authorizationsMap.has(userId)) {
-                authorizationsMap.set(userId, []);
-            }
-
-            authorizationsMap.get(userId)!.push({
+            authorizations.push({
                 _id: row._id,
                 _orgId: row._orgId,
                 role: row.role,
@@ -130,14 +121,6 @@ export class PostgresDatabase implements IDatabase {
                 config: row.config || undefined,
             });
         }
-
-        // Ensure all userIds have an entry (even if empty array)
-        for (const userId of userIds) {
-            if (!authorizationsMap.has(userId)) {
-                authorizationsMap.set(userId, []);
-            }
-        }
-
-        return authorizationsMap;
+        return authorizations;
     }
 }

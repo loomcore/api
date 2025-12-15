@@ -12,7 +12,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, TestEntitySchema, testModelSpec } from '../../__tests__/index.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrg, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 describe('GenericApiService - Integration Tests', () => {
   let database: IDatabase;
@@ -2842,14 +2842,23 @@ describe('GenericApiService - Integration Tests', () => {
           user: {
             _id: testUtils.getRandomId(),
             email: 'updater@example.com',
-            password: '',
-            authorizations: [],
+            firstName: 'Updater',
+            lastName: 'User',
+            displayName: 'Updater User',
+            password: 'password',
             _created: new Date(),
             _createdBy: 'system',
             _updated: new Date(),
             _updatedBy: 'system'
           },
-          _orgId: '67e8e19b149f740323af93d7'
+          organization: getTestMetaOrg(),
+          authorizations: [{
+            _id: testUtils.getRandomId(),
+            _orgId: getTestMetaOrg()._id,
+            role: 'updateUser',
+            feature: 'updateUser',
+            config: {},
+          }],
         };
 
         // Act

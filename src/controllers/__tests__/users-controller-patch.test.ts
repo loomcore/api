@@ -4,7 +4,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import { AuthController } from '../auth.controller.js';
 import { UsersController } from '../users.controller.js';
-import { getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 
 describe('UsersController', () => {
 	let testAgent: any;
@@ -37,7 +37,7 @@ describe('UsersController', () => {
 		it("should return a 200 and only update provided properties", async () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
 
-			const path = `${apiEndpoint}/${getTestMetaOrgUserOut()._id}`;
+			const path = `${apiEndpoint}/${getTestMetaOrgUser()._id}`;
 			const updatedRole = 'admin';
 			const updatedUser = {
 				firstName: 'Updated First Name'
@@ -50,7 +50,7 @@ describe('UsersController', () => {
 				.expect(200);
 
 			expect(response.body?.data?.firstName).toEqual('Updated First Name');
-			expect(response.body?.data?.email).toEqual(getTestMetaOrgUserOut().email); // because this is partial update, properties we did not provide should remain the same
+			expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email); // because this is partial update, properties we did not provide should remain the same
 		});
 	});
 

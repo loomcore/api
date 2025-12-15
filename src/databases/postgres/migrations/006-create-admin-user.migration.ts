@@ -22,7 +22,7 @@ export class CreateAdminUserMigration implements IMigration {
             await this.authService.createUser(systemUserContext, {
                 _id: _id,
                 // this should be the meta org id if multi-tenant, otherwise undefined
-                _orgId: systemUserContext._orgId,
+                _orgId: systemUserContext.organization?._id,
                 email: config.adminUser?.email,
                 password: config.adminUser?.password,
                 firstName: 'Admin',

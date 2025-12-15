@@ -7,21 +7,20 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUserOut, getTestOrgUserOut } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestOrgUser, getTestOrgUserOut } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { UserService, OrganizationService } from '../../services/index.js';
 import { UsersController } from '../users.controller.js';
 import { AuthController } from '../auth.controller.js';
-import { getTestOrg, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 // Test service and controller
-class TestItemService extends GenericApiService<ITestItem> {
+class TestItemService extends GenericApiService<ITestItem, ITestItem> {
   constructor(database: IDatabase) {
     super(database, 'testItems', 'testItem', TestItemSpec);
   }
 }
 
-class TestItemController extends ApiController<ITestItem> {
+class TestItemController extends ApiController<ITestItem, ITestItem> {
   public testItemService: TestItemService;
 
   constructor(app: Application, database: IDatabase) {
@@ -72,7 +71,7 @@ describe('ApiController - Integration Tests', () => {
 
     // Get auth token from actual login (has proper userContext structure)
     authToken = await testUtils.loginWithTestUser(testAgent);
-    userId = getTestMetaOrgUserOut()._id;
+    userId = getTestMetaOrgUser()._id;
   });
 
   afterAll(async () => {
@@ -330,7 +329,7 @@ describe('ApiController - Integration Tests', () => {
   describe('user creation with public schema', () => {
     it('should include audit properties and exclude properties not in public schema', async () => {
       // Log that we're preparing the test user data
-      const testUser = getTestOrgUserOut();
+      const testUser = getTestOrgUser();
 
       // Use a unique email to avoid conflict with the test user created by setupTestUsers()
       // which already creates a user with testUser.email ('test-org-user@example.com')

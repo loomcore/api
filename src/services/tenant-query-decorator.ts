@@ -7,7 +7,7 @@ export interface ITenantQueryOptions {
    * @default '_orgId'
    */
   orgIdField?: string;
-  
+
   /**
    * Optional list of collection names that should be excluded from multi-tenancy
    */
@@ -41,23 +41,23 @@ export class TenantQueryDecorator {
    */
   applyTenantToQuery(userContext: IUserContext, queryObject: IQueryOptions, collectionName: string): IQueryOptions {
     let result = queryObject;
-    
-    const shouldApplyTenantFilter = 
+
+    const shouldApplyTenantFilter =
       !this.options.excludedCollections?.includes(collectionName) &&
-      userContext?._orgId;
-    
+      userContext?.organization?._id;
+
     if (shouldApplyTenantFilter) {
       // Create a new query object that includes the tenant filter
       const orgIdField = this.options.orgIdField || '_orgId';
-      result = { ...queryObject, filters: { ...queryObject.filters, [orgIdField]: { eq: userContext._orgId } } };
-    } 
-    else if (!userContext?._orgId) {
+      result = { ...queryObject, filters: { ...queryObject.filters, [orgIdField]: { eq: userContext.organization?._id } } };
+    }
+    else if (!userContext?.organization?._id) {
       // Don't throw for excluded collections
       if (!this.options.excludedCollections?.includes(collectionName)) {
         throw new ServerError('No _orgId found in userContext');
       }
     }
-    
+
     return result;
   }
 
@@ -70,25 +70,25 @@ export class TenantQueryDecorator {
    */
   applyTenantToQueryOptions(userContext: IUserContext, queryOptions: IQueryOptions, collectionName: string): IQueryOptions {
     const result = { ...queryOptions };
-    
-    const shouldApplyTenantFilter = 
+
+    const shouldApplyTenantFilter =
       !this.options.excludedCollections?.includes(collectionName);
-    
+
     if (shouldApplyTenantFilter) {
-      if (!userContext._orgId) {
+      if (!userContext?.organization?._id) {
         throw new ServerError('userContext must have an _orgId property to apply tenant filtering');
       }
-      
+
       // Initialize filters if they don't exist
       if (!result.filters) {
         result.filters = {};
       }
-      
+
       // Add or replace the orgId filter
       const orgIdField = this.getOrgIdField();
-      result.filters[orgIdField] = { eq: userContext._orgId };
+      result.filters[orgIdField] = { eq: userContext.organization?._id };
     }
-    
+
     return result;
   }
 
@@ -101,27 +101,27 @@ export class TenantQueryDecorator {
    */
   applyTenantToEntity<T extends IEntity>(userContext: IUserContext, entity: T, collectionName: string): T {
     let result = entity;
-    
-    const shouldApplyTenantFilter = 
+
+    const shouldApplyTenantFilter =
       !this.options.excludedCollections?.includes(collectionName) &&
-      userContext?._orgId;
-    
+      userContext?.organization?._id;
+
     if (shouldApplyTenantFilter) {
       const orgIdField = this.options.orgIdField || '_orgId';
-      
+
       // Create a new entity with the orgId property
-      result = { 
+      result = {
         ...entity,
-        [orgIdField]: userContext._orgId
+        [orgIdField]: userContext.organization?._id
       };
-    } 
-    else if (!userContext?._orgId) {
+    }
+    else if (!userContext?.organization?._id) {
       // Don't throw for excluded collections
       if (!this.options.excludedCollections?.includes(collectionName)) {
         throw new ServerError('No _orgId found in userContext');
       }
     }
-    
+
     return result;
   }
 

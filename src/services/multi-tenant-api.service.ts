@@ -12,7 +12,7 @@ import { IDatabase } from '../databases/models/index.js';
  * This implementation extends GenericApiService and overrides the query preparation hooks
  * to transparently add tenant filtering to all database operations.
  */
-export class MultiTenantApiService<TInput extends IEntity, TOutput extends IEntity> extends GenericApiService<TInput, TOutput> {
+export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
   private tenantDecorator?: TenantQueryDecorator;
 
   constructor(
@@ -34,7 +34,7 @@ export class MultiTenantApiService<TInput extends IEntity, TOutput extends IEnti
     if (!config?.app?.isMultiTenant || userContext?.user?._id === 'system') {
       return super.prepareQuery(userContext, queryOptions, operations);
     }
-    if (!userContext || !userContext._orgId) {
+    if (!userContext || !userContext.organization?._id) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareQuery');
     }
 
@@ -52,11 +52,11 @@ export class MultiTenantApiService<TInput extends IEntity, TOutput extends IEnti
    * Override the individual entity preparation hook to add tenant ID
    * This will be called for both create and update operations
    */
-  override async preprocessEntity(userContext: IUserContext, entity: Partial<TInput>, isCreate: boolean, allowId: boolean = false): Promise<Partial<TInput>> {
+  override async preprocessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = false): Promise<Partial<T>> {
     if (!config?.app?.isMultiTenant) {
       return super.preprocessEntity(userContext, entity, isCreate, allowId);
     }
-    if (!userContext || !userContext._orgId) {
+    if (!userContext || !userContext.organization?._id) {
       throw new BadRequestError('A valid userContext was not provided to MultiTenantApiService.prepareEntity');
     }
 
@@ -65,7 +65,7 @@ export class MultiTenantApiService<TInput extends IEntity, TOutput extends IEnti
 
     // Any new item should be created in the user's organization unless it's a system-initiated action
     if (isCreate && userContext.user._id !== 'system') {
-      preparedEntity._orgId = userContext._orgId;
+      preparedEntity._orgId = userContext.organization?._id;
     }
 
     return preparedEntity;

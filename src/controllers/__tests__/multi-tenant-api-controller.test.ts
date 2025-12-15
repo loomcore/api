@@ -11,7 +11,7 @@ import { MultiTenantApiService } from '../../services/multi-tenant-api.service.j
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 
 // Create a test service that uses MultiTenantApiService
@@ -57,7 +57,7 @@ describe('ApiController with MultiTenantApiService', () => {
 
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
-    userId = getTestMetaOrgUserOut()._id;
+    userId = getTestMetaOrgUser()._id;
 
     // Create service and controller instances
     testItemController = new TestItemController(app, database);

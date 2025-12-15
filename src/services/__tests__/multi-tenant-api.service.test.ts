@@ -8,7 +8,7 @@ import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
-import { getTestMetaOrgUserOut, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, getTestMetaOrgUser, getTestMetaOrg } from '../../__tests__/test-objects.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -92,8 +92,8 @@ describe('MultiTenantApiService', () => {
       const result = service.prepareQuery(getTestMetaOrgUserContext(), query, []);
 
       // Assert
-      // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
-      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: getTestMetaOrgUserOut()._orgId });
+      // The consumer-supplied _orgId should be completely overwritten by userContext.organization?_orgId
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: getTestMetaOrg()._id });
       expect(result.queryObject.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
     });
   });
@@ -113,7 +113,7 @@ describe('MultiTenantApiService', () => {
       // Assert
       expect(result.queryObject.filters).toBeDefined();
       expect(result.queryObject.filters!['name']).toEqual({ eq: 'Test' });
-      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: userContext._orgId });
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: userContext.organization ? userContext.organization._id : undefined });
     });
 
     it('should throw BadRequestError if userContext is undefined', () => {
@@ -141,8 +141,8 @@ describe('MultiTenantApiService', () => {
       // Assert
       expect(result.queryObject.filters).toBeDefined();
       expect(result.queryObject.filters!['name']).toEqual({ eq: 'Test' });
-      // The consumer-supplied _orgId should be completely overwritten by userContext._orgId
-      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: userContext._orgId });
+      // The consumer-supplied _orgId should be completely overwritten by userContext.organization?_orgId
+      expect(result.queryObject.filters!['_orgId']).toEqual({ eq: userContext.organization ? userContext.organization._id : undefined });
       expect(result.queryObject.filters!['_orgId']).not.toEqual({ eq: otherOrgId });
     });
   });
@@ -162,7 +162,7 @@ describe('MultiTenantApiService', () => {
       const result = await preparedEntity(userContext, entity, true);
 
       // Assert
-      expect(result).toHaveProperty('_orgId', getTestMetaOrgUserOut()._orgId);
+      expect(result).toHaveProperty('_orgId', getTestMetaOrg()._id);
     });
 
     it('should throw BadRequestError if userContext is undefined', async () => {
@@ -178,19 +178,25 @@ describe('MultiTenantApiService', () => {
       await expect(preparedEntity(undefined as unknown as IUserContext, entity, true)).rejects.toThrow(BadRequestError);
     });
 
-    it('should throw BadRequestError if userContext has no orgId', async () => {
+    it('should throw BadRequestError if userContext has no organization', async () => {
       // Arrange
-      const userContextWithoutOrg: IUserContext = {
+      const userContextWithoutOrg = {
         user: {
-          _id: getTestMetaOrgUserOut()._id,
+          _id: getTestMetaOrgUser()._id,
+          _orgId: getTestMetaOrg()._id,
           email: 'test@example.com',
           password: '',
-          authorizations: [],
           _created: new Date(),
           _createdBy: 'system',
           _updated: new Date(),
           _updatedBy: 'system'
-        }
+        },
+        authorizations: [{
+          _id: testUtils.getRandomId(),
+          _orgId: getTestMetaOrgUser()._orgId,
+          role: 'testUser',
+          feature: 'testUser',
+        }],
       };
       const entity: Partial<TestEntity> = {
         name: 'Test Entity'
@@ -212,7 +218,7 @@ describe('MultiTenantApiService', () => {
       const testEntity: TestEntity = {
         _id: testUtils.getRandomId(),
         name: 'Test Entity',
-        _orgId: getTestMetaOrgUserOut()._orgId,
+        _orgId: getTestMetaOrg()._id,
         _created: new Date(),
         _createdBy: 'system',
         _updated: new Date(),
@@ -274,13 +280,13 @@ describe('MultiTenantApiService', () => {
       expect(created).toBeDefined();
       expect(created?._id).toBeDefined();
       expect(created?.name).toBe('Test Entity');
-      expect(created?._orgId).toBe(getTestMetaOrgUserOut()._orgId);
+      expect(created?._orgId).toBe(getTestMetaOrg()._id);
 
       // Verify it was actually inserted into the database
       const dbEntity = await service.getById(userContext, created!._id);
       expect(dbEntity).toBeDefined();
       expect(dbEntity?.name).toBe('Test Entity');
-      expect(dbEntity?._orgId).toBe(getTestMetaOrgUserOut()._orgId);
+      expect(dbEntity?._orgId).toBe(getTestMetaOrg()._id);
     });
   });
 
@@ -294,7 +300,7 @@ describe('MultiTenantApiService', () => {
       await service.create(userContext, {
         _id: testEntityId,
         name: 'Original Name',
-        _orgId: getTestMetaOrgUserOut()._orgId
+        _orgId: getTestMetaOrg()._id
       } as Partial<TestEntity>);
 
       const updateEntity: Partial<TestEntity> = {
@@ -308,7 +314,7 @@ describe('MultiTenantApiService', () => {
       expect(updated).toBeDefined();
       expect(updated._id).toBe(testEntityId);
       expect(updated.name).toBe('Updated Name');
-      expect(updated._orgId).toBe(getTestMetaOrgUserOut()._orgId);
+      expect(updated._orgId).toBe(getTestMetaOrg()._id);
     });
 
     it('should throw IdNotFoundError if entity not found', async () => {
@@ -336,7 +342,7 @@ describe('MultiTenantApiService', () => {
       await service.create(userContext, {
         _id: testEntityId,
         name: 'Test Entity',
-        _orgId: getTestMetaOrgUserOut()._orgId
+        _orgId: getTestMetaOrg()._id
       } as Partial<TestEntity>);
 
       // Verify it exists

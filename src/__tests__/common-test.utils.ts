@@ -1,7 +1,7 @@
 import { Request, Response, Application } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUserContext, IQueryOptions, IUserOut } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, IUser } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
 
 import { JwtService } from '../services/jwt.service.js';
@@ -15,13 +15,19 @@ import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
 import * as testObjectsModule from './test-objects.js';
-const { getTestMetaOrg, getTestOrg, getTestMetaOrgUserOut, getTestMetaOrgUserContext, getTestOrgUserContext, setTestOrgId, setTestMetaOrgId } = testObjectsModule;
+const {
+  getTestMetaOrg,
+  getTestOrg,
+  getTestMetaOrgUser,
+  getTestMetaOrgUserContext,
+  getTestOrgUserContext,
+  setTestOrgId,
+  setTestMetaOrgId } = testObjectsModule;
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 import { setBaseApiConfig } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
-import { SimpleApiService } from '../services/simple-api.service.js';
-import { getTestMetaOrgUserIn, getTestOrgUserIn, TEST_META_ORG_USER_PASSWORD } from './test-objects.js';
+import { getTestOrgUser } from './test-objects.js';
 
 let deviceIdCookie: string;
 let authService: AuthService;
@@ -74,7 +80,7 @@ async function deleteMetaOrg() {
   }
 }
 
-async function setupTestUsers(): Promise<{ metaOrgUser: IUserOut, testOrgUser: IUserOut }> {
+async function setupTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
   try {
     // Clean up any existing test data, then create fresh test user
     await deleteTestUser();
@@ -86,7 +92,7 @@ async function setupTestUsers(): Promise<{ metaOrgUser: IUserOut, testOrgUser: I
   }
 }
 
-async function createTestUsers(): Promise<{ metaOrgUser: IUserOut, testOrgUser: IUserOut }> {
+async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
   if (!authService || !organizationService) {
     throw new Error('Database not initialized. Call initialize() first.');
   }
@@ -112,8 +118,8 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUserOut, testOrgUser: 
       setTestOrgId(existingTestOrg._id);
     }
 
-    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUserIn());
-    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUserIn());
+    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser());
+    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
 
     if (!createdTestOrgUser || !createdMetaOrgUser) {
       throw new Error('Failed to create test user');
@@ -129,7 +135,7 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUserOut, testOrgUser: 
 
 async function deleteTestUser() {
   // Delete test user
-  await authService.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUserOut()._id).catch((error: any) => {
+  await authService.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
     return null;
   });
@@ -171,7 +177,7 @@ async function simulateloginWithTestUser() {
   const loginResponse = await authService.attemptLogin(
     req as Request,
     res as Response,
-    getTestMetaOrgUserIn().email,
+    getTestMetaOrgUser().email,
     testObjectsModule.TEST_META_ORG_USER_PASSWORD
   );
 
@@ -189,12 +195,14 @@ async function simulateloginWithTestUser() {
  * @returns JWT token string in Bearer format
  */
 function getAuthToken(): string {
-  const metaOrgUser = getTestMetaOrgUserOut();
+  const metaOrgUser = getTestMetaOrgUser();
+  const metaOrg = getTestMetaOrg();
   const payload = {
     user: {
       _id: metaOrgUser._id,
       email: metaOrgUser.email
     },
+    organization: metaOrg,
     _orgId: metaOrgUser._orgId
   };
 
@@ -218,14 +226,14 @@ function verifyToken(token: string): any {
 }
 
 // Service that does NOT use aggregation
-export class CategoryService extends GenericApiService<ICategory, ICategory> {
+export class CategoryService extends GenericApiService<ICategory> {
   constructor(database: IDatabase) {
     super(database, 'categories', 'category', CategorySpec);
   }
 }
 
 // Controller for the service that does NOT use aggregation
-export class CategoryController extends ApiController<ICategory, ICategory> {
+export class CategoryController extends ApiController<ICategory> {
   constructor(app: Application, database: IDatabase) {
     const categoryService = new CategoryService(database);
     super('categories', app, categoryService, 'category', CategorySpec);
@@ -271,7 +279,7 @@ export function setupTestConfig(isMultiTenant: boolean = true) {
 }
 
 // Test service with aggregation pipeline
-export class ProductService extends SimpleApiService<IProduct> {
+export class ProductService extends GenericApiService<IProduct> {
   private db: IDatabase;
   constructor(database: IDatabase) {
     super(database, 'products', 'product', ProductSpec);
@@ -297,7 +305,7 @@ export class ProductService extends SimpleApiService<IProduct> {
 }
 
 // Controller that uses aggregation and overrides get/getById to handle it
-export class ProductsController extends ApiController<IProduct, IProduct> {
+export class ProductsController extends ApiController<IProduct> {
   constructor(app: Application, database: IDatabase) {
 
     const productService = new ProductService(database);
@@ -322,7 +330,7 @@ export class ProductsController extends ApiController<IProduct, IProduct> {
 }
 
 // Service that uses MultiTenantApiService
-export class MultiTenantProductService extends MultiTenantApiService<IProduct, IProduct> {
+export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
   private db: IDatabase;
   constructor(database: IDatabase) {
     super(database, 'products', 'product', ProductSpec);
@@ -348,7 +356,7 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct, I
 }
 
 // Controller that uses the multi-tenant service
-export class MultiTenantProductsController extends ApiController<IProduct, IProduct> {
+export class MultiTenantProductsController extends ApiController<IProduct> {
   constructor(app: Application, database: IDatabase) {
     const productService = new MultiTenantProductService(database);
 
@@ -387,13 +395,13 @@ async function loginWithTestUser(agent: any) {
   // Set deviceId cookie first
   agent.set('Cookie', [`deviceId=${deviceIdCookie}`]);
 
-  const testUser = getTestMetaOrgUserOut();
+  const testUser = getTestMetaOrgUser();
 
   const response = await agent
     .post('/api/auth/login')
     .send({
       email: testUser.email,
-      password: TEST_META_ORG_USER_PASSWORD,
+      password: testUser.password,
     });
 
   // Make sure we got a valid response

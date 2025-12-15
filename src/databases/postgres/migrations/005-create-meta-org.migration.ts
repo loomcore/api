@@ -2,7 +2,7 @@ import { Client } from "pg";
 import { IMigration } from "./migration.interface.js";
 import { randomUUID } from "crypto";
 import { config } from "../../../config/index.js";
-import { initializeSystemUserContext } from "@loomcore/common/models";
+import { initializeSystemUserContext, IOrganization } from "@loomcore/common/models";
 
 export class CreateMetaOrgMigration implements IMigration {
     constructor(private readonly client: Client) {
@@ -19,7 +19,7 @@ export class CreateMetaOrgMigration implements IMigration {
             const orgResult = await this.client.query(`
                 INSERT INTO "organizations" ("_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
                 VALUES ('${_id}', '${config.app.metaOrgName}', '${config.app.metaOrgCode}', 1, true, NOW(), 'system', NOW(), 'system')
-                RETURNING "_id";
+                RETURNING "_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy";
             `);
 
             if (orgResult.rowCount === 0) {
@@ -27,7 +27,7 @@ export class CreateMetaOrgMigration implements IMigration {
                 return { success: false, error: new Error(`Error creating meta org: No row returned`) };
             }
 
-            initializeSystemUserContext(config.email?.systemEmailAddress || 'system@example.com', orgResult.rows[0]._id);
+            initializeSystemUserContext(config.email?.systemEmailAddress || 'system@example.com', orgResult.rows[0] as IOrganization);
 
             const migrationResult = await this.client.query(`
                 INSERT INTO "migrations" ("_id", "index", "hasRun", "reverted")

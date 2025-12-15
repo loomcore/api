@@ -4,7 +4,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
 import { AuthService } from '../../services/index.js';
-import { getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 
 describe('AuthController', () => {
   let authService: AuthService;
@@ -35,8 +35,8 @@ describe('AuthController', () => {
 
     it('should return a 200, an accessToken, and a userContext if correct credentials are given', async () => {
       const user = {
-        email: getTestMetaOrgUserOut().email,
-        password: getTestMetaOrgUserOut().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
 
       // Set a device ID cookie before making the request
@@ -53,8 +53,8 @@ describe('AuthController', () => {
 
     it('should return a user object with a string _id', async () => {
       const user = {
-        email: getTestMetaOrgUserOut().email,
-        password: getTestMetaOrgUserOut().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
 
       // Set a device ID cookie before making the request
@@ -70,8 +70,8 @@ describe('AuthController', () => {
 
     it('should allow email to be case insensitive', async () => {
       const user = {
-        email: getTestMetaOrgUserOut().email,
-        password: getTestMetaOrgUserOut().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
 
       // Set a device ID cookie before making the request
@@ -103,7 +103,7 @@ describe('AuthController', () => {
 
     it('should return a 400 if password is incorrect', async () => {
       const user = {
-        email: getTestMetaOrgUserOut().email,
+        email: getTestMetaOrgUser().email,
         password: 'yourmom'
       };
 
@@ -117,11 +117,8 @@ describe('AuthController', () => {
     });
 
     it('should update the user\'s _lastLoggedIn property in the database after successful login', async () => {
-      const user = getTestMetaOrgUserOut();
-      const userContext = {
-        user: user,
-        _orgId: user._orgId
-      };
+      const user = getTestMetaOrgUser();
+      const userContext = getTestMetaOrgUserContext();
       // Get the user before login to check initial state
       const userBeforeLogin = await authService.findOne(userContext, { filters: { _id: { eq: user._id } } });
 
@@ -161,8 +158,8 @@ describe('AuthController', () => {
 
     it('should not return any sensitive information in the usercontext', async () => {
       const user = {
-        email: getTestMetaOrgUserOut().email,
-        password: getTestMetaOrgUserOut().password
+        email: getTestMetaOrgUser().email,
+        password: getTestMetaOrgUser().password
       };
 
       // Set a device ID cookie before making the request

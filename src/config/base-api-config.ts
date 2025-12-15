@@ -33,24 +33,22 @@ export async function initSystemUserContext(database: IDatabase) {
   if (!isSystemUserContextSet) {
     // Handle computed/configured properties
     const systemEmail = config.email?.systemEmailAddress || 'system@example.com';
-    let metaOrgId = undefined;
+    let metaOrg = undefined;
 
     if (config.app.isMultiTenant) {
       // Import OrganizationService only when needed to avoid circular dependencies
       const { OrganizationService } = await import('../services/organization.service.js');
       const organizationService = new OrganizationService(database);
       // Fetch orgId from database
-      const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+      metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
 
       if (!metaOrg) {
         throw new Error('Meta organization not found. Please create an organization with isMetaOrg=true before starting the API.');
       }
-
-      metaOrgId = metaOrg._id;
     }
 
     // Initialize the SystemUserContext
-    initializeSystemUserContext(systemEmail, metaOrgId);
+    initializeSystemUserContext(systemEmail, metaOrg);
     isSystemUserContextSet = true;
   }
   else if (config.env !== 'test') {

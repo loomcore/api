@@ -5,9 +5,9 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { AuthController } from '../auth.controller.js';
 import { passwordUtils } from '../../utils/password.utils.js';
 import { AuthService } from '../../services/index.js';
-import { getTestMetaOrgUserOut } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { IUserIn } from '@loomcore/common/models';
+import { IUser } from '@loomcore/common/models';
 
 describe('AuthController.changePassword', () => {
   let authService: AuthService;
@@ -53,7 +53,7 @@ describe('AuthController.changePassword', () => {
     expect(changePasswordResponse.status).toBe(200);
 
     // 3. Fetch the user directly from the database
-    const userFromDb = await database.findOne<IUserIn>({ filters: { _id: { eq: getTestMetaOrgUserOut()._id } } }, 'users');
+    const userFromDb = await database.findOne<IUser>({ filters: { _id: { eq: getTestMetaOrgUser()._id } } }, 'users');
 
     // 4. Verify the password in the DB is not the plain text password
     expect(userFromDb).toBeDefined();
@@ -67,7 +67,7 @@ describe('AuthController.changePassword', () => {
     const loginResponse = await testAgent
       .post('/api/auth/login')
       .send({
-        email: getTestMetaOrgUserOut().email,
+        email: getTestMetaOrgUser().email,
         password: newPassword,
       });
 

@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { newDb } from 'pg-mem';
 import { Client } from 'pg';
-import { setupDatabaseForMultitenant } from '../setup-for-multitenant.migration.js';
-import { getTestMetaOrg } from '../../../../__tests__/test-objects.js';
 import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';
 import { DatabaseBuilder } from '../database-builder.js';
 

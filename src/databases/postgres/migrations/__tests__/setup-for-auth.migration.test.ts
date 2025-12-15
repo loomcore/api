@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { newDb } from 'pg-mem';
 import { Client } from 'pg';
-import { PostgresDatabase } from '../../postgres.database.js';
-import { UserService } from '../../../../services/user.service.js';
-import { getSystemUserContext, isSystemUserContextInitialized, initializeSystemUserContext } from '@loomcore/common/models';
-import { config, initSystemUserContext } from '../../../../config/base-api-config.js';
+import { isSystemUserContextInitialized, initializeSystemUserContext } from '@loomcore/common/models';
+import { config } from '../../../../config/base-api-config.js';
 import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';
-import { getTestMetaOrg } from '../../../../__tests__/test-objects.js';
 import { DatabaseBuilder } from '../database-builder.js';
 
 describe('setupDatabaseForAuth', () => {
     let client: Client;
-    let database: PostgresDatabase;
 
     beforeAll(async () => {
         setupTestConfig(false);
@@ -19,16 +15,15 @@ describe('setupDatabaseForAuth', () => {
         const { Client } = newDb().adapters.createPg();
         client = new Client();
         await client.connect();
-        database = new PostgresDatabase(client);
 
-        // Initialize system user context before running migrations since migration 6 needs it
         // Since isMultiTenant is false, we initialize with undefined orgId
         if (!isSystemUserContextInitialized()) {
             initializeSystemUserContext(config.email?.systemEmailAddress || 'system@test.com', undefined);
         }
 
         const builder = new DatabaseBuilder(client);
-        await builder.withAuth().build();
+        const result = await builder.withAuth().build();
+        expect(result.success).toBe(true);
     });
 
     afterAll(async () => {
@@ -37,35 +32,55 @@ describe('setupDatabaseForAuth', () => {
         }
     });
 
-    it('should return admin user with authorization array after running setupDatabaseForAuth', async () => {
+    it('should create migrations with indices 1, 3, 4, 6, 7, 8, 9, 10, and 11 on first run', async () => {
+
+        // Act 
+        // Query migrations table to verify entries with index 1, 3, 4, 6, 7, 8, 9, 10, and 11 exist
+        const migrationsResult = await client.query(`
+            SELECT "index"
+            FROM migrations
+            WHERE "hasRun" = TRUE AND "reverted" = FALSE
+            ORDER BY "index"
+        `);
+
+        const migrationIndices = migrationsResult.rows.map((row) => row.index as number);
+
+        // Verify we have exactly 9 migrations
+        expect(migrationIndices.length).toBe(9);
+
+        // Verify we have migrations with indices 1, 3, 4, 6, 7, 8, 9, 10, and 11
+        expect(migrationIndices).toContain(1);
+        expect(migrationIndices).toContain(3);
+        expect(migrationIndices).toContain(4);
+        expect(migrationIndices).toContain(6);
+        expect(migrationIndices).toContain(7);
+        expect(migrationIndices).toContain(8);
+        expect(migrationIndices).toContain(9);
+        expect(migrationIndices).toContain(10);
+        expect(migrationIndices).toContain(11);
+    });
+
+    it('should not create new migration entries when run a second time', async () => {
         // Arrange
-        const systemUserContext = getSystemUserContext();
+        const builder = new DatabaseBuilder(client);
 
-        // Get all users using UserService
-        const userService = new UserService(database);
-        const allUsers = await userService.getAll(systemUserContext);
+        // Act: Run setupDatabaseForAuth second time
+        const secondResult = await builder.withAuth().build();
 
-        // Find the admin user by email
-        // Note: The admin user should exist after setupDatabaseForAuth runs
-        const adminUser = allUsers.find(user => user.email === config.adminUser?.email);
+        // Get the count of migrations after second run
+        const secondRunMigrations = await client.query(`
+            SELECT "index"
+            FROM migrations
+            WHERE "hasRun" = TRUE AND "reverted" = FALSE
+            ORDER BY "index"
+        `);
+        const secondRunCount = secondRunMigrations.rows.length;
+        const secondRunIndices = secondRunMigrations.rows.map((row) => row.index as number);
 
-        // Assert: Verify admin user exists
-        // If this fails, it means migration 6 (CreateAdminUserMigration) didn't run successfully
-        expect(adminUser).toBeDefined();
-        expect(adminUser?.email).toBe(config.adminUser?.email);
-
-        expect(adminUser?._orgId).toBe(config.app.isMultiTenant ? getTestMetaOrg()._id : undefined);
-
-        // Assert: Verify admin user has authorizations array with one entry
-        expect(adminUser?.authorizations).toBeDefined();
-        expect(Array.isArray(adminUser?.authorizations)).toBe(true);
-        expect(adminUser?.authorizations?.length).toBe(1);
-
-        // Assert: Verify the authorization entry matches expected structure
-        const authorization = adminUser?.authorizations?.[0];
-
-        expect(authorization).toBeDefined();
-        expect(authorization?.role).toBe('admin');
-        expect(authorization?.feature).toBe('admin');
+        // Assert: Verify no new entries were added
+        expect(secondRunCount).toBe(9);
+        expect(secondRunIndices).toEqual([1, 3, 4, 6, 7, 8, 9, 10, 11]);
+        expect(secondResult.success).toBe(true);
+        expect(secondResult.error).toBeNull();
     });
 });

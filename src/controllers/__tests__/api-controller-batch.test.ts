@@ -2,14 +2,14 @@ import { describe, it, beforeAll, afterAll, expect, beforeEach } from 'vitest';
 import supertest from 'supertest';
 import { Application } from 'express';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import testUtils, { ProductsController, CategoryController, MultiTenantProductsController, MultiTenantProductService } from '../../__tests__/common-test.utils.js';
+import testUtils, { ProductsController, CategoryController, MultiTenantProductsController } from '../../__tests__/common-test.utils.js';
 import { IProduct } from '../../__tests__/models/product.model.js';
 import { ICategory } from '../../__tests__/models/category.model.js';
 import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
-import { getTestMetaOrgUserOut, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
 
 describe('ApiController Batch Update', () => {
@@ -87,21 +87,21 @@ describe('ApiController Batch Update', () => {
     const multiTenantProductA = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productA,
       _id: undefined,
-      _orgId: getTestMetaOrgUserContext()._orgId
+      _orgId: getTestMetaOrgUserContext().organization?._id
     });
     if (!multiTenantProductA) throw new Error("multi-tenant product A creation failed");
 
     const multiTenantProductB = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productB,
       _id: undefined,
-      _orgId: getTestMetaOrgUserContext()._orgId
+      _orgId: getTestMetaOrgUserContext().organization?._id
     });
     if (!multiTenantProductB) throw new Error("multi-tenant product B creation failed");
 
     const multiTenantProductC = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productC,
       _id: undefined,
-      _orgId: getTestMetaOrgUserContext()._orgId
+      _orgId: getTestMetaOrgUserContext().organization?._id
     });
     if (!multiTenantProductC) throw new Error("multi-tenant product C creation failed");
 

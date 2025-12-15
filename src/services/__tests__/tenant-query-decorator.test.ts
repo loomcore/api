@@ -17,31 +17,51 @@ describe('TenantQueryDecorator', () => {
   const orgId = 'test-org-123';
 
   // Helper function to create user context with or without orgId
-  const createUserContext = (includeOrgId = true): IUserContext => ({
+  const createUserContext = (): IUserContext => ({
     user: {
       _id: testUtils.getRandomId(),
       email: 'test@example.com',
       password: '',
-      authorizations: [],
       _created: new Date(),
       _createdBy: 'system',
       _updated: new Date(),
       _updatedBy: 'system'
     },
-    ...(includeOrgId ? { _orgId: orgId } : {})
-  });
-
-  const createUserContextWithoutOrgId = () => ({
-    user: {
-      _id: testUtils.getRandomId(),
-      email: 'test@example.com',
-      password: '',
-      authorizations: [],
+    organization: {
+      _id: orgId,
+      name: 'Test Organization',
+      code: 'test-org',
+      status: 1,
+      isMetaOrg: false,
       _created: new Date(),
       _createdBy: 'system',
       _updated: new Date(),
       _updatedBy: 'system'
-    }
+    },
+    authorizations: [{
+      _id: testUtils.getRandomId(),
+      _orgId: orgId,
+      role: 'testUser',
+      feature: 'testUser',
+    }],
+  });
+
+  const createUserContextWithoutOrg = () => ({
+    user: {
+      _id: testUtils.getRandomId(),
+      email: 'test@example.com',
+      password: '',
+      _created: new Date(),
+      _createdBy: 'system',
+      _updated: new Date(),
+      _updatedBy: 'system'
+    },
+    authorizations: [{
+      _id: testUtils.getRandomId(),
+      _orgId: orgId,
+      role: 'testUser',
+      feature: 'testUser',
+    }],
   });
 
   const collectionName = 'testCollection';
@@ -140,7 +160,7 @@ describe('TenantQueryDecorator', () => {
 
       // Act & Assert
       expect(() => {
-        decorator.applyTenantToQuery(createUserContext(false), query, collectionName);
+        decorator.applyTenantToQuery(createUserContextWithoutOrg(), query, collectionName);
       }).toThrow(ServerError);
     });
   });
@@ -211,7 +231,7 @@ describe('TenantQueryDecorator', () => {
 
       // Act & Assert
       expect(() => {
-        decorator.applyTenantToQueryOptions(createUserContextWithoutOrgId(), queryOptions, collectionName);
+        decorator.applyTenantToQueryOptions(createUserContextWithoutOrg(), queryOptions, collectionName);
       }).toThrow('userContext must have an _orgId property to apply tenant filtering');
     });
 
@@ -294,7 +314,7 @@ describe('TenantQueryDecorator', () => {
 
       // Act & Assert
       expect(() => {
-        decorator.applyTenantToEntity(createUserContext(false), entity, collectionName);
+        decorator.applyTenantToEntity(createUserContextWithoutOrg(), entity, collectionName);
       }).toThrow(ServerError);
     });
 

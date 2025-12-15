@@ -3,6 +3,8 @@ import { Operation } from "../../operations/operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { convertOperationsToPipeline } from "../utils/index.js";
 import { IQueryOptions } from "@loomcore/common/models";
+import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
+import NoSqlPipeline from "../models/no-sql-pipeline.js";
 
 
 export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
@@ -14,6 +16,10 @@ export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations:
     const bulkOperations = [];
     const entityIds: ObjectId[] = [];
 
+    // Build base filter from queryObject (includes tenant filters for multi-tenant services)
+    const queryObjectMatch = buildNoSqlMatch(queryObject);
+    const baseFilter = queryObjectMatch.$match || {};
+
     for (const entity of entities) {
         const { _id, ...updateData } = entity as any;
 
@@ -23,9 +29,12 @@ export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations:
         
         entityIds.push(_id);
 
+        // Merge _id filter with base filter (includes tenant filters) for security
+        const updateFilter = { ...baseFilter, _id };
+        
         bulkOperations.push({
             updateOne: {
-                filter: { _id },
+                filter: updateFilter,
                 update: { $set: updateData },
             },
         });
@@ -35,8 +44,15 @@ export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations:
         await collection.bulkWrite(bulkOperations);
     }
 
-    // Build query to retrieve updated entities
-    const baseQuery = { _id: { $in: entityIds } };
+    // Build query to retrieve updated entities, merging _id filter with queryObject filters
+    // Convert ObjectIds to strings for buildNoSqlMatch (it will convert them back to ObjectIds)
+    const retrievalQueryObject: IQueryOptions = {
+        ...queryObject,
+        filters: {
+            ...(queryObject.filters || {}),
+            _id: { in: entityIds.map(id => id.toString()) }
+        }
+    };
     
     // Convert operations to pipeline stages
     const operationsDocuments = convertOperationsToPipeline(operations);
@@ -45,14 +61,16 @@ export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations:
     
     if (operationsDocuments.length > 0) {
         // Use aggregation pipeline if there are operations
-        const pipeline = [
-            { $match: baseQuery },
-            ...operationsDocuments
-        ];
+        const pipeline = new NoSqlPipeline()
+            .addMatch(retrievalQueryObject)
+            .addOperations(operations)
+            .build();
         updatedEntities = await collection.aggregate(pipeline).toArray();
     } else {
-        // Use simple find if no operations
-        updatedEntities = await collection.find(baseQuery).toArray();
+        // Use simple find if no operations, but still apply queryObject filters
+        const retrievalMatch = buildNoSqlMatch(retrievalQueryObject);
+        const retrievalFilter = retrievalMatch.$match || {};
+        updatedEntities = await collection.find(retrievalFilter).toArray();
     }
 
     return updatedEntities as T[];

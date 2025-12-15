@@ -13,7 +13,7 @@ import { IDatabase } from '../databases/models/index.js';
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
  * entities, requiring an orgId in addition to its primary key id. The primary key is the orgId.
  */
-export class OrganizationsController extends ApiController<IOrganization, IOrganization> {
+export class OrganizationsController extends ApiController<IOrganization> {
 	orgService: OrganizationService;
 
 	constructor(app: Application, database: IDatabase) {

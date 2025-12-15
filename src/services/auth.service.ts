@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
-import { IUserContext, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext, PublicUserSpec, IUserIn, IUserOut } from '@loomcore/common/models';
+import { IUserContext, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext, PublicUserSpec, IUser } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { BadRequestError, ServerError, NotFoundError } from '../errors/index.js';
@@ -16,15 +16,15 @@ import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
 
-export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
-    private refreshTokenService: GenericApiService<IRefreshToken, IRefreshToken>;
+export class AuthService extends MultiTenantApiService<IUser> {
+    private refreshTokenService: GenericApiService<IRefreshToken>;
     private passwordResetTokenService: PasswordResetTokenService;
     private emailService: EmailService;
     private organizationService: OrganizationService;
 
     constructor(database: IDatabase) {
         super(database, 'users', 'user', UserSpec);
-        this.refreshTokenService = new GenericApiService<IRefreshToken, IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
+        this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
         this.emailService = new EmailService();
         this.organizationService = new OrganizationService(database);
@@ -33,6 +33,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
     async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
         const lowerCaseEmail = email.toLowerCase();
         const user = await this.getUserByEmail(lowerCaseEmail);
+        const organization = await this.organizationService.findOne(EmptyUserContext, { filters: { _id: { eq: user?._orgId } } });
 
         // Basic validation to prevent errors with undefined user
         if (!user) {
@@ -46,7 +47,8 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
 
         const userContext = {
             user: user,
-            _orgId: user._orgId
+            organization: organization ?? undefined,
+            authorizations: []
         };
 
         const deviceId = this.getAndSetDeviceIdCookie(req, res);
@@ -60,7 +62,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
         // upon login, we want to create a new refreshToken with a full expiresOn expiration. If the client is capable of finding an unexpired refreshToken
         //  persisted locally, it can use that to request a new accessToken - it should NOT try to log in again. Every time there's a successful cred swap, 
         //  we start with a brand new refreshToken.
-        const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, userContext._orgId);
+        const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, userContext.organization?._id);
         const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
 
         let loginResponse = null;
@@ -82,11 +84,11 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
         return loginResponse;
     }
 
-    async getUserByEmail(email: string): Promise<IUserIn | null> {
+    async getUserByEmail(email: string): Promise<IUser | null> {
         // Query database directly to bypass tenant filtering for global email uniqueness check
         // Email addresses must be unique across all tenants, so we can't use tenant-filtered queries
         const queryOptions = { filters: { email: { eq: email.toLowerCase() } } };
-        const rawUser = await this.database.findOne<IUserIn>(queryOptions, 'users');
+        const rawUser = await this.database.findOne<IUser>(queryOptions, 'users');
         if (!rawUser) {
             return null;
         }
@@ -95,7 +97,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
         return dbPostprocessed;
     }
 
-    async createUser(userContext: IUserContext, user: Partial<IUserIn>): Promise<IUserOut | null> {
+    async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
         // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 
         if (userContext.user?._id === 'system') {
@@ -107,7 +109,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
                 }
             }
 
-            if (config.app.isMultiTenant && userContext._orgId !== user._orgId) {
+            if (config.app.isMultiTenant && userContext.organization?._id !== user._orgId) {
                 throw new BadRequestError('User is not authorized to create a user in this organization');
             }
         }
@@ -129,9 +131,11 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
         if (activeRefreshToken) {
             const systemUserContext = getSystemUserContext();
             const user = await this.getById(systemUserContext, activeRefreshToken.userId);
-            const userContext = {
-                _orgId: user._orgId,
-                user: user
+            const organization = await this.organizationService.findOne(EmptyUserContext, { filters: { _id: { eq: user?._orgId } } });
+            const userContext: IUserContext = {
+                user: user,
+                organization: organization ?? undefined,
+                authorizations: []
             };
             tokens = await this.createNewTokens(userContext, activeRefreshToken);
         }
@@ -147,7 +151,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
     async changePassword(userContext: IUserContext, queryObject: any, password: string): Promise<UpdateResult> {
         // Note: We pass the plain password here - prepareEntity will hash it
         const updates = { password: password, _lastPasswordChange: moment().utc().toDate() };
-        const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUserIn>);
+        const updatedUsers = await super.update(userContext, queryObject, updates as Partial<IUser>);
 
         const result: UpdateResult = {
             success: true,
@@ -332,7 +336,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
         return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
     }
 
-    override async preprocessEntity(userContext: IUserContext, entity: Partial<IUserIn>, isCreate: boolean, allowId: boolean): Promise<Partial<IUserIn>> {
+    override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean): Promise<Partial<IUser>> {
         if (entity.email) {
             // lowercase the email
             entity.email = entity.email!.toLowerCase();
@@ -354,7 +358,7 @@ export class AuthService extends MultiTenantApiService<IUserIn, IUserOut> {
      */
     private async updateLastLoggedIn(userId: string): Promise<void> {
         try {
-            const updates: Partial<IUserIn> = { _lastLoggedIn: moment().utc().toDate() };
+            const updates: Partial<IUser> = { _lastLoggedIn: moment().utc().toDate() };
             const systemUserContext = getSystemUserContext();
             await this.partialUpdateById(systemUserContext, userId, updates);
         } catch (error) {
