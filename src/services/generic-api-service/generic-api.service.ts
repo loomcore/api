@@ -231,8 +231,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
   }
   async fullUpdateById(userContext: IUserContext, id: string, entity: T): Promise<T> {
     // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
-    //  existing entity, updates using the supplied entity, then retrieves the entity again. We could avoid the final
-    //  fetch if we manually crafted the returned entity, but that seems presumptuous, especially
+    //  existing entity, then updates using the supplied entity. 
     //  as the update process gets more complex. PREFER using partialUpdateById.
 
     const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
