@@ -94,24 +94,22 @@ export class AuthService extends MultiTenantApiService<IUser> {
             return null;
         }
 
-        const dbPostprocessed = this.database.postprocessEntity(rawUser, this.modelSpec.fullSchema);
-        return dbPostprocessed;
+        return this.database.postprocessEntity(rawUser, this.modelSpec.fullSchema);
     }
 
     async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
         // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 
-        if (userContext.user?._id === 'system') {
+        if (userContext.user._id === 'system') {
+            if (config.app.isMultiTenant && userContext.organization?._id !== user._orgId) {
+                throw new BadRequestError('User is not authorized to create a user in this organization');
+            }
             // Check if organization exists when _orgId is provided
             if (user._orgId) {
                 const org = await this.organizationService.findOne(userContext, { filters: { _id: { eq: user._orgId } } });
                 if (!org) {
                     throw new BadRequestError('The specified organization does not exist');
                 }
-            }
-
-            if (config.app.isMultiTenant && userContext.organization?._id !== user._orgId) {
-                throw new BadRequestError('User is not authorized to create a user in this organization');
             }
         }
 

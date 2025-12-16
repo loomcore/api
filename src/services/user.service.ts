@@ -15,31 +15,6 @@ export class UserService extends MultiTenantApiService<IUser> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 
-	override async getById(userContext: IUserContext, id: string): Promise<IUser> {
-		const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
-		const user = await this.database.getById<IUser>(operations, queryObject, id, this.pluralResourceName);
-		if (!user) {
-			throw new IdNotFoundError();
-		}
-		return this.postprocessEntity(userContext, user);
-	}
-
-	override async get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<IUser>> {
-		const { operations, queryObject } = this.prepareQuery(userContext, queryOptions, []);
-		const pagedResult = await this.database.get<IUser>(operations, queryObject, this.modelSpec, this.pluralResourceName);
-		const transformedEntities = (pagedResult.entities || []).map(entity => this.postprocessEntity(userContext, entity));
-		return {
-			...pagedResult,
-			entities: transformedEntities
-		};
-	}
-
-	override async getAll(userContext: IUserContext): Promise<IUser[]> {
-		const { operations } = this.prepareQuery(userContext, {}, []);
-		const users = await this.database.getAll<IUser>(operations, this.pluralResourceName);
-		return users.map(user => this.postprocessEntity(userContext, user));
-	}
-
 	override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean = false): Promise<Partial<IUser>> {
 		// First, let the base class do its preparation
 		const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate);
