@@ -14,12 +14,12 @@ import {
 import { entityUtils } from '@loomcore/common/utils';
 
 import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
-import { isAuthenticated } from '../middleware/index.js';
 import { apiUtils } from '../utils/index.js';
 
 import { AuthService } from '../services/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
 import { IDatabase } from '../databases/models/index.js';
+import { isAuthorized } from '../middleware/index.js';
 
 export class AuthController {
   authService: AuthService;
@@ -33,10 +33,10 @@ export class AuthController {
 
   mapRoutes(app: Application) {
     app.post(`/api/auth/login`, this.login.bind(this), this.afterAuth.bind(this));
-    app.post(`/api/auth/register`, isAuthenticated, this.registerUser.bind(this));
+    app.post(`/api/auth/register`, isAuthorized(), this.registerUser.bind(this));
     app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
-    app.get(`/api/auth/get-user-context`, isAuthenticated, this.getUserContext.bind(this));
-    app.patch(`/api/auth/change-password`, isAuthenticated, this.changePassword.bind(this));
+    app.get(`/api/auth/get-user-context`, isAuthorized(), this.getUserContext.bind(this));
+    app.patch(`/api/auth/change-password`, isAuthorized(), this.changePassword.bind(this));
     app.post(`/api/auth/forgot-password`, this.forgotPassword.bind(this));
     app.post(`/api/auth/reset-password`, this.resetPassword.bind(this));
   }

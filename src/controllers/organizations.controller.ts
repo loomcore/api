@@ -3,11 +3,11 @@ import { Application, NextFunction, Request, Response } from 'express';
 import { IOrganization } from '@loomcore/common/models';
 
 import { ApiController } from './api.controller.js';
-import { isAuthenticated } from '../middleware/index.js';
 import { apiUtils } from '../utils/index.js';
-import { BadRequestError, IdNotFoundError } from '../errors/index.js';
+import { BadRequestError } from '../errors/index.js';
 import { OrganizationService } from '../services/index.js';
 import { IDatabase } from '../databases/models/index.js';
+import { isAuthorized } from '../middleware/index.js';
 
 /**
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
@@ -25,8 +25,8 @@ export class OrganizationsController extends ApiController<IOrganization> {
 	override mapRoutes(app: Application) {
 		super.mapRoutes(app); // map the base ApiController routes
 
-		app.get(`/api/${this.slug}/get-by-name/:name`, isAuthenticated, this.getByName.bind(this));
-		app.get(`/api/${this.slug}/get-by-code/:code`, isAuthenticated, this.getByCode.bind(this));
+		app.get(`/api/${this.slug}/get-by-name/:name`, isAuthorized(), this.getByName.bind(this));
+		app.get(`/api/${this.slug}/get-by-code/:code`, isAuthorized(), this.getByCode.bind(this));
 	}
 
 	async getByName(req: Request, res: Response, next: NextFunction) {

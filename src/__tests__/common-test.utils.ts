@@ -195,20 +195,11 @@ async function simulateloginWithTestUser() {
  * @returns JWT token string in Bearer format
  */
 function getAuthToken(): string {
-  const metaOrgUser = getTestMetaOrgUser();
-  const metaOrg = getTestMetaOrg();
-  const payload = {
-    user: {
-      _id: metaOrgUser._id,
-      email: metaOrgUser.email
-    },
-    organization: metaOrg,
-    _orgId: metaOrgUser._orgId
-  };
+  const userContext = getTestMetaOrgUserContext();
 
   // Use JwtService to sign the token - this is what the real app uses
   const token = JwtService.sign(
-    payload,
+    userContext,
     JWT_SECRET,
     { expiresIn: 3600 }
   );

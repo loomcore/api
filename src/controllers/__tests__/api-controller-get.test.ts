@@ -27,7 +27,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
 
     testAgent = testSetup.agent;
     authToken = testUtils.getAuthToken();
-    
+
     // Instantiate controllers to map routes
     new ProductsController(app, testSetup.database);
     new CategoryController(app, testSetup.database);
@@ -51,7 +51,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
     categoryId = categoryResult._id;
 
     // Insert a product with a sensitive internalNumber
-    const productResult = await productService.create(EmptyUserContext, { 
+    const productResult = await productService.create(EmptyUserContext, {
       name: 'Test Product',
       internalNumber: 'ABC-123-XYZ',
       categoryId: categoryId
@@ -66,7 +66,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
     const response = await testAgent
       .get(`/api/products`)
       .set('Authorization', authToken);
-    
+
     // Assert
     expect(response.status).toBe(200);
     const pagedResult = response.body.data;
@@ -95,7 +95,7 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
     // Assert
     expect(response.status).toBe(200);
     const pagedResult = response.body.data;
-    
+
     // Assert that the response is a paged result
     expect(pagedResult).toHaveProperty('entities');
     expect(pagedResult).toHaveProperty('total');

@@ -8,7 +8,7 @@ This library provides a foundational structure for creating robust APIs, with a 
 
 - **Generic API Controller**: A base `ApiController` that automatically scaffolds a full suite of RESTful endpoints for any data model. This includes support for CRUD operations, batch updates, pagination, and counting.
 - **Built-in Multi-tenancy**: Optional, configuration-driven multi-tenancy. When enabled, all database operations are automatically scoped to the current user's organization, ensuring strict data isolation.
-- **Authentication & Authorization**: Integrated JWT-based authentication middleware (`isAuthenticated`) to easily secure endpoints and support for OAuth 2.0 Code Flow, including the use of refresh tokens.
+- **Authentication & Authorization**: Integrated JWT-based authentication middleware (`isAuthorized`) to easily secure endpoints and support for OAuth 2.0 Code Flow, including the use of refresh tokens.
 - **User & Organization Management**: Pre-built services and controllers for common user and organization management tasks.
 - **Password Management**: Includes services for handling password reset requests and workflows.
 - **Email Service Integration**: A ready-to-use service for sending transactional emails (e.g., for password resets or welcome messages).
