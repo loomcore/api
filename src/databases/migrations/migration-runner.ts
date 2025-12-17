@@ -14,6 +14,7 @@ export interface MigrationConfig {
 
 export class MigrationRunner {
   private config: MigrationConfig;
+  private mongoClient: MongoClient | null = null;
 
   constructor(config: MigrationConfig) {
     this.config = config;
@@ -69,6 +70,7 @@ export class MigrationRunner {
     
     else if (dbType === 'mongo') {
       const client = await MongoClient.connect(dbUrl);
+      this.mongoClient = client; // Store client reference for cleanup
       const db = client.db();
 
       return new Umzug({
@@ -140,8 +142,9 @@ export class MigrationRunner {
     if (this.config.dbType === 'postgres') {
        // Umzug context is the Pool in our PG implementation
        await (migrator.context as Pool).end();
+    } else if (this.config.dbType === 'mongo' && this.mongoClient) {
+      await this.mongoClient.close();
+      this.mongoClient = null;
     }
-    // Mongo connection generally stays open or closes via process exit in CLI scripts,
-    //  but you could store the client reference if you want strict cleanup.
   }
 }
