@@ -140,7 +140,7 @@ export class MigrationRunner {
 
   private async closeConnection(migrator: any) {
     if (this.config.dbType === 'postgres') {
-       // Umzug context is the Pool in our PG implementation
+       // Umzug context is the Pool in our PG implementation.
        await (migrator.context as Pool).end();
     } else if (this.config.dbType === 'mongo' && this.mongoClient) {
       await this.mongoClient.close();
