@@ -22,6 +22,7 @@ export class MigrationRunner {
 
   constructor(config: IBaseApiConfig) {
     this.dbType = config.app.dbType || 'mongodb';
+    console.log('config', config); // todo: delete me
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
   }
