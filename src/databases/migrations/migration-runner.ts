@@ -8,23 +8,43 @@ import path from 'path';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 
-// Add this helper at the top or in a utils file
-const getTimestamp = () => {
-  const now = new Date();
-  return now.toISOString().replace(/[-T:.Z]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
-};
-
 export class MigrationRunner {
   private dbType: string;
   private dbUrl: string;
   private migrationsDir: string;
+  private primaryTimezone: string;
   private mongoClient: MongoClient | null = null;
 
   constructor(config: IBaseApiConfig) {
     this.dbType = config.app.dbType || 'mongodb';
-    console.log('config', config); // todo: delete me
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
+    /** * The IANA timezone identifier (e.g., 'America/Chicago', 'UTC') 
+     * Used for generating the YYYYMMDDHHMMSS prefix on new files.
+     */
+    this.primaryTimezone = config.app.primaryTimezone || 'UTC';
+  }
+
+  private getTimestamp(): string {
+    const now = new Date();
+    
+    // Use Intl to format parts in the specific timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: this.primaryTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+
+    // Extract parts to reconstruct YYYYMMDDHHMMSS
+    const parts = formatter.formatToParts(now);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+
+    return `${getPart('year')}${getPart('month')}${getPart('day')}${getPart('hour')}${getPart('minute')}${getPart('second')}`;
   }
 
   // --- Helper: Parse SQL for Up/Down ---
@@ -157,9 +177,9 @@ export class MigrationRunner {
       throw new Error('Migration name is required');
     }
 
-    // 1. Sanitize the name (my feature -> my_feature)
-    const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-    const filename = `${getTimestamp()}_${safeName}`;
+    // 1. Standardize the name (my feature -> my-feature)
+    const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const filename = `${this.getTimestamp()}_${safeName}`;
     
     // 2. determine extension and template based on DB_TYPE
     let extension = '';
