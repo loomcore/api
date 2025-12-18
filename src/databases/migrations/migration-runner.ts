@@ -21,7 +21,7 @@ export class MigrationRunner {
   private mongoClient: MongoClient | null = null;
 
   constructor(config: IBaseApiConfig) {
-    this.dbType = config.app.dbType;
+    this.dbType = config.app.dbType || 'mongodb';
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
   }
