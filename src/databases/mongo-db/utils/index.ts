@@ -1,4 +1,5 @@
 export * from './build-find-options.util.js';
+export * from './build-mongo-url.util.js';
 export * from './build-no-sql-match.util.js';
 export * from './convert-object-ids-to-strings.util.js'
 export * from './convert-operations-to-pipeline.util.js';

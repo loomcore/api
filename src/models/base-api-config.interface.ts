@@ -1,11 +1,17 @@
+import { DbType } from "../databases/db-type.type.js";
+
 export interface IBaseApiConfig {
   appName: string;
   env: string;
   hostName: string;
   clientSecret: string;
   database: {
-    name?: string;
-  },
+		name?: string;
+    host?: string;
+		port?: number;
+		user?: string;
+		password?: string;
+	},
   externalPort?: number;
   internalPort?: number;
   corsAllowedOrigins: string[];
@@ -23,7 +29,10 @@ export interface IBaseApiConfig {
     isMultiTenant: boolean;
     metaOrgName?: string;
     metaOrgCode?: string;
+    dbType: DbType;
   },
+  // todo: Is there a better way to handle this? It feels wrong to have such an important secret that is not needed at runtime
+  //  treated as such a first class citizen and so easily accessible. Consider tucking this away into a more "one-time setup" location.
   adminUser?: {
     email: string;
     password: string;

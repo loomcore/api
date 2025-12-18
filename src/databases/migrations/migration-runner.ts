@@ -1,23 +1,29 @@
 import { Umzug, MongoDBStorage } from 'umzug';
 import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
+import { DbType } from '../db-type.type.js';
+import { IBaseApiConfig } from '../../models/base-api-config.interface.js';
 import fs from 'fs';
 import path from 'path';
+import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
+import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 
-export type DbType = 'postgres' | 'mongo';
-
-export interface MigrationConfig {
-  dbType: DbType;
-  dbUrl: string;
-  migrationsDir: string; // Absolute path to host's migration folder
-}
+// Add this helper at the top or in a utils file
+const getTimestamp = () => {
+  const now = new Date();
+  return now.toISOString().replace(/[-T:.Z]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
+};
 
 export class MigrationRunner {
-  private config: MigrationConfig;
+  private dbType: string;
+  private dbUrl: string;
+  private migrationsDir: string;
   private mongoClient: MongoClient | null = null;
 
-  constructor(config: MigrationConfig) {
-    this.config = config;
+  constructor(config: IBaseApiConfig) {
+    this.dbType = config.app.dbType;
+    this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
+    this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
   }
 
   // --- Helper: Parse SQL for Up/Down ---
@@ -32,14 +38,12 @@ export class MigrationRunner {
 
   // --- Factory: Create the Umzug Instance ---
   private async getMigrator() {
-    const { dbType, dbUrl, migrationsDir } = this.config;
-
-    if (dbType === 'postgres') {
-      const pool = new Pool({ connectionString: dbUrl });
+    if (this.dbType === 'postgres') {
+      const pool = new Pool({ connectionString: this.dbUrl });
 
       return new Umzug({
         migrations: {
-          glob: path.join(migrationsDir, '*.sql'),
+          glob: path.join(this.migrationsDir, '*.sql'),
           resolve: ({ name, path: filePath, context }) => {
             const content = fs.readFileSync(filePath!, 'utf8');
             const { up, down } = this.parseSql(content);
@@ -68,36 +72,35 @@ export class MigrationRunner {
       });
     } 
     
-    else if (dbType === 'mongo') {
-      const client = await MongoClient.connect(dbUrl);
+    else if (this.dbType === 'mongodb') {
+      const client = await MongoClient.connect(this.dbUrl);
       this.mongoClient = client; // Store client reference for cleanup
       const db = client.db();
 
       return new Umzug({
-        migrations: { glob: path.join(migrationsDir, '*.ts') },
+        migrations: { glob: path.join(this.migrationsDir, '*.ts') },
         context: db,
         storage: new MongoDBStorage({ collection: db.collection('migrations') }),
         logger: console,
       });
     }
 
-    throw new Error(`Unsupported DB_TYPE: ${dbType}`);
+    throw new Error(`Unsupported DB_TYPE: ${this.dbType}`);
   }
 
   // --- Action: Wipe Database ---
   private async wipeDatabase() {
-    const { dbType, dbUrl } = this.config;
-    console.log(`⚠️  Wiping ${dbType} database...`);
+    console.log(`⚠️  Wiping ${this.dbType} database...`);
 
-    if (dbType === 'postgres') {
-      const pool = new Pool({ connectionString: dbUrl });
+    if (this.dbType === 'postgres') {
+      const pool = new Pool({ connectionString: this.dbUrl });
       try {
         await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
       } finally {
         await pool.end();
       }
-    } else if (dbType === 'mongo') {
-      const client = await MongoClient.connect(dbUrl);
+    } else if (this.dbType === 'mongodb') {
+      const client = await MongoClient.connect(this.dbUrl);
       await client.db().dropDatabase();
       await client.close();
     }
@@ -139,12 +142,67 @@ export class MigrationRunner {
   }
 
   private async closeConnection(migrator: any) {
-    if (this.config.dbType === 'postgres') {
+    if (this.dbType === 'postgres') {
        // Umzug context is the Pool in our PG implementation
        await (migrator.context as Pool).end();
-    } else if (this.config.dbType === 'mongo' && this.mongoClient) {
+    } else if (this.dbType === 'mongodb' && this.mongoClient) {
       await this.mongoClient.close();
       this.mongoClient = null;
     }
   }
+
+  public async create(name: string) {
+    if (!name) {
+      throw new Error('Migration name is required');
+    }
+
+    // 1. Sanitize the name (my feature -> my_feature)
+    const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    const filename = `${getTimestamp()}_${safeName}`;
+    
+    // 2. determine extension and template based on DB_TYPE
+    let extension = '';
+    let content = '';
+
+    if (this.dbType === 'postgres') {
+      extension = 'sql';
+      content = `-- Migration: ${safeName}
+-- Created: ${new Date().toISOString()}
+
+-- up
+-- Write your CREATE/ALTER statements here...
+
+
+-- down
+-- Write your DROP/UNDO statements here...
+`;
+    } else {
+      extension = 'ts';
+      content = `import { Db } from 'mongodb';
+
+// Migration: ${safeName}
+// Created: ${new Date().toISOString()}
+
+export const up = async ({ context: db }: { context: Db }) => {
+  // await db.collection('...')....
+};
+
+export const down = async ({ context: db }: { context: Db }) => {
+  // await db.collection('...')....
+};
+`;
+    }
+
+    // 3. Write the file
+    const fullPath = path.join(this.migrationsDir, `${filename}.${extension}`);
+    
+    // Ensure directory exists
+    if (!fs.existsSync(this.migrationsDir)) {
+      fs.mkdirSync(this.migrationsDir, { recursive: true });
+    }
+
+    fs.writeFileSync(fullPath, content);
+    console.log(`✅ Created migration:\n   ${fullPath}`);
+  }
+
 }
