@@ -29,7 +29,7 @@ export interface IBaseApiConfig {
     isMultiTenant: boolean;
     metaOrgName?: string;
     metaOrgCode?: string;
-    dbType: DbType;
+    dbType?: DbType;
   },
   // todo: Is there a better way to handle this? It feels wrong to have such an important secret that is not needed at runtime
   //  treated as such a first class citizen and so easily accessible. Consider tucking this away into a more "one-time setup" location.

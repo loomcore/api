@@ -231,6 +231,7 @@ export class CategoryController extends ApiController<ICategory> {
   }
 }
 
+// todo: alter to accept the app property values add provide in each specific test (isMultiTenant, dbType)
 export function setupTestConfig(isMultiTenant: boolean = true) {
   setBaseApiConfig({
     env: 'test',
