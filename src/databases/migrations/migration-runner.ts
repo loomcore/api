@@ -13,15 +13,15 @@ export class MigrationRunner {
   private dbUrl: string;
   private migrationsDir: string;
   private primaryTimezone: string;
-  private mongoClient: MongoClient | null = null;
+  private dbConnection: Pool | MongoClient | undefined;
 
   constructor(config: IBaseApiConfig) {
     this.dbType = config.app.dbType || 'mongodb';
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
     /** * The IANA timezone identifier (e.g., 'America/Chicago', 'UTC') 
-     * Used for generating the YYYYMMDDHHMMSS prefix on new files.
-     */
+      * Used for generating the YYYYMMDDHHMMSS prefix on new files.
+      */
     this.primaryTimezone = config.app.primaryTimezone || 'UTC';
   }
 
@@ -47,37 +47,65 @@ export class MigrationRunner {
     return `${getPart('year')}${getPart('month')}${getPart('day')}${getPart('hour')}${getPart('minute')}${getPart('second')}`;
   }
 
-  // --- Helper: Parse SQL for Up/Down ---
-  private parseSql(content: string) {
-    const upMatch = content.match(/--\s*up\s([\s\S]+?)(?=--\s*down|$)/i);
-    const downMatch = content.match(/--\s*down\s([\s\S]+)/i);
-    return {
-      up: upMatch ? upMatch[1].trim() : '',
-      down: downMatch ? downMatch[1].trim() : ''
-    };
+  private parseSql(filename: string, content: string) {
+    // Regex explanation:
+    // 1. Look for "-- up" (case insensitive)
+    // 2. Capture everything until "-- down" OR end of string
+    const upMatch = content.match(/--\s*up\s+([\s\S]+?)(?=--\s*down|$)/i);
+    const downMatch = content.match(/--\s*down\s+([\s\S]+)/i);
+
+    const upSql = upMatch ? upMatch[1].trim() : '';
+    const downSql = downMatch ? downMatch[1].trim() : '';
+
+    // SAFETY CHECK: Fail if "up" is empty.
+    // This prevents "successful" runs that actually did nothing.
+    if (!upSql && this.dbType === 'postgres') {
+      throw new Error(`❌ Parsing Error in ${filename}: Could not find '-- up' section or it was empty.`);
+    }
+
+    return { up: upSql, down: downSql };
   }
 
   // --- Factory: Create the Umzug Instance ---
   private async getMigrator() {
+    // Verify migrations directory exists before starting
+    if (!fs.existsSync(this.migrationsDir)) {
+      throw new Error(`❌ Migrations directory not found at: ${this.migrationsDir}`);
+    }
+    
     if (this.dbType === 'postgres') {
       const pool = new Pool({ connectionString: this.dbUrl });
+      this.dbConnection = pool;
+
+      // FIX: Normalize path separators for Windows Globbing
+      const globPattern = path.join(this.migrationsDir, '*.sql').replace(/\\/g, '/');
+      console.log(`🔎 Looking for migrations in: ${globPattern}`);
 
       return new Umzug({
         migrations: {
-          glob: path.join(this.migrationsDir, '*.sql'),
+          glob: globPattern,
           resolve: ({ name, path: filePath, context }) => {
             const content = fs.readFileSync(filePath!, 'utf8');
-            const { up, down } = this.parseSql(content);
+            // Pass filename for better error reporting
+            const { up, down } = this.parseSql(name, content);
+            
             return {
               name,
-              up: async () => context.query(up),
-              down: async () => context.query(down)
+              up: async () => {
+                console.log(`   Running SQL for ${name}...`);
+                await context.query(up);
+              },
+              down: async () => {
+                console.log(`   Running Undo SQL for ${name}...`);
+                await context.query(down);
+              }
             };
           }
         },
         context: pool,
         storage: {
           async executed({ context }) {
+            // Explicit logging to verify table creation
             await context.query(`CREATE TABLE IF NOT EXISTS migrations (name text)`);
             const result = await context.query(`SELECT name FROM migrations`);
             return result.rows.map((r: any) => r.name);
@@ -89,17 +117,21 @@ export class MigrationRunner {
             await context.query(`DELETE FROM migrations WHERE name = $1`, [name]);
           }
         },
-        logger: console,
+        logger: undefined, // Disable internal logger to avoid duplicate noise
       });
     } 
     
     else if (this.dbType === 'mongodb') {
       const client = await MongoClient.connect(this.dbUrl);
-      this.mongoClient = client; // Store client reference for cleanup
+      this.dbConnection = client;
       const db = client.db();
 
+      // FIX: Normalize path separators for Windows Globbing
+      const globPattern = path.join(this.migrationsDir, '*.ts').replace(/\\/g, '/');
+      console.log(`🔎 Looking for migrations in: ${globPattern}`);
+
       return new Umzug({
-        migrations: { glob: path.join(this.migrationsDir, '*.ts') },
+        migrations: { glob: globPattern },
         context: db,
         storage: new MongoDBStorage({ collection: db.collection('migrations') }),
         logger: console,
@@ -136,12 +168,24 @@ export class MigrationRunner {
         console.log('🚀 Restarting migrations...');
         const migrator = await this.getMigrator();
         await migrator.up();
-        await this.closeConnection(migrator);
+        await this.closeConnection();
         console.log('✅ Reset complete.');
         return;
       }
 
       const migrator = await this.getMigrator();
+
+      // NEW: Add Event Listeners for explicit visibility
+      migrator.on('migrating', ({ name }) => console.log(`🚀 Migrating: ${name}`));
+      migrator.on('migrated', ({ name }) => console.log(`✅ Completed: ${name}`));
+
+      // NEW: Check pending count to detect "0 files found" issues
+      const pending = await migrator.pending();
+      console.log(`ℹ️  Found ${pending.length} pending migrations.`);
+      
+      if (pending.length === 0 && command === 'up') {
+        console.log('⚠️  No pending migrations. (Check the path/glob if this is unexpected)');
+      }
 
       switch (command) {
         case 'up':
@@ -154,21 +198,26 @@ export class MigrationRunner {
           break;
       }
 
-      await this.closeConnection(migrator);
+      await this.closeConnection();
 
     } catch (err) {
       console.error('❌ Migration failed:', err);
+      // Ensure we attempt close even on failure
+      await this.closeConnection();
       process.exit(1);
     }
   }
 
-  private async closeConnection(migrator: any) {
-    if (this.dbType === 'postgres') {
-       // Umzug context is the Pool in our PG implementation
-       await (migrator.context as Pool).end();
-    } else if (this.dbType === 'mongodb' && this.mongoClient) {
-      await this.mongoClient.close();
-      this.mongoClient = null;
+  private async closeConnection() {
+    if (!this.dbConnection) return;
+    try {
+      if (this.dbType === 'postgres') {
+         await (this.dbConnection as Pool).end();
+      } else if (this.dbType === 'mongo') {
+         await (this.dbConnection as MongoClient).close();
+      }
+    } catch (e) {
+      console.warn('Warning: Error closing connection', e);
     }
   }
 
@@ -225,5 +274,4 @@ export const down = async ({ context: db }: { context: Db }) => {
     fs.writeFileSync(fullPath, content);
     console.log(`✅ Created migration:\n   ${fullPath}`);
   }
-
 }
