@@ -120,7 +120,6 @@ export class MigrationRunner {
         logger: undefined, // Disable internal logger to avoid duplicate noise
       });
     } 
-    
     else if (this.dbType === 'mongodb') {
       const client = await MongoClient.connect(this.dbUrl);
       this.dbConnection = client;
@@ -152,7 +151,8 @@ export class MigrationRunner {
       } finally {
         await pool.end();
       }
-    } else if (this.dbType === 'mongodb') {
+    } 
+    else if (this.dbType === 'mongodb') {
       const client = await MongoClient.connect(this.dbUrl);
       await client.db().dropDatabase();
       await client.close();
@@ -161,13 +161,13 @@ export class MigrationRunner {
   }
 
   // --- Main Entry Point ---
-  public async run(command: 'up' | 'down' | 'reset') {
+  public async run(command: 'up' | 'down' | 'reset', target?: string) {
     try {
       if (command === 'reset') {
         await this.wipeDatabase();
         console.log('🚀 Restarting migrations...');
         const migrator = await this.getMigrator();
-        await migrator.up();
+        await migrator.up(target ? { to: target } : undefined); // Support reset to specific point
         await this.closeConnection();
         console.log('✅ Reset complete.');
         return;
@@ -175,11 +175,9 @@ export class MigrationRunner {
 
       const migrator = await this.getMigrator();
 
-      // NEW: Add Event Listeners for explicit visibility
       migrator.on('migrating', ({ name }) => console.log(`🚀 Migrating: ${name}`));
       migrator.on('migrated', ({ name }) => console.log(`✅ Completed: ${name}`));
 
-      // NEW: Check pending count to detect "0 files found" issues
       const pending = await migrator.pending();
       console.log(`ℹ️  Found ${pending.length} pending migrations.`);
       
@@ -189,20 +187,30 @@ export class MigrationRunner {
 
       switch (command) {
         case 'up':
-          await migrator.up();
-          console.log('✅ Migrations up to date.');
+          // If target is provided, migrate UP to (and including) that file
+          await migrator.up(target ? { to: target } : undefined);
+          console.log(target ? `✅ Migrated up to ${target}` : '✅ Migrations up to date.');
           break;
         case 'down':
-          await migrator.down();
-          console.log('✅ Reverted last migration.');
+           // If target is provided, migrate DOWN until that file is the LAST one remaining
+           // (i.e., it reverts everything AFTER the target)
+           // If no target, it just reverts the very last one (step: 1)
+          if (target) {
+            await migrator.down({ to: target });
+            console.log(`✅ Reverted down to ${target}`);
+          } 
+          else {
+            await migrator.down(); 
+            console.log('✅ Reverted last migration.');
+          }
           break;
       }
 
       await this.closeConnection();
 
-    } catch (err) {
+    } 
+    catch (err) {
       console.error('❌ Migration failed:', err);
-      // Ensure we attempt close even on failure
       await this.closeConnection();
       process.exit(1);
     }
@@ -213,10 +221,12 @@ export class MigrationRunner {
     try {
       if (this.dbType === 'postgres') {
          await (this.dbConnection as Pool).end();
-      } else if (this.dbType === 'mongo') {
+      } 
+      else if (this.dbType === 'mongo') {
          await (this.dbConnection as MongoClient).close();
       }
-    } catch (e) {
+    } 
+    catch (e) {
       console.warn('Warning: Error closing connection', e);
     }
   }
@@ -246,7 +256,8 @@ export class MigrationRunner {
 -- down
 -- Write your DROP/UNDO statements here...
 `;
-    } else {
+    } 
+    else {
       extension = 'ts';
       content = `import { Db } from 'mongodb';
 
