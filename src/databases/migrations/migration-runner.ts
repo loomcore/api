@@ -7,8 +7,11 @@ import fs from 'fs';
 import path from 'path';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
+import { getPostgresFoundational } from '../postgres/migrations/postgres-foundational.js';
+import { getMongoFoundational } from '../mongo-db/migrations/mongo-foundational.js';
 
 export class MigrationRunner {
+  private config: IBaseApiConfig;
   private dbType: string;
   private dbUrl: string;
   private migrationsDir: string;
@@ -16,6 +19,7 @@ export class MigrationRunner {
   private dbConnection: Pool | MongoClient | undefined;
 
   constructor(config: IBaseApiConfig) {
+    this.config = config;
     this.dbType = config.app.dbType || 'mongodb';
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
@@ -77,30 +81,27 @@ export class MigrationRunner {
       const pool = new Pool({ connectionString: this.dbUrl });
       this.dbConnection = pool;
 
-      // FIX: Normalize path separators for Windows Globbing
-      const globPattern = path.join(this.migrationsDir, '*.sql').replace(/\\/g, '/');
-      console.log(`🔎 Looking for migrations in: ${globPattern}`);
-
       return new Umzug({
-        migrations: {
-          glob: globPattern,
-          resolve: ({ name, path: filePath, context }) => {
-            const content = fs.readFileSync(filePath!, 'utf8');
-            // Pass filename for better error reporting
-            const { up, down } = this.parseSql(name, content);
-            
-            return {
-              name,
-              up: async () => {
-                console.log(`   Running SQL for ${name}...`);
-                await context.query(up);
-              },
-              down: async () => {
-                console.log(`   Running Undo SQL for ${name}...`);
-                await context.query(down);
-              }
-            };
-          }
+        migrations: async () => {
+          // A. GET FOUNDATIONALS (Strategy Pattern)
+          const foundationals = getPostgresFoundational(this.config).map(m => ({
+            name: m.name,
+            up: async () => {
+                console.log(`   Running [LIBRARY] ${m.name}...`);
+                await m.up({ context: pool });
+            },
+            down: async () => {
+                console.log(`   Running [LIBRARY] Undo ${m.name}...`);
+                await m.down({ context: pool });
+            }
+          }));
+
+          // B. GET FILE MIGRATIONS
+          // (Note: To mix async generators with globs, we read the files manually)
+          const fileMigrations = this.loadFileMigrations(this.migrationsDir, 'sql', pool);
+
+          // C. SORT & MERGE
+          return [...foundationals, ...fileMigrations].sort((a, b) => a.name.localeCompare(b.name));
         },
         context: pool,
         storage: {
@@ -119,7 +120,10 @@ export class MigrationRunner {
         },
         logger: undefined, // Disable internal logger to avoid duplicate noise
       });
-    } 
+    }
+    // else if (this.dbType === 'mongodb') {
+      
+    // }
     else if (this.dbType === 'mongodb') {
       const client = await MongoClient.connect(this.dbUrl);
       this.dbConnection = client;
@@ -130,7 +134,25 @@ export class MigrationRunner {
       console.log(`🔎 Looking for migrations in: ${globPattern}`);
 
       return new Umzug({
-        migrations: { glob: globPattern },
+        migrations: async () => {
+          // A. GET FOUNDATIONALS (Strategy Pattern)
+          const foundationals = getMongoFoundational(this.config).map(m => ({
+            name: m.name,
+            up: async () => {
+               console.log(`   Running [LIBRARY] ${m.name}...`);
+               await m.up({ context: db });
+            },
+            down: async () => {
+               console.log(`   Running [LIBRARY] Undo ${m.name}...`);
+               await m.down({ context: db });
+            }
+          }));
+
+          // B. GET FILE MIGRATIONS
+          const fileMigrations = this.loadFileMigrations(this.migrationsDir, 'ts', db);
+
+          return [...foundationals, ...fileMigrations].sort((a, b) => a.name.localeCompare(b.name));
+        },
         context: db,
         storage: new MongoDBStorage({ collection: db.collection('migrations') }),
         logger: console,
@@ -138,6 +160,46 @@ export class MigrationRunner {
     }
 
     throw new Error(`Unsupported DB_TYPE: ${this.dbType}`);
+  }
+
+  // Helper to keep getMigrator clean
+  private loadFileMigrations(dir: string, extension: string, context: any) {
+    return fs.readdirSync(dir)
+      .filter(f => f.endsWith(`.${extension}`))
+      .map(f => {
+        const fullPath = path.join(dir, f);
+        
+        // Dynamic Import for TS, Text Read for SQL
+        if(extension === 'sql') {
+           const content = fs.readFileSync(fullPath, 'utf8');
+           const { up, down } = this.parseSql(f, content);
+           return {
+             name: f,
+             up: async () => {
+               console.log(`   Running [FILE] ${f}...`);
+               await context.query(up);
+             },
+             down: async () => {
+               console.log(`   Running [FILE] Undo ${f}...`);
+               await context.query(down);
+             }
+           };
+        } else {
+           // For Mongo/TS, we might need a dynamic import helper or compilation step 
+           // If running via tsx, dynamic import works:
+           return {
+             name: f,
+             up: async () => {
+                const mod = await import(fullPath);
+                await mod.up({ context });
+             },
+             down: async () => {
+                const mod = await import(fullPath);
+                await mod.down({ context });
+             }
+           };
+        }
+      });
   }
 
   // --- Action: Wipe Database ---
