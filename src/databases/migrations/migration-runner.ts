@@ -161,7 +161,7 @@ export class MigrationRunner {
   }
 
   // --- Main Entry Point ---
-  public async run(command: 'up' | 'down' | 'reset', target?: string) {
+  public async run(command: 'up' | 'down' | 'reset' = 'up', target?: string) {
     try {
       if (command === 'reset') {
         await this.wipeDatabase();
@@ -181,6 +181,7 @@ export class MigrationRunner {
       const pending = await migrator.pending();
       console.log(`ℹ️  Found ${pending.length} pending migrations.`);
       
+      // Only warn if we are explicitly running 'up' and nothing is found
       if (pending.length === 0 && command === 'up') {
         console.log('⚠️  No pending migrations. (Check the path/glob if this is unexpected)');
       }
@@ -192,14 +193,13 @@ export class MigrationRunner {
           console.log(target ? `✅ Migrated up to ${target}` : '✅ Migrations up to date.');
           break;
         case 'down':
-           // If target is provided, migrate DOWN until that file is the LAST one remaining
-           // (i.e., it reverts everything AFTER the target)
-           // If no target, it just reverts the very last one (step: 1)
+          // If target is provided, migrate DOWN until that file is the LAST one remaining
+          // (i.e., it reverts everything AFTER the target)
+          // If no target, it just reverts the very last one (step: 1)
           if (target) {
             await migrator.down({ to: target });
             console.log(`✅ Reverted down to ${target}`);
-          } 
-          else {
+          } else {
             await migrator.down(); 
             console.log('✅ Reverted last migration.');
           }
@@ -208,8 +208,7 @@ export class MigrationRunner {
 
       await this.closeConnection();
 
-    } 
-    catch (err) {
+    } catch (err) {
       console.error('❌ Migration failed:', err);
       await this.closeConnection();
       process.exit(1);
