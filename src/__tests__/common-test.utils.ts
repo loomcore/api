@@ -32,6 +32,7 @@ import { IProduct, ProductSpec } from './models/product.model.js';
 import { setBaseApiConfig } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { getTestOrgUser } from './test-objects.js';
+import { DbType } from '../databases/db-type.type.js';
 
 let deviceIdCookie: string;
 let authService: AuthService | undefined;
@@ -283,26 +284,10 @@ export class CategoryController extends ApiController<ICategory> {
 }
 
 // todo: alter to accept the app property values add provide in each specific test (isMultiTenant, dbType)
-export function setupTestConfig(isMultiTenant: boolean = true) {
+export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
   setBaseApiConfig({
-    env: 'test',
-    hostName: 'localhost',
-    appName: 'test-app',
-    clientSecret: 'test-secret',
-    database: {
-      name: 'test-db',
-    },
-    externalPort: 4000,
-    internalPort: 8083,
-    corsAllowedOrigins: ['*'],
-    saltWorkFactor: 10,
-    jobTypes: '',
-    deployedBranch: '',
-    debug: {
-      showErrors: false
-    },
-    app: { 
-      isMultiTenant: isMultiTenant,
+    app: {
+      isMultiTenant: isMultiTenant, name: 'test-app', dbType: dbType,
       // Provide metaOrgName and metaOrgCode for multi-tenant setups so meta-org migration runs
       ...(isMultiTenant && {
         metaOrgName: 'Test Meta Organization',
@@ -310,21 +295,37 @@ export function setupTestConfig(isMultiTenant: boolean = true) {
       })
     },
     auth: {
+      adminUser: {
+        email: 'admin@test.com',
+        password: 'admin-password'
+      },
+      clientSecret: 'test-secret',
+      saltWorkFactor: 10,
       jwtExpirationInSeconds: 3600,
       refreshTokenExpirationInDays: 7,
       deviceIdCookieMaxAgeInDays: 730,
       passwordResetTokenExpirationInMinutes: 20
     },
+    database: {
+      name: 'test-db',
+      host: 'localhost',
+      password: 'test-password',
+      port: 27017,
+      username: 'test-user'
+    },
+    env: 'test',
     email: {
       emailApiKey: 'WeDontHaveAKeyYet',
       emailApiSecret: 'WeDontHaveASecretYet',
       fromAddress: 'test@test.com',
       systemEmailAddress: 'system@test.com'
     },
-    adminUser: {
-      email: 'admin@test.com',
-      password: 'admin-password'
-    }
+    network: {
+      hostName: 'localhost',
+      internalPort: 8083,
+      externalPort: 4000,
+      corsAllowedOrigins: ['*']
+    },
   });
 }
 

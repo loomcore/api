@@ -17,19 +17,24 @@ import { UpdateResult } from '../databases/models/update-result.js';
 import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.model.js';
 import { IDatabase } from '../databases/models/index.js';
 import { getUserContextAuthorizations } from './utils/getUserContextAuthorizations.util.js';
+import { IAuthConfig } from '../models/auth-config.interface.js';
 
 export class AuthService extends MultiTenantApiService<IUser> {
     private refreshTokenService: GenericApiService<IRefreshToken>;
     private passwordResetTokenService: PasswordResetTokenService;
     private emailService: EmailService;
     private organizationService: OrganizationService;
-
+    private authConfig: IAuthConfig;
     constructor(database: IDatabase) {
         super(database, 'users', 'user', UserSpec);
         this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
         this.emailService = new EmailService();
         this.organizationService = new OrganizationService(database);
+        if (!config.auth) {
+            throw new ServerError('Auth configuration is not set');
+        }
+        this.authConfig = config.auth;
     }
 
     async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
@@ -65,7 +70,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
 
         // Every time there's a successful cred swap, we start with a brand new refreshToken.
         const refreshTokenObject = await this.createNewRefreshToken(userContext.user._id, deviceId, userContext.organization?._id);
-        const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
+        const accessTokenExpiresOn = this.getExpiresOnFromSeconds(this.authConfig.jwtExpirationInSeconds);
 
         let loginResponse = null;
         if (refreshTokenObject) {
@@ -165,7 +170,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
     async createNewTokens(userContext: IUserContext, activeRefreshToken: IRefreshToken) {
         const payload = userContext;
         const accessToken = this.generateJwt(payload);
-        const accessTokenExpiresOn = this.getExpiresOnFromSeconds(config.auth.jwtExpirationInSeconds);
+        const accessTokenExpiresOn = this.getExpiresOnFromSeconds(this.authConfig.jwtExpirationInSeconds);
         const tokenResponse = {
             accessToken,
             refreshToken: activeRefreshToken.token,
@@ -192,7 +197,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
     }
 
     async createNewRefreshToken(userId: AppIdType, deviceId: string, orgId?: AppIdType) {
-        const expiresOn = this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
+        const expiresOn = this.getExpiresOnFromDays(this.authConfig.refreshTokenExpirationInDays);
 
         const newRefreshToken: Partial<IRefreshToken> = {
             _orgId: orgId,
@@ -214,7 +219,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
 
     async sendResetPasswordEmail(emailAddress: string) {
         // create passwordResetToken
-        const expiresOn = this.getExpiresOnFromMinutes(config.auth.passwordResetTokenExpirationInMinutes);
+        const expiresOn = this.getExpiresOnFromMinutes(this.authConfig.passwordResetTokenExpirationInMinutes);
         const passwordResetToken = await this.passwordResetTokenService.createPasswordResetToken(emailAddress, expiresOn);
 
         // Check if password reset token was created successfully
@@ -225,11 +230,10 @@ export class AuthService extends MultiTenantApiService<IUser> {
         // create reset password link
         const httpOrHttps = config.env === 'local' ? 'http' : 'https';
         const urlEncodedEmail = encodeURIComponent(emailAddress);
-        const clientUrl = config.hostName
-        const resetPasswordLink = `${httpOrHttps}://${clientUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
+        const resetPasswordLink = `${httpOrHttps}://${config.network.hostName}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
         const htmlEmailBody = `<strong><a href="${resetPasswordLink}">Reset Password</a></strong>`;
-        await this.emailService.sendHtmlEmail(emailAddress, `Reset Password for ${config.appName}`, htmlEmailBody);
+        await this.emailService.sendHtmlEmail(emailAddress, `Reset Password for ${config.app.name}`, htmlEmailBody);
     }
 
     async resetPassword(email: string, passwordResetToken: string, password: string): Promise<UpdateResult> {
@@ -268,12 +272,12 @@ export class AuthService extends MultiTenantApiService<IUser> {
     }
 
     generateJwt(userContext: IUserContext) {
-        const jwtExpiryConfig = config.auth.jwtExpirationInSeconds;
+        const jwtExpiryConfig = this.authConfig.jwtExpirationInSeconds;
         const jwtExpirationInSeconds = (typeof jwtExpiryConfig === 'string') ? parseInt(jwtExpiryConfig) : jwtExpiryConfig;
 
         const accessToken = JwtService.sign(
             userContext,
-            config.clientSecret,
+            this.authConfig.clientSecret,
             {
                 expiresIn: jwtExpirationInSeconds
             }
@@ -307,7 +311,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         if (isNewDeviceId) {
             // save deviceId as cookie on response
             const cookieOptions: any = {
-                maxAge: config.auth.deviceIdCookieMaxAgeInDays * 24 * 60 * 60 * 1000,
+                maxAge: this.authConfig.deviceIdCookieMaxAgeInDays * 24 * 60 * 60 * 1000,
                 httpOnly: true
             };
 

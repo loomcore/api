@@ -1,4 +1,4 @@
-import express, {Application, NextFunction, Request, Response} from 'express';
+import express, { Application, NextFunction, Request, Response } from 'express';
 import { Db, MongoClient } from "mongodb";
 import { Server } from "http";
 import cookieParser from "cookie-parser";
@@ -35,10 +35,10 @@ function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoute
 
   app.use(bodyParser.json());
   app.use(cookieParser() as any);
-	app.use(cors({
-		origin: config.corsAllowedOrigins,
-		credentials: true
-	}));
+  app.use(cors({
+    origin: config.network.corsAllowedOrigins,
+    credentials: true
+  }));
   app.use(ensureUserContext);
 
   setupRoutes(app, database, config); // setupRoutes calls every controller to map its own routes
@@ -59,9 +59,9 @@ function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoute
  * - Exits the process when cleanup is complete
  */
 function performGracefulShutdown(
-  event: any, 
-  mongoClient: MongoClient | null, 
-  externalServer: Server | null, 
+  event: any,
+  mongoClient: MongoClient | null,
+  externalServer: Server | null,
   internalServer: Server | null
 ): void {
   // Function to close MongoDB connection
@@ -81,7 +81,7 @@ function performGracefulShutdown(
   const shutdownServers = new Promise<void>((resolve) => {
     let serversClosedCount = 0;
     const totalServers = (externalServer ? 1 : 0) + (internalServer ? 1 : 0);
-    
+
     const onServerClosed = () => {
       serversClosedCount++;
       if (serversClosedCount >= totalServers) {
@@ -125,7 +125,7 @@ function performGracefulShutdown(
   Promise.race([
     // Normal path: servers close, then MongoDB
     shutdownServers.then(() => closeMongoConnection()),
-    
+
     // Timeout path: ensure MongoDB closes even if servers timeout
     new Promise<void>(resolve => {
       setTimeout(async () => {
@@ -140,7 +140,7 @@ function performGracefulShutdown(
   });
 }
 
-export const expressUtils =  {
-	setupExpressApp,
+export const expressUtils = {
+  setupExpressApp,
   performGracefulShutdown,
 };

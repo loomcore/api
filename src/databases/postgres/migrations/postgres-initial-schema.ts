@@ -49,7 +49,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
     name: '00000000000002_schema-users',
     up: async ({ context: pool }) => {
       const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-      const uniqueConstraint = isMultiTenant 
+      const uniqueConstraint = isMultiTenant
         ? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
         : 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
 
@@ -247,11 +247,11 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
   }
 
   // 9. ADMIN USER (only if adminUser config is provided)
-  if (config.adminUser?.email && config.adminUser?.password) {
+  if (config.auth?.adminUser?.email && config.auth?.adminUser?.password) {
     migrations.push({
       name: '00000000000009_data-admin-user',
       up: async ({ context: pool }) => {
-        if (!config.adminUser?.email || !config.adminUser?.password) {
+        if (!config.auth?.adminUser?.email || !config.auth?.adminUser?.password) {
           throw new Error('Admin user email and password must be provided in config');
         }
 
@@ -260,7 +260,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
         try {
           const database = new PostgresDatabase(client as unknown as Client);
           const authService = new AuthService(database);
-          
+
           // Get system user context
           // For multi-tenant, this should be initialized by meta-org migration
           // For non-multi-tenant, it should be initialized before migrations run
@@ -293,8 +293,8 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
 
           // Only include _orgId if multi-tenant (non-multi-tenant users table doesn't have _orgId column)
           const userData: any = {
-            email: config.adminUser.email,
-            password: config.adminUser.password,
+            email: config.auth?.adminUser?.email,
+            password: config.auth?.adminUser?.password,
             firstName: 'Admin',
             lastName: 'User',
             displayName: 'Admin User',
@@ -308,22 +308,22 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
         }
       },
       down: async ({ context: pool }) => {
-        if (!config.adminUser?.email) return;
-        
+        if (!config.auth?.adminUser?.email) return;
+
         const result = await pool.query(
           `DELETE FROM "users" WHERE "email" = $1`,
-          [config.adminUser.email]
+          [config.auth?.adminUser?.email]
         );
       }
     });
   }
 
   // 10. ADMIN AUTHORIZATION (only if adminUser config is provided)
-  if (config.adminUser?.email) {
+  if (config.auth?.adminUser?.email) {
     migrations.push({
       name: '00000000000010_data-admin-authorizations',
       up: async ({ context: pool }) => {
-        if (!config.adminUser?.email) {
+        if (!config.auth?.adminUser?.email) {
           throw new Error('Admin user email not found in config');
         }
 
@@ -340,7 +340,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
           }
 
-          const adminUser = await authService.getUserByEmail(config.adminUser.email);
+          const adminUser = await authService.getUserByEmail(config.auth?.adminUser?.email);
           if (!adminUser) {
             throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
           }
@@ -435,7 +435,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           const database = new PostgresDatabase(client as unknown as Client);
           const organizationService = new OrganizationService(database);
           const metaOrg = isMultiTenant ? await organizationService.getMetaOrg(EmptyUserContext) : undefined;
-          
+
           if (isMultiTenant && !metaOrg) return;
 
           await client.query('BEGIN');

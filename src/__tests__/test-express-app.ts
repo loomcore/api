@@ -56,7 +56,7 @@ export class TestExpressApp {
     agent: any
   }> {
     // Set up a fake clientSecret for authentication
-    setupTestConfig();
+    setupTestConfig(true, useMongoDb ? 'mongodb' : 'postgres');
 
     // Initialize TypeBox format validators
     initializeTypeBox();

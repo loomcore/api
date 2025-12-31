@@ -32,7 +32,7 @@ describe('AuthController', () => {
     const userContext = getTestMetaOrgUserContext();
     authToken = jwt.sign(
       userContext,
-      config.clientSecret,
+      config.auth?.clientSecret ?? '',
       { expiresIn: 3600 }
     );
   });

@@ -24,7 +24,7 @@ const isAuthorized = (allowedFeatures?: string[]) => {
 
     try {
       // Get raw JWT payload first
-      const rawPayload = JwtService.verify(token, config.clientSecret);
+      const rawPayload = JwtService.verify(token, config.auth?.clientSecret || '');
 
       // Use TypeBox to decode the payload properly, which will convert string dates to Date objects
       const userContext = UserContextSpec.decode(rawPayload) as IUserContext;

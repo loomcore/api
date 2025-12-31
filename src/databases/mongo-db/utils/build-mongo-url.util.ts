@@ -7,17 +7,17 @@ export function buildMongoUrl(config: IBaseApiConfig): string {
     throw new Error("Database configuration is required to build the MongoDB URL.");
   }
 
-  const { user, password, host, port, name } = database;
+  const { username, password, host, port, name } = database;
 
-  if (!user || !password || !host || !port || !name) {
+  if (!username || !password || !host || !port || !name) {
     throw new Error(
       "Database configuration must include user, password, host, port, and name to build the MongoDB URL."
     );
   }
 
   // Always encode credentials to handle special characters (e.g., @, :)
-  const encodedUser = encodeURIComponent(user);
+  const encodedUsername = encodeURIComponent(username);
   const encodedPassword = encodeURIComponent(password);
 
-  return `mongodb://${encodedUser}:${encodedPassword}@${host}:${port}/${name}`;
+  return `mongodb://${encodedUsername}:${encodedPassword}@${host}:${port}/${name}`;
 }

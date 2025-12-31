@@ -22,7 +22,7 @@ export class EmailService {
 				{
 					From: {
 						Email: config.email?.fromAddress,
-						Name: config.appName || 'Application'
+						Name: config.app.name || 'Application'
 					},
 					To: [
 						{

@@ -36,7 +36,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
     name: '00000000000002_schema-users',
     up: async ({ context: db }) => {
       await db.createCollection('users');
-      
+
       // Create indexes
       if (isMultiTenant) {
         // Multi-tenant: unique email per organization
@@ -178,17 +178,17 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
   }
 
   // 9. ADMIN USER (only if adminUser config is provided)
-  if (config.adminUser?.email && config.adminUser?.password) {
+  if (config.auth && config.auth.adminUser) {
     migrations.push({
       name: '00000000000009_data-admin-user',
       up: async ({ context: db }) => {
-        if (!config.adminUser?.email || !config.adminUser?.password) {
+        if (config.auth?.adminUser?.email || !config.auth?.adminUser?.password) {
           throw new Error('Admin user email and password must be provided in config');
         }
 
         const database = new MongoDBDatabase(db);
         const authService = new AuthService(database);
-        
+
         // Get system user context (should be initialized by meta-org migration if multi-tenant)
         const systemUserContext = getSystemUserContext();
 
@@ -196,26 +196,26 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
         await authService.createUser(systemUserContext, {
           _id: _id,
           _orgId: systemUserContext.organization?._id,
-          email: config.adminUser.email,
-          password: config.adminUser.password,
+          email: config.auth?.adminUser?.email,
+          password: config.auth?.adminUser?.password,
           firstName: 'Admin',
           lastName: 'User',
           displayName: 'Admin User',
         });
       },
       down: async ({ context: db }) => {
-        if (!config.adminUser?.email) return;
-        await db.collection('users').deleteOne({ email: config.adminUser.email });
+        if (!config.auth?.adminUser?.email) return;
+        await db.collection('users').deleteOne({ email: config.auth?.adminUser?.email });
       }
     });
   }
 
   // 10. ADMIN AUTHORIZATION (only if adminUser config is provided and multi-tenant)
-  if (config.adminUser?.email && isMultiTenant) {
+  if (config.auth?.adminUser?.email && isMultiTenant) {
     migrations.push({
       name: '00000000000010_data-admin-authorizations',
       up: async ({ context: db }) => {
-        if (!config.adminUser?.email) {
+        if (!config.auth?.adminUser?.email) {
           throw new Error('Admin user email not found in config');
         }
 
@@ -228,7 +228,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
           throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
         }
 
-        const adminUser = await authService.getUserByEmail(config.adminUser.email);
+        const adminUser = await authService.getUserByEmail(config.auth?.adminUser?.email);
         if (!adminUser) {
           throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
         }
@@ -286,7 +286,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
         const database = new MongoDBDatabase(db);
         const organizationService = new OrganizationService(database);
         const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
-        
+
         if (!metaOrg) return;
 
         // Find admin role and feature

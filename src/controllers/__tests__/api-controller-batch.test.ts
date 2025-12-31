@@ -20,10 +20,10 @@ describe('ApiController Batch Update', () => {
   let categoryService: GenericApiService<ICategory>;
   let multiTenantProductService: MultiTenantApiService<IProduct>;
   let multiTenantCategoryService: MultiTenantApiService<ICategory>;
-  let productIds: string[];
-  let multiTenantProductIds: string[];
-  let categoryId: string;
-  let multiTenantCategoryId: string;
+  let productIds: string | number[];
+  let multiTenantProductIds: string | number[];
+  let categoryId: string | number;
+  let multiTenantCategoryId: string | number;
 
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();
