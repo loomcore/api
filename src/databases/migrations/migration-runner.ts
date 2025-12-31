@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
 import { DbType } from '../db-type.type.js';
 import { IBaseApiConfig } from '../../models/base-api-config.interface.js';
+import { setBaseApiConfig } from '../../config/index.js';
 import fs from 'fs';
 import path from 'path';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
@@ -19,6 +20,8 @@ export class MigrationRunner {
   private dbConnection: Pool | MongoClient | undefined;
 
   constructor(config: IBaseApiConfig) {
+    // Initialize the global config so services can access it during migrations
+    setBaseApiConfig(config);
     this.config = config;
     this.dbType = config.app.dbType || 'mongodb';
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);

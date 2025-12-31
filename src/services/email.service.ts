@@ -3,19 +3,26 @@ import { ServerError } from '../errors/index.js';
 import { config } from '../config/index.js';
 
 export class EmailService {
-	private mailjet: Mailjet.Client;
+	private mailjet: Mailjet.Client | null = null;
 
 	constructor() {
-		// Initialize Mailjet client with API credentials from config
-		this.mailjet = new (Mailjet as any).default({
-			apiKey: config.email?.emailApiKey || '',
-			apiSecret: config.email?.emailApiSecret || ''
-		});
+		// Only initialize Mailjet if config is available and email config is provided
+		// This allows EmailService to be instantiated during migrations even if email isn't configured yet
+		if (config && config.email?.emailApiKey && config.email?.emailApiSecret) {
+			this.mailjet = new (Mailjet as any).default({
+				apiKey: config.email.emailApiKey,
+				apiSecret: config.email.emailApiSecret
+			});
+		}
 	}
 
 	async sendHtmlEmail(emailAddress: string, subject: string, body: string) {
-		if (!config.email?.fromAddress) {
-			throw new ServerError('From address is not set in the config');
+		if (!config || !config.email?.fromAddress) {
+			throw new ServerError('Email configuration is not available. From address is not set in the config.');
+		}
+		
+		if (!this.mailjet) {
+			throw new ServerError('Email service is not configured. Email API credentials are not set in the config.');
 		}
 		const messageData = {
 			Messages: [
