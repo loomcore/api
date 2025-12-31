@@ -1,5 +1,5 @@
 import { IEntity } from "@loomcore/common/models";
-import type { AppId } from "@loomcore/common/types";
+import type { AppIdType } from "@loomcore/common/types";
 import { entityUtils } from "@loomcore/common/utils";
 import { TypeboxIsoDate, getIdSchema } from "@loomcore/common/validation";
 import { Type } from "@sinclair/typebox";
@@ -7,10 +7,10 @@ import { Type } from "@sinclair/typebox";
 export interface IRefreshToken extends IEntity {
 	token: string;
 	deviceId: string;
-	userId: AppId;
+	userId: AppIdType;
 	expiresOn: number;
 	created: Date;
-	createdBy: AppId;
+	createdBy: AppIdType;
 };
 
 export const refreshTokenSchema = Type.Object({

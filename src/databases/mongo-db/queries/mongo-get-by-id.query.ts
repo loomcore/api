@@ -3,10 +3,10 @@ import { Operation } from "../../operations/operation.js";
 import { entityUtils } from "@loomcore/common/utils";
 import { BadRequestError } from "../../../errors/index.js";
 import { IQueryOptions } from "@loomcore/common/models";
-import type { AppId } from "@loomcore/common/types";
+import type { AppIdType } from "@loomcore/common/types";
 import NoSqlPipeline from "../models/no-sql-pipeline.js";
 
-export async function getById<T>(db: Db, operations: Operation[], queryObject: IQueryOptions, id: AppId, pluralResourceName: string): Promise<T | null> {
+export async function getById<T>(db: Db, operations: Operation[], queryObject: IQueryOptions, id: AppIdType, pluralResourceName: string): Promise<T | null> {
     if (!entityUtils.isValidObjectId(id)) {
         throw new BadRequestError('id is not a valid ObjectId');
     }

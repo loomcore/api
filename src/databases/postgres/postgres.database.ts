@@ -1,5 +1,5 @@
 import { IQueryOptions, IModelSpec, IPagedResult, IEntity, IUserContextAuthorization } from "@loomcore/common/models";
-import type { AppId } from "@loomcore/common/types";
+import type { AppIdType } from "@loomcore/common/types";
 import { TSchema } from "@sinclair/typebox";
 import { DeleteResult, IDatabase } from "../models/index.js";
 import { Operation } from "../operations/operation.js";
@@ -38,31 +38,31 @@ export class PostgresDatabase implements IDatabase {
     async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
         return getQuery(this.client, operations, queryOptions, pluralResourceName);
     }
-    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: AppId, pluralResourceName: string): Promise<T | null> {
+    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: AppIdType, pluralResourceName: string): Promise<T | null> {
         return getByIdQuery(this.client, operations, queryObject, id, pluralResourceName);
     }
     async getCount(pluralResourceName: string): Promise<number> {
         return getCountQuery(this.client, pluralResourceName);
     }
-    async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppId; entity: T; }> {
+    async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppIdType; entity: T; }> {
         return createCommand(this.client, pluralResourceName, entity);
     }
-    async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: AppId[]; entities: T[]; }> {
+    async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: AppIdType[]; entities: T[]; }> {
         return createManyCommand(this.client, pluralResourceName, entities);
     }
     async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
         return batchUpdateCommand(this.client, entities, operations, queryObject, pluralResourceName);
     }
-    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppId, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return fullUpdateByIdCommand(this.client, operations, id, entity, pluralResourceName);
     }
-    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppId, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return partialUpdateByIdCommand(this.client, operations, id, entity, pluralResourceName);
     }
     async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return updateCommand(this.client, queryObject, entity, operations, pluralResourceName);
     }
-    async deleteById(id: AppId, pluralResourceName: string): Promise<DeleteResult> {
+    async deleteById(id: AppIdType, pluralResourceName: string): Promise<DeleteResult> {
         return deleteByIdCommand(this.client, id, pluralResourceName);
     }
     async deleteMany(queryObject: IQueryOptions, pluralResourceName: string): Promise<DeleteResult> {
@@ -80,7 +80,7 @@ export class PostgresDatabase implements IDatabase {
      * Returns a map of userId -> IAuthorization[] where authorizations are current
      * (after startDate and before endDate if present).
      */
-    async getUserAuthorizations(userId: AppId, orgId?: AppId): Promise<IUserContextAuthorization[]> {
+    async getUserAuthorizations(userId: AppIdType, orgId?: AppIdType): Promise<IUserContextAuthorization[]> {
         const now = new Date();
         let query = `
             SELECT DISTINCT

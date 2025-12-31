@@ -6,14 +6,14 @@ import { buildSelectClause } from "../utils/build-select-clause.js";
 import { transformJoinResults } from "../utils/transform-join-results.js";
 import { BadRequestError } from '../../../errors/index.js';
 import { IQueryOptions } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function getById<T>(
     client: Client,
     operations: Operation[],
     queryObject: IQueryOptions,
-    id: AppId,
+    id: AppIdType,
     pluralResourceName: string
 ): Promise<T | null> {
     if (!id)

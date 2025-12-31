@@ -1,6 +1,6 @@
 import { ValueError } from '@sinclair/typebox/errors';
 import { IUserContext, IEntity, IPagedResult, IQueryOptions } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 import { DeleteResult } from '../../databases/models/delete-result.js';
 import { Operation } from '../../databases/operations/operation.js';
 
@@ -14,16 +14,16 @@ export interface IGenericApiService<T extends IEntity> {
 
   getAll(userContext: IUserContext): Promise<T[]>;
   get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;
-  getById(userContext: IUserContext, id: AppId): Promise<T>;
+  getById(userContext: IUserContext, id: AppIdType): Promise<T>;
   getCount(userContext: IUserContext): Promise<number>;
   create(userContext: IUserContext, entity: Partial<T>): Promise<T | null>;
   createMany(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
   batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
-  fullUpdateById(userContext: IUserContext, id: AppId, entity: T): Promise<T>;
-  partialUpdateById(userContext: IUserContext, id: AppId, entity: Partial<T>): Promise<T>;
-  partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppId, entity: T): Promise<T>;
+  fullUpdateById(userContext: IUserContext, id: AppIdType, entity: T): Promise<T>;
+  partialUpdateById(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T>;
+  partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: T): Promise<T>;
   update(userContext: IUserContext, queryObject: IQueryOptions, entity: Partial<T>): Promise<T[]>;
-  deleteById(userContext: IUserContext, id: AppId): Promise<DeleteResult>;
+  deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult>;
   deleteMany(userContext: IUserContext, queryObject: IQueryOptions): Promise<DeleteResult>;
   find(userContext: IUserContext, queryObject: IQueryOptions, options?: any): Promise<T[]>;
   findOne(userContext: IUserContext, queryObject: IQueryOptions, options?: any): Promise<T | null>;

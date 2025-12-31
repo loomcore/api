@@ -1,6 +1,6 @@
 import { Application, NextFunction, Request, Response } from 'express';
 import { IEntity, IPagedResult, IModelSpec } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 import { BadRequestError } from '../errors/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { Value } from '@sinclair/typebox/value';
@@ -120,14 +120,14 @@ export abstract class ApiController<T extends IEntity> {
   async getById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     
-    // Convert HTTP string to AppId using TypeBox
+    // Convert HTTP string to AppIdType using TypeBox
     const idParam = req.params?.id;
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
     
     try {
-      const id = Value.Convert(this.idSchema, idParam) as AppId;
+      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const entity = await this.service.getById(req.userContext!, id);
       apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
     } catch (error: any) {
@@ -161,11 +161,11 @@ export abstract class ApiController<T extends IEntity> {
       throw new BadRequestError('Request body must be an array of entities.');
     }
 
-    // Convert HTTP string IDs to AppId using TypeBox
+    // Convert HTTP string IDs to AppIdType using TypeBox
     const convertedEntities = entities.map(entity => {
       if (entity._id !== undefined) {
         try {
-          const convertedId = Value.Convert(this.idSchema, entity._id) as AppId;
+          const convertedId = Value.Convert(this.idSchema, entity._id) as AppIdType;
           return { ...entity, _id: convertedId };
         } catch (error: any) {
           throw new BadRequestError(`Invalid ID format for entity: ${error.message || error}`);
@@ -187,14 +187,14 @@ export abstract class ApiController<T extends IEntity> {
     // Validate and prepare the entity
     this.validate(req.body);
 
-    // Convert HTTP string to AppId using TypeBox
+    // Convert HTTP string to AppIdType using TypeBox
     const idParam = req.params?.id;
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
     
     try {
-      const id = Value.Convert(this.idSchema, idParam) as AppId;
+      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const updateResult = await this.service.fullUpdateById(req.userContext!, id, req.body);
       apiUtils.apiResponse<T>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
     } catch (error: any) {
@@ -208,14 +208,14 @@ export abstract class ApiController<T extends IEntity> {
     // Validate and prepare the entity (using partial validation for PATCH operations)
     this.validate(req.body, true);
 
-    // Convert HTTP string to AppId using TypeBox
+    // Convert HTTP string to AppIdType using TypeBox
     const idParam = req.params?.id;
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
     
     try {
-      const id = Value.Convert(this.idSchema, idParam) as AppId;
+      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const updateResult = await this.service.partialUpdateById(req.userContext!, id, req.body);
       apiUtils.apiResponse<T>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
     } catch (error: any) {
@@ -226,14 +226,14 @@ export abstract class ApiController<T extends IEntity> {
   async deleteById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
     
-    // Convert HTTP string to AppId using TypeBox
+    // Convert HTTP string to AppIdType using TypeBox
     const idParam = req.params?.id;
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
     
     try {
-      const id = Value.Convert(this.idSchema, idParam) as AppId;
+      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const deleteResult = await this.service.deleteById(req.userContext!, id);
       apiUtils.apiResponse<DeleteResult>(res, 200, { data: deleteResult }, this.modelSpec, this.publicSpec);
     } catch (error: any) {

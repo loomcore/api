@@ -2,7 +2,7 @@ import { IOrganization, IUserContext, OrganizationSpec } from '@loomcore/common/
 import { IDatabase } from '../databases/models/database.interface.js';
 import { BadRequestError } from '../errors/index.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
-import { AppId } from '@loomcore/common/types';
+import { AppIdType } from '@loomcore/common/types';
 
 export class OrganizationService extends GenericApiService<IOrganization> {
 	constructor(database: IDatabase) {
@@ -25,13 +25,13 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 
 	// TODO: override prepareQuery to add check for isMetaOrg.
 	// If user is not meta org, throw error.
-	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: AppId): Promise<string | null> {
+	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: AppIdType): Promise<string | null> {
 		// until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
 		const org = await this.getById(userContext, orgId);
 		return org?.authToken ?? null;
 	}
 
-	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<AppId | null> {
+	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<AppIdType | null> {
 		// this is used to auth content-api calls - the orgCode is used in the api call hostname
 		const org = await this.findOne(userContext, { filters: { code: { eq: orgCode } } });
 

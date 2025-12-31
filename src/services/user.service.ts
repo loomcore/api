@@ -1,6 +1,6 @@
 import { Value } from '@sinclair/typebox/value';
 import { IUser, IUserContext, UserSpec, PublicUserSchema, IPagedResult, IQueryOptions, IUserContextAuthorization } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 import { MultiTenantApiService } from './index.js';
 import { IdNotFoundError, ServerError } from '../errors/index.js';
 import { IDatabase } from '../databases/models/index.js';
@@ -12,7 +12,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 	}
 
 	// Can't full update a User. You can create, partial update, or explicitly change the password.
-	override async fullUpdateById(userContext: IUserContext, id: AppId, entity: IUser): Promise<IUser> {
+	override async fullUpdateById(userContext: IUserContext, id: AppIdType, entity: IUser): Promise<IUser> {
 		throw new ServerError('Cannot full update a user. Either use PATCH or /auth/change-password to update password.');
 	}
 

@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import { ValueError } from '@sinclair/typebox/errors';
 import { IUserContext, IEntity, IQueryOptions, IPagedResult, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 import { entityUtils } from '@loomcore/common/utils';
 import { IGenericApiService } from './generic-api-service.interface.js';
 import { Operation } from '../../databases/operations/operation.js';
@@ -171,7 +171,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return queryOptions;
   }
 
-  async getById(userContext: IUserContext, id: AppId): Promise<T> {
+  async getById(userContext: IUserContext, id: AppIdType): Promise<T> {
     const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
 
     const entity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
@@ -230,7 +230,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     return updatedEntities;
   }
-  async fullUpdateById(userContext: IUserContext, id: AppId, entity: T): Promise<T> {
+  async fullUpdateById(userContext: IUserContext, id: AppIdType, entity: T): Promise<T> {
     // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
     //  existing entity, then updates using the supplied entity. 
     //  as the update process gets more complex. PREFER using partialUpdateById.
@@ -259,7 +259,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
   }
-  async partialUpdateById(userContext: IUserContext, id: AppId, entity: Partial<T>): Promise<T> {
+  async partialUpdateById(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const { operations } = this.prepareQuery(userContext, {}, []);
 
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
@@ -271,7 +271,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return updatedEntity;
   }
 
-  async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppId, entity: Partial<T>): Promise<T> {
+  async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
     const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName);
     return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
@@ -289,7 +289,7 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return updatedEntities;
   }
 
-  async deleteById(userContext: IUserContext, id: AppId): Promise<DeleteResult> {
+  async deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult> {
     const deleteResult = await this.database.deleteById(id, this.pluralResourceName);
 
     if (deleteResult.count <= 0) {

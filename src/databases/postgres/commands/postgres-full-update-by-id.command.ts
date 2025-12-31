@@ -3,12 +3,12 @@ import { Operation } from "../../operations/operation.js";
 import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { IEntity } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 
 export async function fullUpdateById<T extends IEntity>(
     client: Client,
     operations: Operation[],
-    id: AppId,
+    id: AppIdType,
     entity: Partial<T>,
     pluralResourceName: string
 ): Promise<T> {

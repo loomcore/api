@@ -1,13 +1,13 @@
 import { Client } from 'pg';
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
 import { IEntity } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 
 export async function createMany<T extends IEntity>(
     client: Client,
     pluralResourceName: string,
     entities: Partial<T>[]
-): Promise<{ insertedIds: AppId[]; entities: T[] }> {
+): Promise<{ insertedIds: AppIdType[]; entities: T[] }> {
     if (entities.length === 0) {
         return {
             insertedIds: [],
@@ -67,7 +67,7 @@ export async function createMany<T extends IEntity>(
         
         // Get the actual database rows with all converted values
         const insertedRows = result.rows;
-        const insertedIds = insertedRows.map(row => row._id as AppId);
+        const insertedIds = insertedRows.map(row => row._id as AppIdType);
         
         return {
             insertedIds,

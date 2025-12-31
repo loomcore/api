@@ -39,7 +39,7 @@ export function getTestMetaOrgUser(): IUser {
     // These values will be stripped by stripSenderProvidedSystemProperties() in preProcessEntity()
     // and then replaced with correct values by auditForCreate() or auditForUpdate().
     // This ensures that client-provided audit fields are always ignored and replaced with server-generated values.
-    // The 'as any' cast is needed because IUser._createdBy expects AppId (string | number), but we're using
+    // The 'as any' cast is needed because IUser._createdBy expects AppIdType (string | number), but we're using
     // a hardcoded string to verify it gets stripped. In practice, this value is never used.
     // See: src/services/utils/strip-sender-provided-system-properties.util.ts
     // See: src/services/utils/audit-for-create.util.ts
@@ -111,7 +111,7 @@ export function getTestOrgUser(): IUser {
     // These values will be stripped by stripSenderProvidedSystemProperties() in preProcessEntity()
     // and then replaced with correct values by auditForCreate() or auditForUpdate().
     // This ensures that client-provided audit fields are always ignored and replaced with server-generated values.
-    // The 'as any' cast is needed because IUser._createdBy expects AppId (string | number), but we're using
+    // The 'as any' cast is needed because IUser._createdBy expects AppIdType (string | number), but we're using
     // a hardcoded string to verify it gets stripped. In practice, this value is never used.
     // See: src/services/utils/strip-sender-provided-system-properties.util.ts
     // See: src/services/utils/audit-for-create.util.ts

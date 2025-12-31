@@ -121,9 +121,6 @@ export class MigrationRunner {
         logger: undefined, // Disable internal logger to avoid duplicate noise
       });
     }
-    // else if (this.dbType === 'mongodb') {
-      
-    // }
     else if (this.dbType === 'mongodb') {
       const client = await MongoClient.connect(this.dbUrl);
       this.dbConnection = client;

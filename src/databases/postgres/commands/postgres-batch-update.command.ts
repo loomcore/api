@@ -5,7 +5,7 @@ import { BadRequestError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { Filter, IEntity, IQueryOptions } from '@loomcore/common/models';
-import type { AppId } from '@loomcore/common/types';
+import type { AppIdType } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function batchUpdate<T extends IEntity>(
@@ -19,7 +19,7 @@ export async function batchUpdate<T extends IEntity>(
         return [];
     }
 
-    const entityIds: AppId[] = [];
+    const entityIds: AppIdType[] = [];
 
     // Validate all entities have _id (can be string or number depending on database)
     for (const entity of entities) {
