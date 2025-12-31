@@ -14,6 +14,13 @@ export function setTestMetaOrgUserId(userId: string | number) {
 export const TEST_META_ORG_USER_PASSWORD = 'test-meta-org-user-password';
 
 export function getTestMetaOrg(): IOrganization {
+    // NOTE: The hardcoded 'system' values for _createdBy and _updatedBy are intentionally incorrect.
+    // These values will be stripped by stripSenderProvidedSystemProperties() in preProcessEntity()
+    // and then replaced with correct values by auditForCreate() or auditForUpdate().
+    // This ensures that client-provided audit fields are always ignored and replaced with server-generated values.
+    // See: src/services/utils/strip-sender-provided-system-properties.util.ts
+    // See: src/services/utils/audit-for-create.util.ts
+    // See: src/services/utils/audit-for-update.util.ts
     return {
         _id: TEST_META_ORG_ID,
         name: 'Test Meta Organization',
@@ -28,6 +35,15 @@ export function getTestMetaOrg(): IOrganization {
 };
 
 export function getTestMetaOrgUser(): IUser {
+    // NOTE: The hardcoded 'system' values for _createdBy and _updatedBy are intentionally incorrect.
+    // These values will be stripped by stripSenderProvidedSystemProperties() in preProcessEntity()
+    // and then replaced with correct values by auditForCreate() or auditForUpdate().
+    // This ensures that client-provided audit fields are always ignored and replaced with server-generated values.
+    // The 'as any' cast is needed because IUser._createdBy expects AppId (string | number), but we're using
+    // a hardcoded string to verify it gets stripped. In practice, this value is never used.
+    // See: src/services/utils/strip-sender-provided-system-properties.util.ts
+    // See: src/services/utils/audit-for-create.util.ts
+    // See: src/services/utils/audit-for-update.util.ts
     return {
         _id: TEST_META_ORG_USER_ID,
         _orgId: getTestMetaOrg()._id,
@@ -69,6 +85,13 @@ export function setTestOrgUserId(userId: string | number) {
 }
 
 export function getTestOrg(): IOrganization {
+    // NOTE: The hardcoded 'system' values for _createdBy and _updatedBy are intentionally incorrect.
+    // These values will be stripped by stripSenderProvidedSystemProperties() in preProcessEntity()
+    // and then replaced with correct values by auditForCreate() or auditForUpdate().
+    // This ensures that client-provided audit fields are always ignored and replaced with server-generated values.
+    // See: src/services/utils/strip-sender-provided-system-properties.util.ts
+    // See: src/services/utils/audit-for-create.util.ts
+    // See: src/services/utils/audit-for-update.util.ts
     return {
         _id: TEST_ORG_ID,
         name: 'Test Organization',
@@ -84,6 +107,15 @@ export function getTestOrg(): IOrganization {
 export const TEST_ORG_USER_PASSWORD = 'test-org-user-password';
 
 export function getTestOrgUser(): IUser {
+    // NOTE: The hardcoded 'system' values for _createdBy and _updatedBy are intentionally incorrect.
+    // These values will be stripped by stripSenderProvidedSystemProperties() in preProcessEntity()
+    // and then replaced with correct values by auditForCreate() or auditForUpdate().
+    // This ensures that client-provided audit fields are always ignored and replaced with server-generated values.
+    // The 'as any' cast is needed because IUser._createdBy expects AppId (string | number), but we're using
+    // a hardcoded string to verify it gets stripped. In practice, this value is never used.
+    // See: src/services/utils/strip-sender-provided-system-properties.util.ts
+    // See: src/services/utils/audit-for-create.util.ts
+    // See: src/services/utils/audit-for-update.util.ts
     return {
         _id: TEST_ORG_USER_ID,
         _orgId: getTestOrg()._id,
