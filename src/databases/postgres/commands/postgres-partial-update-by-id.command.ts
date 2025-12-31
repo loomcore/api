@@ -4,11 +4,12 @@ import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
+import type { AppId } from '@loomcore/common/types';
 
 export async function partialUpdateById<T extends IEntity>(
     client: Client,
     operations: Operation[],
-    id: string,
+    id: AppId,
     entity: Partial<T>,
     pluralResourceName: string
 ): Promise<T> {

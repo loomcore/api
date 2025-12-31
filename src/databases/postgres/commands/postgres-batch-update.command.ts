@@ -5,6 +5,7 @@ import { BadRequestError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { Filter, IEntity, IQueryOptions } from '@loomcore/common/models';
+import type { AppId } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function batchUpdate<T extends IEntity>(
@@ -18,11 +19,11 @@ export async function batchUpdate<T extends IEntity>(
         return [];
     }
 
-    const entityIds: string[] = [];
+    const entityIds: AppId[] = [];
 
-    // Validate all entities have _id
+    // Validate all entities have _id (can be string or number depending on database)
     for (const entity of entities) {
-        if (!entity._id || typeof entity._id !== 'string') {
+        if (!entity._id || (typeof entity._id !== 'string' && typeof entity._id !== 'number')) {
             throw new BadRequestError('Each entity in a batch update must have a valid _id.');
         }
         entityIds.push(entity._id);
@@ -66,7 +67,7 @@ export async function batchUpdate<T extends IEntity>(
         const hasJoins = operations.some(op => op instanceof Join);
         const tablePrefix = hasJoins ? pluralResourceName : undefined;
         
-        queryObject.filters._id = { in: entityIds };
+        queryObject.filters._id = { in: entityIds as any };
         
         const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix);
         // Use the whereClause and values from buildWhereClause

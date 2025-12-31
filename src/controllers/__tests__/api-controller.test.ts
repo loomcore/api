@@ -7,20 +7,20 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUser, getTestOrgUser, getTestOrgUserOut } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestOrgUser } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { UserService, OrganizationService } from '../../services/index.js';
 import { UsersController } from '../users.controller.js';
 import { AuthController } from '../auth.controller.js';
 
 // Test service and controller
-class TestItemService extends GenericApiService<ITestItem, ITestItem> {
+class TestItemService extends GenericApiService<ITestItem> {
   constructor(database: IDatabase) {
     super(database, 'testItems', 'testItem', TestItemSpec);
   }
 }
 
-class TestItemController extends ApiController<ITestItem, ITestItem> {
+class TestItemController extends ApiController<ITestItem> {
   public testItemService: TestItemService;
 
   constructor(app: Application, database: IDatabase) {
@@ -44,7 +44,8 @@ describe('ApiController - Integration Tests', () => {
   let testItemController: TestItemController;
   let userService: UserService;
   let usersController: UsersController;
-  let userId: string;
+  let userId: string | number;
+  let isPostgres: boolean;
 
   beforeAll(async () => {
     // Initialize with our new test express app
@@ -52,6 +53,9 @@ describe('ApiController - Integration Tests', () => {
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;
+
+    // Determine database type from env var (which is now guaranteed to be set by vitest-setup.ts)
+    isPostgres = process.env.TEST_DATABASE === 'postgres';
 
     // Create service and controller instances
     testItemController = new TestItemController(app, database);
@@ -67,11 +71,14 @@ describe('ApiController - Integration Tests', () => {
     await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created
 
     // Set up test users and organizations (required for foreign key constraints)
-    await testUtils.setupTestUsers();
+    const { metaOrgUser } = await testUtils.setupTestUsers();
 
     // Get auth token from actual login (has proper userContext structure)
     authToken = await testUtils.loginWithTestUser(testAgent);
-    userId = getTestMetaOrgUser()._id;
+    
+    // Use the actual user ID from the created user (not the hardcoded one)
+    // This ensures we have the correct ID type (number for PostgreSQL, string for MongoDB)
+    userId = metaOrgUser._id;
   });
 
   afterAll(async () => {
@@ -82,7 +89,9 @@ describe('ApiController - Integration Tests', () => {
     // Clear collections before each test
     await TestExpressApp.clearCollections();
     // Recreate test users and organizations after clearing (required for foreign key constraints)
-    await testUtils.setupTestUsers();
+    const { metaOrgUser } = await testUtils.setupTestUsers();
+    // Update userId with the actual created user ID (correct type for current database)
+    userId = metaOrgUser._id;
     // Refresh auth token after recreating users (ensures token has correct userContext)
     authToken = await testUtils.loginWithTestUser(testAgent);
   });
@@ -99,11 +108,17 @@ describe('ApiController - Integration Tests', () => {
       expect(createResponse.status).toBe(201);
       const createdItem = createResponse.body.data;
       const itemId = createdItem._id;
-      expect(typeof itemId).toBe('string');
+      
+      // ID type depends on database: PostgreSQL uses numbers, MongoDB uses strings
+      if (isPostgres) {
+        expect(typeof itemId).toBe('number');
+      } else {
+        expect(typeof itemId).toBe('string');
+      }
 
-      // Now fetch the item by its ID
+      // Now fetch the item by its ID (convert to string for URL)
       const getResponse = await testAgent
-        .get(`/api/test-items/${itemId}`)
+        .get(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken);
 
       // Assertions
@@ -111,7 +126,12 @@ describe('ApiController - Integration Tests', () => {
       const fetchedItem = getResponse.body.data;
       expect(fetchedItem).toHaveProperty('_id');
 
-      expect(typeof fetchedItem._id).toBe('string');
+      // ID type depends on database
+      if (isPostgres) {
+        expect(typeof fetchedItem._id).toBe('number');
+      } else {
+        expect(typeof fetchedItem._id).toBe('string');
+      }
       expect(fetchedItem._id).toBe(itemId);
     });
   });
@@ -151,9 +171,9 @@ describe('ApiController - Integration Tests', () => {
       // Wait a bit to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update with PATCH
+      // Update with PATCH (convert ID to string for URL)
       const updateResponse = await testAgent
-        .patch(`/api/test-items/${itemId}`)
+        .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({ name: 'Updated Name' });
 
@@ -189,9 +209,9 @@ describe('ApiController - Integration Tests', () => {
       // Wait a bit to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update with PUT - include all required fields
+      // Update with PUT - include all required fields (convert ID to string for URL)
       const updateResponse = await testAgent
-        .put(`/api/test-items/${itemId}`)
+        .put(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({
           name: 'New Name',
@@ -227,10 +247,10 @@ describe('ApiController - Integration Tests', () => {
 
       const itemId = originalItem._id;
 
-      // Try to tamper with audit properties during update
+      // Try to tamper with audit properties during update (convert ID to string for URL)
       const tamperedDate = new Date(2000, 1, 1).toISOString();
       const updateResponse = await testAgent
-        .patch(`/api/test-items/${itemId}`)
+        .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({
           name: 'Tampered Item',
@@ -307,9 +327,9 @@ describe('ApiController - Integration Tests', () => {
       const itemId = createdItem._id;
       expect(itemId).toBeDefined();
 
-      // Get the item
+      // Get the item (convert ID to string for URL)
       const getResponse = await testAgent
-        .get(`/api/test-items/${itemId}`)
+        .get(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken);
 
       expect(getResponse.status).toBe(200);
@@ -460,14 +480,14 @@ describe('ApiController - Integration Tests', () => {
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
 
-      // Try to update with invalid data
+      // Try to update with invalid data (convert ID to string for URL)
       const invalidUpdate = {
         name: '', // Empty string should fail validation
         value: 'not a number' // Wrong type
       };
 
       const response = await testAgent
-        .patch(`/api/test-items/${itemId}`)
+        .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send(invalidUpdate);
 
@@ -485,14 +505,14 @@ describe('ApiController - Integration Tests', () => {
       const originalItem = createResponse.body.data;
       const itemId = originalItem._id;
 
-      // Update only the value field
+      // Update only the value field (convert ID to string for URL)
       const partialUpdate = {
         value: 200
         // name should remain unchanged
       };
 
       const response = await testAgent
-        .patch(`/api/test-items/${itemId}`)
+        .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send(partialUpdate);
 
@@ -575,9 +595,9 @@ describe('ApiController - Integration Tests', () => {
       // Wait a moment to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update the entity
+      // Update the entity (convert ID to string for URL)
       const updateResponse = await testAgent
-        .patch(`/api/test-items/${itemId}`)
+        .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({ name: 'Updated Test' });
 
@@ -606,9 +626,9 @@ describe('ApiController - Integration Tests', () => {
       // Wait to ensure timestamp difference
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Full update with PUT
+      // Full update with PUT (convert ID to string for URL)
       const updateResponse = await testAgent
-        .put(`/api/test-items/${itemId}`)
+        .put(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({ name: 'PUT Updated', value: 75 });
 

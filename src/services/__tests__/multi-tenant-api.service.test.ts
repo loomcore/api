@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IOrganization, EmptyUserContext } from '@loomcore/common/models';
 import { initializeTypeBox } from '@loomcore/common/validation';
 
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
@@ -8,7 +8,8 @@ import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
-import { getTestMetaOrgUserContext, getTestMetaOrgUser, getTestMetaOrg } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, getTestMetaOrgUser, getTestMetaOrg, setTestMetaOrgId } from '../../__tests__/test-objects.js';
+import { OrganizationService } from '../organization.service.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -17,6 +18,8 @@ beforeAll(() => {
 
 describe('MultiTenantApiService', () => {
   let service: MultiTenantApiService<TestEntity>;
+  let organizationService: OrganizationService;
+  let actualMetaOrg: IOrganization | null = null;
 
   // Test data
   const otherOrgId = 'org-456';
@@ -32,6 +35,12 @@ describe('MultiTenantApiService', () => {
       'testEntity',
       testModelSpec
     );
+
+    // Create organization service to get actual meta org
+    organizationService = new OrganizationService(setup.database);
+    
+    // Get the actual meta org from the database
+    actualMetaOrg = await organizationService.getMetaOrg(getTestMetaOrgUserContext());
   });
 
   afterAll(async () => {
@@ -41,6 +50,17 @@ describe('MultiTenantApiService', () => {
   // Set up before each test
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
+
+    // Recreate meta org after clearing collections (it gets deleted by clearCollections)
+    await testUtils.createMetaOrg();
+    
+    // Get fresh meta org ID since it may have changed after clearCollections
+    actualMetaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+    if (!actualMetaOrg) {
+      throw new Error('Meta org not found after createMetaOrg');
+    }
+    // Update test objects with the actual meta org ID
+    setTestMetaOrgId(actualMetaOrg._id);
 
     // Spy on TenantQueryDecorator methods to verify they're called
     vi.spyOn(TenantQueryDecorator.prototype, 'applyTenantToQuery');
@@ -156,7 +176,7 @@ describe('MultiTenantApiService', () => {
       };
 
       // Get the protected method and bind it to the service instance
-      const preparedEntity = service.preprocessEntity.bind(service);
+      const preparedEntity = service.preProcessEntity.bind(service);
 
       // Act
       const result = await preparedEntity(userContext, entity, true);
@@ -172,7 +192,7 @@ describe('MultiTenantApiService', () => {
       };
 
       // Get the protected method and bind it to the service instance
-      const preparedEntity = service.preprocessEntity.bind(service);
+      const preparedEntity = service.preProcessEntity.bind(service);
 
       // Act & Assert
       await expect(preparedEntity(undefined as unknown as IUserContext, entity, true)).rejects.toThrow(BadRequestError);
@@ -203,7 +223,7 @@ describe('MultiTenantApiService', () => {
       };
 
       // Get the protected method and bind it to the service instance
-      const preparedEntity = service.preprocessEntity.bind(service);
+      const preparedEntity = service.preProcessEntity.bind(service);
 
       // Act & Assert
       await expect(preparedEntity(userContextWithoutOrg, entity, true)).rejects.toThrow(BadRequestError);
@@ -268,7 +288,12 @@ describe('MultiTenantApiService', () => {
   describe('create', () => {
     it('should create an entity with tenant ID', async () => {
       // Arrange
+      if (!actualMetaOrg) {
+        throw new Error('Meta org not found');
+      }
       const userContext = getTestMetaOrgUserContext();
+      // Use actual meta org ID from database
+      const actualOrgId = actualMetaOrg._id;
       const entity: Partial<TestEntity> = {
         name: 'Test Entity'
       };
@@ -280,47 +305,54 @@ describe('MultiTenantApiService', () => {
       expect(created).toBeDefined();
       expect(created?._id).toBeDefined();
       expect(created?.name).toBe('Test Entity');
-      expect(created?._orgId).toBe(getTestMetaOrg()._id);
+      expect(created?._orgId).toBe(actualOrgId);
 
       // Verify it was actually inserted into the database
       const dbEntity = await service.getById(userContext, created!._id);
       expect(dbEntity).toBeDefined();
       expect(dbEntity?.name).toBe('Test Entity');
-      expect(dbEntity?._orgId).toBe(getTestMetaOrg()._id);
+      expect(dbEntity?._orgId).toBe(actualOrgId);
     });
   });
 
   describe('partialUpdateById', () => {
     it('should update an entity by ID', async () => {
       // Arrange
+      if (!actualMetaOrg) {
+        throw new Error('Meta org not found');
+      }
       const userContext = getTestMetaOrgUserContext();
-      const testEntityId = testUtils.getRandomId();
-
-      // Insert a test entity directly into the database
-      await service.create(userContext, {
-        _id: testEntityId,
-        name: 'Original Name',
-        _orgId: getTestMetaOrg()._id
+      const actualOrgId = actualMetaOrg._id;
+      
+      // Create a test entity (let database auto-generate ID)
+      const created = await service.create(userContext, {
+        name: 'Original Name'
       } as Partial<TestEntity>);
+
+      if (!created || !created._id) {
+        throw new Error('Entity not created or missing ID');
+      }
 
       const updateEntity: Partial<TestEntity> = {
         name: 'Updated Name'
       };
 
       // Act
-      const updated = await service.partialUpdateById(userContext, testEntityId, updateEntity);
+      const updated = await service.partialUpdateById(userContext, created._id, updateEntity);
 
       // Assert
       expect(updated).toBeDefined();
-      expect(updated._id).toBe(testEntityId);
+      expect(updated._id).toBe(created._id);
       expect(updated.name).toBe('Updated Name');
-      expect(updated._orgId).toBe(getTestMetaOrg()._id);
+      expect(updated._orgId).toBe(actualOrgId);
     });
 
     it('should throw IdNotFoundError if entity not found', async () => {
       // Arrange
       const userContext = getTestMetaOrgUserContext();
-      const nonExistentId = testUtils.getRandomId();
+      // Use an ID that doesn't exist (type depends on database)
+      const isPostgres = process.env.TEST_DATABASE === 'postgres';
+      const nonExistentId = isPostgres ? 999999 : '507f1f77bcf86cd799439011';
       const entity: Partial<TestEntity> = {
         name: 'Updated Name'
       };
@@ -336,21 +368,22 @@ describe('MultiTenantApiService', () => {
     it('should delete an entity by ID', async () => {
       // Arrange
       const userContext = getTestMetaOrgUserContext();
-      const testEntityId = testUtils.getRandomId();
-
-      // Insert a test entity directly into the database
-      await service.create(userContext, {
-        _id: testEntityId,
-        name: 'Test Entity',
-        _orgId: getTestMetaOrg()._id
+      
+      // Create a test entity (let database auto-generate ID)
+      const created = await service.create(userContext, {
+        name: 'Test Entity'
       } as Partial<TestEntity>);
 
+      if (!created || !created._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+
       // Verify it exists
-      const beforeDelete = await service.getById(userContext, testEntityId);
+      const beforeDelete = await service.getById(userContext, created._id);
       expect(beforeDelete).toBeDefined();
 
       // Act
-      const deleteResult = await service.deleteById(userContext, testEntityId);
+      const deleteResult = await service.deleteById(userContext, created._id);
 
       // Assert
       expect(deleteResult).toBeDefined();
@@ -358,13 +391,15 @@ describe('MultiTenantApiService', () => {
       expect(deleteResult.success).toBe(true);
 
       // Verify it was actually deleted
-      await expect(service.getById(userContext, testEntityId)).rejects.toThrow(IdNotFoundError);
+      await expect(service.getById(userContext, created._id)).rejects.toThrow(IdNotFoundError);
     });
 
     it('should throw IdNotFoundError if no entity found', async () => {
       // Arrange
       const userContext = getTestMetaOrgUserContext();
-      const nonExistentId = testUtils.getRandomId();
+      // Use an ID that doesn't exist (type depends on database)
+      const isPostgres = process.env.TEST_DATABASE === 'postgres';
+      const nonExistentId = isPostgres ? 999999 : '507f1f77bcf86cd799439011';
 
       // Act & Assert
       await expect(

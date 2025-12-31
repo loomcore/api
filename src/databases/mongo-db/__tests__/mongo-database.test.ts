@@ -526,7 +526,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
 
       // Act
-      const preparedEntity = await objectIdService.preprocessEntity(getTestMetaOrgUserContext(), stringIdEntity, true);
+      const preparedEntity = await objectIdService.preProcessEntity(getTestMetaOrgUserContext(), stringIdEntity, true);
 
       // Assert - prepareDataForDb should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.refId instanceof ObjectId).toBe(true);
@@ -580,7 +580,7 @@ describe('MongoDBDatabase - Join Operations', () => {
       };
 
       // Act
-      const preparedEntity = await complexService.preprocessEntity(getTestMetaOrgUserContext(), complexJsonEntity, true);
+      const preparedEntity = await complexService.preProcessEntity(getTestMetaOrgUserContext(), complexJsonEntity, true);
 
       // Assert - prepareEntity should convert string IDs to ObjectIds for database storage
       expect(preparedEntity.nested.refId instanceof ObjectId).toBe(true);

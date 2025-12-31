@@ -1,5 +1,6 @@
 import { Db } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from "@loomcore/common/models";
+import type { AppId } from "@loomcore/common/types";
 import { Operation } from "../operations/operation.js";
 import { convertObjectIdsToStrings, convertStringsToObjectIds } from "./utils/index.js";
 import { DeleteResult as GenericDeleteResult } from "../models/delete-result.js";
@@ -19,14 +20,14 @@ export class MongoDBDatabase implements IDatabase {
         this.db = db;
     }
 
-    preprocessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
+    preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
         if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
             throw new BadRequestError('id is not a valid ObjectId');
         }
         return convertStringsToObjectIds(entity, schema);
     }
 
-    postprocessEntity<T extends IEntity>(single: T, schema: TSchema): T {
+    postProcessEntity<T extends IEntity>(single: T, schema: TSchema): T {
         if (!single) return single;
 
         return convertObjectIdsToStrings<T>(single);
@@ -40,7 +41,7 @@ export class MongoDBDatabase implements IDatabase {
         return get<T>(this.db, operations, queryOptions, modelSpec, pluralResourceName);
     }
 
-    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: string, pluralResourceName: string): Promise<T | null> {
+    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: AppId, pluralResourceName: string): Promise<T | null> {
         return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
     }
 
@@ -48,11 +49,11 @@ export class MongoDBDatabase implements IDatabase {
         return getCount(this.db, pluralResourceName);
     }
 
-    async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: string; entity: T }> {
+    async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppId; entity: T }> {
         return create<T>(this.db, pluralResourceName, entity);
     }
 
-    async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: string[]; entities: T[] }> {
+    async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: AppId[]; entities: T[] }> {
         return createMany<T>(this.db, pluralResourceName, entities);
     }
 
@@ -60,11 +61,11 @@ export class MongoDBDatabase implements IDatabase {
         return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
     }
 
-    async fullUpdateById<T extends IEntity>(operations: Operation[], id: string, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppId, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return fullUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
     }
 
-    async partialUpdateById<T extends IEntity>(operations: Operation[], id: string, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppId, entity: Partial<T>, pluralResourceName: string): Promise<T> {
         return partialUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
     }
 
@@ -72,7 +73,7 @@ export class MongoDBDatabase implements IDatabase {
         return update<T>(this.db, queryObject, entity, operations, pluralResourceName);
     }
 
-    async deleteById(id: string, pluralResourceName: string): Promise<GenericDeleteResult> {
+    async deleteById(id: AppId, pluralResourceName: string): Promise<GenericDeleteResult> {
         return deleteById(this.db, id, pluralResourceName);
     }
 

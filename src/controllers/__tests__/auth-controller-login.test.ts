@@ -65,7 +65,7 @@ describe('AuthController', () => {
         .send(user)
         .expect(200);
 
-      expect(typeof response.body?.data?.userContext?.user?._id).toBe('string');
+      expect(typeof response.body?.data?.userContext?.user?._id).toBe(testUtils.getExpectedIdType(testDb));
     });
 
     it('should allow email to be case insensitive', async () => {

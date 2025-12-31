@@ -1,2 +1,1 @@
-export * from './migration.interface.js';
-export * from './database-builder.js';
+export * from './postgres-initial-schema.js';

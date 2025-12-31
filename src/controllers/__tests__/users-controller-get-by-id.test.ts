@@ -32,10 +32,10 @@ describe('UsersController', () => {
 	});
 
 	describe('GET /users', () => {
-		const apiEndpoint = `/api/users/${getTestMetaOrgUser()._id}`;
-
 		it('should not return any sensitive information for a user', async () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
+			// Use the actual user ID (which is updated by setupTestUsers)
+			const apiEndpoint = `/api/users/${getTestMetaOrgUser()._id}`;
 
 			const response = await testAgent
 				.get(apiEndpoint)

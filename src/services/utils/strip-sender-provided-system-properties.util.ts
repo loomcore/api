@@ -1,8 +1,9 @@
 import { IUserContext } from "@loomcore/common/models";
+import { getSystemUserId } from "@loomcore/common/validation";
 
 export function stripSenderProvidedSystemProperties(userContext: IUserContext, entity: any, allowId: boolean = false) {
     // Allow system properties if this is a system-initiated action
-    const isSystemUser = userContext.user?._id === 'system';
+    const isSystemUser = userContext.user?._id === getSystemUserId();
     if (isSystemUser) {
       return; // Don't strip any properties for system actions
     }

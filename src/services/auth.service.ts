@@ -78,7 +78,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
             this.updateLastLoggedIn(userContext.user._id!)
                 .catch(err => console.log(`Error updating lastLoggedIn: ${err}`));
 
-            userContext.user = this.postprocessEntity(userContext, userContext.user);
+            userContext.user = this.postProcessEntity(userContext, userContext.user);
             loginResponse = { tokens: tokenResponse, userContext };
         }
 
@@ -94,7 +94,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
             return null;
         }
 
-        return this.database.postprocessEntity(rawUser, this.modelSpec.fullSchema);
+        return this.database.postProcessEntity(rawUser, this.modelSpec.fullSchema);
     }
 
     async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
@@ -336,7 +336,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return Date.now() + expiresInDays * 24 * 60 * 60 * 1000
     }
 
-    override async preprocessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean): Promise<Partial<IUser>> {
+    override async preProcessEntity(userContext: IUserContext, entity: Partial<IUser>, isCreate: boolean, allowId: boolean): Promise<Partial<IUser>> {
         if (entity.email) {
             // lowercase the email
             entity.email = entity.email!.toLowerCase();
@@ -347,7 +347,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
             entity.password = hash;
         }
 
-        const preparedEntity = await super.preprocessEntity(userContext, entity, isCreate, allowId);
+        const preparedEntity = await super.preProcessEntity(userContext, entity, isCreate, allowId);
         return preparedEntity;
     }
 

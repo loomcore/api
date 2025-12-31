@@ -1,12 +1,11 @@
-import { randomUUID } from 'crypto';
 import testUtils from './common-test.utils.js';
 import { ITestDatabase } from './test-database.interface.js';
 import { newDb } from "pg-mem";
-import { Client } from 'pg';
-import { testMigrations } from './postgres-test-migrations/test-migrations.js';
+import { Client, Pool } from 'pg';
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
-import { DatabaseBuilder } from '../databases/postgres/migrations/database-builder.js';
+import { config } from '../config/base-api-config.js';
+import { runInitialSchemaMigrations, runTestSchemaMigrations } from '../databases/postgres/migrations/__tests__/test-migration-helper.js';
 /**
  * Utility class for setting up a PostgreSQL test database for testing
  * Implements ITestDatabase
@@ -31,7 +30,10 @@ export class TestPostgresDatabase implements ITestDatabase {
   }
 
   getRandomId(): string {
-    return randomUUID();
+    // Note: PostgreSQL uses auto-generated integer IDs, so this should not be used for _id fields.
+    // This method exists for interface compatibility and may be used for other string ID fields.
+    // For _id fields, let the database auto-generate the ID.
+    throw new Error('getRandomId() should not be used for PostgreSQL _id fields. PostgreSQL uses auto-generated integer IDs. Remove _id from entities and let the database generate it.');
   }
 
   private async _performInit(adminUsername?: string, adminPassword?: string): Promise<IDatabase> {
@@ -46,17 +48,30 @@ export class TestPostgresDatabase implements ITestDatabase {
       this.database = testDatabase;
       this.postgresClient = postgresClient;
 
-      const builder = new DatabaseBuilder(postgresClient);
-      const result = await builder.withMultitenant().withAuth().withMigrations(testMigrations(postgresClient)).build();
-      if (!result.success) {
-        throw new Error('Failed to setup test database');
+      // Initialize system user context before running migrations
+      // (migrations may need it, especially admin-user migration)
+      const { initializeSystemUserContext, isSystemUserContextInitialized } = await import('@loomcore/common/models');
+      if (!isSystemUserContextInitialized()) {
+        // For multi-tenant, meta-org migration will initialize it properly
+        // For non-multi-tenant, initialize with undefined org
+        initializeSystemUserContext(config.email?.systemEmailAddress || 'system@test.com', undefined);
       }
+
+      // Create a Pool from the client for migrations
+      // pg-mem's Client can be used as a Pool
+      const pool = postgresClient as unknown as Pool;
+
+      // Run initial schema migrations (includes all schema and data migrations based on config)
+      await runInitialSchemaMigrations(pool, config);
+
+      // Run test schema migrations (test-specific tables like testEntities, categories, products, testItems)
+      await runTestSchemaMigrations(pool, config);
 
       // Initialize test utilities with the database
       testUtils.initialize(testDatabase);
       await this.createIndexes(postgresClient);
 
-      // Create meta org before initializing system user context
+      // Create meta org (this will re-initialize system user context with the meta org if multi-tenant)
       await testUtils.createMetaOrg();
     }
 

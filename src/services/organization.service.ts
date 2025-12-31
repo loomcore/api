@@ -2,13 +2,14 @@ import { IOrganization, IUserContext, OrganizationSpec } from '@loomcore/common/
 import { IDatabase } from '../databases/models/database.interface.js';
 import { BadRequestError } from '../errors/index.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { AppId } from '@loomcore/common/types';
 
 export class OrganizationService extends GenericApiService<IOrganization> {
 	constructor(database: IDatabase) {
 		super(database, 'organizations', 'organization', OrganizationSpec);
 	}
 
-	override async preprocessEntity(userContext: IUserContext, entity: Partial<IOrganization>, isCreate: boolean, allowId: boolean = true): Promise<Partial<IOrganization>> {
+	override async preProcessEntity(userContext: IUserContext, entity: Partial<IOrganization>, isCreate: boolean, allowId: boolean = true): Promise<Partial<IOrganization>> {
 		if (isCreate) {
 			const metaOrg = await this.getMetaOrg(userContext);
 			if (metaOrg && entity.isMetaOrg) {
@@ -18,19 +19,19 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 				throw new BadRequestError('User is not authorized to create an organization');
 			}
 		}
-		const result = await super.preprocessEntity(userContext, entity, isCreate, allowId);
+		const result = await super.preProcessEntity(userContext, entity, isCreate, allowId);
 		return result;
 	}
 
 	// TODO: override prepareQuery to add check for isMetaOrg.
 	// If user is not meta org, throw error.
-	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: string): Promise<string | null> {
+	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: AppId): Promise<string | null> {
 		// until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
 		const org = await this.getById(userContext, orgId);
 		return org?.authToken ?? null;
 	}
 
-	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<string | null> {
+	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<AppId | null> {
 		// this is used to auth content-api calls - the orgCode is used in the api call hostname
 		const org = await this.findOne(userContext, { filters: { code: { eq: orgCode } } });
 
@@ -38,7 +39,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 			return null;
 		}
 
-		const orgId = org.authToken === authToken ? org._id.toString() : null;
+		const orgId = org.authToken === authToken ? org._id : null;
 
 		return orgId;
 	}

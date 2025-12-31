@@ -1,7 +1,7 @@
 import { Request, Response, Application } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUserContext, IQueryOptions, IUser } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, IUser, EmptyUserContext } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
 
 import { JwtService } from '../services/jwt.service.js';
@@ -14,6 +14,8 @@ import { IdNotFoundError } from '../errors/index.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
+import { MongoDBDatabase } from '../databases/mongo-db/mongo-db.database.js';
+import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import * as testObjectsModule from './test-objects.js';
 const {
   getTestMetaOrg,
@@ -22,7 +24,9 @@ const {
   getTestMetaOrgUserContext,
   getTestOrgUserContext,
   setTestOrgId,
-  setTestMetaOrgId } = testObjectsModule;
+  setTestMetaOrgId,
+  setTestMetaOrgUserId,
+  setTestOrgUserId } = testObjectsModule;
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 import { setBaseApiConfig } from '../config/index.js';
@@ -30,8 +34,8 @@ import { entityUtils } from '@loomcore/common/utils';
 import { getTestOrgUser } from './test-objects.js';
 
 let deviceIdCookie: string;
-let authService: AuthService;
-let organizationService: OrganizationService;
+let authService: AuthService | undefined;
+let organizationService: OrganizationService | undefined;
 
 const JWT_SECRET = 'test-secret';
 const newUser1Email = 'one@test.com';
@@ -49,15 +53,45 @@ function getRandomId(): string {
   return new ObjectId().toString();
 }
 
+/**
+ * Check if the database is MongoDB
+ */
+function isMongoDatabase(database: IDatabase): boolean {
+  return database instanceof MongoDBDatabase;
+}
+
+/**
+ * Check if the database is PostgreSQL
+ */
+function isPostgresDatabase(database: IDatabase): boolean {
+  return database instanceof PostgresDatabase;
+}
+
+/**
+ * Get the expected type for _id based on the database type
+ * MongoDB uses string IDs, PostgreSQL uses number IDs
+ */
+function getExpectedIdType(database: IDatabase): 'string' | 'number' {
+  return isPostgresDatabase(database) ? 'number' : 'string';
+}
+
 async function createMetaOrg() {
   if (!organizationService) {
     throw new Error('OrganizationService not initialized. Call initialize() first.');
   }
   try {
     // Create a meta organization (required for system user context)
-    const existingMetaOrg = await organizationService.getMetaOrg(getTestMetaOrgUserContext());
+    // Use EmptyUserContext to avoid the org check when querying/creating
+    const existingMetaOrg = await organizationService.getMetaOrg(EmptyUserContext);
     if (!existingMetaOrg) {
-      const metaOrgInsertResult = await organizationService.create(getTestMetaOrgUserContext(), getTestMetaOrg());
+      // Use EmptyUserContext when creating the meta org (no org check needed for first meta org)
+      const metaOrgInsertResult = await organizationService.create(EmptyUserContext, getTestMetaOrg());
+      if (metaOrgInsertResult) {
+        setTestMetaOrgId(metaOrgInsertResult._id);
+      }
+    } else {
+      // Update test objects with the actual meta org ID from database
+      setTestMetaOrgId(existingMetaOrg._id);
     }
   }
   catch (error: any) {
@@ -82,6 +116,8 @@ async function deleteMetaOrg() {
 
 async function setupTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
   try {
+    // Ensure meta org exists (may have been deleted by clearCollections)
+    await createMetaOrg();
     // Clean up any existing test data, then create fresh test user
     await deleteTestUser();
     return createTestUsers();
@@ -98,13 +134,16 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
   }
 
   try {
-    const existingMetaOrg = await organizationService.getMetaOrg(getTestMetaOrgUserContext());
+    // Get the actual meta org from the database (should exist from migrations/createMetaOrg)
+    // Use EmptyUserContext to avoid the org check when querying
+    const existingMetaOrg = await organizationService.getMetaOrg(EmptyUserContext);
 
     if (!existingMetaOrg) {
-      await organizationService.create(getTestMetaOrgUserContext(), getTestMetaOrg());
-    } else {
-      setTestMetaOrgId(existingMetaOrg._id);
+      throw new Error('Meta organization does not exist. Test setup is incorrect - meta org should be created by migrations or createMetaOrg().');
     }
+
+    // Update test objects with the actual meta org ID from database
+    setTestMetaOrgId(existingMetaOrg._id);
 
     const existingTestOrg = await organizationService.findOne(getTestMetaOrgUserContext(), { filters: { _id: { eq: getTestOrg()._id } } });
 
@@ -125,6 +164,10 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
       throw new Error('Failed to create test user');
     }
 
+    // Update test objects with the actual created user IDs (correct type for current database)
+    setTestMetaOrgUserId(createdMetaOrgUser._id);
+    setTestOrgUserId(createdTestOrgUser._id);
+
     return { metaOrgUser: createdMetaOrgUser, testOrgUser: createdTestOrgUser };
   }
   catch (error: any) {
@@ -134,6 +177,11 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
 }
 
 async function deleteTestUser() {
+  // Only delete if services are initialized
+  if (!authService || !organizationService) {
+    return;
+  }
+
   // Delete test user
   await authService.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id).catch((error: any) => {
     // Ignore errors during cleanup - entity may not exist
@@ -174,6 +222,9 @@ async function simulateloginWithTestUser() {
   };
 
   // Call authService.attemptLogin directly
+  if (!authService) {
+    throw new Error('AuthService not initialized. Call initialize() first.');
+  }
   const loginResponse = await authService.attemptLogin(
     req as Request,
     res as Response,
@@ -250,7 +301,14 @@ export function setupTestConfig(isMultiTenant: boolean = true) {
     debug: {
       showErrors: false
     },
-    app: { isMultiTenant: isMultiTenant },
+    app: { 
+      isMultiTenant: isMultiTenant,
+      // Provide metaOrgName and metaOrgCode for multi-tenant setups so meta-org migration runs
+      ...(isMultiTenant && {
+        metaOrgName: 'Test Meta Organization',
+        metaOrgCode: 'TEST_META_ORG'
+      })
+    },
     auth: {
       jwtExpirationInSeconds: 3600,
       refreshTokenExpirationInDays: 7,
@@ -287,12 +345,12 @@ export class ProductService extends GenericApiService<IProduct> {
     return super.prepareQuery(userContext, queryObject, newOperations);
   }
 
-  override postprocessEntity(userContext: IUserContext, single: any): any {
+  override postProcessEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
       const categoryService = new CategoryService(this.db);
-      single.category = categoryService.postprocessEntity(userContext, single.category);
+      single.category = categoryService.postProcessEntity(userContext, single.category);
     }
-    return super.postprocessEntity(userContext, single);
+    return super.postProcessEntity(userContext, single);
   }
 }
 
@@ -338,12 +396,12 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
     return super.prepareQuery(userContext, queryObject, newOperations);
   }
 
-  override postprocessEntity(userContext: IUserContext, single: any): any {
+  override postProcessEntity(userContext: IUserContext, single: any): any {
     if (single && single.category) {
       const categoryService = new CategoryService(this.db);
-      single.category = categoryService.postprocessEntity(userContext, single.category);
+      single.category = categoryService.postProcessEntity(userContext, single.category);
     }
-    return super.postprocessEntity(userContext, single);
+    return super.postProcessEntity(userContext, single);
   }
 }
 
@@ -433,6 +491,9 @@ const testUtils = {
   newUser1Password,
   setupTestUsers,
   simulateloginWithTestUser,
-  verifyToken
+  verifyToken,
+  isMongoDatabase,
+  isPostgresDatabase,
+  getExpectedIdType
 };
 export default testUtils;

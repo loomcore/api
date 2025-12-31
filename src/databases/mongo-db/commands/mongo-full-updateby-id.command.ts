@@ -4,8 +4,9 @@ import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
 import NoSqlPipeline from "../models/no-sql-pipeline.js";
 import { buildNoSqlMatch } from "../utils/build-no-sql-match.util.js";
 import { entityUtils } from "@loomcore/common/utils";
+import type { AppId } from "@loomcore/common/types";
 
-export async function fullUpdateById<T>(db: Db, operations: Operation[], id: string, entity: any, pluralResourceName: string): Promise<T> {
+export async function fullUpdateById<T>(db: Db, operations: Operation[], id: AppId, entity: any, pluralResourceName: string): Promise<T> {
     if (!entityUtils.isValidObjectId(id)) {
         throw new BadRequestError('id is not a valid ObjectId');
     }

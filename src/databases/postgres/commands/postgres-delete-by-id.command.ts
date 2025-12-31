@@ -1,9 +1,10 @@
 import { Client } from 'pg';
 import { DeleteResult } from "../../models/delete-result.js";
+import type { AppId } from '@loomcore/common/types';
 
 export async function deleteById(
     client: Client,
-    id: string,
+    id: AppId,
     pluralResourceName: string
 ): Promise<DeleteResult> {
     const query = `DELETE FROM "${pluralResourceName}" WHERE "_id" = $1`;

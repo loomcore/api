@@ -7,8 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
-import { getPostgresFoundational } from '../postgres/migrations/postgres-foundational.js';
-import { getMongoFoundational } from '../mongo-db/migrations/mongo-foundational.js';
+import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
+import { getMongoInitialSchema } from '../mongo-db/migrations/mongo-initial-schema.js';
 
 export class MigrationRunner {
   private config: IBaseApiConfig;
@@ -83,8 +83,8 @@ export class MigrationRunner {
 
       return new Umzug({
         migrations: async () => {
-          // A. GET FOUNDATIONALS (Strategy Pattern)
-          const foundationals = getPostgresFoundational(this.config).map(m => ({
+          // A. Get initial schema (Strategy Pattern)
+          const initialSchema = getPostgresInitialSchema(this.config).map(m => ({
             name: m.name,
             up: async () => {
                 console.log(`   Running [LIBRARY] ${m.name}...`);
@@ -96,12 +96,12 @@ export class MigrationRunner {
             }
           }));
 
-          // B. GET FILE MIGRATIONS
+          // B. Get file migrations
           // (Note: To mix async generators with globs, we read the files manually)
           const fileMigrations = this.loadFileMigrations(this.migrationsDir, 'sql', pool);
 
-          // C. SORT & MERGE
-          return [...foundationals, ...fileMigrations].sort((a, b) => a.name.localeCompare(b.name));
+          // C. Sort and merge
+          return [...initialSchema, ...fileMigrations].sort((a, b) => a.name.localeCompare(b.name));
         },
         context: pool,
         storage: {
@@ -135,8 +135,8 @@ export class MigrationRunner {
 
       return new Umzug({
         migrations: async () => {
-          // A. GET FOUNDATIONALS (Strategy Pattern)
-          const foundationals = getMongoFoundational(this.config).map(m => ({
+          // A. Get initial schema (Strategy Pattern)
+          const initialSchema = getMongoInitialSchema(this.config).map(m => ({
             name: m.name,
             up: async () => {
                console.log(`   Running [LIBRARY] ${m.name}...`);
@@ -148,10 +148,10 @@ export class MigrationRunner {
             }
           }));
 
-          // B. GET FILE MIGRATIONS
+          // B. Get file migrations
           const fileMigrations = this.loadFileMigrations(this.migrationsDir, 'ts', db);
 
-          return [...foundationals, ...fileMigrations].sort((a, b) => a.name.localeCompare(b.name));
+          return [...initialSchema, ...fileMigrations].sort((a, b) => a.name.localeCompare(b.name));
         },
         context: db,
         storage: new MongoDBStorage({ collection: db.collection('migrations') }),
