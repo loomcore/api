@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
 import { IUserContext, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext, PublicUserSpec, IUser } from '@loomcore/common/models';
+import type { AppId } from '@loomcore/common/types';
 import { entityUtils } from '@loomcore/common/utils';
 
 import { BadRequestError, ServerError, NotFoundError } from '../errors/index.js';
@@ -190,7 +191,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return activeRefreshToken;
     }
 
-    async createNewRefreshToken(userId: string, deviceId: string, orgId?: string) {
+    async createNewRefreshToken(userId: AppId, deviceId: string, orgId?: AppId) {
         const expiresOn = this.getExpiresOnFromDays(config.auth.refreshTokenExpirationInDays);
 
         const newRefreshToken: Partial<IRefreshToken> = {
@@ -356,7 +357,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
      * This is designed to be called in a non-blocking way
      * @param userId The ID of the user to update
      */
-    private async updateLastLoggedIn(userId: string): Promise<void> {
+    private async updateLastLoggedIn(userId: AppId): Promise<void> {
         try {
             const updates: Partial<IUser> = { _lastLoggedIn: moment().utc().toDate() };
             const systemUserContext = getSystemUserContext();

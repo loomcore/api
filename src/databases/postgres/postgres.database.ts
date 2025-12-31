@@ -80,7 +80,7 @@ export class PostgresDatabase implements IDatabase {
      * Returns a map of userId -> IAuthorization[] where authorizations are current
      * (after startDate and before endDate if present).
      */
-    async getUserAuthorizations(userId: string, orgId?: string): Promise<IUserContextAuthorization[]> {
+    async getUserAuthorizations(userId: AppId, orgId?: AppId): Promise<IUserContextAuthorization[]> {
         const now = new Date();
         let query = `
             SELECT DISTINCT
