@@ -14,7 +14,7 @@ describe.skipIf(!isPostgres)('setupDatabaseForMultitenant', () => {
     let pool: Pool;
 
     beforeAll(async () => {
-        setupTestConfig();
+        setupTestConfig(true, 'postgres');
 
         // Create a fresh in-memory PostgreSQL database for each test suite
         const { Client } = newDb().adapters.createPg();
@@ -70,9 +70,9 @@ describe.skipIf(!isPostgres)('setupDatabaseForMultitenant', () => {
         expect(migrationNames).toContain('00000000000005_schema-user-roles');
         expect(migrationNames).toContain('00000000000006_schema-features');
         expect(migrationNames).toContain('00000000000007_schema-authorizations');
-        
+
         // Meta org is only created if metaOrgName and metaOrgCode are provided
-        if (config.app.metaOrgName && config.app.metaOrgCode) {
+        if (config.multiTenant?.metaOrgName && config.multiTenant?.metaOrgCode) {
             expect(migrationNames).toContain('00000000000008_data-meta-org');
         }
     });

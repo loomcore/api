@@ -1,5 +1,7 @@
 import { DbType } from "../databases/db-type.type.js";
 import { IAuthConfig } from "./auth-config.interface.js";
+import { IEmailConfig } from "./email-config.interface.js";
+import { IMultiTenantConfig } from "./multi-tenant-config.interface.js";
 
 export interface IBaseApiConfig {
   /**
@@ -7,35 +9,30 @@ export interface IBaseApiConfig {
    * from environment to environment..
    */
   app: {
-    dbType?: DbType;
+    dbType: DbType;
     isMultiTenant: boolean;
-    metaOrgCode?: string;
-    metaOrgName?: string;
+    isAuthEnabled: boolean;
     name: string;
     primaryTimezone?: string;
-  },
-  auth?: IAuthConfig,
-  database?: {
+  };
+  auth?: IAuthConfig;
+  database: {
     host: string;
     name: string;
     password: string;
     port: number;
     username: string;
-  },
+  };
   debug?: {
     showErrors?: boolean;
-  },
-  email?: {
-    emailApiKey: string;
-    emailApiSecret: string;
-    fromAddress: string;
-    systemEmailAddress: string;
-  },
+  };
+  email?: IEmailConfig;
   env: string;
+  multiTenant?: IMultiTenantConfig;
   network: {
     corsAllowedOrigins: string[];
     externalPort?: number;
     hostName: string;
     internalPort?: number;
-  }
+  };
 }

@@ -20,14 +20,13 @@ import { AuthService } from '../services/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
 import { IDatabase } from '../databases/models/index.js';
 import { isAuthorized } from '../middleware/index.js';
+import { IEmailClient } from '../models/email-client.interface.js';
 
 export class AuthController {
   authService: AuthService;
 
-  constructor(app: Application, database: IDatabase) {
-    const authService = new AuthService(database);
-    this.authService = authService;
-
+  constructor(app: Application, database: IDatabase, emailClient: IEmailClient) {
+    this.authService = new AuthService(database, emailClient);
     this.mapRoutes(app);
   }
 

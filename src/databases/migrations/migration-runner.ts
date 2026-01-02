@@ -10,6 +10,7 @@ import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
 import { getMongoInitialSchema } from '../mongo-db/migrations/mongo-initial-schema.js';
+import { IEmailClient } from '../../models/email-client.interface.js';
 
 export class MigrationRunner {
   private config: IBaseApiConfig;
@@ -18,23 +19,24 @@ export class MigrationRunner {
   private migrationsDir: string;
   private primaryTimezone: string;
   private dbConnection: Pool | MongoClient | undefined;
-
-  constructor(config: IBaseApiConfig) {
+  private emailClient?: IEmailClient;
+  constructor(config: IBaseApiConfig, emailClient?: IEmailClient) {
     // Initialize the global config so services can access it during migrations
     setBaseApiConfig(config);
     this.config = config;
-    this.dbType = config.app.dbType || 'mongodb';
+    this.dbType = config.app.dbType;
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
     /** * The IANA timezone identifier (e.g., 'America/Chicago', 'UTC') 
       * Used for generating the YYYYMMDDHHMMSS prefix on new files.
       */
     this.primaryTimezone = config.app.primaryTimezone || 'UTC';
+    this.emailClient = emailClient;
   }
 
   private getTimestamp(): string {
     const now = new Date();
-    
+
     // Use Intl to format parts in the specific timezone
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: this.primaryTimezone,
@@ -79,7 +81,7 @@ export class MigrationRunner {
     if (!fs.existsSync(this.migrationsDir)) {
       throw new Error(`❌ Migrations directory not found at: ${this.migrationsDir}`);
     }
-    
+
     if (this.dbType === 'postgres') {
       const pool = new Pool({ connectionString: this.dbUrl });
       this.dbConnection = pool;
@@ -87,15 +89,15 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getPostgresInitialSchema(this.config).map(m => ({
+          const initialSchema = getPostgresInitialSchema(this.config, this.emailClient).map(m => ({
             name: m.name,
             up: async () => {
-                console.log(`   Running [LIBRARY] ${m.name}...`);
-                await m.up({ context: pool });
+              console.log(`   Running [LIBRARY] ${m.name}...`);
+              await m.up({ context: pool });
             },
             down: async () => {
-                console.log(`   Running [LIBRARY] Undo ${m.name}...`);
-                await m.down({ context: pool });
+              console.log(`   Running [LIBRARY] Undo ${m.name}...`);
+              await m.down({ context: pool });
             }
           }));
 
@@ -136,15 +138,15 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getMongoInitialSchema(this.config).map(m => ({
+          const initialSchema = getMongoInitialSchema(this.config, this.emailClient).map(m => ({
             name: m.name,
             up: async () => {
-               console.log(`   Running [LIBRARY] ${m.name}...`);
-               await m.up({ context: db });
+              console.log(`   Running [LIBRARY] ${m.name}...`);
+              await m.up({ context: db });
             },
             down: async () => {
-               console.log(`   Running [LIBRARY] Undo ${m.name}...`);
-               await m.down({ context: db });
+              console.log(`   Running [LIBRARY] Undo ${m.name}...`);
+              await m.down({ context: db });
             }
           }));
 
@@ -168,36 +170,36 @@ export class MigrationRunner {
       .filter(f => f.endsWith(`.${extension}`))
       .map(f => {
         const fullPath = path.join(dir, f);
-        
+
         // Dynamic Import for TS, Text Read for SQL
-        if(extension === 'sql') {
-           const content = fs.readFileSync(fullPath, 'utf8');
-           const { up, down } = this.parseSql(f, content);
-           return {
-             name: f,
-             up: async () => {
-               console.log(`   Running [FILE] ${f}...`);
-               await context.query(up);
-             },
-             down: async () => {
-               console.log(`   Running [FILE] Undo ${f}...`);
-               await context.query(down);
-             }
-           };
+        if (extension === 'sql') {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const { up, down } = this.parseSql(f, content);
+          return {
+            name: f,
+            up: async () => {
+              console.log(`   Running [FILE] ${f}...`);
+              await context.query(up);
+            },
+            down: async () => {
+              console.log(`   Running [FILE] Undo ${f}...`);
+              await context.query(down);
+            }
+          };
         } else {
-           // For Mongo/TS, we might need a dynamic import helper or compilation step 
-           // If running via tsx, dynamic import works:
-           return {
-             name: f,
-             up: async () => {
-                const mod = await import(fullPath);
-                await mod.up({ context });
-             },
-             down: async () => {
-                const mod = await import(fullPath);
-                await mod.down({ context });
-             }
-           };
+          // For Mongo/TS, we might need a dynamic import helper or compilation step 
+          // If running via tsx, dynamic import works:
+          return {
+            name: f,
+            up: async () => {
+              const mod = await import(fullPath);
+              await mod.up({ context });
+            },
+            down: async () => {
+              const mod = await import(fullPath);
+              await mod.down({ context });
+            }
+          };
         }
       });
   }
@@ -213,7 +215,7 @@ export class MigrationRunner {
       } finally {
         await pool.end();
       }
-    } 
+    }
     else if (this.dbType === 'mongodb') {
       const client = await MongoClient.connect(this.dbUrl);
       await client.db().dropDatabase();
@@ -242,7 +244,7 @@ export class MigrationRunner {
 
       const pending = await migrator.pending();
       console.log(`ℹ️  Found ${pending.length} pending migrations.`);
-      
+
       // Only warn if we are explicitly running 'up' and nothing is found
       if (pending.length === 0 && command === 'up') {
         console.log('⚠️  No pending migrations. (Check the path/glob if this is unexpected)');
@@ -262,7 +264,7 @@ export class MigrationRunner {
             await migrator.down({ to: target });
             console.log(`✅ Reverted down to ${target}`);
           } else {
-            await migrator.down(); 
+            await migrator.down();
             console.log('✅ Reverted last migration.');
           }
           break;
@@ -281,12 +283,12 @@ export class MigrationRunner {
     if (!this.dbConnection) return;
     try {
       if (this.dbType === 'postgres') {
-         await (this.dbConnection as Pool).end();
-      } 
-      else if (this.dbType === 'mongo') {
-         await (this.dbConnection as MongoClient).close();
+        await (this.dbConnection as Pool).end();
       }
-    } 
+      else if (this.dbType === 'mongo') {
+        await (this.dbConnection as MongoClient).close();
+      }
+    }
     catch (e) {
       console.warn('Warning: Error closing connection', e);
     }
@@ -300,7 +302,7 @@ export class MigrationRunner {
     // 1. Standardize the name (my feature -> my-feature)
     const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const filename = `${this.getTimestamp()}_${safeName}`;
-    
+
     // 2. determine extension and template based on DB_TYPE
     let extension = '';
     let content = '';
@@ -317,7 +319,7 @@ export class MigrationRunner {
 -- down
 -- Write your DROP/UNDO statements here...
 `;
-    } 
+    }
     else {
       extension = 'ts';
       content = `import { Db } from 'mongodb';
@@ -337,7 +339,7 @@ export const down = async ({ context: db }: { context: Db }) => {
 
     // 3. Write the file
     const fullPath = path.join(this.migrationsDir, `${filename}.${extension}`);
-    
+
     // Ensure directory exists
     if (!fs.existsSync(this.migrationsDir)) {
       fs.mkdirSync(this.migrationsDir, { recursive: true });

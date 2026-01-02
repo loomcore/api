@@ -33,6 +33,7 @@ import { setBaseApiConfig } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { getTestOrgUser } from './test-objects.js';
 import { DbType } from '../databases/db-type.type.js';
+import { TestEmailClient } from './test-email-client.js';
 
 let deviceIdCookie: string;
 let authService: AuthService | undefined;
@@ -44,7 +45,7 @@ const newUser1Password = 'testone';
 const constDeviceIdCookie = crypto.randomBytes(16).toString('hex'); // Generate a consistent device ID for tests
 
 function initialize(database: IDatabase) {
-  authService = new AuthService(database);
+  authService = new AuthService(database, new TestEmailClient());
   organizationService = new OrganizationService(database);
   deviceIdCookie = constDeviceIdCookie;
 }
@@ -287,12 +288,10 @@ export class CategoryController extends ApiController<ICategory> {
 export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
   setBaseApiConfig({
     app: {
-      isMultiTenant: isMultiTenant, name: 'test-app', dbType: dbType,
-      // Provide metaOrgName and metaOrgCode for multi-tenant setups so meta-org migration runs
-      ...(isMultiTenant && {
-        metaOrgName: 'Test Meta Organization',
-        metaOrgCode: 'TEST_META_ORG'
-      })
+      isMultiTenant: isMultiTenant,
+      isAuthEnabled: true,
+      name: 'test-app',
+      dbType: dbType,
     },
     auth: {
       adminUser: {
@@ -320,6 +319,10 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
       fromAddress: 'test@test.com',
       systemEmailAddress: 'system@test.com'
     },
+    multiTenant: isMultiTenant ? {
+      metaOrgName: 'Test Meta Organization',
+      metaOrgCode: 'TEST_META_ORG'
+    } : undefined,
     network: {
       hostName: 'localhost',
       internalPort: 8083,

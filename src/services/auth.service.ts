@@ -18,6 +18,7 @@ import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.mo
 import { IDatabase } from '../databases/models/index.js';
 import { getUserContextAuthorizations } from './utils/getUserContextAuthorizations.util.js';
 import { IAuthConfig } from '../models/auth-config.interface.js';
+import { IEmailClient } from '../models/email-client.interface.js';
 
 export class AuthService extends MultiTenantApiService<IUser> {
     private refreshTokenService: GenericApiService<IRefreshToken>;
@@ -25,11 +26,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
     private emailService: EmailService;
     private organizationService: OrganizationService;
     private authConfig: IAuthConfig;
-    constructor(database: IDatabase) {
+    constructor(database: IDatabase, emailClient: IEmailClient) {
         super(database, 'users', 'user', UserSpec);
         this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
-        this.emailService = new EmailService();
+        this.emailService = new EmailService(emailClient);
         this.organizationService = new OrganizationService(database);
         if (!config.auth) {
             throw new ServerError('Auth configuration is not set');

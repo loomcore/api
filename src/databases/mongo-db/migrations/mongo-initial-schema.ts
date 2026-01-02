@@ -4,19 +4,33 @@ import { randomUUID } from 'crypto';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { MongoDBDatabase } from '../mongo-db.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
+import { IEmailClient } from '../../../models/email-client.interface.js';
 
-export interface SyntheticMigration {
+export interface ISyntheticMigration {
   name: string;
   up: (context: { context: Db }) => Promise<void>;
   down: (context: { context: Db }) => Promise<void>;
 }
 
-export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigration[] => {
-  const migrations: SyntheticMigration[] = [];
-  const isMultiTenant = config.app.isMultiTenant === true;
+export const getMongoInitialSchema = (config: IBaseApiConfig, emailClient?: IEmailClient): ISyntheticMigration[] => {
+  const migrations: ISyntheticMigration[] = [];
+
+  const isMultiTenant = config.app.isMultiTenant;
+  if (isMultiTenant && !config.multiTenant) {
+    throw new Error('Multi-tenant configuration is enabled but multi-tenant configuration is not provided');
+  }
+
+  const isAuthEnabled = config.app.isAuthEnabled;
+  if (isAuthEnabled && !config.auth) {
+    throw new Error('Auth enabled without auth configuration');
+  }
+
+  if (isAuthEnabled && (!emailClient || !config.email)) {
+    throw new Error('Auth enabled without email client or email configuration');
+  }
 
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
-  if (isMultiTenant) {
+  if (isMultiTenant)
     migrations.push({
       name: '00000000000001_schema-organizations',
       up: async ({ context: db }) => {
@@ -29,128 +43,133 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
         await db.collection('organizations').drop();
       }
     });
-  }
 
   // 2. USERS
-  migrations.push({
-    name: '00000000000002_schema-users',
-    up: async ({ context: db }) => {
-      await db.createCollection('users');
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000002_schema-users',
+      up: async ({ context: db }) => {
+        await db.createCollection('users');
 
-      // Create indexes
-      if (isMultiTenant) {
-        // Multi-tenant: unique email per organization
-        await db.collection('users').createIndex({ _orgId: 1, email: 1 }, { unique: true });
-        await db.collection('users').createIndex({ _orgId: 1 });
-      } else {
-        // Single-tenant: unique email globally
-        await db.collection('users').createIndex({ email: 1 }, { unique: true });
+        // Create indexes
+        if (config.app.isMultiTenant) {
+          // Multi-tenant: unique email per organization
+          await db.collection('users').createIndex({ _orgId: 1, email: 1 }, { unique: true });
+          await db.collection('users').createIndex({ _orgId: 1 });
+        } else {
+          // Single-tenant: unique email globally
+          await db.collection('users').createIndex({ email: 1 }, { unique: true });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('users').drop();
       }
-    },
-    down: async ({ context: db }) => {
-      await db.collection('users').drop();
-    }
-  });
+    });
 
   // 3. REFRESH TOKENS
-  migrations.push({
-    name: '00000000000003_schema-refresh-tokens',
-    up: async ({ context: db }) => {
-      await db.createCollection('refreshTokens');
-      await db.collection('refreshTokens').createIndex({ token: 1 }, { unique: true });
-      await db.collection('refreshTokens').createIndex({ userId: 1 });
-      await db.collection('refreshTokens').createIndex({ deviceId: 1 });
-      if (isMultiTenant) {
-        await db.collection('refreshTokens').createIndex({ _orgId: 1 });
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000003_schema-refresh-tokens',
+      up: async ({ context: db }) => {
+        await db.createCollection('refreshTokens');
+        await db.collection('refreshTokens').createIndex({ token: 1 }, { unique: true });
+        await db.collection('refreshTokens').createIndex({ userId: 1 });
+        await db.collection('refreshTokens').createIndex({ deviceId: 1 });
+        if (isMultiTenant) {
+          await db.collection('refreshTokens').createIndex({ _orgId: 1 });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('refreshTokens').drop();
       }
-    },
-    down: async ({ context: db }) => {
-      await db.collection('refreshTokens').drop();
-    }
-  });
+    });
 
   // 4. ROLES
-  migrations.push({
-    name: '00000000000004_schema-roles',
-    up: async ({ context: db }) => {
-      await db.createCollection('roles');
-      if (isMultiTenant) {
-        await db.collection('roles').createIndex({ _orgId: 1, name: 1 }, { unique: true });
-        await db.collection('roles').createIndex({ _orgId: 1 });
-      } else {
-        await db.collection('roles').createIndex({ name: 1 }, { unique: true });
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000004_schema-roles',
+      up: async ({ context: db }) => {
+        await db.createCollection('roles');
+        if (isMultiTenant) {
+          await db.collection('roles').createIndex({ _orgId: 1, name: 1 }, { unique: true });
+          await db.collection('roles').createIndex({ _orgId: 1 });
+        } else {
+          await db.collection('roles').createIndex({ name: 1 }, { unique: true });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('roles').drop();
       }
-    },
-    down: async ({ context: db }) => {
-      await db.collection('roles').drop();
-    }
-  });
+    });
 
   // 5. USER ROLES
-  migrations.push({
-    name: '00000000000005_schema-user-roles',
-    up: async ({ context: db }) => {
-      await db.createCollection('user_roles');
-      if (isMultiTenant) {
-        await db.collection('user_roles').createIndex({ _orgId: 1, userId: 1, roleId: 1 }, { unique: true });
-        await db.collection('user_roles').createIndex({ _orgId: 1 });
-      } else {
-        await db.collection('user_roles').createIndex({ userId: 1, roleId: 1 }, { unique: true });
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000005_schema-user-roles',
+      up: async ({ context: db }) => {
+        await db.createCollection('user_roles');
+        if (isMultiTenant) {
+          await db.collection('user_roles').createIndex({ _orgId: 1, userId: 1, roleId: 1 }, { unique: true });
+          await db.collection('user_roles').createIndex({ _orgId: 1 });
+        } else {
+          await db.collection('user_roles').createIndex({ userId: 1, roleId: 1 }, { unique: true });
+        }
+        await db.collection('user_roles').createIndex({ userId: 1 });
+        await db.collection('user_roles').createIndex({ roleId: 1 });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('user_roles').drop();
       }
-      await db.collection('user_roles').createIndex({ userId: 1 });
-      await db.collection('user_roles').createIndex({ roleId: 1 });
-    },
-    down: async ({ context: db }) => {
-      await db.collection('user_roles').drop();
-    }
-  });
+    });
 
   // 6. FEATURES
-  migrations.push({
-    name: '00000000000006_schema-features',
-    up: async ({ context: db }) => {
-      await db.createCollection('features');
-      if (isMultiTenant) {
-        await db.collection('features').createIndex({ _orgId: 1, name: 1 }, { unique: true });
-        await db.collection('features').createIndex({ _orgId: 1 });
-      } else {
-        await db.collection('features').createIndex({ name: 1 }, { unique: true });
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000006_schema-features',
+      up: async ({ context: db }) => {
+        await db.createCollection('features');
+        if (isMultiTenant) {
+          await db.collection('features').createIndex({ _orgId: 1, name: 1 }, { unique: true });
+          await db.collection('features').createIndex({ _orgId: 1 });
+        } else {
+          await db.collection('features').createIndex({ name: 1 }, { unique: true });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('features').drop();
       }
-    },
-    down: async ({ context: db }) => {
-      await db.collection('features').drop();
-    }
-  });
+    });
 
   // 7. AUTHORIZATIONS
-  migrations.push({
-    name: '00000000000007_schema-authorizations',
-    up: async ({ context: db }) => {
-      await db.createCollection('authorizations');
-      if (isMultiTenant) {
-        await db.collection('authorizations').createIndex({ _orgId: 1, roleId: 1, featureId: 1 }, { unique: true });
-        await db.collection('authorizations').createIndex({ _orgId: 1 });
-      } else {
-        await db.collection('authorizations').createIndex({ roleId: 1, featureId: 1 }, { unique: true });
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000007_schema-authorizations',
+      up: async ({ context: db }) => {
+        await db.createCollection('authorizations');
+        if (isMultiTenant) {
+          await db.collection('authorizations').createIndex({ _orgId: 1, roleId: 1, featureId: 1 }, { unique: true });
+          await db.collection('authorizations').createIndex({ _orgId: 1 });
+        } else {
+          await db.collection('authorizations').createIndex({ roleId: 1, featureId: 1 }, { unique: true });
+        }
+        await db.collection('authorizations').createIndex({ roleId: 1 });
+        await db.collection('authorizations').createIndex({ featureId: 1 });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('authorizations').drop();
       }
-      await db.collection('authorizations').createIndex({ roleId: 1 });
-      await db.collection('authorizations').createIndex({ featureId: 1 });
-    },
-    down: async ({ context: db }) => {
-      await db.collection('authorizations').drop();
-    }
-  });
+    });
 
   // 8. META ORG (only for multi-tenant)
-  if (isMultiTenant && config.app.metaOrgName && config.app.metaOrgCode) {
+  if (isMultiTenant) {
     migrations.push({
       name: '00000000000008_data-meta-org',
       up: async ({ context: db }) => {
         const _id = randomUUID().toString();
         const metaOrg = {
           _id,
-          name: config.app.metaOrgName!,
-          code: config.app.metaOrgCode!,
+          name: config.multiTenant!.metaOrgName,
+          code: config.multiTenant!.metaOrgCode,
           description: undefined,
           status: 1,
           isMetaOrg: true,
@@ -178,16 +197,12 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
   }
 
   // 9. ADMIN USER (only if adminUser config is provided)
-  if (config.auth && config.auth.adminUser) {
+  if (isAuthEnabled) {
     migrations.push({
       name: '00000000000009_data-admin-user',
       up: async ({ context: db }) => {
-        if (!config.auth?.adminUser?.email || !config.auth?.adminUser?.password) {
-          throw new Error('Admin user email and password must be provided in config');
-        }
-
         const database = new MongoDBDatabase(db);
-        const authService = new AuthService(database);
+        const authService = new AuthService(database, emailClient!);
 
         // SystemUserContext MUST be initialized before this migration runs
         // For multi-tenant: meta-org migration should have initialized it
@@ -195,10 +210,10 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
         if (!isSystemUserContextInitialized()) {
           const errorMessage = isMultiTenant
             ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000008_data-meta-org) should have run before this migration. ' +
-              'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
-              'Please ensure both values are set in your config.'
+            'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
+            'Please ensure both values are set in your config.'
             : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
-          
+
           console.error('❌ Migration Error:', errorMessage);
           throw new Error(errorMessage);
         }
@@ -229,20 +244,18 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
     migrations.push({
       name: '00000000000010_data-admin-authorizations',
       up: async ({ context: db }) => {
-        if (!config.auth?.adminUser?.email) {
-          throw new Error('Admin user email not found in config');
-        }
+
 
         const database = new MongoDBDatabase(db);
         const organizationService = new OrganizationService(database);
-        const authService = new AuthService(database);
+        const authService = new AuthService(database, emailClient!);
 
         const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
         if (!metaOrg) {
           throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
         }
 
-        const adminUser = await authService.getUserByEmail(config.auth?.adminUser?.email);
+        const adminUser = await authService.getUserByEmail(config.auth!.adminUser.email);
         if (!adminUser) {
           throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
         }

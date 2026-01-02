@@ -3,6 +3,7 @@ import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
+import { IEmailClient } from '../../../models/email-client.interface.js';
 
 // Define the interface Umzug expects for code-based migrations
 export interface SyntheticMigration {
@@ -11,9 +12,22 @@ export interface SyntheticMigration {
   down: (context: { context: Pool }) => Promise<void>;
 }
 
-export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigration[] => {
+export const getPostgresInitialSchema = (config: IBaseApiConfig, emailClient?: IEmailClient): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
-  const isMultiTenant = config.app.isMultiTenant === true;
+
+  const isMultiTenant = config.app.isMultiTenant;
+  if (isMultiTenant && !config.multiTenant) {
+    throw new Error('Multi-tenant configuration is enabled but multi-tenant configuration is not provided');
+  }
+
+  const isAuthEnabled = config.app.isAuthEnabled;
+  if (isAuthEnabled && !config.auth) {
+    throw new Error('Auth enabled without auth configuration');
+  }
+
+  if (isAuthEnabled && (!emailClient || !config.email)) {
+    throw new Error('Auth enabled without email client or email configuration');
+  }
 
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
@@ -45,15 +59,16 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
   }
 
   // 2. USERS
-  migrations.push({
-    name: '00000000000002_schema-users',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-      const uniqueConstraint = isMultiTenant
-        ? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
-        : 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000002_schema-users',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        const uniqueConstraint = isMultiTenant
+          ? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
+          : 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
 
-      await pool.query(`
+        await pool.query(`
         CREATE TABLE IF NOT EXISTS "users" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
@@ -73,19 +88,20 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ${uniqueConstraint}
         )
       `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "users"');
-    }
-  });
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "users"');
+      }
+    });
 
   // 3. REFRESH TOKENS
-  migrations.push({
-    name: '00000000000003_schema-refresh-tokens',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000003_schema-refresh-tokens',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
-      await pool.query(`
+        await pool.query(`
         CREATE TABLE IF NOT EXISTS "refreshTokens" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
@@ -98,22 +114,23 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           CONSTRAINT "fk_refreshTokens_user" FOREIGN KEY ("userId") REFERENCES "users"("_id") ON DELETE CASCADE
         )
       `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "refreshTokens"');
-    }
-  });
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "refreshTokens"');
+      }
+    });
 
   // 4. ROLES
-  migrations.push({
-    name: '00000000000004_schema-roles',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-      const uniqueConstraint = isMultiTenant
-        ? 'CONSTRAINT "uk_roles_name" UNIQUE ("_orgId", "name")'
-        : 'CONSTRAINT "uk_roles_name" UNIQUE ("name")';
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000004_schema-roles',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        const uniqueConstraint = isMultiTenant
+          ? 'CONSTRAINT "uk_roles_name" UNIQUE ("_orgId", "name")'
+          : 'CONSTRAINT "uk_roles_name" UNIQUE ("name")';
 
-      await pool.query(`
+        await pool.query(`
         CREATE TABLE IF NOT EXISTS "roles" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
@@ -122,22 +139,23 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ${uniqueConstraint}
         )
       `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "roles"');
-    }
-  });
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "roles"');
+      }
+    });
 
   // 5. USER ROLES
-  migrations.push({
-    name: '00000000000005_schema-user-roles',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-      const uniqueConstraint = isMultiTenant
-        ? 'CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "userId", "roleId")'
-        : 'CONSTRAINT "uk_user_roles" UNIQUE ("userId", "roleId")';
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000005_schema-user-roles',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        const uniqueConstraint = isMultiTenant
+          ? 'CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "userId", "roleId")'
+          : 'CONSTRAINT "uk_user_roles" UNIQUE ("userId", "roleId")';
 
-      await pool.query(`
+        await pool.query(`
         CREATE TABLE IF NOT EXISTS "user_roles" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
@@ -154,22 +172,23 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ${uniqueConstraint}
         )
       `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "user_roles"');
-    }
-  });
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "user_roles"');
+      }
+    });
 
   // 6. FEATURES
-  migrations.push({
-    name: '00000000000006_schema-features',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-      const uniqueConstraint = isMultiTenant
-        ? 'CONSTRAINT "uk_features" UNIQUE ("_orgId", "name")'
-        : 'CONSTRAINT "uk_features" UNIQUE ("name")';
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000006_schema-features',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        const uniqueConstraint = isMultiTenant
+          ? 'CONSTRAINT "uk_features" UNIQUE ("_orgId", "name")'
+          : 'CONSTRAINT "uk_features" UNIQUE ("name")';
 
-      await pool.query(`
+        await pool.query(`
         CREATE TABLE IF NOT EXISTS "features" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
@@ -178,22 +197,23 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ${uniqueConstraint}
         )
       `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "features"');
-    }
-  });
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "features"');
+      }
+    });
 
   // 7. AUTHORIZATIONS
-  migrations.push({
-    name: '00000000000007_schema-authorizations',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-      const uniqueConstraint = isMultiTenant
-        ? 'CONSTRAINT "uk_authorizations" UNIQUE ("_orgId", "roleId", "featureId")'
-        : 'CONSTRAINT "uk_authorizations" UNIQUE ("roleId", "featureId")';
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000007_schema-authorizations',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        const uniqueConstraint = isMultiTenant
+          ? 'CONSTRAINT "uk_authorizations" UNIQUE ("_orgId", "roleId", "featureId")'
+          : 'CONSTRAINT "uk_authorizations" UNIQUE ("roleId", "featureId")';
 
-      await pool.query(`
+        await pool.query(`
         CREATE TABLE IF NOT EXISTS "authorizations" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
@@ -213,14 +233,14 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ${uniqueConstraint}
         )
       `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "authorizations"');
-    }
-  });
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "authorizations"');
+      }
+    });
 
   // 8. META ORG (only for multi-tenant)
-  if (isMultiTenant && config.app.metaOrgName && config.app.metaOrgCode) {
+  if (isMultiTenant) {
     migrations.push({
       name: '00000000000008_data-meta-org',
       up: async ({ context: pool }) => {
@@ -228,7 +248,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           INSERT INTO "organizations" ("name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
           VALUES ($1, $2, 1, true, NOW(), 0, NOW(), 0)
           RETURNING "_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy"
-        `, [config.app.metaOrgName, config.app.metaOrgCode]);
+        `, [config.multiTenant?.metaOrgName, config.multiTenant?.metaOrgCode]);
 
         if (result.rowCount === 0) {
           throw new Error('Failed to create meta organization');
@@ -246,20 +266,16 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
     });
   }
 
-  // 9. ADMIN USER (only if adminUser config is provided)
-  if (config.auth?.adminUser?.email && config.auth?.adminUser?.password) {
+  // 9. ADMIN USER
+  if (isAuthEnabled) {
     migrations.push({
       name: '00000000000009_data-admin-user',
       up: async ({ context: pool }) => {
-        if (!config.auth?.adminUser?.email || !config.auth?.adminUser?.password) {
-          throw new Error('Admin user email and password must be provided in config');
-        }
-
         // Get a client from the pool to use with PostgresDatabase
         const client = await pool.connect();
         try {
           const database = new PostgresDatabase(client as unknown as Client);
-          const authService = new AuthService(database);
+          const authService = new AuthService(database, emailClient!);
 
           // SystemUserContext MUST be initialized before this migration runs
           // For multi-tenant: meta-org migration should have initialized it
@@ -267,10 +283,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           if (!isSystemUserContextInitialized()) {
             const errorMessage = isMultiTenant
               ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000008_data-meta-org) should have run before this migration. ' +
-                'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
-                'Please ensure both values are set in your config.'
+              'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
+              'Please ensure both values are set in your config.'
               : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
-            
+
             console.error('❌ Migration Error:', errorMessage);
             throw new Error(errorMessage);
           }
@@ -305,21 +321,17 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
     });
   }
 
-  // 10. ADMIN AUTHORIZATION (only if adminUser config is provided)
-  if (config.auth?.adminUser?.email) {
+  // 10. ADMIN AUTHORIZATION (only if auth config is provided)
+  if (config.auth) {
     migrations.push({
       name: '00000000000010_data-admin-authorizations',
       up: async ({ context: pool }) => {
-        if (!config.auth?.adminUser?.email) {
-          throw new Error('Admin user email not found in config');
-        }
-
         // Get a client from the pool to use with services
         const client = await pool.connect();
         try {
           const database = new PostgresDatabase(client as unknown as Client);
           const organizationService = new OrganizationService(database);
-          const authService = new AuthService(database);
+          const authService = new AuthService(database, emailClient!);
 
           // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
           const metaOrg = isMultiTenant ? await organizationService.getMetaOrg(EmptyUserContext) : undefined;
@@ -327,7 +339,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
           }
 
-          const adminUser = await authService.getUserByEmail(config.auth?.adminUser?.email);
+          const adminUser = await authService.getUserByEmail(config.auth!.adminUser.email);
           if (!adminUser) {
             throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
           }
