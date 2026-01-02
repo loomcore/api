@@ -1,6 +1,6 @@
 import { Pool, Client } from 'pg';
 import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
-import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext } from '@loomcore/common/models';
+import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
 
@@ -14,6 +14,16 @@ export interface SyntheticMigration {
 export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
   const isMultiTenant = config.app.isMultiTenant === true;
+
+  // Diagnostic: Log config values that determine which migrations are added
+  console.log('📋 Migration Config Diagnostic:');
+  console.log('  isMultiTenant:', isMultiTenant);
+  console.log('  config.app.metaOrgName:', config.app.metaOrgName ?? '(undefined)');
+  console.log('  config.app.metaOrgCode:', config.app.metaOrgCode ?? '(undefined)');
+  console.log('  config.auth?.adminUser?.email:', config.auth?.adminUser?.email ?? '(undefined)');
+  console.log('  config.auth?.adminUser?.password:', config.auth?.adminUser?.password ? '(set)' : '(undefined)');
+  console.log('  Will add meta-org migration:', isMultiTenant && !!config.app.metaOrgName && !!config.app.metaOrgCode);
+  console.log('  Will add admin-user migration:', !!config.auth?.adminUser?.email && !!config.auth?.adminUser?.password);
 
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
@@ -261,35 +271,26 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           const database = new PostgresDatabase(client as unknown as Client);
           const authService = new AuthService(database);
 
-          // Get system user context
-          // For multi-tenant, this should be initialized by meta-org migration
-          // For non-multi-tenant, it should be initialized before migrations run
-          let systemUserContext = getSystemUserContext();
-          if (!systemUserContext) {
-            throw new Error('SystemUserContext has not been initialized. For non-multi-tenant setups, initialize it before running migrations.');
+          // For multi-tenant, SystemUserContext MUST be initialized by meta-org migration
+          // If it's not initialized, the meta-org migration didn't run (bug: missing config.app.metaOrgName or config.app.metaOrgCode)
+          if (isMultiTenant && !isSystemUserContextInitialized()) {
+            throw new Error(
+              'SystemUserContext has not been initialized. The meta-org migration (00000000000008_data-meta-org) should have run before this migration. ' +
+              'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
+              'Please ensure both values are set in your config.'
+            );
           }
 
-          // For multi-tenant, ensure the systemUserContext has an organization
-          // If meta-org migration ran, it should have set it, but let's verify
-          if (isMultiTenant) {
-            if (!systemUserContext.organization?._id) {
-              // Try to get the meta org and re-initialize the context
-              const organizationService = new OrganizationService(database);
-              const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
-              if (metaOrg) {
-                initializeSystemUserContext(
-                  config.email?.systemEmailAddress || 'system@example.com',
-                  metaOrg
-                );
-                systemUserContext = getSystemUserContext();
-              }
-              // If meta-org still doesn't exist, this is a configuration error
-              // Admin user creation is mandatory and requires a meta-org in multi-tenant mode
-              if (!systemUserContext?.organization?._id) {
-                throw new Error('Cannot create admin user: Multi-tenant mode is enabled but meta-org does not exist. Ensure metaOrgName and metaOrgCode are provided in config so the meta-org migration runs before the admin-user migration.');
-              }
-            }
+          // For non-multi-tenant, initialize with undefined org if not already initialized
+          if (!isMultiTenant && !isSystemUserContextInitialized()) {
+            initializeSystemUserContext(
+              config.email?.systemEmailAddress || 'system@example.com',
+              undefined
+            );
           }
+
+          // Get the system user context (now guaranteed to be initialized)
+          const systemUserContext = getSystemUserContext();
 
           // Only include _orgId if multi-tenant (non-multi-tenant users table doesn't have _orgId column)
           const userData: any = {

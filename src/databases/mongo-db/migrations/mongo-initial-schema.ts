@@ -1,7 +1,7 @@
 import { Db } from 'mongodb';
 import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
 import { randomUUID } from 'crypto';
-import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext } from '@loomcore/common/models';
+import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { MongoDBDatabase } from '../mongo-db.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
 
@@ -14,6 +14,16 @@ export interface SyntheticMigration {
 export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
   const isMultiTenant = config.app.isMultiTenant === true;
+
+  // Diagnostic: Log config values that determine which migrations are added
+  console.log('📋 Migration Config Diagnostic:');
+  console.log('  isMultiTenant:', isMultiTenant);
+  console.log('  config.app.metaOrgName:', config.app.metaOrgName ?? '(undefined)');
+  console.log('  config.app.metaOrgCode:', config.app.metaOrgCode ?? '(undefined)');
+  console.log('  config.auth?.adminUser?.email:', config.auth?.adminUser?.email ?? '(undefined)');
+  console.log('  config.auth?.adminUser?.password:', config.auth?.adminUser?.password ? '(set)' : '(undefined)');
+  console.log('  Will add meta-org migration:', isMultiTenant && !!config.app.metaOrgName && !!config.app.metaOrgCode);
+  console.log('  Will add admin-user migration:', !!config.auth?.adminUser?.email && !!config.auth?.adminUser?.password);
 
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
@@ -182,14 +192,32 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): SyntheticMigratio
     migrations.push({
       name: '00000000000009_data-admin-user',
       up: async ({ context: db }) => {
-        if (config.auth?.adminUser?.email || !config.auth?.adminUser?.password) {
+        if (!config.auth?.adminUser?.email || !config.auth?.adminUser?.password) {
           throw new Error('Admin user email and password must be provided in config');
         }
 
         const database = new MongoDBDatabase(db);
         const authService = new AuthService(database);
 
-        // Get system user context (should be initialized by meta-org migration if multi-tenant)
+        // For multi-tenant, SystemUserContext MUST be initialized by meta-org migration
+        // If it's not initialized, the meta-org migration didn't run (bug: missing config.app.metaOrgName or config.app.metaOrgCode)
+        if (isMultiTenant && !isSystemUserContextInitialized()) {
+          throw new Error(
+            'SystemUserContext has not been initialized. The meta-org migration (00000000000008_data-meta-org) should have run before this migration. ' +
+            'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
+            'Please ensure both values are set in your config.'
+          );
+        }
+
+        // For non-multi-tenant, initialize with undefined org if not already initialized
+        if (!isMultiTenant && !isSystemUserContextInitialized()) {
+          initializeSystemUserContext(
+            config.email?.systemEmailAddress || 'system@example.com',
+            undefined
+          );
+        }
+
+        // Get the system user context (now guaranteed to be initialized)
         const systemUserContext = getSystemUserContext();
 
         const _id = randomUUID().toString();
