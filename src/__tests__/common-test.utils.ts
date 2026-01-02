@@ -314,8 +314,6 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
     },
     env: 'test',
     email: {
-      emailApiKey: 'WeDontHaveAKeyYet',
-      emailApiSecret: 'WeDontHaveASecretYet',
       fromAddress: 'test@test.com',
       systemEmailAddress: 'system@test.com'
     },
