@@ -15,16 +15,6 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
   const migrations: SyntheticMigration[] = [];
   const isMultiTenant = config.app.isMultiTenant === true;
 
-  // Diagnostic: Log config values that determine which migrations are added
-  console.log('📋 Migration Config Diagnostic:');
-  console.log('  isMultiTenant:', isMultiTenant);
-  console.log('  config.app.metaOrgName:', config.app.metaOrgName ?? '(undefined)');
-  console.log('  config.app.metaOrgCode:', config.app.metaOrgCode ?? '(undefined)');
-  console.log('  config.auth?.adminUser?.email:', config.auth?.adminUser?.email ?? '(undefined)');
-  console.log('  config.auth?.adminUser?.password:', config.auth?.adminUser?.password ? '(set)' : '(undefined)');
-  console.log('  Will add meta-org migration:', isMultiTenant && !!config.app.metaOrgName && !!config.app.metaOrgCode);
-  console.log('  Will add admin-user migration:', !!config.auth?.adminUser?.email && !!config.auth?.adminUser?.password);
-
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
@@ -271,22 +261,18 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           const database = new PostgresDatabase(client as unknown as Client);
           const authService = new AuthService(database);
 
-          // For multi-tenant, SystemUserContext MUST be initialized by meta-org migration
-          // If it's not initialized, the meta-org migration didn't run (bug: missing config.app.metaOrgName or config.app.metaOrgCode)
-          if (isMultiTenant && !isSystemUserContextInitialized()) {
-            throw new Error(
-              'SystemUserContext has not been initialized. The meta-org migration (00000000000008_data-meta-org) should have run before this migration. ' +
-              'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
-              'Please ensure both values are set in your config.'
-            );
-          }
-
-          // For non-multi-tenant, initialize with undefined org if not already initialized
-          if (!isMultiTenant && !isSystemUserContextInitialized()) {
-            initializeSystemUserContext(
-              config.email?.systemEmailAddress || 'system@example.com',
-              undefined
-            );
+          // SystemUserContext MUST be initialized before this migration runs
+          // For multi-tenant: meta-org migration should have initialized it
+          // For non-multi-tenant: should be initialized before migrations run (bug if not)
+          if (!isSystemUserContextInitialized()) {
+            const errorMessage = isMultiTenant
+              ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000008_data-meta-org) should have run before this migration. ' +
+                'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
+                'Please ensure both values are set in your config.'
+              : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
+            
+            console.error('❌ Migration Error:', errorMessage);
+            throw new Error(errorMessage);
           }
 
           // Get the system user context (now guaranteed to be initialized)
