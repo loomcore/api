@@ -257,7 +257,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         entityUtils.handleValidationResult(validationErrors, 'AuthService.resetPassword');
 
         // update user password
-        const result = await this.changePassword(EmptyUserContext, { email: lowerCaseEmail }, password);
+        const result = await this.changePassword(getSystemUserContext(), { email: lowerCaseEmail }, password);
         console.log(`password changed using forgot-password for email: ${lowerCaseEmail}`);
 
         // delete passwordResetToken
