@@ -71,16 +71,16 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, emailClient?: IEma
     migrations.push({
       name: '00000000000003_schema-refresh-tokens',
       up: async ({ context: db }) => {
-        await db.createCollection('refreshTokens');
-        await db.collection('refreshTokens').createIndex({ token: 1 }, { unique: true });
-        await db.collection('refreshTokens').createIndex({ userId: 1 });
-        await db.collection('refreshTokens').createIndex({ deviceId: 1 });
+        await db.createCollection('refresh_tokens');
+        await db.collection('refresh_tokens').createIndex({ token: 1 }, { unique: true });
+        await db.collection('refresh_tokens').createIndex({ userId: 1 });
+        await db.collection('refresh_tokens').createIndex({ deviceId: 1 });
         if (isMultiTenant) {
-          await db.collection('refreshTokens').createIndex({ _orgId: 1 });
+          await db.collection('refresh_tokens').createIndex({ _orgId: 1 });
         }
       },
       down: async ({ context: db }) => {
-        await db.collection('refreshTokens').drop();
+        await db.collection('refresh_tokens').drop();
       }
     });
 

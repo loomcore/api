@@ -14,7 +14,7 @@ describe.skipIf(!isPostgres)('setupDatabaseForAuth', () => {
     let pool: Pool;
 
     beforeAll(async () => {
-        setupTestConfig(false);
+        setupTestConfig(false, 'postgres');
 
         // Create a fresh in-memory PostgreSQL database for each test suite
         const { Client } = newDb().adapters.createPg();
@@ -40,7 +40,7 @@ describe.skipIf(!isPostgres)('setupDatabaseForAuth', () => {
         }
     });
 
-    it('should create schema migrations for users, refreshTokens, roles, user_roles, features, and authorizations', async () => {
+    it('should create schema migrations for users, refresh_tokens, reset_password_tokens, roles, user_roles, features, and authorizations', async () => {
         // Act 
         // Query migrations table to verify migration names exist
         const migrationsResult = await client.query(`
@@ -64,16 +64,17 @@ describe.skipIf(!isPostgres)('setupDatabaseForAuth', () => {
         // Verify we have the expected schema migrations
         expect(migrationNames).toContain('00000000000002_schema-users');
         expect(migrationNames).toContain('00000000000003_schema-refresh-tokens');
-        expect(migrationNames).toContain('00000000000004_schema-roles');
-        expect(migrationNames).toContain('00000000000005_schema-user-roles');
-        expect(migrationNames).toContain('00000000000006_schema-features');
-        expect(migrationNames).toContain('00000000000007_schema-authorizations');
-        
+        expect(migrationNames).toContain('00000000000004_schema-password-reset-tokens');
+        expect(migrationNames).toContain('00000000000005_schema-roles');
+        expect(migrationNames).toContain('00000000000006_schema-user-roles');
+        expect(migrationNames).toContain('00000000000007_schema-features');
+        expect(migrationNames).toContain('00000000000008_schema-authorizations');
+
         // Admin user and authorizations are only created if adminUser config is provided
         // Check if they exist (they should if config.adminUser is set)
-        if (config.adminUser?.email) {
-            expect(migrationNames).toContain('00000000000009_data-admin-user');
-            expect(migrationNames).toContain('00000000000010_data-admin-authorizations');
+        if (config.app.isAuthEnabled) {
+            expect(migrationNames).toContain('00000000000010_data-admin-user');
+            expect(migrationNames).toContain('00000000000011_data-admin-authorizations');
         }
     });
 

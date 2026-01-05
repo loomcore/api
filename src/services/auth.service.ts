@@ -28,7 +28,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
     private authConfig: IAuthConfig;
     constructor(database: IDatabase, emailClient: IEmailClient) {
         super(database, 'users', 'user', UserSpec);
-        this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
+        this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refresh_tokens', 'refresh_token', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
         this.emailService = new EmailService(emailClient);
         this.organizationService = new OrganizationService(database);

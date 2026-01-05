@@ -5,7 +5,7 @@ import { GenericApiService } from './generic-api-service/generic-api.service.js'
 
 export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
 	constructor(database: IDatabase) {
-		super(database, 'passwordResetTokens', 'passwordResetToken', PasswordResetTokenSpec);
+		super(database, 'password_reset_tokens', 'password_reset_token', PasswordResetTokenSpec);
 	}
 
 	async createPasswordResetToken(email: string, expiresOn: number): Promise<IPasswordResetToken | null> {
