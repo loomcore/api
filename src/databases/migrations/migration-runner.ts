@@ -83,7 +83,13 @@ export class MigrationRunner {
     }
 
     if (this.dbType === 'postgres') {
-      const pool = new Pool({ connectionString: this.dbUrl });
+      const pool = new Pool({
+        host: this.config.database.host,
+        user: this.config.database.username,
+        password: this.config.database.password,
+        port: this.config.database.port,
+        database: this.config.database.name
+      });
       this.dbConnection = pool;
 
       return new Umzug({
@@ -209,7 +215,13 @@ export class MigrationRunner {
     console.log(`⚠️  Wiping ${this.dbType} database...`);
 
     if (this.dbType === 'postgres') {
-      const pool = new Pool({ connectionString: this.dbUrl });
+      const pool = new Pool({
+        host: this.config.database.host,
+        user: this.config.database.username,
+        password: this.config.database.password,
+        port: this.config.database.port,
+        database: this.config.database.name
+      });
       try {
         await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
       } finally {
