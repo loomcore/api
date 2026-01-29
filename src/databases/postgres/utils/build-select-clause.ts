@@ -65,14 +65,14 @@ export async function buildSelectClause(
         }
     }
 
-    // Handle JoinMany operations (many-to-one) - these are now handled via LATERAL joins in FROM clause
-    // Just select the aggregated JSON from the LATERAL join
+    // Handle JoinMany operations (many-to-one) - handled via LATERAL joins in FROM clause
+    // Select the aggregated JSON array from the LATERAL join
     for (const joinMany of joinManyOperations) {
         joinSelects.push(`${joinMany.as}.aggregated AS "${joinMany.as}"`);
     }
 
-    // Handle JoinThrough operations (many-to-many via join table) - these are now handled via LATERAL joins in FROM clause
-    // Just select the aggregated JSON from the LATERAL join
+    // Handle JoinThrough operations (many-to-many via join table) - handled via LATERAL joins in FROM clause
+    // Select the aggregated JSON array from the LATERAL join
     for (const joinThrough of joinThroughOperations) {
         joinSelects.push(`${joinThrough.as}.aggregated AS "${joinThrough.as}"`);
     }
