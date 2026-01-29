@@ -6,6 +6,7 @@ import { Operation } from '../../operations/operation.js';
 
 export function convertOperationsToPipeline(operations: Operation[]): Document[] {
 	let pipeline: Document[] = [];
+	const processedOperations: Operation[] = [];
 
 	operations.forEach(operation => {
 		if (operation instanceof Join) {
@@ -85,9 +86,13 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 			}
 		} else if (operation instanceof JoinMany) {
 			// Many-to-one join: lookup without unwind (keep as array)
+			// Use let/pipeline syntax if:
+			// 1. foreignField is '_id' (needs ObjectId conversion), OR
+			// 2. localField contains '.' (nested field reference from a joined table)
 			const needsObjectIdConversion = operation.foreignField === '_id';
+			const isNestedField = operation.localField.includes('.');
 			
-			if (needsObjectIdConversion) {
+			if (needsObjectIdConversion || isNestedField) {
 				pipeline.push(
 					{
 						$lookup: {
@@ -110,6 +115,36 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 						}
 					}
 				);
+				
+				// If localField references a nested field (e.g., "person._id"), 
+				// nest the result under that joined object
+				if (isNestedField) {
+					const [parentAlias] = operation.localField.split('.');
+					// Find the parent join operation that was already processed
+					const parentJoin = processedOperations.find(op => 
+						op instanceof Join && op.as === parentAlias
+					);
+					
+					if (parentJoin) {
+						// Merge the array into the parent object using $mergeObjects
+						pipeline.push({
+							$addFields: {
+								[parentAlias]: {
+									$mergeObjects: [
+										`$${parentAlias}`,
+										{ [operation.as]: `$${operation.as}` }
+									]
+								}
+							}
+						});
+						// Remove from root level
+						pipeline.push({
+							$project: {
+								[operation.as]: 0
+							}
+						});
+					}
+				}
 			} else {
 				pipeline.push(
 					{
@@ -125,9 +160,13 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 		} else if (operation instanceof JoinThrough) {
 			// Many-to-many join through intermediate collection: nested lookup
 			// First lookup the join table, then lookup the target collection
+			// Use let/pipeline syntax if:
+			// 1. foreignField is '_id' (needs ObjectId conversion), OR
+			// 2. localField contains '.' (nested field reference from a joined table)
 			const needsObjectIdConversion = operation.foreignField === '_id';
+			const isNestedField = operation.localField.includes('.');
 			
-			if (needsObjectIdConversion) {
+			if (needsObjectIdConversion || isNestedField) {
 				pipeline.push(
 					{
 						$lookup: {
@@ -141,7 +180,16 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 								{
 									$match: {
 										$expr: {
-											$eq: [`$${operation.throughLocalField}`, '$$localId']
+											$eq: [
+												{
+													$cond: [
+														{ $eq: [{ $type: `$${operation.throughLocalField}` }, 'string'] },
+														{ $toObjectId: `$${operation.throughLocalField}` },
+														`$${operation.throughLocalField}`
+													]
+												},
+												'$$localId'
+											]
 										}
 									}
 								}
@@ -167,7 +215,16 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 								{
 									$match: {
 										$expr: {
-											$eq: [`$${operation.foreignField}`, '$$foreignId']
+											$eq: [
+												{
+													$cond: [
+														{ $eq: [{ $type: `$${operation.foreignField}` }, 'string'] },
+														{ $toObjectId: `$${operation.foreignField}` },
+														`$${operation.foreignField}`
+													]
+												},
+												'$$foreignId'
+											]
 										}
 									}
 								}
@@ -196,22 +253,86 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 						}
 					}
 				);
+				
+				// If localField references a nested field (e.g., "person._id"), 
+				// nest the result under that joined object
+				if (isNestedField) {
+					const [parentAlias] = operation.localField.split('.');
+					// Find the parent join operation that was already processed
+					const parentJoin = processedOperations.find(op => 
+						op instanceof Join && op.as === parentAlias
+					);
+					
+					if (parentJoin) {
+						// Merge the array into the parent object using $mergeObjects
+						// Use $ifNull to ensure parentAlias exists, then merge the new field
+						pipeline.push({
+							$set: {
+								[parentAlias]: {
+									$mergeObjects: [
+										{ $ifNull: [`$${parentAlias}`, {}] },
+										{ [operation.as]: `$${operation.as}` }
+									]
+								}
+							}
+						});
+						// Remove from root level
+						pipeline.push({
+							$unset: operation.as
+						});
+					}
+				}
 			} else {
+				// For non-ObjectId fields, check if we need nested field handling
+				const isNestedFieldElse = operation.localField.includes('.');
+				
+				if (isNestedFieldElse) {
+					// Use let/pipeline syntax for nested field references
+					pipeline.push(
+						{
+							$lookup: {
+								from: operation.through,
+								let: { localId: `$${operation.localField}` },
+								pipeline: [
+									{
+										$match: {
+											$expr: {
+												$eq: [`$${operation.throughLocalField}`, '$$localId']
+											}
+										}
+									}
+								],
+								as: `${operation.as}_through`
+							}
+						},
+						{
+							$unwind: {
+								path: `$${operation.as}_through`,
+								preserveNullAndEmptyArrays: true
+							}
+						},
+					);
+				} else {
+					pipeline.push(
+						{
+							$lookup: {
+								from: operation.through,
+								localField: operation.localField,
+								foreignField: operation.throughLocalField,
+								as: `${operation.as}_through`
+							}
+						},
+						{
+							$unwind: {
+								path: `$${operation.as}_through`,
+								preserveNullAndEmptyArrays: true
+							}
+						},
+					);
+				}
+				
+				// Continue with the rest of the JoinThrough pipeline
 				pipeline.push(
-					{
-						$lookup: {
-							from: operation.through,
-							localField: operation.localField,
-							foreignField: operation.throughLocalField,
-							as: `${operation.as}_through`
-						}
-					},
-					{
-						$unwind: {
-							path: `$${operation.as}_through`,
-							preserveNullAndEmptyArrays: true
-						}
-					},
 					{
 						$lookup: {
 							from: operation.from,
@@ -241,8 +362,41 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 						}
 					}
 				);
+				
+				// If localField references a nested field (e.g., "person._id"), 
+				// nest the result under that joined object
+				if (isNestedFieldElse) {
+					const [parentAlias] = operation.localField.split('.');
+					// Find the parent join operation that was already processed
+					const parentJoin = processedOperations.find(op => 
+						op instanceof Join && op.as === parentAlias
+					);
+					
+					if (parentJoin) {
+						// Merge the array into the parent object using $mergeObjects
+						pipeline.push({
+							$addFields: {
+								[parentAlias]: {
+									$mergeObjects: [
+										`$${parentAlias}`,
+										{ [operation.as]: `$${operation.as}` }
+									]
+								}
+							}
+						});
+						// Remove from root level
+						pipeline.push({
+							$project: {
+								[operation.as]: 0
+							}
+						});
+					}
+				}
 			}
 		}
+		
+		// Track this operation as processed
+		processedOperations.push(operation);
 	});
 
 	return pipeline;

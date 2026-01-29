@@ -55,7 +55,10 @@ const CustomerSchema = Type.Object({
 const orderModelSpec = entityUtils.getModelSpec(OrderSchema);
 const customerModelSpec = entityUtils.getModelSpec(CustomerSchema);
 
-describe('MongoDBDatabase - Join Operations', () => {
+// Skip this test suite if not running with MongoDB
+const isMongo = process.env.TEST_DATABASE === 'mongodb';
+
+describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
   let mongoServer: MongoMemoryServer;
   let mongoClient: MongoClient;
   let db: Db;

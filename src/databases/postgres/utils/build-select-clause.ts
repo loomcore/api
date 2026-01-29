@@ -43,7 +43,7 @@ export async function buildSelectClause(
     const joinOperations = operations.filter(op => op instanceof Join) as Join[];
     const joinManyOperations = operations.filter(op => op instanceof JoinMany) as JoinMany[];
     const joinThroughOperations = operations.filter(op => op instanceof JoinThrough) as JoinThrough[];
-    
+
     // Get main table columns
     // Use the table name directly (with quotes) since we don't alias the main table in FROM
     const mainTableColumns = await getTableColumns(client, mainTableName);

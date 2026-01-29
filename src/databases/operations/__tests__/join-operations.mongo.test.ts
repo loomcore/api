@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Client } from 'pg';
-import { TestPostgresDatabase } from '../../../__tests__/postgres.test-database.js';
-import { setupTestConfig } from '../../../__tests__/common-test.utils.js';
-import { PostgresDatabase } from '../../postgres/postgres.database.js';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoClient, Db, ObjectId, Collection } from 'mongodb';
+import { TestExpressApp } from '../../../__tests__/test-express-app.js';
+import { MongoDBDatabase } from '../../mongo-db/mongo-db.database.js';
+import { convertObjectIdsToStrings } from '../../mongo-db/utils/convert-object-ids-to-strings.util.js';
 import { Join } from '../join.operation.js';
 import { JoinMany } from '../join-many.operation.js';
 import { JoinThrough } from '../join-through.operation.js';
@@ -13,115 +14,184 @@ import { IPersonModel } from './models/person.model.js';
 import { IEmailAddressModel } from './models/email-address.model.js';
 import { IPhoneNumberModel } from './models/phone-number.model.js';
 
-// Skip this test suite if not running with PostgreSQL
-const isPostgres = process.env.TEST_DATABASE === 'postgres';
-const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
+// Skip this test suite if not running with MongoDB
+const isMongo = process.env.TEST_DATABASE === 'mongodb';
 
-describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data Joining', () => {
-    let database: PostgresDatabase;
-    let client: Client;
-    let testDatabase: TestPostgresDatabase;
-    let personId: number;
-    let clientId: number;
-    let emailAddress1Id: number;
-    let emailAddress2Id: number;
-    let phoneNumber1Id: number;
-    let phoneNumber2Id: number;
+describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', () => {
+    let mongoServer: MongoMemoryServer;
+    let mongoClient: MongoClient;
+    let db: Db;
+    let database: MongoDBDatabase;
+    let personId: string;
+    let clientId: string;
+    let emailAddress1Id: string;
+    let emailAddress2Id: string;
+    let phoneNumber1Id: string;
+    let phoneNumber2Id: string;
+
+    // Collections for direct MongoDB access
+    let personsCollection: Collection;
+    let clientsCollection: Collection;
+    let emailAddressesCollection: Collection;
+    let phoneNumbersCollection: Collection;
+    let personsPhoneNumbersCollection: Collection;
 
     beforeAll(async () => {
-        setupTestConfig(false, 'postgres');
+        // Create our own MongoDB instance for direct collection access
+        mongoServer = await MongoMemoryServer.create({
+            instance: {
+                ip: '127.0.0.1', // Use localhost to avoid permission issues
+                port: 0, // Use dynamic port allocation
+            },
+        });
+        const uri = mongoServer.getUri();
+        mongoClient = new MongoClient(uri);
+        await mongoClient.connect();
+        db = mongoClient.db('test-db');
+        database = new MongoDBDatabase(db);
 
-        // Initialize test database
-        testDatabase = new TestPostgresDatabase();
-        const db = await testDatabase.init();
-        database = db as PostgresDatabase;
+        // Initialize TestExpressApp for test infrastructure (this sets up system user context, etc.)
+        await TestExpressApp.init(true);
 
-        // Get the underlying PostgreSQL client for direct queries
-        // We need direct access to insert into join tables
-        client = (testDatabase as any).postgresClient as Client;
+        // Get collections
+        personsCollection = db.collection('persons');
+        clientsCollection = db.collection('clients');
+        emailAddressesCollection = db.collection('email_addresses');
+        phoneNumbersCollection = db.collection('phone_numbers');
+        personsPhoneNumbersCollection = db.collection('persons_phone_numbers');
 
         // Clean up any existing test data first (in case of previous failed test runs)
-        await client.query(`DELETE FROM persons_phone_numbers WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['John']);
-        await client.query(`DELETE FROM email_addresses WHERE email_address IN ($1, $2)`, ['john.doe@example.com', 'john.m.doe@example.com']);
-        await client.query(`DELETE FROM phone_numbers WHERE phone_number IN ($1, $2)`, ['555-0100', '555-0200']);
-        await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['John']);
-        await client.query(`DELETE FROM persons WHERE first_name = $1`, ['John']);
+        await personsPhoneNumbersCollection.deleteMany({});
+        await emailAddressesCollection.deleteMany({ email_address: { $in: ['john.doe@example.com', 'john.m.doe@example.com'] } });
+        await phoneNumbersCollection.deleteMany({ phone_number: { $in: ['555-0100', '555-0200'] } });
+        await clientsCollection.deleteMany({});
+        await personsCollection.deleteMany({ first_name: 'John' });
 
         // Create test data
+        const now = new Date();
+        const systemUserId = 'system';
+
         // 1. Create a person
-        const personResult = await client.query(`
-            INSERT INTO persons (first_name, middle_name, last_name, is_client, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, $3, $4, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, ['John', 'Michael', 'Doe', true]);
-        personId = personResult.rows[0]._id;
+        const personIdObj = new ObjectId();
+        personId = personIdObj.toString();
+        // Keep personIdObj for foreign key references
+        await personsCollection.insertOne({
+            _id: personIdObj,
+            first_name: 'John',
+            middle_name: 'Michael',
+            last_name: 'Doe',
+            is_client: true,
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
         // 2. Create a client linked to the person
-        const clientResult = await client.query(`
-            INSERT INTO clients (person_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, [personId]);
-        clientId = clientResult.rows[0]._id;
+        const clientIdObj = new ObjectId();
+        clientId = clientIdObj.toString();
+        await clientsCollection.insertOne({
+            _id: clientIdObj,
+            person_id: personIdObj, // Use ObjectId for foreign key reference
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
         // 3. Create email addresses for the person
-        const email1Result = await client.query(`
-            INSERT INTO email_addresses (person_id, email_address, is_default, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, [personId, 'john.doe@example.com', true]);
-        emailAddress1Id = email1Result.rows[0]._id;
+        const email1IdObj = new ObjectId();
+        emailAddress1Id = email1IdObj.toString();
+        await emailAddressesCollection.insertOne({
+            _id: email1IdObj,
+            person_id: personIdObj, // Use ObjectId for foreign key reference
+            email_address: 'john.doe@example.com',
+            is_default: true,
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
-        const email2Result = await client.query(`
-            INSERT INTO email_addresses (person_id, email_address, is_default, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, [personId, 'john.m.doe@example.com', false]);
-        emailAddress2Id = email2Result.rows[0]._id;
+        const email2IdObj = new ObjectId();
+        emailAddress2Id = email2IdObj.toString();
+        await emailAddressesCollection.insertOne({
+            _id: email2IdObj,
+            person_id: personIdObj, // Use ObjectId for foreign key reference
+            email_address: 'john.m.doe@example.com',
+            is_default: false,
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
         // 4. Create phone numbers
-        const phone1Result = await client.query(`
-            INSERT INTO phone_numbers (phone_number, phone_number_type, is_default, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, ['555-0100', 'mobile', true]);
-        phoneNumber1Id = phone1Result.rows[0]._id;
+        const phone1IdObj = new ObjectId();
+        phoneNumber1Id = phone1IdObj.toString();
+        await phoneNumbersCollection.insertOne({
+            _id: phone1IdObj,
+            phone_number: '555-0100',
+            phone_number_type: 'mobile',
+            is_default: true,
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
-        const phone2Result = await client.query(`
-            INSERT INTO phone_numbers (phone_number, phone_number_type, is_default, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, ['555-0200', 'home', false]);
-        phoneNumber2Id = phone2Result.rows[0]._id;
+        const phone2IdObj = new ObjectId();
+        phoneNumber2Id = phone2IdObj.toString();
+        await phoneNumbersCollection.insertOne({
+            _id: phone2IdObj,
+            phone_number: '555-0200',
+            phone_number_type: 'home',
+            is_default: false,
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
-        // 5. Link phone numbers to person via join table
-        await client.query(`
-            INSERT INTO persons_phone_numbers (person_id, phone_number_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, NOW(), 1, NOW(), 1)
-        `, [personId, phoneNumber1Id]);
+        // 5. Link phone numbers to person via join collection
+        await personsPhoneNumbersCollection.insertOne({
+            person_id: personIdObj, // Use ObjectId for foreign key reference
+            phone_number_id: phone1IdObj, // Use ObjectId for foreign key reference
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
-        await client.query(`
-            INSERT INTO persons_phone_numbers (person_id, phone_number_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, NOW(), 1, NOW(), 1)
-        `, [personId, phoneNumber2Id]);
+        await personsPhoneNumbersCollection.insertOne({
+            person_id: personIdObj, // Use ObjectId for foreign key reference
+            phone_number_id: phone2IdObj, // Use ObjectId for foreign key reference
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
     });
 
     afterAll(async () => {
         // Clean up test data before closing database connection
-        if (client) {
+        if (db) {
             try {
-                await client.query(`DELETE FROM persons_phone_numbers WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['John']);
-                await client.query(`DELETE FROM email_addresses WHERE email_address IN ($1, $2)`, ['john.doe@example.com', 'john.m.doe@example.com']);
-                await client.query(`DELETE FROM phone_numbers WHERE phone_number IN ($1, $2)`, ['555-0100', '555-0200']);
-                await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['John']);
-                await client.query(`DELETE FROM persons WHERE first_name = $1`, ['John']);
+                await personsPhoneNumbersCollection.deleteMany({});
+                await emailAddressesCollection.deleteMany({ email_address: { $in: ['john.doe@example.com', 'john.m.doe@example.com'] } });
+                await phoneNumbersCollection.deleteMany({ phone_number: { $in: ['555-0100', '555-0200'] } });
+                await clientsCollection.deleteMany({});
+                await personsCollection.deleteMany({ first_name: 'John' });
             } catch (error) {
                 // Ignore cleanup errors
             }
         }
 
-        if (testDatabase) {
-            await testDatabase.cleanup();
+        if (mongoClient) {
+            await mongoClient.close();
+        }
+        if (mongoServer) {
+            await mongoServer.stop();
         }
     });
 
@@ -150,12 +220,15 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const result = await database.getById<IClientReportsModel>(
+        const rawResult = await database.getById<IClientReportsModel>(
             operations,
             queryOptions,
             clientId,
             'clients'
         );
+
+        // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
+        const result = rawResult ? convertObjectIdsToStrings(rawResult) : null;
 
         // Verify the result structure
         expect(result).toBeDefined();
@@ -227,12 +300,18 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             pageSize: 10
         };
 
-        const result = await database.get<IClientReportsModel>(
+        const rawResult = await database.get<IClientReportsModel>(
             operations,
             queryOptions,
             clientReportsModelSpec,
             'clients'
         );
+
+        // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
+        const result = {
+            ...rawResult,
+            entities: rawResult.entities?.map(e => convertObjectIdsToStrings(e))
+        };
 
         // Verify paginated result
         expect(result).toBeDefined();
@@ -266,10 +345,13 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
 
         // Query using getAll
-        const results = await database.getAll<IClientReportsModel>(
+        const rawResults = await database.getAll<IClientReportsModel>(
             operations,
             'clients'
         );
+
+        // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
+        const results = rawResults.map(r => convertObjectIdsToStrings(r));
 
         // Verify results
         expect(results).toBeDefined();
@@ -287,19 +369,32 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
     it('should handle empty arrays when no related records exist', async () => {
         // Create a person without email addresses or phone numbers
-        const personResult = await client.query(`
-            INSERT INTO persons (first_name, last_name, is_client, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, ['Jane', 'Smith', true]);
-        const newPersonId = personResult.rows[0]._id;
+        const now = new Date();
+        const systemUserId = 'system';
+        const newPersonIdObj = new ObjectId();
+        const newPersonId = newPersonIdObj.toString();
 
-        const clientResult = await client.query(`
-            INSERT INTO clients (person_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, [newPersonId]);
-        const newClientId = clientResult.rows[0]._id;
+        await personsCollection.insertOne({
+            _id: newPersonIdObj,
+            first_name: 'Jane',
+            last_name: 'Smith',
+            is_client: true,
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
+
+        const newClientIdObj = new ObjectId();
+        const newClientId = newClientIdObj.toString();
+        await clientsCollection.insertOne({
+            _id: newClientIdObj,
+            person_id: newPersonIdObj, // Use ObjectId for foreign key reference
+            _created: now,
+            _createdBy: systemUserId,
+            _updated: now,
+            _updatedBy: systemUserId
+        });
 
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'person');
@@ -318,12 +413,15 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // Query the new client
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const result = await database.getById<IClientReportsModel>(
+        const rawResult = await database.getById<IClientReportsModel>(
             operations,
             queryOptions,
             newClientId,
             'clients'
         );
+
+        // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
+        const result = rawResult ? convertObjectIdsToStrings(rawResult) : null;
 
         // Verify empty arrays are returned
         expect(result).toBeDefined();
@@ -334,5 +432,9 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.person.phone_numbers).toBeDefined();
         expect(Array.isArray(result!.person.phone_numbers)).toBe(true);
         expect(result!.person.phone_numbers.length).toBe(0);
+
+        // Clean up the test data
+        await clientsCollection.deleteOne({ _id: newClientIdObj });
+        await personsCollection.deleteOne({ _id: newPersonIdObj });
     });
 });

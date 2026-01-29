@@ -271,7 +271,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
       const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
       await pool.query(`
-        CREATE TABLE persons_addresses (
+        CREATE TABLE IF NOT EXISTS persons_addresses (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
           "address_id" INTEGER NOT NULL,
@@ -300,7 +300,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
       const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
       await pool.query(`
-        CREATE TABLE persons_phone_numbers (
+        CREATE TABLE IF NOT EXISTS persons_phone_numbers (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
           "phone_number_id" INTEGER NOT NULL,
