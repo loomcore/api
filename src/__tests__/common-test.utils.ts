@@ -29,7 +29,7 @@ const {
   setTestOrgUserId } = testObjectsModule;
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
-import { setBaseApiConfig } from '../config/index.js';
+import { setBaseApiConfig, config } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { getTestOrgUser } from './test-objects.js';
 import { DbType } from '../databases/db-type.type.js';
@@ -78,6 +78,11 @@ function getExpectedIdType(database: IDatabase): 'string' | 'number' {
 }
 
 async function createMetaOrg() {
+  // Only create meta org if multi-tenant is enabled
+  if (!config.app.isMultiTenant) {
+    return;
+  }
+  
   if (!organizationService) {
     throw new Error('OrganizationService not initialized. Call initialize() first.');
   }

@@ -87,4 +87,7 @@ node_modules/
 
 test-output
 
+#### docker ####
+docker-compose.override.yml
+
 

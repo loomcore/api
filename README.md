@@ -37,6 +37,34 @@ The framework is built around a few core components:
 
 By extending these base classes, you can quickly stand up a new, fully-featured API endpoint with minimal boilerplate code.
 
+## Testing
+
+### PostgreSQL Testing
+
+The test suite supports two modes for PostgreSQL testing:
+
+1. **pg-mem (default)**: Fast, in-memory PostgreSQL simulation. Use for most tests.
+   ```bash
+   npm run test:postgres
+   ```
+
+2. **Real PostgreSQL Container**: Full PostgreSQL compatibility for tests that require advanced features (e.g., LATERAL joins). Requires Docker.
+   ```bash
+   # Start the test database container
+   npm run test:db:start
+   
+   # Wait for it to be ready (optional, tests will retry)
+   ./scripts/wait-for-postgres.sh
+   
+   # Run tests with real PostgreSQL
+   npm run test:postgres:real
+   
+   # Stop the container when done
+   npm run test:db:stop
+   ```
+
+The container uses port `5433` to avoid conflicts with local PostgreSQL instances. Set `USE_REAL_POSTGRES=true` to use the container instead of pg-mem.
+
 ## Example Usage
 
 ### Host Application

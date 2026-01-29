@@ -1,8 +1,12 @@
 import { Client } from 'pg';
 import { Operation } from "../../operations/operation.js";
 import { Join } from "../../operations/join.operation.js";
+import { JoinMany } from "../../operations/join-many.operation.js";
+import { JoinThrough } from "../../operations/join-through.operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
+import { buildSelectClause } from '../utils/build-select-clause.js';
+import { transformJoinResults } from '../utils/transform-join-results.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { Filter, IEntity, IQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
@@ -64,21 +68,30 @@ export async function batchUpdate<T extends IEntity>(
         const joinClauses = buildJoinClauses(operations, pluralResourceName);
         
         // When there are joins, qualify column names with table prefix to avoid ambiguity
-        const hasJoins = operations.some(op => op instanceof Join);
+        const hasJoins = operations.some(op => op instanceof Join || op instanceof JoinMany || op instanceof JoinThrough);
         const tablePrefix = hasJoins ? pluralResourceName : undefined;
         
         queryObject.filters._id = { in: entityIds as any };
         
         const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix);
-        // Use the whereClause and values from buildWhereClause
+        
+        // Build SELECT clause with explicit columns and JSON aggregation for joins
+        // If no joins, use SELECT * for simplicity
+        const selectClause = hasJoins 
+            ? await buildSelectClause(client, pluralResourceName, pluralResourceName, operations)
+            : '*';
+        
         const selectQuery = `
-            SELECT * FROM "${pluralResourceName}" ${joinClauses}
+            SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
             ${whereClause}
         `;
 
         const result = await client.query(selectQuery, values);
         
-        return result.rows as T[];
+        // Transform flat results into nested objects if joins are present
+        return hasJoins 
+            ? transformJoinResults<T>(result.rows, operations)
+            : result.rows as T[];
     }
     catch (err: any) {
         // Rollback transaction on error
