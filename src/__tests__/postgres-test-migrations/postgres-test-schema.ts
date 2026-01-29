@@ -114,6 +114,214 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
+  // 5. Persons
+  migrations.push({
+    name: '00000000000105_schema-persons',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "persons" (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "external_id" VARCHAR UNIQUE,
+          "is_agent" BOOLEAN NOT NULL DEFAULT FALSE,
+          "is_client" BOOLEAN NOT NULL DEFAULT FALSE,
+          "is_employee" BOOLEAN NOT NULL DEFAULT FALSE,
+          "first_name" VARCHAR NOT NULL,
+          "middle_name" VARCHAR,
+          "date_of_birth" DATE,
+          "last_name" VARCHAR NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER
+)
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "persons"');
+    }
+  });
+
+  // 6. Clients
+  migrations.push({
+    name: '00000000000104_schema-clients',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "clients" (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "external_id" VARCHAR UNIQUE,
+          "person_id" INTEGER NOT NULL UNIQUE,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_clients_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "clients"');
+    }
+  });
+
+  // 7. Email Addresses
+  migrations.push({
+    name: '00000000000106_schema-email-addresses',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS email_addresses (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "person_id" INTEGER NOT NULL,
+          "external_id" VARCHAR UNIQUE,
+          "email_address" VARCHAR NOT NULL UNIQUE,
+          "email_address_type" VARCHAR,
+          "is_default" BOOLEAN NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_email_addresses_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "email_addresses"');
+    }
+  });
+
+
+  // 8. Phone Numbers
+  migrations.push({
+    name: '00000000000107_schema-phone-numbers',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS phone_numbers (
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            "_orgId" INTEGER,
+            "external_id" VARCHAR UNIQUE,
+            "phone_number" VARCHAR NOT NULL UNIQUE,
+            "phone_number_type" VARCHAR,
+            "is_default" BOOLEAN NOT NULL DEFAULT FALSE,
+            "_created" TIMESTAMPTZ NOT NULL,
+            "_createdBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ NOT NULL,
+            "_updatedBy" INTEGER NOT NULL,
+            "_deleted" TIMESTAMPTZ,
+            "_deletedBy" INTEGER
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "phone_numbers"');
+    }
+  });
+
+  // 9. Addresses
+  migrations.push({
+    name: '00000000000108_schema-addresses',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS addresses (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "external_id" VARCHAR UNIQUE,
+          "address_type" VARCHAR NOT NULL,
+          "address_line_1" VARCHAR NOT NULL,
+          "address_line_2" VARCHAR,
+          "city" VARCHAR NOT NULL,
+          "state" VARCHAR NOT NULL,
+          "zip_code" VARCHAR NOT NULL,
+          "country" VARCHAR NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "addresses"');
+    }
+  });
+
+  // 10. Person Addresses join table
+  migrations.push({
+    name: '00000000000109_schema-person-addresses',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE persons_addresses (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "address_id" INTEGER NOT NULL,
+          "person_id" INTEGER NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_persons_addresses_address_id FOREIGN KEY ("address_id") REFERENCES addresses("_id") ON DELETE CASCADE,
+          CONSTRAINT fk_persons_addresses_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE,
+          CONSTRAINT uk_persons_addresses_address_person UNIQUE ("address_id", "person_id")
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "persons_addresses"');
+    }
+  });
+
+  // 11. Persons Phone Numbers join table
+  migrations.push({
+    name: '00000000000110_schema-person-phone-numbers',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE persons_phone_numbers (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "phone_number_id" INTEGER NOT NULL,
+          "person_id" INTEGER NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_persons_phone_numbers_phone_number_id FOREIGN KEY ("phone_number_id") REFERENCES phone_numbers("_id") ON DELETE CASCADE,
+          CONSTRAINT fk_persons_phone_numbers_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE,
+          CONSTRAINT uk_persons_phone_numbers_phone_number_person UNIQUE ("phone_number_id", "person_id")
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "persons_phone_numbers"');
+    }
+  });
+
   return migrations;
 };
 
