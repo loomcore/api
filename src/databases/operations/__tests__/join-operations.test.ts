@@ -387,6 +387,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
+
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
