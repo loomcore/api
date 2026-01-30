@@ -50,4 +50,11 @@ export interface IGenericQueryService<T extends IEntity> {
    * @returns The entity or throws IdNotFoundError if not found
    */
   getById(userContext: IUserContext, id: AppIdType): Promise<T>;
+
+  /**
+   * Get the count of entities matching the query with joins applied
+   * @param userContext The user context
+   * @returns The count of entities
+   */
+  getCount(userContext: IUserContext): Promise<number>;
 }

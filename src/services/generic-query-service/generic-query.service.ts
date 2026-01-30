@@ -124,4 +124,9 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
 
     return this.postProcessEntity(userContext, entity);
   }
+
+  async getCount(userContext: IUserContext): Promise<number> {
+    const { operations } = this.prepareQuery(userContext, {}, []);
+    return await this.database.getCount(this.rootTableName);
+  }
 }
