@@ -86,8 +86,14 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
    * @param entity The entity to post-process
    * @returns The post-processed entity
    */
-  postProcessEntity(userContext: IUserContext, entity: T): T {
-    return this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
+  protected postProcessEntityInternal(userContext: IUserContext, entity: any): T {
+    const dbPostProcessedEntity = this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
+
+    return this.postProcessEntity(userContext, dbPostProcessedEntity);
+  }
+
+  public postProcessEntity(userContext: IUserContext, entity: any): T {
+    return entity as T;
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
@@ -95,7 +101,7 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
 
     const entities = await this.database.getAll<T>(operations, this.rootTableName);
 
-    return entities.map(entity => this.postProcessEntity(userContext, entity));
+    return entities.map(entity => this.postProcessEntityInternal(userContext, entity));
   }
 
   async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
@@ -105,7 +111,7 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
 
     const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.rootTableName);
 
-    const transformedEntities = (pagedResult.entities || []).map(entity => this.postProcessEntity(userContext, entity));
+    const transformedEntities = (pagedResult.entities || []).map(entity => this.postProcessEntityInternal(userContext, entity));
 
     return {
       ...pagedResult,
@@ -122,7 +128,7 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
       throw new IdNotFoundError();
     }
 
-    return this.postProcessEntity(userContext, entity);
+    return this.postProcessEntityInternal(userContext, entity);
   }
 
   async getCount(userContext: IUserContext): Promise<number> {

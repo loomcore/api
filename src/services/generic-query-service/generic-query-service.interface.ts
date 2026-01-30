@@ -26,7 +26,7 @@ export interface IGenericQueryService<T extends IEntity> {
    * @param entity The entity to post-process
    * @returns The post-processed entity
    */
-  postProcessEntity(userContext: IUserContext, entity: T): T;
+  postProcessEntity(userContext: IUserContext, entity: any): T;
 
   /**
    * Get all entities matching the query with joins applied

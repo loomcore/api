@@ -48,12 +48,12 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         userContext = getTestMetaOrgUserContext();
 
         // Create default join operations for client-report
-        const joinPerson = new Join('persons', 'person_id', '_id', 'person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'person._id',
+            'client_person._id',
             'person_id',
             'phone_number_id',
             '_id',
@@ -306,7 +306,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             class CustomQueryService extends GenericQueryService<IClientReportsModel> {
                 override prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
                     // Add join operations dynamically
-                    const joinPerson = new Join('persons', 'person_id', '_id', 'person');
+                    const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
                     const additionalOps = [joinPerson, ...operations];
                     const { queryOptions: preparedOptions, operations: mergedOps } = super.prepareQuery(userContext, queryOptions, additionalOps);
                     return { queryOptions: preparedOptions, operations: mergedOps };
