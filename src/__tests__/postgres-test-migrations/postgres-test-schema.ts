@@ -350,6 +350,114 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
+  // 13. States
+  migrations.push({
+    name: '00000000000111_schema-states',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS states (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "name" VARCHAR NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "states"');
+    }
+  });
+
+  // 14. Districts (must come after states since districts references states)
+  migrations.push({
+    name: '00000000000112_schema-districts',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS districts (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "name" VARCHAR NOT NULL,
+          "state_id" INTEGER NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_districts_state_id FOREIGN KEY ("state_id") REFERENCES states("_id") ON DELETE CASCADE
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "districts"');
+    }
+  });
+
+  // 15. Schools (must come after districts since schools references districts)
+  migrations.push({
+    name: '00000000000113_schema-schools',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS schools (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "name" VARCHAR NOT NULL,
+          "district_id" INTEGER NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_schools_district_id FOREIGN KEY ("district_id") REFERENCES districts("_id") ON DELETE CASCADE
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "schools"');
+    }
+  });
+
+  // 16. Persons Schools join table (must come after persons and schools)
+  migrations.push({
+    name: '00000000000114_schema-person-schools',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS persons_schools (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "person_id" INTEGER NOT NULL,
+          "school_id" INTEGER NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_persons_schools_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE,
+          CONSTRAINT fk_persons_schools_school_id FOREIGN KEY ("school_id") REFERENCES schools("_id") ON DELETE CASCADE,
+          CONSTRAINT uk_persons_schools_person_school UNIQUE ("person_id", "school_id")
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "persons_schools"');
+    }
+  });
+
   return migrations;
 };
 

@@ -6,7 +6,7 @@ import { MongoDBDatabase } from '../../mongo-db/mongo-db.database.js';
 import { convertObjectIdsToStrings } from '../../mongo-db/utils/convert-object-ids-to-strings.util.js';
 import { Join } from '../join.operation.js';
 import { JoinMany } from '../join-many.operation.js';
-import { JoinThrough } from '../join-through.operation.js';
+import { JoinThroughMany } from '../join-through-many.operation.js';
 import { Operation } from '../operation.js';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 import { IClientReportsModel, clientReportsModelSpec } from './models/client-report.model.js';
@@ -206,7 +206,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // 3. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',           // final table
             'persons_phone_numbers',   // join table
             'person._id',              // local field (person._id) - references joined person table
@@ -281,7 +281,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
             'person._id',
@@ -332,7 +332,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
             'person._id',
@@ -399,7 +399,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
             'person._id',

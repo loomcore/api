@@ -5,6 +5,7 @@ import { setupTestConfig } from '../../../__tests__/common-test.utils.js';
 import { PostgresDatabase } from '../../postgres/postgres.database.js';
 import { Join } from '../join.operation.js';
 import { JoinMany } from '../join-many.operation.js';
+import { JoinThroughMany } from '../join-through-many.operation.js';
 import { JoinThrough } from '../join-through.operation.js';
 import { Operation } from '../operation.js';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
@@ -30,6 +31,9 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
     let emailAddress2Id: number;
     let phoneNumber1Id: number;
     let phoneNumber2Id: number;
+    let schoolId: number;
+    let districtId: number;
+    let stateId: number;
 
     beforeAll(async () => {
         setupTestConfig(false, 'postgres');
@@ -44,9 +48,13 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         client = (testDatabase as any).postgresClient as Client;
 
         // Clean up any existing test data first (in case of previous failed test runs)
+        await client.query(`DELETE FROM persons_schools WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2))`, ['John', 'Jane']);
         await client.query(`DELETE FROM persons_phone_numbers WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2))`, ['John', 'Jane']);
         await client.query(`DELETE FROM email_addresses WHERE email_address IN ($1, $2)`, ['john.doe@example.com', 'john.m.doe@example.com']);
         await client.query(`DELETE FROM phone_numbers WHERE phone_number IN ($1, $2)`, ['555-0100', '555-0200']);
+        await client.query(`DELETE FROM schools WHERE name = $1`, ['Test High School']);
+        await client.query(`DELETE FROM districts WHERE name = $1`, ['Test School District']);
+        await client.query(`DELETE FROM states WHERE name = $1`, ['Test State']);
         await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['John']);
         await client.query(`DELETE FROM agents WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['Jane']);
         await client.query(`DELETE FROM persons WHERE first_name IN ($1, $2)`, ['John', 'Jane']);
@@ -122,15 +130,47 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             INSERT INTO persons_phone_numbers (person_id, phone_number_id, _created, "_createdBy", _updated, "_updatedBy")
             VALUES ($1, $2, NOW(), 1, NOW(), 1)
         `, [personId, phoneNumber2Id]);
+
+        // 6. Create state, district, school, and link person to school
+        const stateResult = await client.query(`
+            INSERT INTO states (name, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, NOW(), 1, NOW(), 1)
+            RETURNING _id
+        `, ['Test State']);
+        stateId = stateResult.rows[0]._id;
+
+        const districtResult = await client.query(`
+            INSERT INTO districts (name, state_id, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, NOW(), 1, NOW(), 1)
+            RETURNING _id
+        `, ['Test School District', stateId]);
+        districtId = districtResult.rows[0]._id;
+
+        const schoolResult = await client.query(`
+            INSERT INTO schools (name, district_id, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, NOW(), 1, NOW(), 1)
+            RETURNING _id
+        `, ['Test High School', districtId]);
+        schoolId = schoolResult.rows[0]._id;
+
+        // Link person to school via join table
+        await client.query(`
+            INSERT INTO persons_schools (person_id, school_id, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, NOW(), 1, NOW(), 1)
+        `, [personId, schoolId]);
     });
 
     afterAll(async () => {
         // Clean up test data before closing database connection
         if (client) {
             try {
+                await client.query(`DELETE FROM persons_schools WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2))`, ['John', 'Jane']);
                 await client.query(`DELETE FROM persons_phone_numbers WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2))`, ['John', 'Jane']);
                 await client.query(`DELETE FROM email_addresses WHERE email_address IN ($1, $2)`, ['john.doe@example.com', 'john.m.doe@example.com']);
                 await client.query(`DELETE FROM phone_numbers WHERE phone_number IN ($1, $2)`, ['555-0100', '555-0200']);
+                await client.query(`DELETE FROM schools WHERE name = $1`, ['Test High School']);
+                await client.query(`DELETE FROM districts WHERE name = $1`, ['Test School District']);
+                await client.query(`DELETE FROM states WHERE name = $1`, ['Test State']);
                 await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['John']);
                 await client.query(`DELETE FROM agents WHERE person_id IN (SELECT _id FROM persons WHERE first_name = $1)`, ['Jane']);
                 await client.query(`DELETE FROM persons WHERE first_name IN ($1, $2)`, ['John', 'Jane']);
@@ -161,7 +201,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // 5. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',           // final table
             'persons_phone_numbers',   // join table
             'client_person._id',       // local field (client_person._id) - references joined person table
@@ -245,7 +285,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
         const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agent_person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
             'client_person._id',
@@ -294,7 +334,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
         const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agent_person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
             'client_person._id',
@@ -347,7 +387,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
-        const joinPhoneNumbers = new JoinThrough(
+        const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
             'client_person._id',
@@ -377,5 +417,73 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.client_person.phone_numbers).toBeDefined();
         expect(Array.isArray(result!.client_person.phone_numbers)).toBe(true);
         expect(result!.client_person.phone_numbers.length).toBe(0);
+    });
+
+    it('should join through join table to get single school and then join to district and state', async () => {
+        // Create join operations
+        // 1. One-to-one: clients -> persons
+        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
+
+        // 2. JoinThrough (singular): client_person -> persons_schools -> schools
+        const joinSchool = new JoinThrough(
+            'schools',              // final table
+            'persons_schools',      // join table
+            'client_person._id',    // local field (client_person._id) - references joined person table
+            'person_id',            // join table local field
+            'school_id',           // join table foreign field
+            '_id',                 // foreign field (school._id)
+            'school'               // alias (singular - returns single object)
+        );
+
+        // 3. Join: school -> district
+        const joinDistrict = new Join('districts', 'school.district_id', '_id', 'district');
+
+        // 4. Join: district -> state
+        const joinState = new Join('states', 'district.state_id', '_id', 'state');
+
+        const operations: Operation[] = [joinPerson, joinSchool, joinDistrict, joinState];
+
+        // Query using getById
+        const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
+        const result = await database.getById<IClientReportsModel>(
+            operations,
+            queryOptions,
+            clientId,
+            'clients'
+        );
+
+        // Verify the result structure
+        expect(result).toBeDefined();
+        expect(result).not.toBeNull();
+        expect(result!._id).toBe(clientId);
+        expect(result!.client_person).toBeDefined();
+        expect(result!.client_person._id).toBe(personId);
+
+        // Verify school is a single object (not an array)
+        const school = result!.client_person.school;
+        expect(school).toBeDefined();
+        expect(school).not.toBeNull();
+        expect(Array.isArray(school)).toBe(false);
+        if (!school) throw new Error('School should be defined');
+        expect(school._id).toBe(schoolId);
+        expect(school.name).toBe('Test High School');
+        expect(school.district_id).toBe(districtId);
+
+        // Verify district is joined on school
+        const district = school.district;
+        expect(district).toBeDefined();
+        expect(district).not.toBeNull();
+        if (!district) throw new Error('District should be defined');
+        expect(district._id).toBe(districtId);
+        expect(district.name).toBe('Test School District');
+        expect(district.state_id).toBe(stateId);
+
+        // Verify state is joined on district
+        const state = district.state;
+        expect(state).toBeDefined();
+        expect(state).not.toBeNull();
+        if (!state) throw new Error('State should be defined');
+        expect(state._id).toBe(stateId);
+        expect(state.name).toBe('Test State');
     });
 });

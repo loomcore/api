@@ -3,6 +3,7 @@ import { Operation } from '../../operations/operation.js';
 import { Join } from '../../operations/join.operation.js';
 import { JoinMany } from '../../operations/join-many.operation.js';
 import { JoinThrough } from '../../operations/join-through.operation.js';
+import { JoinThroughMany } from '../../operations/join-through-many.operation.js';
 
 /**
  * Gets column names for a table from PostgreSQL information_schema
@@ -26,7 +27,8 @@ async function getTableColumns(client: Client, tableName: string): Promise<strin
  * This ensures that columns from joined tables are properly prefixed,
  * allowing us to distinguish them from main table columns.
  * 
- * For array joins (JoinMany, JoinThrough), uses JSON aggregation subqueries.
+ * For array joins (JoinMany, JoinThroughMany), uses JSON aggregation subqueries.
+ * For single object joins through join table (JoinThrough), uses JSON object subqueries.
  * 
  * @param client - PostgreSQL client
  * @param mainTableName - Name of the main table
@@ -43,6 +45,7 @@ export async function buildSelectClause(
     const joinOperations = operations.filter(op => op instanceof Join) as Join[];
     const joinManyOperations = operations.filter(op => op instanceof JoinMany) as JoinMany[];
     const joinThroughOperations = operations.filter(op => op instanceof JoinThrough) as JoinThrough[];
+    const joinThroughManyOperations = operations.filter(op => op instanceof JoinThroughMany) as JoinThroughMany[];
 
     // Get main table columns
     // Use the table name directly (with quotes) since we don't alias the main table in FROM
@@ -71,10 +74,16 @@ export async function buildSelectClause(
         joinSelects.push(`${joinMany.as}.aggregated AS "${joinMany.as}"`);
     }
 
-    // Handle JoinThrough operations (many-to-many via join table) - handled via LATERAL joins in FROM clause
-    // Select the aggregated JSON array from the LATERAL join
+    // Handle JoinThrough operations (one-to-one via join table) - handled via LATERAL joins in FROM clause
+    // Select the single JSON object from the LATERAL join
     for (const joinThrough of joinThroughOperations) {
         joinSelects.push(`${joinThrough.as}.aggregated AS "${joinThrough.as}"`);
+    }
+
+    // Handle JoinThroughMany operations (many-to-many via join table) - handled via LATERAL joins in FROM clause
+    // Select the aggregated JSON array from the LATERAL join
+    for (const joinThroughMany of joinThroughManyOperations) {
+        joinSelects.push(`${joinThroughMany.as}.aggregated AS "${joinThroughMany.as}"`);
     }
 
     // Combine all selects

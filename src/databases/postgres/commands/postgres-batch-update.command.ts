@@ -3,6 +3,7 @@ import { Operation } from "../../operations/operation.js";
 import { Join } from "../../operations/join.operation.js";
 import { JoinMany } from "../../operations/join-many.operation.js";
 import { JoinThrough } from "../../operations/join-through.operation.js";
+import { JoinThroughMany } from "../../operations/join-through-many.operation.js";
 import { BadRequestError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
@@ -68,7 +69,7 @@ export async function batchUpdate<T extends IEntity>(
         const joinClauses = buildJoinClauses(operations, pluralResourceName);
         
         // When there are joins, qualify column names with table prefix to avoid ambiguity
-        const hasJoins = operations.some(op => op instanceof Join || op instanceof JoinMany || op instanceof JoinThrough);
+        const hasJoins = operations.some(op => op instanceof Join || op instanceof JoinMany || op instanceof JoinThrough || op instanceof JoinThroughMany);
         const tablePrefix = hasJoins ? pluralResourceName : undefined;
         
         queryObject.filters._id = { in: entityIds as any };

@@ -3,6 +3,7 @@ import { entityUtils } from "@loomcore/common/utils";
 import { Type } from "@sinclair/typebox";
 import { emailAddressSchema, IEmailAddressModel } from "./email-address.model.js";
 import { IPhoneNumberModel, phoneNumberSchema } from "./phone-number.model.js";
+import { ISchoolModel, schoolSchema } from "./school.model.js";
 
 export interface IPersonModel extends IEntity, IAuditable {
     first_name: string;
@@ -10,6 +11,7 @@ export interface IPersonModel extends IEntity, IAuditable {
     last_name: string;
     email_addresses: IEmailAddressModel[];
     phone_numbers: IPhoneNumberModel[];
+    school?: ISchoolModel;
 }
 
 export const personSchema = Type.Object({
