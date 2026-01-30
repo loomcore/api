@@ -50,6 +50,7 @@ export function transformJoinResults<T>(
         }
 
         // Handle one-to-one joins: group prefixed columns into nested objects
+        // Process joins in order, handling nested joins (e.g., "agent.person_id")
         for (const join of joinOperations) {
             const prefix = `${join.as}__`;
             const joinedData: any = {};
@@ -67,8 +68,28 @@ export function transformJoinResults<T>(
                 }
             }
 
-            // Only add the joined object if there's data, otherwise set to null
-            transformed[join.as] = hasAnyData ? joinedData : null;
+            // Check if this Join references a joined table (nested join)
+            if (join.localField.includes('.')) {
+                const [tableAlias] = join.localField.split('.');
+                const relatedJoin = joinOperations.find(j => j.as === tableAlias);
+                // Check if related join exists and has been processed (exists in transformed)
+                // Also check if it's not null (join returned data)
+                if (relatedJoin && transformed[relatedJoin.as] !== undefined && transformed[relatedJoin.as] !== null) {
+                    // Nest under the related join's alias (e.g., agent.person)
+                    // Only nest if there's data, otherwise leave it null/undefined
+                    if (hasAnyData) {
+                        transformed[relatedJoin.as][join.as] = joinedData;
+                    } else {
+                        transformed[relatedJoin.as][join.as] = null;
+                    }
+                } else {
+                    // Fallback: add at top level
+                    transformed[join.as] = hasAnyData ? joinedData : null;
+                }
+            } else {
+                // Add at top level
+                transformed[join.as] = hasAnyData ? joinedData : null;
+            }
         }
 
         // Handle array joins (JoinMany): parse JSON arrays

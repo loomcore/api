@@ -11,10 +11,18 @@ export function buildJoinClauses(operations: Operation[], mainTableName?: string
     
     // Regular one-to-one joins (LEFT JOIN)
     for (const operation of joinOperations) {
-        // Prefix localField with main table name if provided
-        const localFieldRef = mainTableName 
-            ? `"${mainTableName}"."${operation.localField}"`
-            : `"${operation.localField}"`;
+        // Determine the local field reference
+        let localFieldRef: string;
+        if (operation.localField.includes('.')) {
+            // Reference a joined table alias (e.g., "agent.person_id")
+            const [tableAlias, columnName] = operation.localField.split('.');
+            localFieldRef = `${tableAlias}."${columnName}"`;
+        } else {
+            // Reference main table column directly
+            localFieldRef = mainTableName 
+                ? `"${mainTableName}"."${operation.localField}"`
+                : `"${operation.localField}"`;
+        }
         joinClauses += ` LEFT JOIN "${operation.from}" AS ${operation.as} ON ${localFieldRef} = "${operation.as}"."${operation.foreignField}"`;
     }
     

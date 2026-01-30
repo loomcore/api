@@ -146,9 +146,35 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 6. Clients
+  // 6. Agents (must come after persons since agents references persons, and before clients since clients references agents)
   migrations.push({
-    name: '00000000000104_schema-clients',
+    name: '00000000000105_5_schema-agents',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "agents" (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "person_id" INTEGER NOT NULL UNIQUE,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_agents_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "agents"');
+    }
+  });
+
+  // 7. Clients (must come after persons and agents since clients references both)
+  migrations.push({
+    name: '00000000000105_6_schema-clients',
     up: async ({ context: pool }) => {
       const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
@@ -158,13 +184,15 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
           ${orgColumnDef}
           "external_id" VARCHAR UNIQUE,
           "person_id" INTEGER NOT NULL UNIQUE,
+          "agent_id" INTEGER,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
           "_updated" TIMESTAMPTZ NOT NULL,
           "_updatedBy" INTEGER NOT NULL,
           "_deleted" TIMESTAMPTZ,
           "_deletedBy" INTEGER,
-          CONSTRAINT fk_clients_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE
+          CONSTRAINT fk_clients_person_id FOREIGN KEY ("person_id") REFERENCES persons("_id") ON DELETE CASCADE,
+          CONSTRAINT fk_clients_agent_id FOREIGN KEY ("agent_id") REFERENCES agents("_id") ON DELETE SET NULL
         )
       `);
     },
@@ -173,7 +201,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 7. Email Addresses
+  // 8. Email Addresses
   migrations.push({
     name: '00000000000106_schema-email-addresses',
     up: async ({ context: pool }) => {
@@ -204,7 +232,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
   });
 
 
-  // 8. Phone Numbers
+  // 9. Phone Numbers
   migrations.push({
     name: '00000000000107_schema-phone-numbers',
     up: async ({ context: pool }) => {
@@ -232,7 +260,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 9. Addresses
+  // 10. Addresses
   migrations.push({
     name: '00000000000108_schema-addresses',
     up: async ({ context: pool }) => {
@@ -264,7 +292,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 10. Person Addresses join table
+  // 11. Person Addresses join table
   migrations.push({
     name: '00000000000109_schema-person-addresses',
     up: async ({ context: pool }) => {
@@ -293,7 +321,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 11. Persons Phone Numbers join table
+  // 12. Persons Phone Numbers join table
   migrations.push({
     name: '00000000000110_schema-person-phone-numbers',
     up: async ({ context: pool }) => {

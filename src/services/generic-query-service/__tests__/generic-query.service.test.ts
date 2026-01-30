@@ -171,19 +171,19 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             // Verify the result structure
             expect(result).toBeDefined();
             expect(result._id).toBe(clientId);
-            expect(result.person).toBeDefined();
-            expect(result.person._id).toBe(personId);
-            expect(result.person.first_name).toBe('John');
-            expect(result.person.middle_name).toBe('Michael');
-            expect(result.person.last_name).toBe('Doe');
+            expect(result.client_person).toBeDefined();
+            expect(result.client_person._id).toBe(personId);
+            expect(result.client_person.first_name).toBe('John');
+            expect(result.client_person.middle_name).toBe('Michael');
+            expect(result.client_person.last_name).toBe('Doe');
 
             // Verify email addresses array
-            expect(result.person.email_addresses).toBeDefined();
-            expect(Array.isArray(result.person.email_addresses)).toBe(true);
-            expect(result.person.email_addresses.length).toBe(2);
+            expect(result.client_person.email_addresses).toBeDefined();
+            expect(Array.isArray(result.client_person.email_addresses)).toBe(true);
+            expect(result.client_person.email_addresses.length).toBe(2);
 
             // Verify email addresses content
-            const emailAddresses = result.person.email_addresses as IEmailAddressModel[];
+            const emailAddresses = result.client_person.email_addresses as IEmailAddressModel[];
             const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
             const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
 
@@ -196,12 +196,12 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             expect(email2!.is_default).toBe(false);
 
             // Verify phone numbers array
-            expect(result.person.phone_numbers).toBeDefined();
-            expect(Array.isArray(result.person.phone_numbers)).toBe(true);
-            expect(result.person.phone_numbers.length).toBe(2);
+            expect(result.client_person.phone_numbers).toBeDefined();
+            expect(Array.isArray(result.client_person.phone_numbers)).toBe(true);
+            expect(result.client_person.phone_numbers.length).toBe(2);
 
             // Verify phone numbers content
-            const phoneNumbers = result.person.phone_numbers as IPhoneNumberModel[];
+            const phoneNumbers = result.client_person.phone_numbers as IPhoneNumberModel[];
             const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
             const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
 
@@ -239,11 +239,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
             // Verify first entity has proper structure
             const firstEntity = result.entities![0];
-            expect(firstEntity.person).toBeDefined();
-            expect(firstEntity.person.email_addresses).toBeDefined();
-            expect(Array.isArray(firstEntity.person.email_addresses)).toBe(true);
-            expect(firstEntity.person.phone_numbers).toBeDefined();
-            expect(Array.isArray(firstEntity.person.phone_numbers)).toBe(true);
+            expect(firstEntity.client_person).toBeDefined();
+            expect(firstEntity.client_person.email_addresses).toBeDefined();
+            expect(Array.isArray(firstEntity.client_person.email_addresses)).toBe(true);
+            expect(firstEntity.client_person.phone_numbers).toBeDefined();
+            expect(Array.isArray(firstEntity.client_person.phone_numbers)).toBe(true);
         });
 
         it('should respect pagination options', async () => {
@@ -292,11 +292,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
             // Verify first result has proper structure
             const firstResult = results[0];
-            expect(firstResult.person).toBeDefined();
-            expect(firstResult.person.email_addresses).toBeDefined();
-            expect(Array.isArray(firstResult.person.email_addresses)).toBe(true);
-            expect(firstResult.person.phone_numbers).toBeDefined();
-            expect(Array.isArray(firstResult.person.phone_numbers)).toBe(true);
+            expect(firstResult.client_person).toBeDefined();
+            expect(firstResult.client_person.email_addresses).toBeDefined();
+            expect(Array.isArray(firstResult.client_person.email_addresses)).toBe(true);
+            expect(firstResult.client_person.phone_numbers).toBeDefined();
+            expect(Array.isArray(firstResult.client_person.phone_numbers)).toBe(true);
         });
     });
 
@@ -326,8 +326,8 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             expect(result).toBeDefined();
             expect(result._id).toBe(clientId);
             // Person should be populated due to prepareQuery override
-            expect(result.person).toBeDefined();
-            expect(result.person._id).toBe(personId);
+            expect(result.client_person).toBeDefined();
+            expect(result.client_person._id).toBe(personId);
         });
     });
 
@@ -408,13 +408,13 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
             // Verify empty arrays are returned
             expect(result).toBeDefined();
-            expect(result.person).toBeDefined();
-            expect(result.person.email_addresses).toBeDefined();
-            expect(Array.isArray(result.person.email_addresses)).toBe(true);
-            expect(result.person.email_addresses.length).toBe(0);
-            expect(result.person.phone_numbers).toBeDefined();
-            expect(Array.isArray(result.person.phone_numbers)).toBe(true);
-            expect(result.person.phone_numbers.length).toBe(0);
+            expect(result.client_person).toBeDefined();
+            expect(result.client_person.email_addresses).toBeDefined();
+            expect(Array.isArray(result.client_person.email_addresses)).toBe(true);
+            expect(result.client_person.email_addresses.length).toBe(0);
+            expect(result.client_person.phone_numbers).toBeDefined();
+            expect(Array.isArray(result.client_person.phone_numbers)).toBe(true);
+            expect(result.client_person.phone_numbers.length).toBe(0);
         });
 
         it('should work with service that has no default operations', async () => {
