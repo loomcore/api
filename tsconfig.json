@@ -37,5 +37,6 @@
     "types": ["node"]
     
   },
-  "include": ["src/**/*.ts", "src/**/*.json"]
+  "include": ["src/**/*.ts", "src/**/*.json"],
+  "exclude": ["node_modules", "dist"]
 }

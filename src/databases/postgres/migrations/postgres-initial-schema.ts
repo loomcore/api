@@ -3,7 +3,6 @@ import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
-import { IEmailClient } from '../../../models/email-client.interface.js';
 
 // Define the interface Umzug expects for code-based migrations
 export interface SyntheticMigration {
@@ -12,7 +11,7 @@ export interface SyntheticMigration {
   down: (context: { context: Pool }) => Promise<void>;
 }
 
-export const getPostgresInitialSchema = (config: IBaseApiConfig, emailClient?: IEmailClient): SyntheticMigration[] => {
+export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
 
   const isMultiTenant = config.app.isMultiTenant;
@@ -25,7 +24,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, emailClient?: I
     throw new Error('Auth enabled without auth configuration');
   }
 
-  if (isAuthEnabled && (!emailClient || !config.email)) {
+  if (isAuthEnabled && (!config.thirdPartyClients?.emailClient || !config.email)) {
     throw new Error('Auth enabled without email client or email configuration');
   }
 
@@ -307,7 +306,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, emailClient?: I
         const client = await pool.connect();
         try {
           const database = new PostgresDatabase(client as unknown as Client);
-          const authService = new AuthService(database, emailClient!);
+          const authService = new AuthService(database);
 
           // SystemUserContext MUST be initialized before this migration runs
           // For multi-tenant: meta-org migration should have initialized it
@@ -363,7 +362,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, emailClient?: I
         try {
           const database = new PostgresDatabase(client as unknown as Client);
           const organizationService = new OrganizationService(database);
-          const authService = new AuthService(database, emailClient!);
+          const authService = new AuthService(database);
 
           // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
           const metaOrg = isMultiTenant ? await organizationService.getMetaOrg(EmptyUserContext) : undefined;

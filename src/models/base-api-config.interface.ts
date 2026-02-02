@@ -1,6 +1,7 @@
 import { DbType } from "../databases/db-type.type.js";
 import { IAuthConfig } from "./auth-config.interface.js";
 import { IEmailConfig } from "./email-config.interface.js";
+import { IEmailClient } from "./email-client.interface.js";
 import { IMultiTenantConfig } from "./multi-tenant-config.interface.js";
 
 export interface IBaseApiConfig {
@@ -34,5 +35,8 @@ export interface IBaseApiConfig {
     externalPort?: number;
     hostName: string;
     internalPort?: number;
+  };
+  thirdPartyClients?: {
+    emailClient?: IEmailClient;
   };
 }

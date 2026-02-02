@@ -10,7 +10,6 @@ import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
 import { getMongoInitialSchema } from '../mongo-db/migrations/mongo-initial-schema.js';
-import { IEmailClient } from '../../models/email-client.interface.js';
 
 export class MigrationRunner {
   private config: IBaseApiConfig;
@@ -19,8 +18,7 @@ export class MigrationRunner {
   private migrationsDir: string;
   private primaryTimezone: string;
   private dbConnection: Pool | MongoClient | undefined;
-  private emailClient?: IEmailClient;
-  constructor(config: IBaseApiConfig, emailClient?: IEmailClient) {
+  constructor(config: IBaseApiConfig) {
     // Initialize the global config so services can access it during migrations
     setBaseApiConfig(config);
     this.config = config;
@@ -31,7 +29,6 @@ export class MigrationRunner {
       * Used for generating the YYYYMMDDHHMMSS prefix on new files.
       */
     this.primaryTimezone = config.app.primaryTimezone || 'UTC';
-    this.emailClient = emailClient;
   }
 
   private getTimestamp(): string {
@@ -95,7 +92,7 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getPostgresInitialSchema(this.config, this.emailClient).map(m => ({
+          const initialSchema = getPostgresInitialSchema(this.config).map(m => ({
             name: m.name,
             up: async () => {
               console.log(`   Running [LIBRARY] ${m.name}...`);
@@ -144,7 +141,7 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getMongoInitialSchema(this.config, this.emailClient).map(m => ({
+          const initialSchema = getMongoInitialSchema(this.config).map(m => ({
             name: m.name,
             up: async () => {
               console.log(`   Running [LIBRARY] ${m.name}...`);

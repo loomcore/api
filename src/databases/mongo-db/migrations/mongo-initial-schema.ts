@@ -4,7 +4,6 @@ import { randomUUID } from 'crypto';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { MongoDBDatabase } from '../mongo-db.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
-import { IEmailClient } from '../../../models/email-client.interface.js';
 
 export interface ISyntheticMigration {
   name: string;
@@ -12,7 +11,7 @@ export interface ISyntheticMigration {
   down: (context: { context: Db }) => Promise<void>;
 }
 
-export const getMongoInitialSchema = (config: IBaseApiConfig, emailClient?: IEmailClient): ISyntheticMigration[] => {
+export const getMongoInitialSchema = (config: IBaseApiConfig): ISyntheticMigration[] => {
   const migrations: ISyntheticMigration[] = [];
 
   const isMultiTenant = config.app.isMultiTenant;
@@ -25,7 +24,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, emailClient?: IEma
     throw new Error('Auth enabled without auth configuration');
   }
 
-  if (isAuthEnabled && (!emailClient || !config.email)) {
+  if (isAuthEnabled && (!config.thirdPartyClients?.emailClient || !config.email)) {
     throw new Error('Auth enabled without email client or email configuration');
   }
 
@@ -202,7 +201,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, emailClient?: IEma
       name: '00000000000009_data-admin-user',
       up: async ({ context: db }) => {
         const database = new MongoDBDatabase(db);
-        const authService = new AuthService(database, emailClient!);
+        const authService = new AuthService(database);
 
         // SystemUserContext MUST be initialized before this migration runs
         // For multi-tenant: meta-org migration should have initialized it
@@ -248,7 +247,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, emailClient?: IEma
 
         const database = new MongoDBDatabase(db);
         const organizationService = new OrganizationService(database);
-        const authService = new AuthService(database, emailClient!);
+        const authService = new AuthService(database);
 
         const metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
         if (!metaOrg) {

@@ -6,13 +6,17 @@ import { IEmailClient } from '../models/email-client.interface.js';
 export class EmailService {
 	private emailConfig: IEmailConfig;
 	private emailClient: IEmailClient;
-	constructor(emailClient: IEmailClient) {
+	constructor() {
 		if (config.email) {
 			this.emailConfig = config.email;
 		} else {
 			throw new ServerError('Email configuration is not available. Email API credentials are not set in the config.');
 		}
-		this.emailClient = emailClient;
+		if (config.thirdPartyClients?.emailClient) {
+			this.emailClient = config.thirdPartyClients.emailClient;
+		} else {
+			throw new ServerError('Email client is not available. Email client is not set in the config.');
+		}
 	}
 
 	async sendHtmlEmail(emailAddress: string, subject: string, body: string) {

@@ -3,14 +3,13 @@ import { Umzug } from 'umzug';
 import { IBaseApiConfig } from '../../../../models/base-api-config.interface.js';
 import { getPostgresInitialSchema } from '../postgres-initial-schema.js';
 import { getPostgresTestSchema } from '../../../../__tests__/postgres-test-migrations/postgres-test-schema.js';
-import { TestEmailClient } from '../../../../__tests__/test-email-client.js';
 
 /**
  * Test helper to run only the postgres-initial-schema migrations (no file migrations)
  * This is used for tests in the API library to set up the database schema.
  */
 export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiConfig): Promise<void> {
-  const initialSchema = getPostgresInitialSchema(config, new TestEmailClient());
+  const initialSchema = getPostgresInitialSchema(config);
 
   const umzug = new Umzug({
     migrations: async () => {

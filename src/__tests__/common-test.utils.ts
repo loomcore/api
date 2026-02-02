@@ -45,7 +45,7 @@ const newUser1Password = 'testone';
 const constDeviceIdCookie = crypto.randomBytes(16).toString('hex'); // Generate a consistent device ID for tests
 
 function initialize(database: IDatabase) {
-  authService = new AuthService(database, new TestEmailClient());
+  authService = new AuthService(database);
   organizationService = new OrganizationService(database);
   deviceIdCookie = constDeviceIdCookie;
 }
@@ -321,6 +321,9 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
     email: {
       fromAddress: 'test@test.com',
       systemEmailAddress: 'system@test.com'
+    },
+    thirdPartyClients: {
+      emailClient: new TestEmailClient()
     },
     multiTenant: isMultiTenant ? {
       metaOrgName: 'Test Meta Organization',
