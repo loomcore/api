@@ -15,6 +15,7 @@ import { IEmailAddressModel } from './models/email-address.model.js';
 import { IPhoneNumberModel } from './models/phone-number.model.js';
 import { IAgentModel } from './models/agent.model.js';
 import { IPolicyModel } from './models/policy.model.js';
+import { IPremiumModel } from './models/premium.model.js';
 
 // Skip this test suite if not running with PostgreSQL
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
@@ -33,6 +34,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
     let agent2Id: number;
     let agent3Id: number;
     let policyId: number;
+    let policy2Id: number = 0;
     let emailAddress1Id: number;
     let emailAddress2Id: number;
     let phoneNumber1Id: number;
@@ -54,6 +56,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         client = (testDatabase as any).postgresClient as Client;
 
         // Clean up any existing test data first (in case of previous failed test runs)
+        await client.query(`DELETE FROM premiums WHERE policy_id IN (SELECT _id FROM policies WHERE amount IN ($1, $2))`, [1000.00, 2000.00]);
         await client.query(`DELETE FROM agents_policies WHERE policy_id IN (SELECT _id FROM policies WHERE amount IN ($1, $2))`, [1000.00, 2000.00]);
         await client.query(`DELETE FROM policies WHERE amount IN ($1, $2)`, [1000.00, 2000.00]);
         await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
@@ -142,7 +145,24 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
             RETURNING _id
         `, [clientId, 2000.00, 'yearly']);
-        const policy2Id = policy2Result.rows[0]._id;
+        policy2Id = policy2Result.rows[0]._id;
+
+        // Create premiums for the first policy (monthly policy)
+        await client.query(`
+            INSERT INTO premiums (policy_id, amount, date, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
+        `, [policyId, 100.00, '2024-01-15']);
+
+        await client.query(`
+            INSERT INTO premiums (policy_id, amount, date, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
+        `, [policyId, 100.00, '2024-02-15']);
+
+        // Create premiums for the second policy (yearly policy)
+        await client.query(`
+            INSERT INTO premiums (policy_id, amount, date, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
+        `, [policy2Id, 2000.00, '2024-01-01']);
 
         // Link agents to policies via agents_policies join table
         await client.query(`
@@ -240,6 +260,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Clean up test data before closing database connection
         if (client) {
             try {
+                await client.query(`DELETE FROM premiums WHERE policy_id IN (SELECT _id FROM policies WHERE amount IN ($1, $2))`, [1000.00, 2000.00]);
                 await client.query(`DELETE FROM agents_policies WHERE policy_id IN (SELECT _id FROM policies WHERE amount IN ($1, $2))`, [1000.00, 2000.00]);
                 await client.query(`DELETE FROM policies WHERE amount IN ($1, $2)`, [1000.00, 2000.00]);
                 await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
@@ -275,7 +296,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // 4. Many-to-one: persons -> email_addresses (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
 
         // 5. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
@@ -286,7 +307,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             'person_id',               // join table local field
             'phone_number_id',         // join table foreign field
             '_id',                     // foreign field (phone_number._id)
-            'phone_numbers'            // alias
+            'client_phone_numbers'     // alias
         );
 
         // 6. Many-to-one: clients -> policies (returns array)
@@ -294,23 +315,31 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             'policies',                // final table
             '_id',                     // local field (clients._id)
             'client_id',               // foreign field (policy.client_id)
-            'policies'                 // alias
+            'client_policies'         // alias
         );
 
         // 7. Many-to-many via join table: policies -> agents_policies -> agents (returns array)
         const joinPolicyAgents = new JoinThroughMany(
             'agents',                  // final table
             'agents_policies',         // join table
-            'policies._id',            // local field (policies._id) - references joined policies array
+            'client_policies._id',     // local field (client_policies._id) - references joined policies array
             'policy_id',               // join table local field
             'agent_id',               // join table foreign field
             '_id',                     // foreign field (agent._id)
             'policy_agents'            // alias (nested under each policy, different from top-level 'agents')
         );
 
+        // 8. Many-to-one: policies -> premiums (returns array)
+        const joinPremiums = new JoinMany(
+            'premiums',                // final table
+            'client_policies._id',     // local field (client_policies._id) - references joined policies array
+            'policy_id',               // foreign field (premium.policy_id)
+            'policy_premiums'          // alias
+        );
+
         // Note: Person joins for agents nested in policies are handled in the SQL enrichment
         // We'll need to update build-join-clauses to handle this case
-        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents];
+        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
@@ -332,12 +361,12 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.client_person.last_name).toBe('Doe');
 
         // Verify email addresses array
-        expect(result!.client_person.email_addresses).toBeDefined();
-        expect(Array.isArray(result!.client_person.email_addresses)).toBe(true);
-        expect(result!.client_person.email_addresses.length).toBe(2);
+        expect(result!.client_person.client_email_addresses).toBeDefined();
+        expect(Array.isArray(result!.client_person.client_email_addresses)).toBe(true);
+        expect(result!.client_person.client_email_addresses.length).toBe(2);
 
         // Verify email addresses content
-        const emailAddresses = result!.client_person.email_addresses as IEmailAddressModel[];
+        const emailAddresses = result!.client_person.client_email_addresses as IEmailAddressModel[];
         const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
         const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
 
@@ -350,12 +379,12 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(email2!.is_default).toBe(false);
 
         // Verify phone numbers array
-        expect(result!.client_person.phone_numbers).toBeDefined();
-        expect(Array.isArray(result!.client_person.phone_numbers)).toBe(true);
-        expect(result!.client_person.phone_numbers.length).toBe(2);
+        expect(result!.client_person.client_phone_numbers).toBeDefined();
+        expect(Array.isArray(result!.client_person.client_phone_numbers)).toBe(true);
+        expect(result!.client_person.client_phone_numbers.length).toBe(2);
 
         // Verify phone numbers content
-        const phoneNumbers = result!.client_person.phone_numbers as IPhoneNumberModel[];
+        const phoneNumbers = result!.client_person.client_phone_numbers as IPhoneNumberModel[];
         const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
         const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
 
@@ -378,12 +407,12 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.agent!.agent_person!.last_name).toBe('Doe');
 
         // Verify policies array
-        expect(result!.policies).toBeDefined();
-        expect(Array.isArray(result!.policies)).toBe(true);
-        expect(result!.policies!.length).toBe(2);
+        expect(result!.client_policies).toBeDefined();
+        expect(Array.isArray(result!.client_policies)).toBe(true);
+        expect(result!.client_policies!.length).toBe(2);
 
         // Verify first policy (monthly policy)
-        const policies = result!.policies as IPolicyModel[];
+        const policies = result!.client_policies as IPolicyModel[];
         const monthlyPolicy = policies.find(p => p.amount === 1000.00);
         const yearlyPolicy = policies.find(p => p.amount === 2000.00);
 
@@ -417,6 +446,23 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(agent3!.agent_person!.first_name).toBe('Alice');
         expect(agent3!.agent_person!.last_name).toBe('Williams');
 
+        // Verify monthly policy premiums array
+        expect(monthlyPolicy!.policy_premiums).toBeDefined();
+        expect(Array.isArray(monthlyPolicy!.policy_premiums)).toBe(true);
+        expect(monthlyPolicy!.policy_premiums!.length).toBe(2);
+
+        const monthlyPolicyPremiums = monthlyPolicy!.policy_premiums as IPremiumModel[];
+        const premium1 = monthlyPolicyPremiums.find(p => p.amount === 100.00 && String(p.date).startsWith('2024-01-15'));
+        const premium2 = monthlyPolicyPremiums.find(p => p.amount === 100.00 && String(p.date).startsWith('2024-02-15'));
+
+        expect(premium1).toBeDefined();
+        expect(premium1!.policy_id).toBe(policyId);
+        expect(premium1!.amount).toBe(100.00);
+
+        expect(premium2).toBeDefined();
+        expect(premium2!.policy_id).toBe(policyId);
+        expect(premium2!.amount).toBe(100.00);
+
         // Verify second policy (yearly policy)
         expect(yearlyPolicy).toBeDefined();
         expect(yearlyPolicy!.amount).toBe(2000.00);
@@ -433,6 +479,18 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(yearlyAgent1!.agent_person).toBeDefined();
         expect(yearlyAgent1!.agent_person!.first_name).toBe('Jane');
         expect(yearlyAgent1!.agent_person!.last_name).toBe('Doe');
+
+        // Verify yearly policy premiums array
+        expect(yearlyPolicy!.policy_premiums).toBeDefined();
+        expect(Array.isArray(yearlyPolicy!.policy_premiums)).toBe(true);
+        expect(yearlyPolicy!.policy_premiums!.length).toBe(1);
+
+        const yearlyPolicyPremiums = yearlyPolicy!.policy_premiums as IPremiumModel[];
+        const yearlyPremium1 = yearlyPolicyPremiums.find(p => p.amount === 2000.00);
+        expect(yearlyPremium1).toBeDefined();
+        expect(yearlyPremium1!.policy_id).toBe(policy2Id);
+        expect(yearlyPremium1!.amount).toBe(2000.00);
+        expect(String(yearlyPremium1!.date).startsWith('2024-01-01')).toBe(true);
     });
 
     it('should handle get() query with joins and return paginated results', async () => {
@@ -440,7 +498,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
         const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
         const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agent_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
@@ -448,25 +506,31 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             'person_id',
             'phone_number_id',
             '_id',
-            'phone_numbers'
+            'client_phone_numbers'
         );
         const joinPolicies = new JoinMany(
             'policies',
             '_id',
             'client_id',
-            'policies'
+            'client_policies'
         );
         const joinPolicyAgents = new JoinThroughMany(
             'agents',
             'agents_policies',
-            'policies._id',
+            'client_policies._id',
             'policy_id',
             'agent_id',
             '_id',
             'policy_agents'
         );
+        const joinPremiums = new JoinMany(
+            'premiums',
+            'client_policies._id',
+            'policy_id',
+            'policy_premiums'
+        );
 
-        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents];
+        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
 
         // Query using get with pagination
         const queryOptions: IQueryOptions = {
@@ -491,10 +555,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Verify first entity has proper structure
         const firstEntity = result.entities![0];
         expect(firstEntity.client_person).toBeDefined();
-        expect(firstEntity.client_person.email_addresses).toBeDefined();
-        expect(Array.isArray(firstEntity.client_person.email_addresses)).toBe(true);
-        expect(firstEntity.client_person.phone_numbers).toBeDefined();
-        expect(Array.isArray(firstEntity.client_person.phone_numbers)).toBe(true);
+        expect(firstEntity.client_person.client_email_addresses).toBeDefined();
+        expect(Array.isArray(firstEntity.client_person.client_email_addresses)).toBe(true);
+        expect(firstEntity.client_person.client_phone_numbers).toBeDefined();
+        expect(Array.isArray(firstEntity.client_person.client_phone_numbers)).toBe(true);
         expect(firstEntity.agent).toBeDefined();
         expect(firstEntity.agent!.agent_person).toBeDefined();
     });
@@ -504,7 +568,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
         const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
         const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agent_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
@@ -512,25 +576,31 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             'person_id',
             'phone_number_id',
             '_id',
-            'phone_numbers'
+            'client_phone_numbers'
         );
         const joinPolicies = new JoinMany(
             'policies',
             '_id',
             'client_id',
-            'policies'
+            'client_policies'
         );
         const joinPolicyAgents = new JoinThroughMany(
             'agents',
             'agents_policies',
-            'policies._id',
+            'client_policies._id',
             'policy_id',
             'agent_id',
             '_id',
             'policy_agents'
         );
+        const joinPremiums = new JoinMany(
+            'premiums',
+            'client_policies._id',
+            'policy_id',
+            'policy_premiums'
+        );
 
-        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents];
+        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
 
         // Query using getAll
         const results = await database.getAll<IClientReportsModel>(
@@ -546,10 +616,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Verify first result has proper structure
         const firstResult = results[0];
         expect(firstResult.client_person).toBeDefined();
-        expect(firstResult.client_person.email_addresses).toBeDefined();
-        expect(Array.isArray(firstResult.client_person.email_addresses)).toBe(true);
-        expect(firstResult.client_person.phone_numbers).toBeDefined();
-        expect(Array.isArray(firstResult.client_person.phone_numbers)).toBe(true);
+        expect(firstResult.client_person.client_email_addresses).toBeDefined();
+        expect(Array.isArray(firstResult.client_person.client_email_addresses)).toBe(true);
+        expect(firstResult.client_person.client_phone_numbers).toBeDefined();
+        expect(Array.isArray(firstResult.client_person.client_phone_numbers)).toBe(true);
         expect(firstResult.agent).toBeDefined();
         expect(firstResult.agent!.agent_person).toBeDefined();
     });
@@ -572,7 +642,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
 
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
@@ -581,7 +651,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             'person_id',
             'phone_number_id',
             '_id',
-            'phone_numbers'
+            'client_phone_numbers'
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -598,12 +668,12 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Verify empty arrays are returned
         expect(result).toBeDefined();
         expect(result!.client_person).toBeDefined();
-        expect(result!.client_person.email_addresses).toBeDefined();
-        expect(Array.isArray(result!.client_person.email_addresses)).toBe(true);
-        expect(result!.client_person.email_addresses.length).toBe(0);
-        expect(result!.client_person.phone_numbers).toBeDefined();
-        expect(Array.isArray(result!.client_person.phone_numbers)).toBe(true);
-        expect(result!.client_person.phone_numbers.length).toBe(0);
+        expect(result!.client_person.client_email_addresses).toBeDefined();
+        expect(Array.isArray(result!.client_person.client_email_addresses)).toBe(true);
+        expect(result!.client_person.client_email_addresses.length).toBe(0);
+        expect(result!.client_person.client_phone_numbers).toBeDefined();
+        expect(Array.isArray(result!.client_person.client_phone_numbers)).toBe(true);
+        expect(result!.client_person.client_phone_numbers.length).toBe(0);
     });
 
     it('should join through join table to get single school and then join to district and state', async () => {

@@ -258,6 +258,34 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
+  // 10. Premiums (must come after policies since premiums references policies)
+  migrations.push({
+    name: '00000000000105_9_schema-premiums',
+    up: async ({ context: pool }) => {
+      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "premiums" (
+          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          ${orgColumnDef}
+          "policy_id" INTEGER NOT NULL,
+          "amount" NUMERIC NOT NULL,
+          "date" DATE NOT NULL,
+          "_created" TIMESTAMPTZ NOT NULL,
+          "_createdBy" INTEGER NOT NULL,
+          "_updated" TIMESTAMPTZ NOT NULL,
+          "_updatedBy" INTEGER NOT NULL,
+          "_deleted" TIMESTAMPTZ,
+          "_deletedBy" INTEGER,
+          CONSTRAINT fk_premiums_policy_id FOREIGN KEY ("policy_id") REFERENCES policies("_id") ON DELETE CASCADE
+        )
+      `);
+    },
+    down: async ({ context: pool }) => {
+      await pool.query('DROP TABLE IF EXISTS "premiums"');
+    }
+  });
+
   // 11. Email Addresses
   migrations.push({
     name: '00000000000106_schema-email-addresses',

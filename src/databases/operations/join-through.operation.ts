@@ -28,6 +28,9 @@ export class JoinThrough {
         foreignField: string,
         as: string,
     ) {
+        if (from === as) {
+            throw new Error(`JoinThrough alias "${as}" must be different from table name "${from}". The alias is used to identify the join result and must be unique.`);
+        }
         this.from = from;
         this.through = through;
         this.localField = localField;

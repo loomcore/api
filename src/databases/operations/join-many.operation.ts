@@ -19,6 +19,9 @@ export class JoinMany {
         foreignField: string,
         as: string,
     ) {
+        if (from === as) {
+            throw new Error(`JoinMany alias "${as}" must be different from table name "${from}". The alias is used to identify the join result and must be unique.`);
+        }
         this.from = from;
         this.localField = localField;
         this.foreignField = foreignField;

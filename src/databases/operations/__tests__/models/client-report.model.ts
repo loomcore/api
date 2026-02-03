@@ -9,13 +9,13 @@ import { Type } from "@sinclair/typebox";
 export interface IClientReportsModel extends IEntity, IAuditable {
     client_person: IPersonModel;
     agent?: IAgentModel;
-    policies?: IPolicyModel[];
+    client_policies?: IPolicyModel[];
 }
 
 export const clientReportsSchema = Type.Object({
     client_person: personSchema,
     agent: Type.Optional(agentSchema),
-    policies: Type.Optional(Type.Array(policySchema))
+    client_policies: Type.Optional(Type.Array(policySchema))
 });
 
 export const clientReportsModelSpec =

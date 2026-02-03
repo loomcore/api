@@ -5,17 +5,87 @@ import { JoinThrough } from '../../operations/join-through.operation.js';
 import { JoinThroughMany } from '../../operations/join-through-many.operation.js';
 
 /**
+ * Finds a nested object in the transformed result by alias.
+ * Used to locate where nested joins should be placed.
+ */
+function findNestedObject(obj: any, alias: string, path: string[] = []): { obj: any; path: string[] } | null {
+    if (obj[alias] !== undefined && obj[alias] !== null) {
+        return { obj: obj[alias], path: [...path, alias] };
+    }
+    for (const key in obj) {
+        if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+            const found = findNestedObject(obj[key], alias, [...path, key]);
+            if (found !== null) {
+                return found;
+            }
+        } else if (Array.isArray(obj[key])) {
+            // Also search in arrays
+            for (const item of obj[key]) {
+                if (item && typeof item === 'object') {
+                    const found = findNestedObject(item, alias, [...path, key]);
+                    if (found !== null) {
+                        return found;
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Parses a JSON value (string or already parsed) into an object or array.
+ */
+function parseJsonValue(value: any): any {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    if (typeof value === 'string') {
+        try {
+            return JSON.parse(value);
+        } catch {
+            return value;
+        }
+    }
+    return value;
+}
+
+/**
+ * Checks if an operation enriches another array join.
+ */
+function findEnrichmentTarget(
+    operation: JoinMany | JoinThroughMany,
+    operations: Operation[]
+): JoinMany | JoinThroughMany | null {
+    if (!operation.localField.includes('.')) {
+        return null;
+    }
+
+    const [alias] = operation.localField.split('.');
+    const target = operations.find(op =>
+        (op instanceof JoinMany || op instanceof JoinThroughMany) && op.as === alias
+    ) as JoinMany | JoinThroughMany | undefined;
+
+    if (target && operations.indexOf(target) < operations.indexOf(operation)) {
+        return target;
+    }
+
+    return null;
+}
+
+/**
+ * Maps enrichment field names to expected model field names.
+ * Special case: policy_agents -> agents when nested under policies/client_policies.
+ */
+function mapEnrichmentFieldName(fieldName: string, targetAlias: string): string {
+    if (fieldName === 'policy_agents' && (targetAlias === 'client_policies' || targetAlias === 'policies')) {
+        return 'agents';
+    }
+    return fieldName;
+}
+
+/**
  * Transforms PostgreSQL JOIN results with prefixed columns into nested objects.
- * 
- * When using buildSelectClause:
- * - One-to-one joins: columns are selected with prefixes like "category__id", "category__name"
- * - Array joins (JoinMany, JoinThrough): columns are already JSON arrays from subqueries
- * 
- * This function groups prefixed columns into nested objects and parses JSON arrays.
- * 
- * @param rows - Rows from a JOIN query with prefixed column names or JSON arrays
- * @param operations - Array of operations (includes Join operations)
- * @returns Transformed rows with nested joined data
  */
 export function transformJoinResults<T>(
     rows: any[],
@@ -27,22 +97,36 @@ export function transformJoinResults<T>(
     const joinThroughManyOperations = operations.filter(op => op instanceof JoinThroughMany) as JoinThroughMany[];
 
     // If no joins, return rows as-is
-    if (joinOperations.length === 0 && joinManyOperations.length === 0 && joinThroughOperations.length === 0 && joinThroughManyOperations.length === 0) {
+    if (
+        joinOperations.length === 0 &&
+        joinManyOperations.length === 0 &&
+        joinThroughOperations.length === 0 &&
+        joinThroughManyOperations.length === 0
+    ) {
         return rows as T[];
     }
 
-    // Transform each row
+    // Collect all join aliases
+    const allJoinAliases = [
+        ...joinOperations.map(j => j.as),
+        ...joinManyOperations.map(j => j.as),
+        ...joinThroughOperations.map(j => j.as),
+        ...joinThroughManyOperations.map(j => j.as)
+    ];
+
+    // Build enrichment map: which operations enrich which targets
+    const enrichmentMap = new Map<JoinMany | JoinThroughMany, JoinMany | JoinThroughMany>();
+    for (const op of [...joinManyOperations, ...joinThroughManyOperations]) {
+        const target = findEnrichmentTarget(op, operations);
+        if (target) {
+            enrichmentMap.set(op, target);
+        }
+    }
+
     return rows.map(row => {
         const transformed: any = {};
 
-        // First, copy all main table columns (those without any join prefix or alias)
-        const allJoinAliases = [
-            ...joinOperations.map(j => j.as),
-            ...joinManyOperations.map(j => j.as),
-            ...joinThroughOperations.map(j => j.as),
-            ...joinThroughManyOperations.map(j => j.as)
-        ];
-
+        // Copy main table columns (those without join prefix or alias)
         for (const key of Object.keys(row)) {
             const hasJoinPrefix = joinOperations.some(join => key.startsWith(`${join.as}__`));
             const isJoinAlias = allJoinAliases.includes(key);
@@ -52,48 +136,19 @@ export function transformJoinResults<T>(
             }
         }
 
-        // Process operations in order to handle dependencies correctly
-        // We need to process JoinThrough operations that depend on regular Joins,
-        // and regular Joins that depend on JoinThrough results
+        // Process operations in order to handle dependencies
         for (const operation of operations) {
-            if (operation instanceof JoinThrough) {
-                // Handle join-through operations (JoinThrough): parse single JSON object
-                const jsonValue = row[operation.as];
-                let parsedValue: any;
+            // Skip enrichment operations - they're already embedded in their targets
+            if (enrichmentMap.has(operation as JoinMany | JoinThroughMany)) {
+                continue;
+            }
 
-                if (jsonValue !== null && jsonValue !== undefined) {
-                    // Parse JSON if it's a string, otherwise use as-is
-                    parsedValue = typeof jsonValue === 'string'
-                        ? JSON.parse(jsonValue)
-                        : jsonValue;
-                } else {
-                    parsedValue = null;
-                }
-
-                // Check if this JoinThrough references a joined table
-                if (operation.localField.includes('.')) {
-                    const [tableAlias] = operation.localField.split('.');
-                    const relatedJoin = joinOperations.find(j => j.as === tableAlias);
-                    const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
-                    if ((relatedJoin && transformed[relatedJoin.as]) || (relatedJoinThrough && transformed[relatedJoinThrough.as])) {
-                        // Nest under the related join's alias (e.g., person.phone_number)
-                        const targetAlias = relatedJoin ? relatedJoin.as : relatedJoinThrough!.as;
-                        transformed[targetAlias][operation.as] = parsedValue;
-                    } else {
-                        // Fallback: add at top level
-                        transformed[operation.as] = parsedValue;
-                    }
-                } else {
-                    // Add at top level
-                    transformed[operation.as] = parsedValue;
-                }
-            } else if (operation instanceof Join) {
-                // Handle one-to-one joins: group prefixed columns into nested objects
+            if (operation instanceof Join) {
+                // One-to-one join: group prefixed columns into nested object
                 const prefix = `${operation.as}__`;
                 const joinedData: any = {};
                 let hasAnyData = false;
 
-                // Find all columns with this prefix
                 for (const key of Object.keys(row)) {
                     if (key.startsWith(prefix)) {
                         const columnName = key.substring(prefix.length);
@@ -105,258 +160,188 @@ export function transformJoinResults<T>(
                     }
                 }
 
-                // Check if this Join references a joined table (nested join)
+                // Determine where to place this join result
                 if (operation.localField.includes('.')) {
+                    // Nested join: place under referenced join's alias
                     const [tableAlias] = operation.localField.split('.');
                     const relatedJoin = joinOperations.find(j => j.as === tableAlias);
                     const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
 
-                    // Helper function to find nested object by alias and return both the object and its parent path
-                    const findNestedObject = (obj: any, alias: string, path: string[] = []): { obj: any, path: string[] } | null => {
-                        if (obj[alias] !== undefined && obj[alias] !== null) {
-                            return { obj: obj[alias], path: [...path, alias] };
-                        }
-                        for (const key in obj) {
-                            if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
-                                const found = findNestedObject(obj[key], alias, [...path, key]);
-                                if (found !== null) {
-                                    return found;
-                                }
-                            }
-                        }
-                        return null;
-                    };
-
-                    // Find where the related join/joinThrough is nested
                     let targetObject: any = null;
-                    if (relatedJoin) {
-                        // First check top level
-                        if (transformed[relatedJoin.as] !== undefined && transformed[relatedJoin.as] !== null) {
-                            targetObject = transformed[relatedJoin.as];
-                        } else {
-                            // Search for nested Join
-                            const found = findNestedObject(transformed, relatedJoin.as);
-                            if (found !== null && found.obj !== undefined && found.obj !== null) {
-                                targetObject = found.obj;
-                            }
-                        }
-                    } else if (relatedJoinThrough) {
-                        // Search for the JoinThrough result in nested structure
-                        const found = findNestedObject(transformed, relatedJoinThrough.as);
-                        if (found !== null && found.obj !== undefined && found.obj !== null) {
+                    // First check top level
+                    if (relatedJoin && transformed[relatedJoin.as]) {
+                        targetObject = transformed[relatedJoin.as];
+                    } else if (relatedJoinThrough && transformed[relatedJoinThrough.as]) {
+                        targetObject = transformed[relatedJoinThrough.as];
+                    } else {
+                        // Search for nested object (could be nested under another join)
+                        const found = findNestedObject(transformed, tableAlias);
+                        if (found) {
                             targetObject = found.obj;
                         }
                     }
 
                     if (targetObject) {
-                        // Nest under the related join's alias (e.g., agent.person or school.district)
-                        // Only nest if there's data, otherwise leave it null/undefined
-                        if (hasAnyData) {
-                            targetObject[operation.as] = joinedData;
-                        } else {
-                            targetObject[operation.as] = null;
-                        }
+                        targetObject[operation.as] = hasAnyData ? joinedData : null;
                     } else {
-                        // Fallback: add at top level
                         transformed[operation.as] = hasAnyData ? joinedData : null;
                     }
                 } else {
-                    // Add at top level
+                    // Top-level join
                     transformed[operation.as] = hasAnyData ? joinedData : null;
                 }
-            }
-        }
 
-        // Handle array joins (JoinMany): parse JSON arrays
-        // If localField references a joined table (e.g., "person._id"), nest under that join's alias
-        for (const joinMany of joinManyOperations) {
-            const jsonValue = row[joinMany.as];
-            let parsedValue: any;
+            } else if (operation instanceof JoinThrough) {
+                // Single object join through join table
+                const jsonValue = parseJsonValue(row[operation.as]);
 
-            if (jsonValue !== null && jsonValue !== undefined) {
-                // Parse JSON if it's a string, otherwise use as-is
-                parsedValue = typeof jsonValue === 'string'
-                    ? JSON.parse(jsonValue)
-                    : jsonValue;
-            } else {
-                parsedValue = [];
-            }
+                if (operation.localField.includes('.')) {
+                    // Nested join
+                    const [tableAlias] = operation.localField.split('.');
+                    const relatedJoin = joinOperations.find(j => j.as === tableAlias);
+                    const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
 
-            // Check if this JoinMany references a joined table
-            if (joinMany.localField.includes('.')) {
-                const [tableAlias] = joinMany.localField.split('.');
-                const relatedJoin = joinOperations.find(j => j.as === tableAlias);
-                if (relatedJoin && transformed[relatedJoin.as]) {
-                    // Nest under the related join's alias (e.g., person.email_addresses)
-                    transformed[relatedJoin.as][joinMany.as] = parsedValue;
-                } else {
-                    // Fallback: add at top level
-                    transformed[joinMany.as] = parsedValue;
-                }
-            } else {
-                // Add at top level
-                transformed[joinMany.as] = parsedValue;
-            }
-        }
-
-        // Handle join-through-many operations (JoinThroughMany): parse JSON arrays
-        // If localField references a joined table (e.g., "person._id"), nest under that join's alias
-        // Track which joins replace others
-        const replacedJoins = new Map<string, string>(); // Map from original alias to replacing alias
-        for (const joinThroughMany of joinThroughManyOperations) {
-            if (joinThroughMany.localField.includes('.')) {
-                const [tableAlias] = joinThroughMany.localField.split('.');
-                const referencedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
-                const referencedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
-                const referencedJoin = referencedJoinThroughMany || referencedJoinMany;
-                if (referencedJoin) {
-                    const referencedIndex = operations.indexOf(referencedJoin);
-                    const currentIndex = operations.indexOf(joinThroughMany);
-                    if (referencedIndex < currentIndex) {
-                        replacedJoins.set(tableAlias, joinThroughMany.as);
-                    }
-                }
-            }
-        }
-
-        // Also check JoinMany operations that might replace other joins
-        for (const joinMany of joinManyOperations) {
-            if (joinMany.localField.includes('.')) {
-                const [tableAlias] = joinMany.localField.split('.');
-                const referencedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
-                const referencedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
-                const referencedJoin = referencedJoinThroughMany || referencedJoinMany;
-                if (referencedJoin) {
-                    const referencedIndex = operations.indexOf(referencedJoin);
-                    const currentIndex = operations.indexOf(joinMany);
-                    if (referencedIndex < currentIndex) {
-                        replacedJoins.set(tableAlias, joinMany.as);
-                    }
-                }
-            }
-        }
-
-        for (const joinThroughMany of joinThroughManyOperations) {
-            // Check if this join is replaced by another - if so, skip it (it's already handled)
-            if (replacedJoins.has(joinThroughMany.as)) {
-                continue;
-            }
-
-            // Check if this join replaces another - if so, use the original alias name
-            const originalAlias = Array.from(replacedJoins.entries()).find(([_, replacing]) => replacing === joinThroughMany.as)?.[0];
-            const aliasToUse = originalAlias || joinThroughMany.as;
-
-            const jsonValue = row[aliasToUse];
-            let parsedValue: any;
-
-            if (jsonValue !== null && jsonValue !== undefined) {
-                // Parse JSON if it's a string, otherwise use as-is
-                parsedValue = typeof jsonValue === 'string'
-                    ? JSON.parse(jsonValue)
-                    : jsonValue;
-            } else {
-                parsedValue = [];
-            }
-
-            // Check if this JoinThroughMany references a joined table
-            if (joinThroughMany.localField.includes('.')) {
-                const [tableAlias] = joinThroughMany.localField.split('.');
-                const relatedJoin = joinOperations.find(j => j.as === tableAlias);
-                const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
-                const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
-                const relatedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
-
-                if ((relatedJoin && transformed[relatedJoin.as]) ||
-                    (relatedJoinThrough && transformed[relatedJoinThrough.as]) ||
-                    (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) ||
-                    (relatedJoinMany && transformed[relatedJoinMany.as])) {
-                    // Check if this is replacing the referenced join (e.g., policy_agents replaces policies)
-                    const targetAlias = relatedJoin ? relatedJoin.as :
-                        (relatedJoinThrough ? relatedJoinThrough.as :
-                            (relatedJoinThroughMany ? relatedJoinThroughMany.as : relatedJoinMany!.as));
-
-                    // If this join replaces the target, replace it in the transformed object
-                    if (replacedJoins.get(targetAlias) === joinThroughMany.as) {
-                        // This is an enriched version that replaces the original
-                        transformed[targetAlias] = parsedValue;
-                    } else {
-                        // Map nested aliases to model field names
-                        // e.g., 'policy_agents' nested under 'policies' should be 'agents'
-                        let fieldName = joinThroughMany.as;
-                        if (fieldName === 'policy_agents' && targetAlias === 'policies') {
-                            fieldName = 'agents';
+                    let targetObject: any = null;
+                    if (relatedJoin && transformed[relatedJoin.as]) {
+                        targetObject = transformed[relatedJoin.as];
+                    } else if (relatedJoinThrough) {
+                        const found = findNestedObject(transformed, relatedJoinThrough.as);
+                        if (found) {
+                            targetObject = found.obj;
                         }
-                        transformed[targetAlias][fieldName] = parsedValue;
                     }
-                } else {
-                    // Fallback: add at top level
-                    transformed[aliasToUse] = parsedValue;
-                }
-            } else {
-                // Add at top level
-                transformed[aliasToUse] = parsedValue;
-            }
-        }
 
-        // Handle JoinMany operations that might replace other joins
-        for (const joinMany of joinManyOperations) {
-            // Check if this join is replaced by another - if so, skip it (it's already handled)
-            if (replacedJoins.has(joinMany.as)) {
-                continue;
-            }
-
-            // Check if this join replaces another - if so, use the original alias name
-            const originalAlias = Array.from(replacedJoins.entries()).find(([_, replacing]) => replacing === joinMany.as)?.[0];
-            const aliasToUse = originalAlias || joinMany.as;
-
-            const jsonValue = row[aliasToUse];
-            let parsedValue: any;
-
-            if (jsonValue !== null && jsonValue !== undefined) {
-                // Parse JSON if it's a string, otherwise use as-is
-                parsedValue = typeof jsonValue === 'string'
-                    ? JSON.parse(jsonValue)
-                    : jsonValue;
-            } else {
-                parsedValue = [];
-            }
-
-            // Check if this JoinMany references a joined table
-            if (joinMany.localField.includes('.')) {
-                const [tableAlias] = joinMany.localField.split('.');
-                const relatedJoin = joinOperations.find(j => j.as === tableAlias);
-                const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
-                const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
-                const relatedJoinManyOther = joinManyOperations.find(j => j.as === tableAlias);
-
-                if ((relatedJoin && transformed[relatedJoin.as]) ||
-                    (relatedJoinThrough && transformed[relatedJoinThrough.as]) ||
-                    (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) ||
-                    (relatedJoinManyOther && transformed[relatedJoinManyOther.as])) {
-                    // Check if this is replacing the referenced join
-                    const targetAlias = relatedJoin ? relatedJoin.as :
-                        (relatedJoinThrough ? relatedJoinThrough.as :
-                            (relatedJoinThroughMany ? relatedJoinThroughMany.as : relatedJoinManyOther!.as));
-
-                    // If this join replaces the target, replace it in the transformed object
-                    if (replacedJoins.get(targetAlias) === joinMany.as) {
-                        // This is an enriched version that replaces the original
-                        transformed[targetAlias] = parsedValue;
+                    if (targetObject) {
+                        targetObject[operation.as] = jsonValue;
                     } else {
-                        // Normal nesting
-                        transformed[targetAlias][joinMany.as] = parsedValue;
+                        transformed[operation.as] = jsonValue;
                     }
                 } else {
-                    // Fallback: add at top level
-                    transformed[aliasToUse] = parsedValue;
+                    transformed[operation.as] = jsonValue;
                 }
-            } else {
-                // Add at top level
-                transformed[aliasToUse] = parsedValue;
+
+            } else if (operation instanceof JoinMany) {
+                // Array join (many-to-one)
+                const jsonValue = parseJsonValue(row[operation.as]);
+                let parsedValue = Array.isArray(jsonValue) ? jsonValue : (jsonValue ? [jsonValue] : []);
+
+                // Process enrichments that are embedded in this array
+                const enrichments = Array.from(enrichmentMap.entries())
+                    .filter(([_, target]) => target === operation)
+                    .map(([enrichOp]) => enrichOp);
+
+                if (enrichments.length > 0 && Array.isArray(parsedValue)) {
+                    // The enrichments are already embedded in the SQL result
+                    // We just need to map field names if needed
+                    for (const item of parsedValue) {
+                        if (item && typeof item === 'object') {
+                            for (const enrichment of enrichments) {
+                                if (item[enrichment.as] !== undefined) {
+                                    const mappedName = mapEnrichmentFieldName(enrichment.as, operation.as);
+                                    if (mappedName !== enrichment.as) {
+                                        item[mappedName] = item[enrichment.as];
+                                        delete item[enrichment.as];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (operation.localField.includes('.')) {
+                    // Nested join: reference to another join's alias
+                    const [tableAlias] = operation.localField.split('.');
+
+                    const relatedJoin = joinOperations.find(j => j.as === tableAlias);
+                    const relatedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
+                    const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
+                    const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+
+                    let targetObject: any = null;
+                    if (relatedJoin && transformed[relatedJoin.as]) {
+                        targetObject = transformed[relatedJoin.as];
+                    } else if (relatedJoinThrough) {
+                        const found = findNestedObject(transformed, relatedJoinThrough.as);
+                        if (found) {
+                            targetObject = found.obj;
+                        }
+                    } else if (relatedJoinMany && transformed[relatedJoinMany.as]) {
+                        targetObject = transformed[relatedJoinMany.as];
+                    } else if (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) {
+                        targetObject = transformed[relatedJoinThroughMany.as];
+                    }
+
+                    if (targetObject) {
+                        targetObject[operation.as] = parsedValue;
+                    } else {
+                        transformed[operation.as] = parsedValue;
+                    }
+                } else {
+                    transformed[operation.as] = parsedValue;
+                }
+
+            } else if (operation instanceof JoinThroughMany) {
+                // Array join through join table (many-to-many)
+                const jsonValue = parseJsonValue(row[operation.as]);
+                let parsedValue = Array.isArray(jsonValue) ? jsonValue : (jsonValue ? [jsonValue] : []);
+
+                // Process enrichments that are embedded in this array
+                const enrichments = Array.from(enrichmentMap.entries())
+                    .filter(([_, target]) => target === operation)
+                    .map(([enrichOp]) => enrichOp);
+
+                if (enrichments.length > 0 && Array.isArray(parsedValue)) {
+                    // The enrichments are already embedded in the SQL result
+                    // We just need to map field names if needed
+                    for (const item of parsedValue) {
+                        if (item && typeof item === 'object') {
+                            for (const enrichment of enrichments) {
+                                if (item[enrichment.as] !== undefined) {
+                                    const mappedName = mapEnrichmentFieldName(enrichment.as, operation.as);
+                                    if (mappedName !== enrichment.as) {
+                                        item[mappedName] = item[enrichment.as];
+                                        delete item[enrichment.as];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (operation.localField.includes('.')) {
+                    // Nested join: reference to another join's alias
+                    const [tableAlias] = operation.localField.split('.');
+
+                    const relatedJoin = joinOperations.find(j => j.as === tableAlias);
+                    const relatedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
+                    const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
+                    const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+
+                    let targetObject: any = null;
+                    if (relatedJoin && transformed[relatedJoin.as]) {
+                        targetObject = transformed[relatedJoin.as];
+                    } else if (relatedJoinThrough) {
+                        const found = findNestedObject(transformed, relatedJoinThrough.as);
+                        if (found) {
+                            targetObject = found.obj;
+                        }
+                    } else if (relatedJoinMany && transformed[relatedJoinMany.as]) {
+                        targetObject = transformed[relatedJoinMany.as];
+                    } else if (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) {
+                        targetObject = transformed[relatedJoinThroughMany.as];
+                    }
+
+                    if (targetObject) {
+                        targetObject[operation.as] = parsedValue;
+                    } else {
+                        transformed[operation.as] = parsedValue;
+                    }
+                } else {
+                    transformed[operation.as] = parsedValue;
+                }
             }
         }
 
         return transformed as T;
     });
 }
-

@@ -9,8 +9,8 @@ export interface IPersonModel extends IEntity, IAuditable {
     first_name: string;
     middle_name: string | null;
     last_name: string;
-    email_addresses: IEmailAddressModel[];
-    phone_numbers: IPhoneNumberModel[];
+    client_email_addresses: IEmailAddressModel[];
+    client_phone_numbers: IPhoneNumberModel[];
     school?: ISchoolModel;
 }
 
@@ -18,8 +18,8 @@ export const personSchema = Type.Object({
     first_name: Type.String(),
     middle_name: Type.Optional(Type.String()),
     last_name: Type.String(),
-    phone_numbers: Type.Array(phoneNumberSchema),
-    email_addresses: Type.Array(emailAddressSchema),
+    client_phone_numbers: Type.Array(phoneNumberSchema),
+    client_email_addresses: Type.Array(emailAddressSchema),
 });
 
 export const personModelSpec = entityUtils.getModelSpec(personSchema, { isAuditable: true });
