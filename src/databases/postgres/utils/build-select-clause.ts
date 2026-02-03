@@ -82,8 +82,33 @@ export async function buildSelectClause(
 
     // Handle JoinThroughMany operations (many-to-many via join table) - handled via LATERAL joins in FROM clause
     // Select the aggregated JSON array from the LATERAL join
+    // Check if any join replaces another (e.g., policy_agents replaces policies)
+    const replacedJoins = new Map<string, string>(); // Map from original alias to replacing alias
     for (const joinThroughMany of joinThroughManyOperations) {
-        joinSelects.push(`${joinThroughMany.as}.aggregated AS "${joinThroughMany.as}"`);
+        if (joinThroughMany.localField.includes('.')) {
+            const [tableAlias] = joinThroughMany.localField.split('.');
+            const referencedJoin = joinThroughManyOperations.find(j => j.as === tableAlias);
+            if (referencedJoin) {
+                const referencedIndex = operations.indexOf(referencedJoin);
+                const currentIndex = operations.indexOf(joinThroughMany);
+                if (referencedIndex < currentIndex) {
+                    // This join replaces the referenced one
+                    replacedJoins.set(tableAlias, joinThroughMany.as);
+                }
+            }
+        }
+    }
+
+    for (const joinThroughMany of joinThroughManyOperations) {
+        // Check if this join is replaced by another
+        if (replacedJoins.has(joinThroughMany.as)) {
+            // This join is replaced - select from the replacing join but alias as the original
+            const replacingAlias = replacedJoins.get(joinThroughMany.as)!;
+            joinSelects.push(`${replacingAlias}.aggregated AS "${joinThroughMany.as}"`);
+        } else {
+            // Normal join - select from its own alias
+            joinSelects.push(`${joinThroughMany.as}.aggregated AS "${joinThroughMany.as}"`);
+        }
     }
 
     // Combine all selects
