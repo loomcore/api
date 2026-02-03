@@ -206,12 +206,31 @@ export function transformJoinResults<T>(
         for (const joinThroughMany of joinThroughManyOperations) {
             if (joinThroughMany.localField.includes('.')) {
                 const [tableAlias] = joinThroughMany.localField.split('.');
-                const referencedJoin = joinThroughManyOperations.find(j => j.as === tableAlias);
+                const referencedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+                const referencedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
+                const referencedJoin = referencedJoinThroughMany || referencedJoinMany;
                 if (referencedJoin) {
                     const referencedIndex = operations.indexOf(referencedJoin);
                     const currentIndex = operations.indexOf(joinThroughMany);
                     if (referencedIndex < currentIndex) {
                         replacedJoins.set(tableAlias, joinThroughMany.as);
+                    }
+                }
+            }
+        }
+
+        // Also check JoinMany operations that might replace other joins
+        for (const joinMany of joinManyOperations) {
+            if (joinMany.localField.includes('.')) {
+                const [tableAlias] = joinMany.localField.split('.');
+                const referencedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+                const referencedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
+                const referencedJoin = referencedJoinThroughMany || referencedJoinMany;
+                if (referencedJoin) {
+                    const referencedIndex = operations.indexOf(referencedJoin);
+                    const currentIndex = operations.indexOf(joinMany);
+                    if (referencedIndex < currentIndex) {
+                        replacedJoins.set(tableAlias, joinMany.as);
                     }
                 }
             }
@@ -245,13 +264,16 @@ export function transformJoinResults<T>(
                 const relatedJoin = joinOperations.find(j => j.as === tableAlias);
                 const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
                 const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+                const relatedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
 
                 if ((relatedJoin && transformed[relatedJoin.as]) ||
                     (relatedJoinThrough && transformed[relatedJoinThrough.as]) ||
-                    (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as])) {
+                    (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) ||
+                    (relatedJoinMany && transformed[relatedJoinMany.as])) {
                     // Check if this is replacing the referenced join (e.g., policy_agents replaces policies)
                     const targetAlias = relatedJoin ? relatedJoin.as :
-                        (relatedJoinThrough ? relatedJoinThrough.as : relatedJoinThroughMany!.as);
+                        (relatedJoinThrough ? relatedJoinThrough.as :
+                            (relatedJoinThroughMany ? relatedJoinThroughMany.as : relatedJoinMany!.as));
 
                     // If this join replaces the target, replace it in the transformed object
                     if (replacedJoins.get(targetAlias) === joinThroughMany.as) {
@@ -265,6 +287,64 @@ export function transformJoinResults<T>(
                             fieldName = 'agents';
                         }
                         transformed[targetAlias][fieldName] = parsedValue;
+                    }
+                } else {
+                    // Fallback: add at top level
+                    transformed[aliasToUse] = parsedValue;
+                }
+            } else {
+                // Add at top level
+                transformed[aliasToUse] = parsedValue;
+            }
+        }
+
+        // Handle JoinMany operations that might replace other joins
+        for (const joinMany of joinManyOperations) {
+            // Check if this join is replaced by another - if so, skip it (it's already handled)
+            if (replacedJoins.has(joinMany.as)) {
+                continue;
+            }
+
+            // Check if this join replaces another - if so, use the original alias name
+            const originalAlias = Array.from(replacedJoins.entries()).find(([_, replacing]) => replacing === joinMany.as)?.[0];
+            const aliasToUse = originalAlias || joinMany.as;
+
+            const jsonValue = row[aliasToUse];
+            let parsedValue: any;
+
+            if (jsonValue !== null && jsonValue !== undefined) {
+                // Parse JSON if it's a string, otherwise use as-is
+                parsedValue = typeof jsonValue === 'string'
+                    ? JSON.parse(jsonValue)
+                    : jsonValue;
+            } else {
+                parsedValue = [];
+            }
+
+            // Check if this JoinMany references a joined table
+            if (joinMany.localField.includes('.')) {
+                const [tableAlias] = joinMany.localField.split('.');
+                const relatedJoin = joinOperations.find(j => j.as === tableAlias);
+                const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
+                const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+                const relatedJoinManyOther = joinManyOperations.find(j => j.as === tableAlias);
+
+                if ((relatedJoin && transformed[relatedJoin.as]) ||
+                    (relatedJoinThrough && transformed[relatedJoinThrough.as]) ||
+                    (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) ||
+                    (relatedJoinManyOther && transformed[relatedJoinManyOther.as])) {
+                    // Check if this is replacing the referenced join
+                    const targetAlias = relatedJoin ? relatedJoin.as :
+                        (relatedJoinThrough ? relatedJoinThrough.as :
+                            (relatedJoinThroughMany ? relatedJoinThroughMany.as : relatedJoinManyOther!.as));
+
+                    // If this join replaces the target, replace it in the transformed object
+                    if (replacedJoins.get(targetAlias) === joinMany.as) {
+                        // This is an enriched version that replaces the original
+                        transformed[targetAlias] = parsedValue;
+                    } else {
+                        // Normal nesting
+                        transformed[targetAlias][joinMany.as] = parsedValue;
                     }
                 } else {
                     // Fallback: add at top level

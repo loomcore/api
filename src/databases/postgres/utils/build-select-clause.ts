@@ -80,14 +80,16 @@ export async function buildSelectClause(
         joinSelects.push(`${joinThrough.as}.aggregated AS "${joinThrough.as}"`);
     }
 
-    // Handle JoinThroughMany operations (many-to-many via join table) - handled via LATERAL joins in FROM clause
-    // Select the aggregated JSON array from the LATERAL join
     // Check if any join replaces another (e.g., policy_agents replaces policies)
     const replacedJoins = new Map<string, string>(); // Map from original alias to replacing alias
+
+    // Check JoinThroughMany operations that might replace JoinMany or JoinThroughMany
     for (const joinThroughMany of joinThroughManyOperations) {
         if (joinThroughMany.localField.includes('.')) {
             const [tableAlias] = joinThroughMany.localField.split('.');
-            const referencedJoin = joinThroughManyOperations.find(j => j.as === tableAlias);
+            const referencedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
+            const referencedJoinMany = joinManyOperations.find(j => j.as === tableAlias);
+            const referencedJoin = referencedJoinThroughMany || referencedJoinMany;
             if (referencedJoin) {
                 const referencedIndex = operations.indexOf(referencedJoin);
                 const currentIndex = operations.indexOf(joinThroughMany);
@@ -99,6 +101,22 @@ export async function buildSelectClause(
         }
     }
 
+    // Handle JoinMany operations (many-to-one) - handled via LATERAL joins in FROM clause
+    // Select the aggregated JSON array from the LATERAL join
+    for (const joinMany of joinManyOperations) {
+        // Check if this join is replaced by another
+        if (replacedJoins.has(joinMany.as)) {
+            // This join is replaced - select from the replacing join but alias as the original
+            const replacingAlias = replacedJoins.get(joinMany.as)!;
+            joinSelects.push(`${replacingAlias}.aggregated AS "${joinMany.as}"`);
+        } else {
+            // Normal join - select from its own alias
+            joinSelects.push(`${joinMany.as}.aggregated AS "${joinMany.as}"`);
+        }
+    }
+
+    // Handle JoinThroughMany operations (many-to-many via join table) - handled via LATERAL joins in FROM clause
+    // Select the aggregated JSON array from the LATERAL join
     for (const joinThroughMany of joinThroughManyOperations) {
         // Check if this join is replaced by another
         if (replacedJoins.has(joinThroughMany.as)) {

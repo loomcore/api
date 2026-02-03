@@ -172,35 +172,9 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 7. Policies (must come before clients since clients references policies)
+  // 7. Clients (must come after persons and agents since clients references both)
   migrations.push({
-    name: '00000000000105_6_schema-policies',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "policies" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
-          "amount" NUMERIC NOT NULL,
-          "frequency" VARCHAR NOT NULL,
-          "_created" TIMESTAMPTZ NOT NULL,
-          "_createdBy" INTEGER NOT NULL,
-          "_updated" TIMESTAMPTZ NOT NULL,
-          "_updatedBy" INTEGER NOT NULL,
-          "_deleted" TIMESTAMPTZ,
-          "_deletedBy" INTEGER
-        )
-      `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "policies"');
-    }
-  });
-
-  // 8. Clients (must come after persons and agents since clients references both)
-  migrations.push({
-    name: '00000000000105_7_schema-clients',
+    name: '00000000000105_6_schema-clients',
     up: async ({ context: pool }) => {
       const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
@@ -227,36 +201,35 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 9. Clients Policies join table (must come after clients and policies)
+  // 8. Policies (must come after clients since policies references clients)
   migrations.push({
-    name: '00000000000105_8_schema-clients-policies',
+    name: '00000000000105_7_schema-policies',
     up: async ({ context: pool }) => {
       const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS clients_policies (
+        CREATE TABLE IF NOT EXISTS "policies" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
           "client_id" INTEGER NOT NULL,
-          "policy_id" INTEGER NOT NULL,
+          "amount" NUMERIC NOT NULL,
+          "frequency" VARCHAR NOT NULL,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
           "_updated" TIMESTAMPTZ NOT NULL,
           "_updatedBy" INTEGER NOT NULL,
           "_deleted" TIMESTAMPTZ,
           "_deletedBy" INTEGER,
-          CONSTRAINT fk_clients_policies_client_id FOREIGN KEY ("client_id") REFERENCES clients("_id") ON DELETE CASCADE,
-          CONSTRAINT fk_clients_policies_policy_id FOREIGN KEY ("policy_id") REFERENCES policies("_id") ON DELETE CASCADE,
-          CONSTRAINT uk_clients_policies_client_policy UNIQUE ("client_id", "policy_id")
+          CONSTRAINT fk_policies_client_id FOREIGN KEY ("client_id") REFERENCES clients("_id") ON DELETE CASCADE
         )
       `);
     },
     down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "clients_policies"');
+      await pool.query('DROP TABLE IF EXISTS "policies"');
     }
   });
 
-  // 10. Agents Policies join table (must come after agents and policies)
+  // 9. Agents Policies join table (must come after agents and policies)
   migrations.push({
     name: '00000000000105_8_schema-agents-policies',
     up: async ({ context: pool }) => {
@@ -316,7 +289,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
   });
 
 
-  // 12. Phone Numbers
+  // 11. Phone Numbers
   migrations.push({
     name: '00000000000107_schema-phone-numbers',
     up: async ({ context: pool }) => {
@@ -344,7 +317,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 13. Addresses
+  // 12. Addresses
   migrations.push({
     name: '00000000000108_schema-addresses',
     up: async ({ context: pool }) => {
@@ -405,7 +378,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 15. Persons Phone Numbers join table
+  // 14. Persons Phone Numbers join table
   migrations.push({
     name: '00000000000110_schema-person-phone-numbers',
     up: async ({ context: pool }) => {
@@ -459,7 +432,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 17. Districts (must come after states since districts references states)
+  // 16. Districts (must come after states since districts references states)
   migrations.push({
     name: '00000000000112_schema-districts',
     up: async ({ context: pool }) => {
@@ -513,7 +486,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 19. Persons Schools join table (must come after persons and schools)
+  // 18. Persons Schools join table (must come after persons and schools)
   migrations.push({
     name: '00000000000114_schema-person-schools',
     up: async ({ context: pool }) => {

@@ -12,13 +12,17 @@ export function buildJoinClauses(operations: Operation[], mainTableName?: string
 
     // First pass: identify which joins will be enriched/replaced
     for (const operation of operations) {
-        if (operation instanceof JoinThroughMany && operation.localField.includes('.')) {
+        if ((operation instanceof JoinThroughMany || operation instanceof JoinMany) && operation.localField.includes('.')) {
             const [tableAlias] = operation.localField.split('.');
             const referencedJoinThroughMany = operations
                 .filter(op => op instanceof JoinThroughMany)
                 .find(jtm => jtm.as === tableAlias);
-            if (referencedJoinThroughMany) {
-                const referencedIndex = operations.indexOf(referencedJoinThroughMany);
+            const referencedJoinMany = operations
+                .filter(op => op instanceof JoinMany)
+                .find(jm => jm.as === tableAlias);
+            if (referencedJoinThroughMany || referencedJoinMany) {
+                const referencedJoin = referencedJoinThroughMany || referencedJoinMany!;
+                const referencedIndex = operations.indexOf(referencedJoin);
                 const currentIndex = operations.indexOf(operation);
                 if (referencedIndex < currentIndex) {
                     // This join will enrich the referenced one, so skip creating the original
@@ -112,70 +116,118 @@ export function buildJoinClauses(operations: Operation[], mainTableName?: string
                 // Reference a joined table alias (e.g., "person._id")
                 const [tableAlias, columnName] = operation.localField.split('.');
 
-                // Check if this references a JoinThroughMany result (which is JSON, not a table alias)
+                // Check if this references a JoinThroughMany or JoinMany result (which is JSON, not a table alias)
                 const referencedJoinThroughMany = operations
                     .filter(op => op instanceof JoinThroughMany)
                     .find(jtm => jtm.as === tableAlias);
+                const referencedJoinMany = operations
+                    .filter(op => op instanceof JoinMany)
+                    .find(jm => jm.as === tableAlias);
 
-                if (referencedJoinThroughMany) {
-                    // Reference is to a JSON array from another JoinThroughMany (e.g., policies)
+                if (referencedJoinThroughMany || referencedJoinMany) {
+                    // Reference is to a JSON array from another JoinThroughMany or JoinMany (e.g., policies)
                     // Check if the referenced join has already been processed
-                    const referencedIndex = operations.indexOf(referencedJoinThroughMany);
+                    const referencedJoin = referencedJoinThroughMany || referencedJoinMany!;
+                    const referencedIndex = operations.indexOf(referencedJoin);
                     const currentIndex = operations.indexOf(operation);
 
                     if (referencedIndex < currentIndex) {
                         // The referenced join will be enriched - create it inline if it wasn't created yet
                         shouldSkipOriginalJoin = true;
                         const originalJoinWasSkipped = aliasesToSkip.has(tableAlias);
-                        const originalJoin = referencedJoinThroughMany;
                         const mainTableRef = mainTableName ? `"${mainTableName}"."_id"` : '"_id"';
 
                         const isAgentsJoin = operation.from === 'agents';
+                        const isJoinMany = referencedJoinMany !== undefined;
+
                         if (isAgentsJoin) {
                             // Enrich agents with person data
                             if (originalJoinWasSkipped) {
                                 // Create policies join inline and enrich with agents
-                                joinClauses += ` LEFT JOIN LATERAL (
-                                    SELECT COALESCE(
-                                        JSON_AGG(
-                                        policy_elem.value || jsonb_build_object(
-                                            'agents', 
-                                            COALESCE(
-                                                    (SELECT JSON_AGG(agent_elem.value || jsonb_build_object('agent_person', person_data.value))
-                                                     FROM jsonb_array_elements(COALESCE(agents_agg.agents, '[]'::json)::jsonb) AS agent_elem
-                                                     LEFT JOIN LATERAL (
-                                                         SELECT row_to_json(p) AS value
-                                                         FROM "persons" AS p
-                                                         WHERE p."_id" = (agent_elem.value->>'person_id')::integer
-                                                         AND p."_deleted" IS NULL
-                                                         LIMIT 1
-                                                     ) AS person_data ON true),
-                                                    '[]'::json
+                                if (isJoinMany) {
+                                    // JoinMany: direct foreign key relationship
+                                    joinClauses += ` LEFT JOIN LATERAL (
+                                        SELECT COALESCE(
+                                            JSON_AGG(
+                                            policy_elem.value || jsonb_build_object(
+                                                'agents', 
+                                                COALESCE(
+                                                        (SELECT JSON_AGG(agent_elem.value || jsonb_build_object('agent_person', person_data.value))
+                                                         FROM jsonb_array_elements(COALESCE(agents_agg.agents, '[]'::json)::jsonb) AS agent_elem
+                                                         LEFT JOIN LATERAL (
+                                                             SELECT row_to_json(p) AS value
+                                                             FROM "persons" AS p
+                                                             WHERE p."_id" = (agent_elem.value->>'person_id')::integer
+                                                             AND p."_deleted" IS NULL
+                                                             LIMIT 1
+                                                         ) AS person_data ON true),
+                                                        '[]'::json
+                                                    )
                                                 )
-                                            )
-                                        ),
-                                        '[]'::json
-                                    ) AS aggregated
-                                    FROM (
-                                        SELECT COALESCE(JSON_AGG(row_to_json(${tableAlias})), '[]'::json) AS aggregated
-                                        FROM "${originalJoin.through}"
-                                        INNER JOIN "${originalJoin.from}" AS ${tableAlias} 
-                                            ON ${tableAlias}."${originalJoin.foreignField}" = "${originalJoin.through}"."${originalJoin.throughForeignField}"
-                                        WHERE "${originalJoin.through}"."${originalJoin.throughLocalField}" = ${mainTableRef}
-                                        AND "${originalJoin.through}"."_deleted" IS NULL
-                                        AND ${tableAlias}."_deleted" IS NULL
-                                    ) AS policies_subquery
-                                    CROSS JOIN LATERAL jsonb_array_elements(policies_subquery.aggregated::jsonb) AS policy_elem
-                                    LEFT JOIN LATERAL (
-                                        SELECT COALESCE(JSON_AGG(row_to_json(${operation.as})), '[]'::json) AS agents
-                                        FROM "${operation.through}"
-                                        INNER JOIN "${operation.from}" AS ${operation.as} 
-                                            ON ${operation.as}."${operation.foreignField}" = "${operation.through}"."${operation.throughForeignField}"
-                                        WHERE "${operation.through}"."${operation.throughLocalField}" = (policy_elem.value->>'${columnName}')::integer
-                                        AND "${operation.through}"."_deleted" IS NULL
-                                        AND ${operation.as}."_deleted" IS NULL
-                                    ) AS agents_agg ON true
-                                ) AS ${operation.as} ON true`;
+                                            ),
+                                            '[]'::json
+                                        ) AS aggregated
+                                        FROM (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${tableAlias})), '[]'::json) AS aggregated
+                                            FROM "${referencedJoinMany!.from}" AS ${tableAlias}
+                                            WHERE ${tableAlias}."${referencedJoinMany!.foreignField}" = ${mainTableRef}
+                                            AND ${tableAlias}."_deleted" IS NULL
+                                        ) AS policies_subquery
+                                        CROSS JOIN LATERAL jsonb_array_elements(policies_subquery.aggregated::jsonb) AS policy_elem
+                                        LEFT JOIN LATERAL (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${operation.as})), '[]'::json) AS agents
+                                            FROM "${operation.through}"
+                                            INNER JOIN "${operation.from}" AS ${operation.as} 
+                                                ON ${operation.as}."${operation.foreignField}" = "${operation.through}"."${operation.throughForeignField}"
+                                            WHERE "${operation.through}"."${operation.throughLocalField}" = (policy_elem.value->>'${columnName}')::integer
+                                            AND "${operation.through}"."_deleted" IS NULL
+                                            AND ${operation.as}."_deleted" IS NULL
+                                        ) AS agents_agg ON true
+                                    ) AS ${operation.as} ON true`;
+                                } else {
+                                    // JoinThroughMany: join table relationship
+                                    joinClauses += ` LEFT JOIN LATERAL (
+                                        SELECT COALESCE(
+                                            JSON_AGG(
+                                            policy_elem.value || jsonb_build_object(
+                                                'agents', 
+                                                COALESCE(
+                                                        (SELECT JSON_AGG(agent_elem.value || jsonb_build_object('agent_person', person_data.value))
+                                                         FROM jsonb_array_elements(COALESCE(agents_agg.agents, '[]'::json)::jsonb) AS agent_elem
+                                                         LEFT JOIN LATERAL (
+                                                             SELECT row_to_json(p) AS value
+                                                             FROM "persons" AS p
+                                                             WHERE p."_id" = (agent_elem.value->>'person_id')::integer
+                                                             AND p."_deleted" IS NULL
+                                                             LIMIT 1
+                                                         ) AS person_data ON true),
+                                                        '[]'::json
+                                                    )
+                                                )
+                                            ),
+                                            '[]'::json
+                                        ) AS aggregated
+                                        FROM (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${tableAlias})), '[]'::json) AS aggregated
+                                            FROM "${referencedJoinThroughMany!.through}"
+                                            INNER JOIN "${referencedJoinThroughMany!.from}" AS ${tableAlias} 
+                                                ON ${tableAlias}."${referencedJoinThroughMany!.foreignField}" = "${referencedJoinThroughMany!.through}"."${referencedJoinThroughMany!.throughForeignField}"
+                                            WHERE "${referencedJoinThroughMany!.through}"."${referencedJoinThroughMany!.throughLocalField}" = ${mainTableRef}
+                                            AND "${referencedJoinThroughMany!.through}"."_deleted" IS NULL
+                                            AND ${tableAlias}."_deleted" IS NULL
+                                        ) AS policies_subquery
+                                        CROSS JOIN LATERAL jsonb_array_elements(policies_subquery.aggregated::jsonb) AS policy_elem
+                                        LEFT JOIN LATERAL (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${operation.as})), '[]'::json) AS agents
+                                            FROM "${operation.through}"
+                                            INNER JOIN "${operation.from}" AS ${operation.as} 
+                                                ON ${operation.as}."${operation.foreignField}" = "${operation.through}"."${operation.throughForeignField}"
+                                            WHERE "${operation.through}"."${operation.throughLocalField}" = (policy_elem.value->>'${columnName}')::integer
+                                            AND "${operation.through}"."_deleted" IS NULL
+                                            AND ${operation.as}."_deleted" IS NULL
+                                        ) AS agents_agg ON true
+                                    ) AS ${operation.as} ON true`;
+                                }
                             } else {
                                 // Use existing policies join and enrich with agents
                                 joinClauses += ` LEFT JOIN LATERAL (
@@ -214,34 +266,62 @@ export function buildJoinClauses(operations: Operation[], mainTableName?: string
                         } else {
                             // Regular nested join, no person enrichment needed
                             if (originalJoinWasSkipped) {
-                                // Create policies join inline and enrich with nested data
-                                joinClauses += ` LEFT JOIN LATERAL (
-                                    SELECT COALESCE(
-                                        JSON_AGG(
-                                            policy_elem.value || jsonb_build_object('agents', COALESCE(agents_agg.agents, '[]'::json))
-                                        ),
-                                        '[]'::json
-                                    ) AS aggregated
-                                    FROM (
-                                        SELECT COALESCE(JSON_AGG(row_to_json(${tableAlias})), '[]'::json) AS aggregated
-                                        FROM "${originalJoin.through}"
-                                        INNER JOIN "${originalJoin.from}" AS ${tableAlias} 
-                                            ON ${tableAlias}."${originalJoin.foreignField}" = "${originalJoin.through}"."${originalJoin.throughForeignField}"
-                                        WHERE "${originalJoin.through}"."${originalJoin.throughLocalField}" = ${mainTableRef}
-                                        AND "${originalJoin.through}"."_deleted" IS NULL
-                                        AND ${tableAlias}."_deleted" IS NULL
-                                    ) AS policies_subquery
-                                    CROSS JOIN LATERAL jsonb_array_elements(policies_subquery.aggregated::jsonb) AS policy_elem
-                                    LEFT JOIN LATERAL (
-                                        SELECT COALESCE(JSON_AGG(row_to_json(${operation.as})), '[]'::json) AS agents
-                                        FROM "${operation.through}"
-                                        INNER JOIN "${operation.from}" AS ${operation.as} 
-                                            ON ${operation.as}."${operation.foreignField}" = "${operation.through}"."${operation.throughForeignField}"
-                                        WHERE "${operation.through}"."${operation.throughLocalField}" = (policy_elem.value->>'${columnName}')::integer
-                                        AND "${operation.through}"."_deleted" IS NULL
-                                        AND ${operation.as}."_deleted" IS NULL
-                                    ) AS agents_agg ON true
-                                ) AS ${operation.as} ON true`;
+                                if (isJoinMany) {
+                                    // JoinMany: direct foreign key relationship
+                                    joinClauses += ` LEFT JOIN LATERAL (
+                                        SELECT COALESCE(
+                                            JSON_AGG(
+                                                policy_elem.value || jsonb_build_object('agents', COALESCE(agents_agg.agents, '[]'::json))
+                                            ),
+                                            '[]'::json
+                                        ) AS aggregated
+                                        FROM (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${tableAlias})), '[]'::json) AS aggregated
+                                            FROM "${referencedJoinMany!.from}" AS ${tableAlias}
+                                            WHERE ${tableAlias}."${referencedJoinMany!.foreignField}" = ${mainTableRef}
+                                            AND ${tableAlias}."_deleted" IS NULL
+                                        ) AS policies_subquery
+                                        CROSS JOIN LATERAL jsonb_array_elements(policies_subquery.aggregated::jsonb) AS policy_elem
+                                        LEFT JOIN LATERAL (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${operation.as})), '[]'::json) AS agents
+                                            FROM "${operation.through}"
+                                            INNER JOIN "${operation.from}" AS ${operation.as} 
+                                                ON ${operation.as}."${operation.foreignField}" = "${operation.through}"."${operation.throughForeignField}"
+                                            WHERE "${operation.through}"."${operation.throughLocalField}" = (policy_elem.value->>'${columnName}')::integer
+                                            AND "${operation.through}"."_deleted" IS NULL
+                                            AND ${operation.as}."_deleted" IS NULL
+                                        ) AS agents_agg ON true
+                                    ) AS ${operation.as} ON true`;
+                                } else {
+                                    // JoinThroughMany: join table relationship
+                                    joinClauses += ` LEFT JOIN LATERAL (
+                                        SELECT COALESCE(
+                                            JSON_AGG(
+                                                policy_elem.value || jsonb_build_object('agents', COALESCE(agents_agg.agents, '[]'::json))
+                                            ),
+                                            '[]'::json
+                                        ) AS aggregated
+                                        FROM (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${tableAlias})), '[]'::json) AS aggregated
+                                            FROM "${referencedJoinThroughMany!.through}"
+                                            INNER JOIN "${referencedJoinThroughMany!.from}" AS ${tableAlias} 
+                                                ON ${tableAlias}."${referencedJoinThroughMany!.foreignField}" = "${referencedJoinThroughMany!.through}"."${referencedJoinThroughMany!.throughForeignField}"
+                                            WHERE "${referencedJoinThroughMany!.through}"."${referencedJoinThroughMany!.throughLocalField}" = ${mainTableRef}
+                                            AND "${referencedJoinThroughMany!.through}"."_deleted" IS NULL
+                                            AND ${tableAlias}."_deleted" IS NULL
+                                        ) AS policies_subquery
+                                        CROSS JOIN LATERAL jsonb_array_elements(policies_subquery.aggregated::jsonb) AS policy_elem
+                                        LEFT JOIN LATERAL (
+                                            SELECT COALESCE(JSON_AGG(row_to_json(${operation.as})), '[]'::json) AS agents
+                                            FROM "${operation.through}"
+                                            INNER JOIN "${operation.from}" AS ${operation.as} 
+                                                ON ${operation.as}."${operation.foreignField}" = "${operation.through}"."${operation.throughForeignField}"
+                                            WHERE "${operation.through}"."${operation.throughLocalField}" = (policy_elem.value->>'${columnName}')::integer
+                                            AND "${operation.through}"."_deleted" IS NULL
+                                            AND ${operation.as}."_deleted" IS NULL
+                                        ) AS agents_agg ON true
+                                    ) AS ${operation.as} ON true`;
+                                }
                             } else {
                                 // Use existing policies join and enrich with nested data
                                 joinClauses += ` LEFT JOIN LATERAL (

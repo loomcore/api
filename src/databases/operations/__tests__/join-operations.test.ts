@@ -54,11 +54,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         client = (testDatabase as any).postgresClient as Client;
 
         // Clean up any existing test data first (in case of previous failed test runs)
-        await client.query(`DELETE FROM clients_policies WHERE client_id IN (SELECT _id FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4)))`, ['John', 'Jane', 'Bob', 'Alice']);
         await client.query(`DELETE FROM agents_policies WHERE policy_id IN (SELECT _id FROM policies WHERE amount IN ($1, $2))`, [1000.00, 2000.00]);
+        await client.query(`DELETE FROM policies WHERE amount IN ($1, $2)`, [1000.00, 2000.00]);
         await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
         await client.query(`DELETE FROM agents WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3))`, ['Jane', 'Bob', 'Alice']);
-        await client.query(`DELETE FROM policies WHERE amount IN ($1, $2)`, [1000.00, 2000.00]);
         await client.query(`DELETE FROM persons_schools WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
         await client.query(`DELETE FROM persons_phone_numbers WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
         await client.query(`DELETE FROM email_addresses WHERE email_address IN ($1, $2)`, ['john.doe@example.com', 'john.m.doe@example.com']);
@@ -121,15 +120,31 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         `, [person4Id]);
         agent3Id = agent3Result.rows[0]._id;
 
-        // Create a policy
-        const policyResult = await client.query(`
-            INSERT INTO policies (amount, frequency, _created, "_createdBy", _updated, "_updatedBy")
+        // 2. Create a client linked to the person
+        const clientResult = await client.query(`
+            INSERT INTO clients (person_id, agent_id, _created, "_createdBy", _updated, "_updatedBy")
             VALUES ($1, $2, NOW(), 1, NOW(), 1)
             RETURNING _id
-        `, [1000.00, 'monthly']);
+        `, [personId, agentId]);
+        clientId = clientResult.rows[0]._id;
+
+        // Create policies linked to the client
+        const policyResult = await client.query(`
+            INSERT INTO policies (client_id, amount, frequency, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
+            RETURNING _id
+        `, [clientId, 1000.00, 'monthly']);
         policyId = policyResult.rows[0]._id;
 
-        // Link agents to policy via agents_policies join table
+        // Create a second policy for testing multiple policies
+        const policy2Result = await client.query(`
+            INSERT INTO policies (client_id, amount, frequency, _created, "_createdBy", _updated, "_updatedBy")
+            VALUES ($1, $2, $3, NOW(), 1, NOW(), 1)
+            RETURNING _id
+        `, [clientId, 2000.00, 'yearly']);
+        const policy2Id = policy2Result.rows[0]._id;
+
+        // Link agents to policies via agents_policies join table
         await client.query(`
             INSERT INTO agents_policies (policy_id, agent_id, _created, "_createdBy", _updated, "_updatedBy")
             VALUES ($1, $2, NOW(), 1, NOW(), 1)
@@ -145,38 +160,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             VALUES ($1, $2, NOW(), 1, NOW(), 1)
         `, [policyId, agent3Id]);
 
-        // Create a second policy for testing multiple policies
-        const policy2Result = await client.query(`
-            INSERT INTO policies (amount, frequency, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, [2000.00, 'yearly']);
-        const policy2Id = policy2Result.rows[0]._id;
-
         // Link agents to second policy
         await client.query(`
             INSERT INTO agents_policies (policy_id, agent_id, _created, "_createdBy", _updated, "_updatedBy")
             VALUES ($1, $2, NOW(), 1, NOW(), 1)
         `, [policy2Id, agentId]);
-
-        // 2. Create a client linked to the person
-        const clientResult = await client.query(`
-            INSERT INTO clients (person_id, agent_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, NOW(), 1, NOW(), 1)
-            RETURNING _id
-        `, [personId, agentId]);
-        clientId = clientResult.rows[0]._id;
-
-        // Link client to policies via clients_policies join table
-        await client.query(`
-            INSERT INTO clients_policies (client_id, policy_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, NOW(), 1, NOW(), 1)
-        `, [clientId, policyId]);
-
-        await client.query(`
-            INSERT INTO clients_policies (client_id, policy_id, _created, "_createdBy", _updated, "_updatedBy")
-            VALUES ($1, $2, NOW(), 1, NOW(), 1)
-        `, [clientId, policy2Id]);
 
         // 3. Create email addresses for the person
         const email1Result = await client.query(`
@@ -252,11 +240,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         // Clean up test data before closing database connection
         if (client) {
             try {
-                await client.query(`DELETE FROM clients_policies WHERE client_id IN (SELECT _id FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4)))`, ['John', 'Jane', 'Bob', 'Alice']);
                 await client.query(`DELETE FROM agents_policies WHERE policy_id IN (SELECT _id FROM policies WHERE amount IN ($1, $2))`, [1000.00, 2000.00]);
+                await client.query(`DELETE FROM policies WHERE amount IN ($1, $2)`, [1000.00, 2000.00]);
                 await client.query(`DELETE FROM clients WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
                 await client.query(`DELETE FROM agents WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3))`, ['Jane', 'Bob', 'Alice']);
-                await client.query(`DELETE FROM policies WHERE amount IN ($1, $2)`, [1000.00, 2000.00]);
                 await client.query(`DELETE FROM persons_schools WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
                 await client.query(`DELETE FROM persons_phone_numbers WHERE person_id IN (SELECT _id FROM persons WHERE first_name IN ($1, $2, $3, $4))`, ['John', 'Jane', 'Bob', 'Alice']);
                 await client.query(`DELETE FROM email_addresses WHERE email_address IN ($1, $2)`, ['john.doe@example.com', 'john.m.doe@example.com']);
@@ -302,14 +289,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             'phone_numbers'            // alias
         );
 
-        // 6. Many-to-many via join table: clients -> clients_policies -> policies (returns array)
-        const joinPolicies = new JoinThroughMany(
+        // 6. Many-to-one: clients -> policies (returns array)
+        const joinPolicies = new JoinMany(
             'policies',                // final table
-            'clients_policies',        // join table
             '_id',                     // local field (clients._id)
-            'client_id',               // join table local field
-            'policy_id',               // join table foreign field
-            '_id',                     // foreign field (policy._id)
+            'client_id',               // foreign field (policy.client_id)
             'policies'                 // alias
         );
 
@@ -466,13 +450,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             '_id',
             'phone_numbers'
         );
-        const joinPolicies = new JoinThroughMany(
+        const joinPolicies = new JoinMany(
             'policies',
-            'clients_policies',
             '_id',
             'client_id',
-            'policy_id',
-            '_id',
             'policies'
         );
         const joinPolicyAgents = new JoinThroughMany(
@@ -533,13 +514,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             '_id',
             'phone_numbers'
         );
-        const joinPolicies = new JoinThroughMany(
+        const joinPolicies = new JoinMany(
             'policies',
-            'clients_policies',
             '_id',
             'client_id',
-            'policy_id',
-            '_id',
             'policies'
         );
         const joinPolicyAgents = new JoinThroughMany(
