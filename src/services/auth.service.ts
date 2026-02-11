@@ -106,7 +106,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return this.database.postProcessEntity(rawUser, this.modelSpec.fullSchema);
     }
 
-    async createUser(userContext: IUserContext, user: Partial<IUser>, person: Partial<IPersonModel>): Promise<IUser | null> {
+    async createUser(userContext: IUserContext, user: Partial<IUser>, person?: Partial<IPersonModel>): Promise<IUser | null> {
         // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 
         if (userContext.user._id === 'system') {
@@ -133,13 +133,15 @@ export class AuthService extends MultiTenantApiService<IUser> {
         let personId = user.personId;
 
         if (personId && person) {
-            const updatePersonResult = await this.personService.partialUpdateById(userContext, personId, person);
+            await this.personService.partialUpdateById(userContext, personId, person);
         }
 
-        if (!personId) {
+        if (!personId && person) {
             const newPerson = await this.personService.create(userContext, person);
             if (newPerson) {
                 personId = newPerson._id;
+            } else {
+                throw new ServerError('authService.createUser: Failed to create person');
             }
         }
         user.personId = personId;

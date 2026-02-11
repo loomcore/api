@@ -62,9 +62,11 @@ export class AuthController {
     let validationErrors = this.authService.validate(body.user);
     entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
 
-    validationErrors = this.personService.validate(body.person);
-    entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
-
+    // if they provide a person it should be valid.
+    if (body.person) {
+      validationErrors = this.personService.validate(body.person);
+      entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
+    }
     const user = await this.authService.createUser(userContext, body.user, body.person);
 
     apiUtils.apiResponse<IUser>(res, 201, { data: user || undefined }, UserSpec, PublicUserSpec);
