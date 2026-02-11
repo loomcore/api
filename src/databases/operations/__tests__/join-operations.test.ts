@@ -9,13 +9,13 @@ import { JoinThroughMany } from '../join-through-many.operation.js';
 import { JoinThrough } from '../join-through.operation.js';
 import { Operation } from '../operation.js';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { IClientReportsModel, clientReportsModelSpec } from './models/client-report.model.js';
-import { IPersonModel } from './models/person.model.js';
-import { IEmailAddressModel } from './models/email-address.model.js';
-import { IPhoneNumberModel } from './models/phone-number.model.js';
-import { IAgentModel } from './models/agent.model.js';
-import { IPolicyModel } from './models/policy.model.js';
-import { IPremiumModel } from './models/premium.model.js';
+import { ITestClientReportsModel, testClientReportsModelSpec } from './models/test-client-report.model.js';
+import { ITestPersonModel } from './models/test-person.model.js';
+import { ITestEmailAddressModel } from './models/test-email-address.model.js';
+import { ITestPhoneNumberModel } from './models/test-phone-number.model.js';
+import { ITestAgentModel } from './models/test-agent.model.js';
+import { ITestPolicyModel } from './models/test-policy.model.js';
+import { ITestPremiumModel } from './models/test-premium.model.js';
 
 // Skip this test suite if not running with PostgreSQL
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
@@ -343,7 +343,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const result = await database.getById<IClientReportsModel>(
+        const result = await database.getById<ITestClientReportsModel>(
             operations,
             queryOptions,
             clientId,
@@ -366,7 +366,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.client_person.client_email_addresses.length).toBe(2);
 
         // Verify email addresses content
-        const emailAddresses = result!.client_person.client_email_addresses as IEmailAddressModel[];
+        const emailAddresses = result!.client_person.client_email_addresses as ITestEmailAddressModel[];
         const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
         const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
 
@@ -384,7 +384,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.client_person.client_phone_numbers.length).toBe(2);
 
         // Verify phone numbers content
-        const phoneNumbers = result!.client_person.client_phone_numbers as IPhoneNumberModel[];
+        const phoneNumbers = result!.client_person.client_phone_numbers as ITestPhoneNumberModel[];
         const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
         const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
 
@@ -412,7 +412,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(result!.client_policies!.length).toBe(2);
 
         // Verify first policy (monthly policy)
-        const policies = result!.client_policies as IPolicyModel[];
+        const policies = result!.client_policies as ITestPolicyModel[];
         const monthlyPolicy = policies.find(p => p.amount === 1000.00);
         const yearlyPolicy = policies.find(p => p.amount === 2000.00);
 
@@ -426,7 +426,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(Array.isArray(monthlyPolicy!.agents)).toBe(true);
         expect(monthlyPolicy!.agents!.length).toBe(3);
 
-        const monthlyPolicyAgents = monthlyPolicy!.agents as IAgentModel[];
+        const monthlyPolicyAgents = monthlyPolicy!.agents as ITestAgentModel[];
         const agent1 = monthlyPolicyAgents.find(a => a.person_id === person2Id);
         const agent2 = monthlyPolicyAgents.find(a => a.person_id === person3Id);
         const agent3 = monthlyPolicyAgents.find(a => a.person_id === person4Id);
@@ -451,7 +451,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(Array.isArray(monthlyPolicy!.policy_premiums)).toBe(true);
         expect(monthlyPolicy!.policy_premiums!.length).toBe(2);
 
-        const monthlyPolicyPremiums = monthlyPolicy!.policy_premiums as IPremiumModel[];
+        const monthlyPolicyPremiums = monthlyPolicy!.policy_premiums as ITestPremiumModel[];
         const premium1 = monthlyPolicyPremiums.find(p => p.amount === 100.00 && String(p.date).startsWith('2024-01-15'));
         const premium2 = monthlyPolicyPremiums.find(p => p.amount === 100.00 && String(p.date).startsWith('2024-02-15'));
 
@@ -473,7 +473,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(Array.isArray(yearlyPolicy!.agents)).toBe(true);
         expect(yearlyPolicy!.agents!.length).toBe(1);
 
-        const yearlyPolicyAgents = yearlyPolicy!.agents as IAgentModel[];
+        const yearlyPolicyAgents = yearlyPolicy!.agents as ITestAgentModel[];
         const yearlyAgent1 = yearlyPolicyAgents.find(a => a.person_id === person2Id);
         expect(yearlyAgent1).toBeDefined();
         expect(yearlyAgent1!.agent_person).toBeDefined();
@@ -485,7 +485,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         expect(Array.isArray(yearlyPolicy!.policy_premiums)).toBe(true);
         expect(yearlyPolicy!.policy_premiums!.length).toBe(1);
 
-        const yearlyPolicyPremiums = yearlyPolicy!.policy_premiums as IPremiumModel[];
+        const yearlyPolicyPremiums = yearlyPolicy!.policy_premiums as ITestPremiumModel[];
         const yearlyPremium1 = yearlyPolicyPremiums.find(p => p.amount === 2000.00);
         expect(yearlyPremium1).toBeDefined();
         expect(yearlyPremium1!.policy_id).toBe(policy2Id);
@@ -539,10 +539,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
             pageSize: 10
         };
 
-        const result = await database.get<IClientReportsModel>(
+        const result = await database.get<ITestClientReportsModel>(
             operations,
             queryOptions,
-            clientReportsModelSpec,
+            testClientReportsModelSpec,
             'clients'
         );
 
@@ -603,7 +603,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
         const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
 
         // Query using getAll
-        const results = await database.getAll<IClientReportsModel>(
+        const results = await database.getAll<ITestClientReportsModel>(
             operations,
             'clients'
         );
@@ -658,7 +658,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // Query the new client
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const result = await database.getById<IClientReportsModel>(
+        const result = await database.getById<ITestClientReportsModel>(
             operations,
             queryOptions,
             newClientId,
@@ -702,7 +702,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data 
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const result = await database.getById<IClientReportsModel>(
+        const result = await database.getById<ITestClientReportsModel>(
             operations,
             queryOptions,
             clientId,

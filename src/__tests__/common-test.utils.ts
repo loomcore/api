@@ -31,7 +31,7 @@ import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 import { setBaseApiConfig, config } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
-import { getTestOrgUser } from './test-objects.js';
+import { getTestMetaOrgUserPerson, getTestOrgUser, getTestOrgUserPerson } from './test-objects.js';
 import { DbType } from '../databases/db-type.type.js';
 import { TestEmailClient } from './test-email-client.js';
 
@@ -82,7 +82,7 @@ async function createMetaOrg() {
   if (!config.app.isMultiTenant) {
     return;
   }
-  
+
   if (!organizationService) {
     throw new Error('OrganizationService not initialized. Call initialize() first.');
   }
@@ -164,8 +164,8 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
       setTestOrgId(existingTestOrg._id);
     }
 
-    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser());
-    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
+    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser(), getTestOrgUserPerson());
+    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser(), getTestMetaOrgUserPerson());
 
     if (!createdTestOrgUser || !createdMetaOrgUser) {
       throw new Error('Failed to create test user');

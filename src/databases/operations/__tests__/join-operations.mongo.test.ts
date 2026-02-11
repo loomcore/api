@@ -9,10 +9,10 @@ import { JoinMany } from '../join-many.operation.js';
 import { JoinThroughMany } from '../join-through-many.operation.js';
 import { Operation } from '../operation.js';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
-import { IClientReportsModel, clientReportsModelSpec } from './models/client-report.model.js';
-import { IPersonModel } from './models/person.model.js';
-import { IEmailAddressModel } from './models/email-address.model.js';
-import { IPhoneNumberModel } from './models/phone-number.model.js';
+import { ITestClientReportsModel, testClientReportsModelSpec } from './models/test-client-report.model.js';
+import { ITestPersonModel } from './models/test-person.model.js';
+import { ITestEmailAddressModel } from './models/test-email-address.model.js';
+import { ITestPhoneNumberModel } from './models/test-phone-number.model.js';
 
 // Skip this test suite if not running with MongoDB
 const isMongo = process.env.TEST_DATABASE === 'mongodb';
@@ -220,7 +220,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const rawResult = await database.getById<IClientReportsModel>(
+        const rawResult = await database.getById<ITestClientReportsModel>(
             operations,
             queryOptions,
             clientId,
@@ -246,7 +246,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         expect(result!.person.email_addresses.length).toBe(2);
 
         // Verify email addresses content
-        const emailAddresses = result!.person.email_addresses as IEmailAddressModel[];
+        const emailAddresses = result!.person.email_addresses as ITestEmailAddressModel[];
         const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
         const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
 
@@ -264,7 +264,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         expect(result!.person.phone_numbers.length).toBe(2);
 
         // Verify phone numbers content
-        const phoneNumbers = result!.person.phone_numbers as IPhoneNumberModel[];
+        const phoneNumbers = result!.person.phone_numbers as ITestPhoneNumberModel[];
         const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
         const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
 
@@ -300,10 +300,10 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
             pageSize: 10
         };
 
-        const rawResult = await database.get<IClientReportsModel>(
+        const rawResult = await database.get<ITestClientReportsModel>(
             operations,
             queryOptions,
-            clientReportsModelSpec,
+            testClientReportsModelSpec,
             'clients'
         );
 
@@ -345,7 +345,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
 
         // Query using getAll
-        const rawResults = await database.getAll<IClientReportsModel>(
+        const rawResults = await database.getAll<ITestClientReportsModel>(
             operations,
             'clients'
         );
@@ -413,7 +413,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Query the new client
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-        const rawResult = await database.getById<IClientReportsModel>(
+        const rawResult = await database.getById<ITestClientReportsModel>(
             operations,
             queryOptions,
             newClientId,

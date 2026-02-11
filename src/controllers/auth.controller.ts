@@ -20,12 +20,14 @@ import { AuthService } from '../services/index.js';
 import { UpdateResult } from '../databases/models/update-result.js';
 import { IDatabase } from '../databases/models/index.js';
 import { isAuthorized } from '../middleware/index.js';
+import { PersonService } from '../services/person.service.js';
 
 export class AuthController {
   authService: AuthService;
-
+  personService: PersonService;
   constructor(app: Application, database: IDatabase) {
     this.authService = new AuthService(database);
+    this.personService = new PersonService(database);
     this.mapRoutes(app);
   }
 
@@ -50,17 +52,20 @@ export class AuthController {
 
   async registerUser(req: Request, res: Response) {
     const userContext = req.userContext;
-    const body = req.body;
-
-    // Validate the incoming JSON
-    const validationErrors = this.authService.validate(body);
-    entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
-
     if (!userContext) {
       throw new BadRequestError('Missing required fields: userContext is required.');
     }
 
-    const user = await this.authService.createUser(userContext, body);
+    const body = req.body;
+
+    // Validate the incoming JSON
+    let validationErrors = this.authService.validate(body.user);
+    entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
+
+    validationErrors = this.personService.validate(body.person);
+    entityUtils.handleValidationResult(validationErrors, 'AuthController.registerUser');
+
+    const user = await this.authService.createUser(userContext, body.user, body.person);
 
     apiUtils.apiResponse<IUser>(res, 201, { data: user || undefined }, UserSpec, PublicUserSpec);
   }

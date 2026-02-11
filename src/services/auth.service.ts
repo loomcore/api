@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import moment from 'moment';
 import crypto from 'crypto';
-import { IUserContext, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext, PublicUserSpec, IUser } from '@loomcore/common/models';
+import { IUserContext, ITokenResponse, EmptyUserContext, passwordValidator, UserSpec, ILoginResponse, getSystemUserContext, PublicUserSpec, IUser, IPersonModel } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -18,18 +18,22 @@ import { IRefreshToken, refreshTokenModelSpec } from '../models/refresh-token.mo
 import { IDatabase } from '../databases/models/index.js';
 import { getUserContextAuthorizations } from './utils/getUserContextAuthorizations.util.js';
 import { IAuthConfig } from '../models/auth-config.interface.js';
+import { PersonService } from './person.service.js';
 export class AuthService extends MultiTenantApiService<IUser> {
     private refreshTokenService: GenericApiService<IRefreshToken>;
     private passwordResetTokenService: PasswordResetTokenService;
     private emailService: EmailService;
     private organizationService: OrganizationService;
     private authConfig: IAuthConfig;
+    private personService: PersonService;
+
     constructor(database: IDatabase) {
         super(database, 'users', 'user', UserSpec);
         this.refreshTokenService = new GenericApiService<IRefreshToken>(database, 'refresh_tokens', 'refresh_token', refreshTokenModelSpec);
         this.passwordResetTokenService = new PasswordResetTokenService(database);
         this.emailService = new EmailService();
         this.organizationService = new OrganizationService(database);
+        this.personService = new PersonService(database);
         if (!config.auth) {
             throw new ServerError('Auth configuration is not set');
         }
@@ -102,7 +106,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return this.database.postProcessEntity(rawUser, this.modelSpec.fullSchema);
     }
 
-    async createUser(userContext: IUserContext, user: Partial<IUser>): Promise<IUser | null> {
+    async createUser(userContext: IUserContext, user: Partial<IUser>, person: Partial<IPersonModel>): Promise<IUser | null> {
         // prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 
         if (userContext.user._id === 'system') {
@@ -125,6 +129,20 @@ export class AuthService extends MultiTenantApiService<IUser> {
                 throw new BadRequestError('A user with this email address already exists');
             }
         }
+
+        let personId = user.personId;
+
+        if (personId && person) {
+            const updatePersonResult = await this.personService.partialUpdateById(userContext, personId, person);
+        }
+
+        if (!personId) {
+            const newPerson = await this.personService.create(userContext, person);
+            if (newPerson) {
+                personId = newPerson._id;
+            }
+        }
+        user.personId = personId;
 
         return await this.create(userContext, user);
     }

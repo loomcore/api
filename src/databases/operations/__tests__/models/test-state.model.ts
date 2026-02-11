@@ -2,12 +2,12 @@ import type { IAuditable, IEntity } from "@loomcore/common/models";
 import { entityUtils } from "@loomcore/common/utils";
 import { Type } from "@sinclair/typebox";
 
-export interface IStateModel extends IEntity, IAuditable {
+export interface ITestStateModel extends IEntity, IAuditable {
     name: string;
 }
 
-export const stateSchema = Type.Object({
+export const testStateSchema = Type.Object({
     name: Type.String(),
 });
 
-export const stateModelSpec = entityUtils.getModelSpec(stateSchema, { isAuditable: true });
+export const testStateModelSpec = entityUtils.getModelSpec(testStateSchema, { isAuditable: true });

@@ -1,9 +1,9 @@
 import { Db } from 'mongodb';
 import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
 import { randomUUID } from 'crypto';
-import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
+import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized, IPersonModel, personModelSpec } from '@loomcore/common/models';
 import { MongoDBDatabase } from '../mongo-db.database.js';
-import { AuthService, OrganizationService } from '../../../services/index.js';
+import { AuthService, GenericApiService, OrganizationService } from '../../../services/index.js';
 
 export interface ISyntheticMigration {
   name: string;
@@ -202,7 +202,7 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): ISyntheticMigrati
       up: async ({ context: db }) => {
         const database = new MongoDBDatabase(db);
         const authService = new AuthService(database);
-
+        const personService = new GenericApiService<IPersonModel>(database, 'persons', 'person', personModelSpec);
         // SystemUserContext MUST be initialized before this migration runs
         // For multi-tenant: meta-org migration should have initialized it
         // For non-multi-tenant: should be initialized before migrations run (bug if not)
@@ -221,15 +221,33 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): ISyntheticMigrati
         const systemUserContext = getSystemUserContext();
 
         const _id = randomUUID().toString();
+        const personId = randomUUID().toString();
+        const person: Partial<IPersonModel> = {
+          _id: personId,
+          _orgId: systemUserContext.organization?._id,
+          externalId: 'admin-user-person-external-id',
+          middleName: null,
+          firstName: 'Admin',
+          lastName: 'User',
+          isAgent: false,
+          isClient: false,
+          isEmployee: false,
+          dateOfBirth: null,
+          extendedTypes: 0,
+          _created: new Date(),
+          _createdBy: 'system' as any,
+          _updated: new Date(),
+          _updatedBy: 'system' as any
+        };
+
         await authService.createUser(systemUserContext, {
           _id: _id,
           _orgId: systemUserContext.organization?._id,
+          externalId: 'admin-user-external-id',
           email: config.auth?.adminUser?.email,
           password: config.auth?.adminUser?.password,
-          firstName: 'Admin',
-          lastName: 'User',
           displayName: 'Admin User',
-        });
+        }, person);
       },
       down: async ({ context: db }) => {
         if (!config.auth?.adminUser?.email) return;

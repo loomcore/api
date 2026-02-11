@@ -9,10 +9,10 @@ import { JoinThroughMany } from '../../../databases/operations/join-through-many
 import { Operation } from '../../../databases/operations/operation.js';
 import { IQueryOptions, DefaultQueryOptions, IUserContext } from '@loomcore/common/models';
 import { GenericQueryService } from '../generic-query.service.js';
-import { IClientReportsModel, clientReportsModelSpec } from '../../../databases/operations/__tests__/models/client-report.model.js';
-import { IPersonModel } from '../../../databases/operations/__tests__/models/person.model.js';
-import { IEmailAddressModel } from '../../../databases/operations/__tests__/models/email-address.model.js';
-import { IPhoneNumberModel } from '../../../databases/operations/__tests__/models/phone-number.model.js';
+import { ITestClientReportsModel, testClientReportsModelSpec } from '../../../databases/operations/__tests__/models/test-client-report.model.js';
+import { ITestPersonModel } from '../../../databases/operations/__tests__/models/test-person.model.js';
+import { ITestEmailAddressModel } from '../../../databases/operations/__tests__/models/test-email-address.model.js';
+import { ITestPhoneNumberModel } from '../../../databases/operations/__tests__/models/test-phone-number.model.js';
 import { getTestMetaOrgUserContext } from '../../../__tests__/test-objects.js';
 import { IdNotFoundError } from '../../../errors/index.js';
 
@@ -24,7 +24,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     let database: PostgresDatabase;
     let client: Client;
     let testDatabase: TestPostgresDatabase;
-    let service: GenericQueryService<IClientReportsModel>;
+    let service: GenericQueryService<ITestClientReportsModel>;
     let userContext: IUserContext;
     let personId: number;
     let clientId: number;
@@ -63,10 +63,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         const defaultOperations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
 
         // Create service instance
-        service = new GenericQueryService<IClientReportsModel>(
+        service = new GenericQueryService<ITestClientReportsModel>(
             database,
             'clients',
-            clientReportsModelSpec,
+            testClientReportsModelSpec,
             defaultOperations
         );
 
@@ -183,7 +183,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             expect(result.client_person.email_addresses.length).toBe(2);
 
             // Verify email addresses content
-            const emailAddresses = result.client_person.email_addresses as IEmailAddressModel[];
+            const emailAddresses = result.client_person.email_addresses as ITestEmailAddressModel[];
             const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
             const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
 
@@ -201,7 +201,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             expect(result.client_person.phone_numbers.length).toBe(2);
 
             // Verify phone numbers content
-            const phoneNumbers = result.client_person.phone_numbers as IPhoneNumberModel[];
+            const phoneNumbers = result.client_person.phone_numbers as ITestPhoneNumberModel[];
             const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
             const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
 
@@ -303,7 +303,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     describe('prepareQuery hook', () => {
         it('should allow overriding prepareQuery to add additional operations', async () => {
             // Create a service with a custom prepareQuery that adds operations dynamically
-            class CustomQueryService extends GenericQueryService<IClientReportsModel> {
+            class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
                 override prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
                     // Add join operations dynamically
                     const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
@@ -316,7 +316,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             const customService = new CustomQueryService(
                 database,
                 'clients',
-                clientReportsModelSpec,
+                testClientReportsModelSpec,
                 [] // No default operations
             );
 
@@ -333,7 +333,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
     describe('prepareQueryOptions hook', () => {
         it('should allow overriding prepareQueryOptions to modify query options', async () => {
-            class CustomQueryService extends GenericQueryService<IClientReportsModel> {
+            class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
                 override prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
                     const prepared = super.prepareQueryOptions(userContext, queryOptions);
                     // Add a filter
@@ -348,7 +348,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             const customService = new CustomQueryService(
                 database,
                 'clients',
-                clientReportsModelSpec,
+                testClientReportsModelSpec,
                 []
             );
 
@@ -364,8 +364,8 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
     describe('postProcessEntity hook', () => {
         it('should allow overriding postProcessEntity to transform entities', async () => {
-            class CustomQueryService extends GenericQueryService<IClientReportsModel> {
-                override postProcessEntity(userContext: IUserContext, entity: IClientReportsModel): IClientReportsModel {
+            class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
+                override postProcessEntity(userContext: IUserContext, entity: ITestClientReportsModel): ITestClientReportsModel {
                     const processed = super.postProcessEntity(userContext, entity);
                     // Add a custom property
                     (processed as any).customProperty = 'custom-value';
@@ -376,7 +376,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             const customService = new CustomQueryService(
                 database,
                 'clients',
-                clientReportsModelSpec,
+                testClientReportsModelSpec,
                 []
             );
 
@@ -418,10 +418,10 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         });
 
         it('should work with service that has no default operations', async () => {
-            const serviceWithoutDefaults = new GenericQueryService<IClientReportsModel>(
+            const serviceWithoutDefaults = new GenericQueryService<ITestClientReportsModel>(
                 database,
                 'clients',
-                clientReportsModelSpec,
+                testClientReportsModelSpec,
                 [] // No default operations
             );
 

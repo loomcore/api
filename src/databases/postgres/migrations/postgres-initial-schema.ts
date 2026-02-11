@@ -1,6 +1,6 @@
 import { Pool, Client } from 'pg';
 import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
-import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
+import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized, IUser, IPersonModel } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
 
@@ -57,25 +57,59 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
     });
   }
 
-  // 2. USERS
+  // 2. PERSONS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000002_schema-users',
+      name: '00000000000002_schema-persons',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-        const uniqueConstraint = isMultiTenant
+
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS "persons" (
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
+            "externalId" VARCHAR(255) UNIQUE,
+            "firstName" VARCHAR(255) NOT NULL,
+            "middleName" VARCHAR(255),
+            "lastName" VARCHAR(255) NOT NULL,
+            "dateOfBirth" DATE,
+            "isAgent" BOOLEAN NOT NULL DEFAULT FALSE,
+            "isClient" BOOLEAN NOT NULL DEFAULT FALSE,
+            "isEmployee" BOOLEAN NOT NULL DEFAULT FALSE,
+            "extendedTypes" INTEGER NOT NULL DEFAULT 0,
+            "_created" TIMESTAMPTZ NOT NULL,
+            "_createdBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ NOT NULL,
+            "_updatedBy" INTEGER NOT NULL,
+            "_deleted" TIMESTAMPTZ,
+            "_deletedBy" INTEGER
+          )
+        `);
+      },
+      down: async ({ context: pool }) => {
+        await pool.query('DROP TABLE IF EXISTS "persons"');
+      }
+    });
+
+  // 3. USERS
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000003_schema-users',
+      up: async ({ context: pool }) => {
+        const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        let uniqueConstraint = isMultiTenant
           ? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
           : 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
-
+        uniqueConstraint += 'CONSTRAINT "fk_users_personId" FOREIGN KEY ("personId") REFERENCES "persons"("_id") ON DELETE CASCADE';
         await pool.query(`
         CREATE TABLE IF NOT EXISTS "users" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
+          "externalId" VARCHAR(255) UNIQUE,
           "email" VARCHAR(255) NOT NULL,
-          "firstName" VARCHAR(255),
-          "lastName" VARCHAR(255),
           "displayName" VARCHAR(255),
           "password" VARCHAR(255) NOT NULL,
+          "personId" INTEGER UNIQUE,
           "_lastLoggedIn" TIMESTAMPTZ,
           "_lastPasswordChange" TIMESTAMPTZ,
           "_created" TIMESTAMPTZ NOT NULL,
@@ -93,10 +127,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 3. REFRESH TOKENS
+  // 4. REFRESH TOKENS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000003_schema-refresh-tokens',
+      name: '00000000000004_schema-refresh-tokens',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
@@ -119,10 +153,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 4. PASSWORD RESET TOKENS
+  // 5. PASSWORD RESET TOKENS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000004_schema-password-reset-tokens',
+      name: '00000000000005_schema-password-reset-tokens',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -151,10 +185,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 5. ROLES
+  // 6. ROLES
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000005_schema-roles',
+      name: '00000000000006_schema-roles',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -176,10 +210,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 6. USER ROLES
+  // 7. USER ROLES
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000006_schema-user-roles',
+      name: '00000000000007_schema-user-roles',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -209,10 +243,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 7. FEATURES
+  // 8. FEATURES
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000007_schema-features',
+      name: '00000000000008_schema-features',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -234,10 +268,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 8. AUTHORIZATIONS
+  // 9. AUTHORIZATIONS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000008_schema-authorizations',
+      name: '00000000000009_schema-authorizations',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -270,10 +304,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       }
     });
 
-  // 9. META ORG (only for multi-tenant)
+  // 10. META ORG (only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
-      name: '00000000000009_data-meta-org',
+      name: '00000000000010_data-meta-org',
       up: async ({ context: pool }) => {
         const result = await pool.query(`
           INSERT INTO "organizations" ("name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
@@ -297,10 +331,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
     });
   }
 
-  // 10. ADMIN USER
+  // 11. ADMIN USER
   if (isAuthEnabled) {
     migrations.push({
-      name: '00000000000010_data-admin-user',
+      name: '00000000000011_data-admin-user',
       up: async ({ context: pool }) => {
         // Get a client from the pool to use with PostgresDatabase
         const client = await pool.connect();
@@ -326,17 +360,24 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           const systemUserContext = getSystemUserContext();
 
           // Only include _orgId if multi-tenant (non-multi-tenant users table doesn't have _orgId column)
-          const userData: any = {
+          const userData: Partial<IUser> = {
             email: config.auth?.adminUser?.email,
             password: config.auth?.adminUser?.password,
-            firstName: 'Admin',
-            lastName: 'User',
             displayName: 'Admin User',
           };
           if (isMultiTenant && systemUserContext.organization?._id) {
             userData._orgId = systemUserContext.organization._id;
           }
-          await authService.createUser(systemUserContext, userData);
+
+          const personData: Partial<IPersonModel> = {
+            firstName: 'Admin',
+            lastName: 'User',
+          };
+          if (isMultiTenant && systemUserContext.organization?._id) {
+            personData._orgId = systemUserContext.organization._id;
+          }
+
+          await authService.createUser(systemUserContext, userData, personData);
         } finally {
           client.release();
         }
@@ -352,10 +393,10 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
     });
   }
 
-  // 11. ADMIN AUTHORIZATION (only if auth config is provided)
+  // 12. ADMIN AUTHORIZATION (only if auth config is provided)
   if (config.auth) {
     migrations.push({
-      name: '00000000000011_data-admin-authorizations',
+      name: '00000000000012_data-admin-authorizations',
       up: async ({ context: pool }) => {
         // Get a client from the pool to use with services
         const client = await pool.connect();
