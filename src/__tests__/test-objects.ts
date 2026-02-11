@@ -12,6 +12,10 @@ export function setTestMetaOrgUserId(userId: string | number) {
     TEST_META_ORG_USER_ID = userId;
 }
 
+export function setTestMetaOrgUserPersonId(personId: string | number) {
+    TEST_META_ORG_USER_PERSON_ID = personId;
+}
+
 export const TEST_META_ORG_USER_PASSWORD = 'test-meta-org-user-password';
 
 export function getTestMetaOrg(): IOrganization {
@@ -104,6 +108,10 @@ export function setTestOrgId(orgId: string | number) {
 
 export function setTestOrgUserId(userId: string | number) {
     TEST_ORG_USER_ID = userId;
+}
+
+export function setTestOrgUserPersonId(personId: string | number) {
+    TEST_ORG_USER_PERSON_ID = personId;
 }
 
 export function getTestOrg(): IOrganization {

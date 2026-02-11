@@ -64,17 +64,18 @@ describe.skipIf(!isPostgres)('setupDatabaseForMultitenant', () => {
 
         // Verify we have the expected schema migrations
         expect(migrationNames).toContain('00000000000001_schema-organizations');
-        expect(migrationNames).toContain('00000000000002_schema-users');
-        expect(migrationNames).toContain('00000000000003_schema-refresh-tokens');
-        expect(migrationNames).toContain('00000000000004_schema-password-reset-tokens');
-        expect(migrationNames).toContain('00000000000005_schema-roles');
-        expect(migrationNames).toContain('00000000000006_schema-user-roles');
-        expect(migrationNames).toContain('00000000000007_schema-features');
-        expect(migrationNames).toContain('00000000000008_schema-authorizations');
+        expect(migrationNames).toContain('00000000000002_schema-persons');
+        expect(migrationNames).toContain('00000000000003_schema-users');
+        expect(migrationNames).toContain('00000000000004_schema-refresh-tokens');
+        expect(migrationNames).toContain('00000000000005_schema-password-reset-tokens');
+        expect(migrationNames).toContain('00000000000006_schema-roles');
+        expect(migrationNames).toContain('00000000000007_schema-user-roles');
+        expect(migrationNames).toContain('00000000000008_schema-features');
+        expect(migrationNames).toContain('00000000000009_schema-authorizations');
 
         // Meta org is only created if metaOrgName and metaOrgCode are provided
         if (config.app.isMultiTenant) {
-            expect(migrationNames).toContain('00000000000009_data-meta-org');
+            expect(migrationNames).toContain('00000000000010_data-meta-org');
         }
     });
 

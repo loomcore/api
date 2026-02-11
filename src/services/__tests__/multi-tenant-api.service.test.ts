@@ -38,7 +38,7 @@ describe('MultiTenantApiService', () => {
 
     // Create organization service to get actual meta org
     organizationService = new OrganizationService(setup.database);
-    
+
     // Get the actual meta org from the database
     actualMetaOrg = await organizationService.getMetaOrg(getTestMetaOrgUserContext());
   });
@@ -53,7 +53,7 @@ describe('MultiTenantApiService', () => {
 
     // Recreate meta org after clearing collections (it gets deleted by clearCollections)
     await testUtils.createMetaOrg();
-    
+
     // Get fresh meta org ID since it may have changed after clearCollections
     actualMetaOrg = await organizationService.getMetaOrg(EmptyUserContext);
     if (!actualMetaOrg) {
@@ -200,10 +200,11 @@ describe('MultiTenantApiService', () => {
 
     it('should throw BadRequestError if userContext has no organization', async () => {
       // Arrange
-      const userContextWithoutOrg = {
+      const userContextWithoutOrg: IUserContext = {
         user: {
           _id: getTestMetaOrgUser()._id,
           _orgId: getTestMetaOrg()._id,
+          externalId: 'test-external-id',
           email: 'test@example.com',
           password: '',
           _created: new Date(),
@@ -323,7 +324,7 @@ describe('MultiTenantApiService', () => {
       }
       const userContext = getTestMetaOrgUserContext();
       const actualOrgId = actualMetaOrg._id;
-      
+
       // Create a test entity (let database auto-generate ID)
       const created = await service.create(userContext, {
         name: 'Original Name'
@@ -368,7 +369,7 @@ describe('MultiTenantApiService', () => {
     it('should delete an entity by ID', async () => {
       // Arrange
       const userContext = getTestMetaOrgUserContext();
-      
+
       // Create a test entity (let database auto-generate ID)
       const created = await service.create(userContext, {
         name: 'Test Entity'

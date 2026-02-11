@@ -31,7 +31,7 @@ import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
 import { setBaseApiConfig, config } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
-import { getTestMetaOrgUserPerson, getTestOrgUser, getTestOrgUserPerson } from './test-objects.js';
+import { getTestMetaOrgUserPerson, getTestOrgUser, getTestOrgUserPerson, setTestMetaOrgUserPersonId, setTestOrgUserPersonId } from './test-objects.js';
 import { DbType } from '../databases/db-type.type.js';
 import { TestEmailClient } from './test-email-client.js';
 
@@ -173,7 +173,9 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
 
     // Update test objects with the actual created user IDs (correct type for current database)
     setTestMetaOrgUserId(createdMetaOrgUser._id);
+    setTestMetaOrgUserPersonId(createdMetaOrgUser.personId!);
     setTestOrgUserId(createdTestOrgUser._id);
+    setTestOrgUserPersonId(createdTestOrgUser.personId!);
 
     return { metaOrgUser: createdMetaOrgUser, testOrgUser: createdTestOrgUser };
   }

@@ -13,6 +13,7 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, TestEntitySchema, testModelSpec } from '../../__tests__/index.js';
 import { IDatabase } from '../../databases/models/index.js';
 import { getTestMetaOrg, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { AppIdType } from '@loomcore/common/types';
 
 describe('GenericApiService - Integration Tests', () => {
   let database: IDatabase;
@@ -1944,7 +1945,7 @@ describe('GenericApiService - Integration Tests', () => {
       };
 
       const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
-      const queryObject = { filters: { _id: { in: targetIds } } };
+      const queryObject: IQueryOptions = { filters: { _id: { in: targetIds.map(id => id.toString()) } } };
       const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryObject, updateEntity);
 
       // Assert
@@ -2479,7 +2480,7 @@ describe('GenericApiService - Integration Tests', () => {
 
       const createdEntities = await service.createMany(getTestMetaOrgUserContext(), testEntities);
 
-      const targetIds = [createdEntities[0]._id, createdEntities[2]._id];
+      const targetIds: AppIdType[] = [createdEntities[0]._id, createdEntities[2]._id];
 
       // Act - Find specific entities by _id using $in
       const queryObject: IQueryOptions = { filters: { _id: { in: targetIds } } };
@@ -2944,7 +2945,7 @@ describe('GenericApiService - Integration Tests', () => {
       it('should handle system updates', async () => {
         // Arrange
         const updateData = { name: 'System Updated' };
-        
+
         // Act
         const preparedEntity = await service.preProcessEntity(EmptyUserContext, updateData, false);
 

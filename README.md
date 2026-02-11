@@ -63,7 +63,7 @@ The test suite supports two modes for PostgreSQL testing:
    npm run test:db:stop
    ```
 
-The container uses port `5433` to avoid conflicts with local PostgreSQL instances. Set `USE_REAL_POSTGRES=true` to use the container instead of pg-mem.
+The container uses port `5444` to avoid conflicts with local PostgreSQL instances. Set `USE_REAL_POSTGRES=true` to use the container instead of pg-mem.
 
 ## Example Usage
 

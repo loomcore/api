@@ -3,7 +3,7 @@
 # Usage: ./scripts/wait-for-postgres.sh [host] [port] [user] [database]
 
 HOST=${1:-localhost}
-PORT=${2:-5433}
+PORT=${2:-5444}
 USER=${3:-test-user}
 DATABASE=${4:-test-db}
 

@@ -54,18 +54,18 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       if (USE_REAL_POSTGRES) {
         // Use real PostgreSQL container
-        const connectionString = `postgresql://test-user:test-password@localhost:5433/test-db`;
-        postgresClient = new Client({ 
+        const connectionString = `postgresql://test-user:test-password@localhost:5444/test-db`;
+        postgresClient = new Client({
           connectionString,
           connectionTimeoutMillis: 5000, // 5 second timeout
         });
-        
+
         try {
           await postgresClient.connect();
         } catch (error: any) {
           const errorMessage = error.message || String(error);
           const isPermissionError = errorMessage.includes('permission denied') || errorMessage.includes('operation not permitted');
-          
+
           if (isPermissionError) {
             throw new Error(
               `Docker permission error. Please ensure:\n` +
@@ -75,18 +75,18 @@ export class TestPostgresDatabase implements ITestDatabase {
               `Original error: ${errorMessage}`
             );
           }
-          
+
           throw new Error(
-            `Failed to connect to PostgreSQL test container at localhost:5433.\n` +
+            `Failed to connect to PostgreSQL test container at localhost:5444.\n` +
             `Make sure the container is running: npm run test:db:start\n` +
             `Check container status: docker ps | grep postgres-test\n` +
             `View container logs: npm run test:db:logs\n` +
             `Connection error: ${errorMessage}`
           );
         }
-        
+
         // Create a Pool for migrations
-        pool = new Pool({ 
+        pool = new Pool({
           connectionString,
           connectionTimeoutMillis: 5000,
         });
@@ -96,7 +96,7 @@ export class TestPostgresDatabase implements ITestDatabase {
         const { Client } = newDb().adapters.createPg();
         postgresClient = new Client();
         await postgresClient.connect();
-        
+
         // pg-mem's Client can be used as a Pool
         pool = postgresClient as unknown as Pool;
       }

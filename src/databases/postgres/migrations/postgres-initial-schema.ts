@@ -100,7 +100,8 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
         let uniqueConstraint = isMultiTenant
           ? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
           : 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
-        uniqueConstraint += 'CONSTRAINT "fk_users_personId" FOREIGN KEY ("personId") REFERENCES "persons"("_id") ON DELETE CASCADE';
+        uniqueConstraint += `,
+          CONSTRAINT "fk_users_personId" FOREIGN KEY("personId") REFERENCES "persons"("_id") ON DELETE CASCADE`;
         await pool.query(`
         CREATE TABLE IF NOT EXISTS "users" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
