@@ -27,9 +27,10 @@ export class UserService extends MultiTenantApiService<IUser> {
 		// Only clean the User object during updates, not during creation. If we want to actually update the password, we need to use 
 		//  a specific, explicit endpoint - /auth/change-password
 		if (!isCreate) {
-			// Use TypeBox's Value.Clean with PublicUserSchema to remove properties such as the password field.
-			// This will remove any properties not in the PublicUserSchema, including password
-			return Value.Clean(PublicUserSchema, preparedEntity) as Partial<IUser>;
+			// For partial updates, explicitly remove password field instead of using Value.Clean
+			// Value.Clean doesn't work well with partial objects as it removes properties that don't match the full schema
+			const { password, ...cleanedEntity } = preparedEntity;
+			return cleanedEntity as Partial<IUser>;
 		}
 
 		return preparedEntity;

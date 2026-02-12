@@ -1,5 +1,6 @@
 import { TSchema } from '@sinclair/typebox';
 import _ from 'lodash';
+import { toCamelCase } from './convert-keys.util.js';
 
 /**
  * Checks if a property is optional in a TypeBox schema.
@@ -70,14 +71,19 @@ export function convertNullToUndefined<T>(data: T, schema: TSchema): T {
 
 		// Schema is an object with properties
 		if (subSchema.type === 'object' && subSchema.properties) {
-			for (const [key, propSchema] of Object.entries(subSchema.properties)) {
+			// Process all keys in the object (which are in snake_case from the database)
+			for (const [key, value] of Object.entries(obj)) {
+				// Convert snake_case key to camelCase to match schema property names
+				// Keys starting with underscore are left unchanged
+				const schemaKey = key.startsWith('_') ? key : toCamelCase(key);
+				const propSchema = subSchema.properties[schemaKey];
+				
 				if (!propSchema || typeof propSchema !== 'object') continue;
 
 				const typedPropSchema = propSchema as TSchema;
-				const value = obj[key];
 
 				// Check if property is optional
-				if (isPropertyOptional(key, subSchema)) {
+				if (isPropertyOptional(schemaKey, subSchema)) {
 					// If optional and value is null, delete the property
 					if (value === null) {
 						delete obj[key];

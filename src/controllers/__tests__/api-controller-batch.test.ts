@@ -11,6 +11,7 @@ import { GenericApiService } from '../../services/generic-api-service/generic-ap
 import { EmptyUserContext } from '@loomcore/common/models';
 import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
+import { AppIdType } from '@loomcore/common/types';
 
 describe('ApiController Batch Update', () => {
   let app: Application;
@@ -20,10 +21,10 @@ describe('ApiController Batch Update', () => {
   let categoryService: GenericApiService<ICategory>;
   let multiTenantProductService: MultiTenantApiService<IProduct>;
   let multiTenantCategoryService: MultiTenantApiService<ICategory>;
-  let productIds: string | number[];
-  let multiTenantProductIds: string | number[];
+  let productIds: AppIdType[];
+  let multiTenantProductIds: AppIdType[];
   let categoryId: string | number;
-  let multiTenantCategoryId: string | number;
+  let multiTenantCategoryId: AppIdType;
 
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();

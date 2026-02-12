@@ -387,8 +387,6 @@ describe('ApiController - Integration Tests', () => {
         // Verify password is not included (removed by public schema)
         expect(entity).not.toHaveProperty('password');
 
-        console.log('entity', JSON.stringify(entity, null, 2));
-
         // Verify audit properties are present - this is what our test is checking for
         expect(entity).toHaveProperty('_created');
         expect(entity).toHaveProperty('_createdBy', userId);

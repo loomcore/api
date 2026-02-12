@@ -22,7 +22,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
           ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
           "description" TEXT,
-          "isActive" BOOLEAN,
+          "is_active" BOOLEAN,
           "tags" TEXT[],
           "count" INTEGER,
           "_created" TIMESTAMPTZ NOT NULL,
@@ -70,15 +70,15 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
           ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
           "description" TEXT,
-          "internalNumber" VARCHAR(255),
-          "categoryId" INTEGER NOT NULL,
+          "internal_number" VARCHAR(255),
+          "category_id" INTEGER NOT NULL,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
           "_updated" TIMESTAMPTZ NOT NULL,
           "_updatedBy" INTEGER NOT NULL,
           "_deleted" TIMESTAMPTZ,
           "_deletedBy" INTEGER,
-          CONSTRAINT "fk_products_category" FOREIGN KEY ("categoryId") REFERENCES "categories"("_id") ON DELETE CASCADE
+          CONSTRAINT "fk_products_category" FOREIGN KEY ("category_id") REFERENCES "categories"("_id") ON DELETE CASCADE
         )
       `);
     },
@@ -99,7 +99,7 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
           ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
           "value" INTEGER,
-          "eventDate" TIMESTAMPTZ,
+          "event_date" TIMESTAMPTZ,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
           "_updated" TIMESTAMPTZ NOT NULL,

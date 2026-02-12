@@ -198,22 +198,22 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     it('should build a client-report using all join operation types', async () => {
         // Create join operations
         // 1. One-to-one: clients -> persons
-        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
 
         // 2. Many-to-one: persons -> email_addresses (returns array)
-        // Note: localField uses "client_person._id" to reference the joined person (alias from Join above)
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
+        // Note: localField uses "clientPerson._id" to reference the joined person (alias from Join above)
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
 
         // 3. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
-        // Note: localField uses "client_person._id" to reference the joined person (alias from Join above)
+        // Note: localField uses "clientPerson._id" to reference the joined person (alias from Join above)
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',           // final table
             'persons_phone_numbers',   // join table
-            'client_person._id',       // local field - references joined person table
+            'clientPerson._id',       // local field - references joined person table
             'person_id',               // join table local field
             'phone_number_id',         // join table foreign field
             '_id',                     // foreign field (phone_number._id)
-            'client_phone_numbers'            // alias
+            'clientPhoneNumbers'            // alias
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -234,61 +234,61 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         expect(result).toBeDefined();
         expect(result).not.toBeNull();
         expect(result!._id).toBe(clientId);
-        expect(result!.client_person).toBeDefined();
-        expect(result!.client_person._id).toBe(personId);
-        expect(result!.client_person.first_name).toBe('John');
-        expect(result!.client_person.middle_name).toBe('Michael');
-        expect(result!.client_person.last_name).toBe('Doe');
+        expect(result!.clientPerson).toBeDefined();
+        expect(result!.clientPerson._id).toBe(personId);
+        expect(result!.clientPerson.firstName).toBe('John');
+        expect(result!.clientPerson.middleName).toBe('Michael');
+        expect(result!.clientPerson.lastName).toBe('Doe');
 
         // Verify email addresses array
-        expect(result!.client_person.client_email_addresses).toBeDefined();
-        expect(Array.isArray(result!.client_person.client_email_addresses)).toBe(true);
-        expect(result!.client_person.client_email_addresses.length).toBe(2);
+        expect(result!.clientPerson.clientEmailAddresses).toBeDefined();
+        expect(Array.isArray(result!.clientPerson.clientEmailAddresses)).toBe(true);
+        expect(result!.clientPerson.clientEmailAddresses.length).toBe(2);
 
         // Verify email addresses content
-        const emailAddresses = result!.client_person.client_email_addresses as ITestEmailAddressModel[];
-        const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
-        const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
+        const emailAddresses = result!.clientPerson.clientEmailAddresses as ITestEmailAddressModel[];
+        const email1 = emailAddresses.find(e => e.emailAddress === 'john.doe@example.com');
+        const email2 = emailAddresses.find(e => e.emailAddress === 'john.m.doe@example.com');
 
         expect(email1).toBeDefined();
-        expect(email1!.person_id).toBe(personId);
-        expect(email1!.is_default).toBe(true);
+        expect(email1!.personId).toBe(personId);
+        expect(email1!.isDefault).toBe(true);
 
         expect(email2).toBeDefined();
-        expect(email2!.person_id).toBe(personId);
-        expect(email2!.is_default).toBe(false);
+        expect(email2!.personId).toBe(personId);
+        expect(email2!.isDefault).toBe(false);
 
         // Verify phone numbers array
-        expect(result!.client_person.client_phone_numbers).toBeDefined();
-        expect(Array.isArray(result!.client_person.client_phone_numbers)).toBe(true);
-        expect(result!.client_person.client_phone_numbers.length).toBe(2);
+        expect(result!.clientPerson.clientPhoneNumbers).toBeDefined();
+        expect(Array.isArray(result!.clientPerson.clientPhoneNumbers)).toBe(true);
+        expect(result!.clientPerson.clientPhoneNumbers.length).toBe(2);
 
         // Verify phone numbers content
-        const phoneNumbers = result!.client_person.client_phone_numbers as ITestPhoneNumberModel[];
-        const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
-        const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
+        const phoneNumbers = result!.clientPerson.clientPhoneNumbers as ITestPhoneNumberModel[];
+        const phone1 = phoneNumbers.find(p => p.phoneNumber === '555-0100');
+        const phone2 = phoneNumbers.find(p => p.phoneNumber === '555-0200');
 
         expect(phone1).toBeDefined();
-        expect(phone1!.phone_number_type).toBe('mobile');
-        expect(phone1!.is_default).toBe(true);
+        expect(phone1!.phoneNumberType).toBe('mobile');
+        expect(phone1!.isDefault).toBe(true);
 
         expect(phone2).toBeDefined();
-        expect(phone2!.phone_number_type).toBe('home');
-        expect(phone2!.is_default).toBe(false);
+        expect(phone2!.phoneNumberType).toBe('home');
+        expect(phone2!.isDefault).toBe(false);
     });
 
     it('should handle get() query with joins and return paginated results', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'client_person._id',
+            'clientPerson._id',
             'person_id',
             'phone_number_id',
             '_id',
-            'client_phone_numbers'
+            'clientPhoneNumbers'
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -321,25 +321,25 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Verify first entity has proper structure
         const firstEntity = result.entities![0];
-        expect(firstEntity.client_person).toBeDefined();
-        expect(firstEntity.client_person.client_email_addresses).toBeDefined();
-        expect(Array.isArray(firstEntity.client_person.client_email_addresses)).toBe(true);
-        expect(firstEntity.client_person.client_phone_numbers).toBeDefined();
-        expect(Array.isArray(firstEntity.client_person.client_phone_numbers)).toBe(true);
+        expect(firstEntity.clientPerson).toBeDefined();
+        expect(firstEntity.clientPerson.clientEmailAddresses).toBeDefined();
+        expect(Array.isArray(firstEntity.clientPerson.clientEmailAddresses)).toBe(true);
+        expect(firstEntity.clientPerson.clientPhoneNumbers).toBeDefined();
+        expect(Array.isArray(firstEntity.clientPerson.clientPhoneNumbers)).toBe(true);
     });
 
     it('should handle getAll() query with joins', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'client_person._id',
+            'clientPerson._id',
             'person_id',
             'phone_number_id',
             '_id',
-            'client_phone_numbers'
+            'clientPhoneNumbers'
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -360,11 +360,11 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Verify first result has proper structure
         const firstResult = results[0];
-        expect(firstResult.client_person).toBeDefined();
-        expect(firstResult.client_person.client_email_addresses).toBeDefined();
-        expect(Array.isArray(firstResult.client_person.client_email_addresses)).toBe(true);
-        expect(firstResult.client_person.client_phone_numbers).toBeDefined();
-        expect(Array.isArray(firstResult.client_person.client_phone_numbers)).toBe(true);
+        expect(firstResult.clientPerson).toBeDefined();
+        expect(firstResult.clientPerson.clientEmailAddresses).toBeDefined();
+        expect(Array.isArray(firstResult.clientPerson.clientEmailAddresses)).toBe(true);
+        expect(firstResult.clientPerson.clientPhoneNumbers).toBeDefined();
+        expect(Array.isArray(firstResult.clientPerson.clientPhoneNumbers)).toBe(true);
     });
 
     it('should handle empty arrays when no related records exist', async () => {
@@ -397,16 +397,16 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         });
 
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'client_person._id',
+            'clientPerson._id',
             'person_id',
             'phone_number_id',
             '_id',
-            'client_phone_numbers'
+            'clientPhoneNumbers'
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -425,13 +425,13 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Verify empty arrays are returned
         expect(result).toBeDefined();
-        expect(result!.client_person).toBeDefined();
-        expect(result!.client_person.client_email_addresses).toBeDefined();
-        expect(Array.isArray(result!.client_person.client_email_addresses)).toBe(true);
-        expect(result!.client_person.client_email_addresses.length).toBe(0);
-        expect(result!.client_person.client_phone_numbers).toBeDefined();
-        expect(Array.isArray(result!.client_person.client_phone_numbers)).toBe(true);
-        expect(result!.client_person.client_phone_numbers.length).toBe(0);
+        expect(result!.clientPerson).toBeDefined();
+        expect(result!.clientPerson.clientEmailAddresses).toBeDefined();
+        expect(Array.isArray(result!.clientPerson.clientEmailAddresses)).toBe(true);
+        expect(result!.clientPerson.clientEmailAddresses.length).toBe(0);
+        expect(result!.clientPerson.clientPhoneNumbers).toBeDefined();
+        expect(Array.isArray(result!.clientPerson.clientPhoneNumbers)).toBe(true);
+        expect(result!.clientPerson.clientPhoneNumbers.length).toBe(0);
 
         // Clean up the test data
         await clientsCollection.deleteOne({ _id: newClientIdObj });

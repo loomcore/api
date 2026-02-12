@@ -48,16 +48,16 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         userContext = getTestMetaOrgUserContext();
 
         // Create default join operations for client-report
-        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'client_person._id',
+            'clientPerson._id',
             'person_id',
             'phone_number_id',
             '_id',
-            'phone_numbers'
+            'clientPhoneNumbers'
         );
 
         const defaultOperations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -171,47 +171,47 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             // Verify the result structure
             expect(result).toBeDefined();
             expect(result._id).toBe(clientId);
-            expect(result.client_person).toBeDefined();
-            expect(result.client_person._id).toBe(personId);
-            expect(result.client_person.first_name).toBe('John');
-            expect(result.client_person.middle_name).toBe('Michael');
-            expect(result.client_person.last_name).toBe('Doe');
+            expect(result.clientPerson).toBeDefined();
+            expect(result.clientPerson._id).toBe(personId);
+            expect(result.clientPerson.firstName).toBe('John');
+            expect(result.clientPerson.middleName).toBe('Michael');
+            expect(result.clientPerson.lastName).toBe('Doe');
 
             // Verify email addresses array
-            expect(result.client_person.email_addresses).toBeDefined();
-            expect(Array.isArray(result.client_person.email_addresses)).toBe(true);
-            expect(result.client_person.email_addresses.length).toBe(2);
+            expect(result.clientPerson.clientEmailAddresses).toBeDefined();
+            expect(Array.isArray(result.clientPerson.clientEmailAddresses)).toBe(true);
+            expect(result.clientPerson.clientEmailAddresses.length).toBe(2);
 
             // Verify email addresses content
-            const emailAddresses = result.client_person.email_addresses as ITestEmailAddressModel[];
-            const email1 = emailAddresses.find(e => e.email_address === 'john.doe@example.com');
-            const email2 = emailAddresses.find(e => e.email_address === 'john.m.doe@example.com');
+            const emailAddresses = result.clientPerson.clientEmailAddresses as ITestEmailAddressModel[];
+            const email1 = emailAddresses.find(e => e.emailAddress === 'john.doe@example.com');
+            const email2 = emailAddresses.find(e => e.emailAddress === 'john.m.doe@example.com');
 
             expect(email1).toBeDefined();
-            expect(email1!.person_id).toBe(personId);
-            expect(email1!.is_default).toBe(true);
+            expect(email1!.personId).toBe(personId);
+            expect(email1!.isDefault).toBe(true);
 
             expect(email2).toBeDefined();
-            expect(email2!.person_id).toBe(personId);
-            expect(email2!.is_default).toBe(false);
+            expect(email2!.personId).toBe(personId);
+            expect(email2!.isDefault).toBe(false);
 
             // Verify phone numbers array
-            expect(result.client_person.phone_numbers).toBeDefined();
-            expect(Array.isArray(result.client_person.phone_numbers)).toBe(true);
-            expect(result.client_person.phone_numbers.length).toBe(2);
+            expect(result.clientPerson.clientPhoneNumbers).toBeDefined();
+            expect(Array.isArray(result.clientPerson.clientPhoneNumbers)).toBe(true);
+            expect(result.clientPerson.clientPhoneNumbers.length).toBe(2);
 
             // Verify phone numbers content
-            const phoneNumbers = result.client_person.phone_numbers as ITestPhoneNumberModel[];
-            const phone1 = phoneNumbers.find(p => p.phone_number === '555-0100');
-            const phone2 = phoneNumbers.find(p => p.phone_number === '555-0200');
+            const phoneNumbers = result.clientPerson.clientPhoneNumbers as ITestPhoneNumberModel[];
+            const phone1 = phoneNumbers.find(p => p.phoneNumber === '555-0100');
+            const phone2 = phoneNumbers.find(p => p.phoneNumber === '555-0200');
 
             expect(phone1).toBeDefined();
-            expect(phone1!.phone_number_type).toBe('mobile');
-            expect(phone1!.is_default).toBe(true);
+            expect(phone1!.phoneNumberType).toBe('mobile');
+            expect(phone1!.isDefault).toBe(true);
 
             expect(phone2).toBeDefined();
-            expect(phone2!.phone_number_type).toBe('home');
-            expect(phone2!.is_default).toBe(false);
+            expect(phone2!.phoneNumberType).toBe('home');
+            expect(phone2!.isDefault).toBe(false);
         });
 
         it('should throw IdNotFoundError when client does not exist', async () => {
@@ -239,11 +239,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
             // Verify first entity has proper structure
             const firstEntity = result.entities![0];
-            expect(firstEntity.client_person).toBeDefined();
-            expect(firstEntity.client_person.email_addresses).toBeDefined();
-            expect(Array.isArray(firstEntity.client_person.email_addresses)).toBe(true);
-            expect(firstEntity.client_person.phone_numbers).toBeDefined();
-            expect(Array.isArray(firstEntity.client_person.phone_numbers)).toBe(true);
+            expect(firstEntity.clientPerson).toBeDefined();
+            expect(firstEntity.clientPerson.clientEmailAddresses).toBeDefined();
+            expect(Array.isArray(firstEntity.clientPerson.clientEmailAddresses)).toBe(true);
+            expect(firstEntity.clientPerson.clientPhoneNumbers).toBeDefined();
+            expect(Array.isArray(firstEntity.clientPerson.clientPhoneNumbers)).toBe(true);
         });
 
         it('should respect pagination options', async () => {
@@ -292,11 +292,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
             // Verify first result has proper structure
             const firstResult = results[0];
-            expect(firstResult.client_person).toBeDefined();
-            expect(firstResult.client_person.email_addresses).toBeDefined();
-            expect(Array.isArray(firstResult.client_person.email_addresses)).toBe(true);
-            expect(firstResult.client_person.phone_numbers).toBeDefined();
-            expect(Array.isArray(firstResult.client_person.phone_numbers)).toBe(true);
+            expect(firstResult.clientPerson).toBeDefined();
+            expect(firstResult.clientPerson.clientEmailAddresses).toBeDefined();
+            expect(Array.isArray(firstResult.clientPerson.clientEmailAddresses)).toBe(true);
+            expect(firstResult.clientPerson.clientPhoneNumbers).toBeDefined();
+            expect(Array.isArray(firstResult.clientPerson.clientPhoneNumbers)).toBe(true);
         });
     });
 
@@ -306,7 +306,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
                 override prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
                     // Add join operations dynamically
-                    const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
+                    const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
                     const additionalOps = [joinPerson, ...operations];
                     const { queryOptions: preparedOptions, operations: mergedOps } = super.prepareQuery(userContext, queryOptions, additionalOps);
                     return { queryOptions: preparedOptions, operations: mergedOps };
@@ -326,8 +326,8 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
             expect(result).toBeDefined();
             expect(result._id).toBe(clientId);
             // Person should be populated due to prepareQuery override
-            expect(result.client_person).toBeDefined();
-            expect(result.client_person._id).toBe(personId);
+            expect(result.clientPerson).toBeDefined();
+            expect(result.clientPerson._id).toBe(personId);
         });
     });
 
@@ -408,13 +408,13 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
             // Verify empty arrays are returned
             expect(result).toBeDefined();
-            expect(result.client_person).toBeDefined();
-            expect(result.client_person.email_addresses).toBeDefined();
-            expect(Array.isArray(result.client_person.email_addresses)).toBe(true);
-            expect(result.client_person.email_addresses.length).toBe(0);
-            expect(result.client_person.phone_numbers).toBeDefined();
-            expect(Array.isArray(result.client_person.phone_numbers)).toBe(true);
-            expect(result.client_person.phone_numbers.length).toBe(0);
+            expect(result.clientPerson).toBeDefined();
+            expect(result.clientPerson.clientEmailAddresses).toBeDefined();
+            expect(Array.isArray(result.clientPerson.clientEmailAddresses)).toBe(true);
+            expect(result.clientPerson.clientEmailAddresses.length).toBe(0);
+            expect(result.clientPerson.clientPhoneNumbers).toBeDefined();
+            expect(Array.isArray(result.clientPerson.clientPhoneNumbers)).toBe(true);
+            expect(result.clientPerson.clientPhoneNumbers.length).toBe(0);
         });
 
         it('should work with service that has no default operations', async () => {

@@ -5,13 +5,13 @@ import { ITestStateModel, testStateSchema } from "./test-state.model.js";
 
 export interface ITestDistrictModel extends IEntity, IAuditable {
     name: string;
-    state_id: number;
+    stateId: number;
     state?: ITestStateModel;
 }
 
 export const testDistrictSchema = Type.Object({
     name: Type.String(),
-    state_id: Type.Number(),
+    stateId: Type.Number(),
 });
 
 export const testDistrictModelSpec = entityUtils.getModelSpec(testDistrictSchema, { isAuditable: true });

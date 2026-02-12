@@ -19,6 +19,7 @@ import { get as getQuery } from "./queries/postgres-get.query.js";
 import { getById as getByIdQuery } from "./queries/postgres-get-by-id.query.js";
 import { getCount as getCountQuery } from "./queries/postgres-get-count.query.js";
 import { convertNullToUndefined } from "./utils/convert-null-to-undefined.util.js";
+import { convertKeysToSnakeCase, convertKeysToCamelCase } from "./utils/convert-keys.util.js";
 
 export class PostgresDatabase implements IDatabase {
     private client: Client;
@@ -27,10 +28,11 @@ export class PostgresDatabase implements IDatabase {
         this.client = client;
     }
     preProcessEntity<T extends IEntity>(entity: Partial<T>, modelSpec: TSchema): Partial<T> {
-        return entity;
+        return convertKeysToSnakeCase(entity);
     }
     postProcessEntity<T extends IEntity>(entity: T, modelSpec: TSchema): T {
-        return convertNullToUndefined(entity, modelSpec);
+        const withNullsConverted = convertNullToUndefined(entity, modelSpec);
+        return convertKeysToCamelCase(withNullsConverted);
     }
     async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return getAllQuery(this.client, operations, pluralResourceName);
@@ -84,21 +86,21 @@ export class PostgresDatabase implements IDatabase {
         const now = new Date();
         let query = `
             SELECT DISTINCT
-                ur."userId" as "userId",
+                ur."user_id" as "userId",
                 r."name" as "role",
                 f."name" as "feature",
                 a."config",
                 a."_id",
                 a."_orgId"
             FROM "user_roles" ur
-            INNER JOIN "roles" r ON ur."roleId" = r."_id"
-            INNER JOIN "authorizations" a ON r."_id" = a."roleId"
-            INNER JOIN "features" f ON a."featureId" = f."_id"
-            WHERE ur."userId" = $1
+            INNER JOIN "roles" r ON ur."role_id" = r."_id"
+            INNER JOIN "authorizations" a ON r."_id" = a."role_id"
+            INNER JOIN "features" f ON a."feature_id" = f."_id"
+            WHERE ur."user_id" = $1
                 AND ur."_deleted" IS NULL
                 AND a."_deleted" IS NULL
-                AND (a."startDate" IS NULL OR a."startDate" <= $2)
-                AND (a."endDate" IS NULL OR a."endDate" >= $2)
+                AND (a."start_date" IS NULL OR a."start_date" <= $2)
+                AND (a."end_date" IS NULL OR a."end_date" >= $2)
         `;
 
         const values: any[] = [userId, now];

@@ -11,6 +11,7 @@ import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
+import { AppIdType } from '@loomcore/common/types';
 
 describe('ApiController get (paged) with aggregation - Integration Tests', () => {
   let app: Application;
@@ -18,8 +19,8 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
   let categoryService: GenericApiService<ICategory>;
   let testAgent: any;
   let authToken: string;
-  let categoryId: string;
-  let productId: string;
+  let categoryId: AppIdType;
+  let productId: AppIdType;
 
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();

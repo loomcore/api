@@ -4,13 +4,13 @@ import { Type } from "@sinclair/typebox";
 import { ITestPersonModel, testPersonSchema } from "./test-person.model.js";
 
 export interface ITestAgentModel extends IEntity, IAuditable {
-    person_id: number;
-    agent_person?: ITestPersonModel;
+    personId: number;
+    agentPerson?: ITestPersonModel;
 }
 
 export const testAgentSchema = Type.Object({
-    person_id: Type.Number(),
-    agent_person: Type.Optional(testPersonSchema),
+    personId: Type.Number(),
+    agentPerson: Type.Optional(testPersonSchema),
 });
 
 export const testAgentModelSpec = entityUtils.getModelSpec(testAgentSchema, { isAuditable: true });

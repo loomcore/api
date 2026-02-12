@@ -4,15 +4,15 @@ import { Type } from "@sinclair/typebox";
 
 
 export interface ITestEmailAddressModel extends IEntity, IAuditable {
-    person_id: number;
-    email_address: string;
-    is_default: boolean;
+    personId: number;
+    emailAddress: string;
+    isDefault: boolean;
 }
 
 export const testEmailAddressSchema = Type.Object({
-    person_id: Type.Number(),
-    email_address: Type.String(),
-    is_default: Type.Boolean(),
+    personId: Type.Number(),
+    emailAddress: Type.String(),
+    isDefault: Type.Boolean(),
 });
 
 export const testEmailAddressModelSpec = entityUtils.getModelSpec(testEmailAddressSchema);

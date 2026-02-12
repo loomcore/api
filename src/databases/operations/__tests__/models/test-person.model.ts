@@ -6,20 +6,20 @@ import { ITestPhoneNumberModel, testPhoneNumberSchema } from "./test-phone-numbe
 import { ITestSchoolModel, testSchoolSchema } from "./test-school.model.js";
 
 export interface ITestPersonModel extends IEntity, IAuditable {
-    first_name: string;
-    middle_name: string | null;
-    last_name: string;
-    client_email_addresses: ITestEmailAddressModel[];
-    client_phone_numbers: ITestPhoneNumberModel[];
+    firstName: string;
+    middleName: string | null;
+    lastName: string;
+    clientEmailAddresses: ITestEmailAddressModel[];
+    clientPhoneNumbers: ITestPhoneNumberModel[];
     school?: ITestSchoolModel;
 }
 
 export const testPersonSchema = Type.Object({
-    first_name: Type.String(),
-    middle_name: Type.Optional(Type.String()),
-    last_name: Type.String(),
-    client_phone_numbers: Type.Array(testPhoneNumberSchema),
-    client_email_addresses: Type.Array(testEmailAddressSchema),
+    firstName: Type.String(),
+    middleName: Type.Optional(Type.String()),
+    lastName: Type.String(),
+    clientPhoneNumbers: Type.Array(testPhoneNumberSchema),
+    clientEmailAddresses: Type.Array(testEmailAddressSchema),
 });
 
 export const testPersonModelSpec = entityUtils.getModelSpec(testPersonSchema, { isAuditable: true });

@@ -73,8 +73,6 @@ describe('AuthController', () => {
         .set('Authorization', `Bearer ${authToken}`) // Add auth token
         .send({ user: newUser, person: newUserPerson })
 
-      console.log('auth register response.body', JSON.stringify(response.body, null, 2));
-
       expect(response.status).toBe(201);
       expect(response.body?.data).toHaveProperty('_id');
       expect(response.body?.data).toHaveProperty('email', newUser.email);

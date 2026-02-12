@@ -3,13 +3,13 @@ import { entityUtils } from "@loomcore/common/utils";
 import { Type } from "@sinclair/typebox";
 
 export interface ITestPremiumModel extends IEntity, IAuditable {
-    policy_id: number;
+    policyId: number;
     amount: number;
     date: Date | string;
 }
 
 export const testPremiumSchema = Type.Object({
-    policy_id: Type.Number(),
+    policyId: Type.Number(),
     amount: Type.Number(),
     date: Type.Union([Type.Date(), Type.String()])
 });

@@ -7,15 +7,15 @@ import { entityUtils } from "@loomcore/common/utils";
 import { Type } from "@sinclair/typebox";
 
 export interface ITestClientReportsModel extends IEntity, IAuditable {
-    client_person: ITestPersonModel;
+    clientPerson: ITestPersonModel;
     agent?: ITestAgentModel;
-    client_policies?: ITestPolicyModel[];
+    clientPolicies?: ITestPolicyModel[];
 }
 
 export const testClientReportsSchema = Type.Object({
-    client_person: testPersonSchema,
+    clientPerson: testPersonSchema,
     agent: Type.Optional(testAgentSchema),
-    client_policies: Type.Optional(Type.Array(testPolicySchema))
+    clientPolicies: Type.Optional(Type.Array(testPolicySchema))
 });
 
 export const testClientReportsModelSpec =

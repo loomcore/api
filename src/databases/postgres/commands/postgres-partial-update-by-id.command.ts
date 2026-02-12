@@ -14,20 +14,25 @@ export async function partialUpdateById<T extends IEntity>(
     pluralResourceName: string
 ): Promise<T> {
     try {
+
+        console.log('entity', JSON.stringify(entity, null, 2));
         // Extract columns and values from the entity (only the fields to update)
         const { columns, values } = columnsAndValuesFromEntity(entity);
-        
+
+
+        console.log('columns', JSON.stringify(columns, null, 2));
+        console.log('values', JSON.stringify(values, null, 2));
         // Filter out _id from columns for the SET clause (we use it in WHERE)
         const updateColumns = columns.filter(col => col !== '"_id"');
         const updateValues = values.filter((_, index) => columns[index] !== '"_id"');
-        
+
         if (updateColumns.length === 0) {
             throw new BadRequestError('Cannot perform partial update with no fields to update');
         }
-        
+
         // Build SET clause for UPDATE
         const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
-        
+
         // Add id as the last parameter for WHERE clause
         const query = `
             UPDATE "${pluralResourceName}"
@@ -36,7 +41,7 @@ export async function partialUpdateById<T extends IEntity>(
         `;
 
         const result = await client.query(query, [...updateValues, id]);
-        
+
         if (result.rowCount === 0) {
             throw new IdNotFoundError();
         }
@@ -49,11 +54,11 @@ export async function partialUpdateById<T extends IEntity>(
         `;
 
         const selectResult = await client.query(selectQuery, [id]);
-        
+
         if (selectResult.rows.length === 0) {
             throw new IdNotFoundError();
         }
-        
+
         return selectResult.rows[0] as T;
     }
     catch (err: any) {
@@ -61,7 +66,7 @@ export async function partialUpdateById<T extends IEntity>(
         if (err instanceof IdNotFoundError) {
             throw err;
         }
-        
+
         // PostgreSQL error code 23505 is for unique constraint violations
         if (err.code === '23505') {
             throw new BadRequestError(`${pluralResourceName} has duplicate key violations`);

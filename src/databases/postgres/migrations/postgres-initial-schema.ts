@@ -40,8 +40,8 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             "code" VARCHAR(255) NOT NULL UNIQUE,
             "description" TEXT,
             "status" INTEGER NOT NULL,
-            "isMetaOrg" BOOLEAN NOT NULL,
-            "authToken" TEXT,
+            "is_meta_org" BOOLEAN NOT NULL,
+            "auth_token" TEXT,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
             "_updated" TIMESTAMPTZ NOT NULL,
@@ -68,15 +68,15 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           CREATE TABLE IF NOT EXISTS "persons" (
             "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             ${orgColumnDef}
-            "externalId" VARCHAR(255) UNIQUE,
-            "firstName" VARCHAR(255) NOT NULL,
-            "middleName" VARCHAR(255),
-            "lastName" VARCHAR(255) NOT NULL,
-            "dateOfBirth" DATE,
-            "isAgent" BOOLEAN NOT NULL DEFAULT FALSE,
-            "isClient" BOOLEAN NOT NULL DEFAULT FALSE,
-            "isEmployee" BOOLEAN NOT NULL DEFAULT FALSE,
-            "extendedTypes" INTEGER,
+            "external_id" VARCHAR(255) UNIQUE,
+            "first_name" VARCHAR(255) NOT NULL,
+            "middle_name" VARCHAR(255),
+            "last_name" VARCHAR(255) NOT NULL,
+            "date_of_birth" DATE,
+            "is_agent" BOOLEAN NOT NULL DEFAULT FALSE,
+            "is_client" BOOLEAN NOT NULL DEFAULT FALSE,
+            "is_employee" BOOLEAN NOT NULL DEFAULT FALSE,
+            "extended_types" INTEGER,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
             "_updated" TIMESTAMPTZ NOT NULL,
@@ -101,16 +101,16 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
           : 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
         uniqueConstraint += `,
-          CONSTRAINT "fk_users_personId" FOREIGN KEY("personId") REFERENCES "persons"("_id") ON DELETE CASCADE`;
+          CONSTRAINT "fk_users_person_id" FOREIGN KEY("person_id") REFERENCES "persons"("_id") ON DELETE CASCADE`;
         await pool.query(`
         CREATE TABLE IF NOT EXISTS "users" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
-          "externalId" VARCHAR(255) UNIQUE,
+          "external_id" VARCHAR(255) UNIQUE,
           "email" VARCHAR(255) NOT NULL,
-          "displayName" VARCHAR(255),
+          "display_name" VARCHAR(255),
           "password" VARCHAR(255) NOT NULL,
-          "personId" INTEGER UNIQUE,
+          "person_id" INTEGER UNIQUE,
           "_lastLoggedIn" TIMESTAMPTZ,
           "_lastPasswordChange" TIMESTAMPTZ,
           "_created" TIMESTAMPTZ NOT NULL,
@@ -140,12 +140,12 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
           "token" VARCHAR(255) NOT NULL,
-          "deviceId" VARCHAR(255) NOT NULL,
-          "userId" INTEGER NOT NULL,
-          "expiresOn" BIGINT NOT NULL,
+          "device_id" VARCHAR(255) NOT NULL,
+          "user_id" INTEGER NOT NULL,
+          "expires_on" BIGINT NOT NULL,
           "created" TIMESTAMPTZ NOT NULL,
-          "createdBy" INTEGER NOT NULL,
-          CONSTRAINT "fk_refresh_tokens_user" FOREIGN KEY ("userId") REFERENCES "users"("_id") ON DELETE CASCADE
+          "created_by" INTEGER NOT NULL,
+          CONSTRAINT "fk_refresh_tokens_user" FOREIGN KEY ("user_id") REFERENCES "users"("_id") ON DELETE CASCADE
         )
       `);
       },
@@ -170,7 +170,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           ${orgColumnDef}
           "email" VARCHAR(255) NOT NULL,
           "token" VARCHAR(255) NOT NULL,
-          "expiresOn" BIGINT NOT NULL,
+          "expires_on" BIGINT NOT NULL,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
           "_updated" TIMESTAMPTZ NOT NULL,
@@ -182,7 +182,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       `);
       },
       down: async ({ context: pool }) => {
-        await pool.query('DROP TABLE IF EXISTS "passwordResetTokens"');
+        await pool.query('DROP TABLE IF EXISTS "password_reset_tokens"');
       }
     });
 
@@ -218,23 +218,23 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
-          ? 'CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "userId", "roleId")'
-          : 'CONSTRAINT "uk_user_roles" UNIQUE ("userId", "roleId")';
+          ? 'CONSTRAINT "uk_user_roles" UNIQUE ("_orgId", "user_id", "role_id")'
+          : 'CONSTRAINT "uk_user_roles" UNIQUE ("user_id", "role_id")';
 
         await pool.query(`
         CREATE TABLE IF NOT EXISTS "user_roles" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
-          "userId" INTEGER NOT NULL,
-          "roleId" INTEGER NOT NULL,
+          "user_id" INTEGER NOT NULL,
+          "role_id" INTEGER NOT NULL,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
           "_updated" TIMESTAMPTZ NOT NULL,
           "_updatedBy" INTEGER NOT NULL,
           "_deleted" TIMESTAMPTZ,
           "_deletedBy" INTEGER,
-          CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("userId") REFERENCES "users"("_id") ON DELETE CASCADE,
-          CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
+          CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("user_id") REFERENCES "users"("_id") ON DELETE CASCADE,
+          CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
           ${uniqueConstraint}
         )
       `);
@@ -276,17 +276,17 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
-          ? 'CONSTRAINT "uk_authorizations" UNIQUE ("_orgId", "roleId", "featureId")'
-          : 'CONSTRAINT "uk_authorizations" UNIQUE ("roleId", "featureId")';
+          ? 'CONSTRAINT "uk_authorizations" UNIQUE ("_orgId", "role_id", "feature_id")'
+          : 'CONSTRAINT "uk_authorizations" UNIQUE ("role_id", "feature_id")';
 
         await pool.query(`
         CREATE TABLE IF NOT EXISTS "authorizations" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
-          "roleId" INTEGER NOT NULL,
-          "featureId" INTEGER NOT NULL,
-          "startDate" TIMESTAMPTZ,
-          "endDate" TIMESTAMPTZ,
+          "role_id" INTEGER NOT NULL,
+          "feature_id" INTEGER NOT NULL,
+          "start_date" TIMESTAMPTZ,
+          "end_date" TIMESTAMPTZ,
           "config" JSONB,
           "_created" TIMESTAMPTZ NOT NULL,
           "_createdBy" INTEGER NOT NULL,
@@ -294,8 +294,8 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
           "_updatedBy" INTEGER NOT NULL,
           "_deleted" TIMESTAMPTZ,
           "_deletedBy" INTEGER,
-          CONSTRAINT "fk_authorizations_role" FOREIGN KEY ("roleId") REFERENCES "roles"("_id") ON DELETE CASCADE,
-          CONSTRAINT "fk_authorizations_feature" FOREIGN KEY ("featureId") REFERENCES "features"("_id") ON DELETE CASCADE,
+          CONSTRAINT "fk_authorizations_role" FOREIGN KEY ("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
+          CONSTRAINT "fk_authorizations_feature" FOREIGN KEY ("feature_id") REFERENCES "features"("_id") ON DELETE CASCADE,
           ${uniqueConstraint}
         )
       `);
@@ -311,9 +311,9 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
       name: '00000000000010_data-meta-org',
       up: async ({ context: pool }) => {
         const result = await pool.query(`
-          INSERT INTO "organizations" ("name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy")
+          INSERT INTO "organizations" ("name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy")
           VALUES ($1, $2, 1, true, NOW(), 0, NOW(), 0)
-          RETURNING "_id", "name", "code", "status", "isMetaOrg", "_created", "_createdBy", "_updated", "_updatedBy"
+          RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy"
         `, [config.multiTenant?.metaOrgName, config.multiTenant?.metaOrgCode]);
 
         if (result.rowCount === 0) {
@@ -327,7 +327,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
         );
       },
       down: async ({ context: pool }) => {
-        await pool.query(`DELETE FROM "organizations" WHERE "isMetaOrg" = TRUE`);
+        await pool.query(`DELETE FROM "organizations" WHERE "is_meta_org" = TRUE`);
       }
     });
   }
@@ -441,11 +441,11 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             // 2) Add user role mapping
             const userRoleResult = isMultiTenant
               ? await client.query(`
-                  INSERT INTO "user_roles" ("_orgId", "userId", "roleId", "_created", "_createdBy", "_updated", "_updatedBy")
+                  INSERT INTO "user_roles" ("_orgId", "user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
                   VALUES ($1, $2, $3, NOW(), 0, NOW(), 0)
                 `, [metaOrg!._id, adminUser._id, roleId])
               : await client.query(`
-                  INSERT INTO "user_roles" ("userId", "roleId", "_created", "_createdBy", "_updated", "_updatedBy")
+                  INSERT INTO "user_roles" ("user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
                   VALUES ($1, $2, NOW(), 0, NOW(), 0)
                 `, [adminUser._id, roleId]);
 
@@ -475,14 +475,14 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             const authorizationResult = isMultiTenant
               ? await client.query(`
                   INSERT INTO "authorizations" (
-                    "_orgId", "roleId", "featureId", 
+                    "_orgId", "role_id", "feature_id", 
                     "_created", "_createdBy", "_updated", "_updatedBy"
                   )
                   VALUES ($1, $2, $3, NOW(), 0, NOW(), 0)
                 `, [metaOrg!._id, roleId, featureId])
               : await client.query(`
                   INSERT INTO "authorizations" (
-                    "roleId", "featureId", 
+                    "role_id", "feature_id", 
                     "_created", "_createdBy", "_updated", "_updatedBy"
                   )
                   VALUES ($1, $2, NOW(), 0, NOW(), 0)
@@ -518,11 +518,11 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
               await client.query(`
                 DELETE FROM "authorizations" 
                 WHERE "_orgId" = $1 
-                AND "featureId" IN (
+                AND "feature_id" IN (
                   SELECT "_id" FROM "features" 
                   WHERE "_orgId" = $1 AND "name" = 'admin'
                 )
-                AND "roleId" IN (
+                AND "role_id" IN (
                   SELECT "_id" FROM "roles" 
                   WHERE "_orgId" = $1 AND "name" = 'admin'
                 )
@@ -538,7 +538,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
               await client.query(`
                 DELETE FROM "user_roles" 
                 WHERE "_orgId" = $1 
-                AND "roleId" IN (
+                AND "role_id" IN (
                   SELECT "_id" FROM "roles" 
                   WHERE "_orgId" = $1 AND "name" = 'admin'
                 )
@@ -553,11 +553,11 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
               // Remove authorization
               await client.query(`
                 DELETE FROM "authorizations" 
-                WHERE "featureId" IN (
+                WHERE "feature_id" IN (
                   SELECT "_id" FROM "features" 
                   WHERE "name" = 'admin'
                 )
-                AND "roleId" IN (
+                AND "role_id" IN (
                   SELECT "_id" FROM "roles" 
                   WHERE "name" = 'admin'
                 )
@@ -572,7 +572,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
               // Remove user role mapping
               await client.query(`
                 DELETE FROM "user_roles" 
-                WHERE "roleId" IN (
+                WHERE "role_id" IN (
                   SELECT "_id" FROM "roles" 
                   WHERE "name" = 'admin'
                 )

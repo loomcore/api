@@ -5,6 +5,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import { AuthController } from '../auth.controller.js';
 import { UsersController } from '../users.controller.js';
 import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import { IUser } from '@loomcore/common/models';
 
 describe('UsersController', () => {
 	let testAgent: any;
@@ -37,17 +38,21 @@ describe('UsersController', () => {
 		it("should return a 200 and only update provided properties", async () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
 
-			const path = `${apiEndpoint}/${getTestMetaOrgUser()._id}`;
-			const updatedUser = {
+			const userId = getTestMetaOrgUser()._id;
+			const path = `${apiEndpoint}/${userId}`;
+			const updatedUser: Partial<IUser> = {
 				displayName: 'Updated Display Name'
 			};
 
+			console.log('path', path);
 			const response = await testAgent
 				.patch(path)
 				.set('Authorization', authorizationHeaderValue)
-				.send(updatedUser)
-				.expect(200);
+				.send(updatedUser);
 
+			console.log('response.body', JSON.stringify(response.body, null, 2));
+
+			expect(response.status).toBe(200);
 			expect(response.body?.data?.displayName).toEqual('Updated Display Name');
 			expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email); // because this is partial update, properties we did not provide should remain the same
 		});

@@ -11,6 +11,7 @@ import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { EmptyUserContext } from '@loomcore/common/models';
+import { AppIdType } from '@loomcore/common/types';
 
 describe('ApiController getById with aggregation - Integration Tests', () => {
   let app: Application;
@@ -18,8 +19,8 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
   let categoryService: GenericApiService<ICategory>
   let testAgent: any;
   let authToken: string;
-  let categoryId: string;
-  let productId: string;
+  let categoryId: AppIdType;
+  let productId: AppIdType;
 
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();
@@ -27,7 +28,7 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
 
     testAgent = testSetup.agent;
     authToken = testUtils.getAuthToken();
-    
+
     // Instantiate controllers to map routes
     new ProductsController(app, testSetup.database);
     new CategoryController(app, testSetup.database);
@@ -51,7 +52,7 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
     categoryId = categoryResult._id;
 
     // Insert a product with a sensitive internalNumber
-    const productResult = await productService.create(EmptyUserContext,{ 
+    const productResult = await productService.create(EmptyUserContext, {
       name: 'Test Product',
       internalNumber: 'ABC-123-XYZ',
       categoryId: categoryId
@@ -66,7 +67,7 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
     const response = await testAgent
       .get(`/api/products/${productId}`)
       .set('Authorization', authToken);
-    
+
     // Assert
     expect(response.status).toBe(200);
     const responseData = response.body.data;
@@ -94,7 +95,7 @@ describe('ApiController getById with aggregation - Integration Tests', () => {
     // Assert
     expect(response.status).toBe(200);
     const responseData = response.body.data;
-    
+
     // Assert that the response is a single object, not a paged result
     expect(responseData).not.toHaveProperty('data');
     expect(responseData).not.toHaveProperty('total');

@@ -3,12 +3,30 @@ import { Join } from "../../operations/join.operation.js";
 import { JoinMany } from "../../operations/join-many.operation.js";
 import { JoinThrough } from "../../operations/join-through.operation.js";
 import { JoinThroughMany } from "../../operations/join-through-many.operation.js";
+import { toSnakeCase } from "./convert-keys.util.js";
+
+/**
+ * Converts a field name to snake_case for database column names.
+ * Preserves keys that start with underscore and maps 'id' to '_id'.
+ */
+function convertFieldToSnakeCase(field: string): string {
+    if (field.startsWith('_')) {
+        // Preserve keys that start with underscore
+        return field;
+    } else if (field === 'id') {
+        // Map 'id' to '_id' for the primary key column
+        return '_id';
+    } else {
+        // Convert camelCase to snake_case
+        return toSnakeCase(field);
+    }
+}
 
 /**
  * Resolves a local field reference to a SQL expression.
  * Handles:
- * - Direct main table references: "field" -> "mainTable"."field"
- * - Joined table references: "alias.field" -> "alias"."field"
+ * - Direct main table references: "field" -> "mainTable"."field" (converted to snake_case)
+ * - Joined table references: "alias.field" -> "alias"."field" (field converted to snake_case)
  * - JSON object references: "alias.field" where alias is a JoinThrough -> extract from JSON object
  * - JSON array references: "alias.field" where alias is a JoinMany/JoinThroughMany -> extract from JSON array
  */
@@ -18,10 +36,11 @@ function resolveLocalField(
     operations: Operation[]
 ): string {
     if (!localField.includes('.')) {
-        // Direct reference to main table
+        // Direct reference to main table - convert to snake_case
+        const snakeField = convertFieldToSnakeCase(localField);
         return mainTableName
-            ? `"${mainTableName}"."${localField}"`
-            : `"${localField}"`;
+            ? `"${mainTableName}"."${snakeField}"`
+            : `"${snakeField}"`;
     }
 
     // Reference to a joined table: "alias.field"
@@ -34,6 +53,7 @@ function resolveLocalField(
 
     if (objectJoin) {
         // Extract from JSON object: (alias.aggregated->>'field')::integer
+        // Note: JSON field names remain in camelCase as they come from the database
         return `(${alias}.aggregated->>'${field}')::integer`;
     }
 
@@ -44,11 +64,13 @@ function resolveLocalField(
 
     if (arrayJoin) {
         // Extract from JSON array: (alias.aggregated->>'field')::integer
+        // Note: JSON field names remain in camelCase as they come from the database
         return `(${alias}.aggregated->>'${field}')::integer`;
     }
 
-    // Regular table alias reference
-    return `${alias}."${field}"`;
+    // Regular table alias reference - convert field to snake_case
+    const snakeField = convertFieldToSnakeCase(field);
+    return `${alias}."${snakeField}"`;
 }
 
 /**
@@ -150,7 +172,10 @@ export function buildJoinClauses(operations: Operation[], mainTableName?: string
                     // Get the original target's local field reference
                     const targetLocalFieldRef = target.localField.includes('.')
                         ? resolveLocalField(target.localField, mainTableName, operations)
-                        : (mainTableName ? `"${mainTableName}"."${target.localField}"` : `"${target.localField}"`);
+                        : (() => {
+                            const snakeField = convertFieldToSnakeCase(target.localField);
+                            return mainTableName ? `"${mainTableName}"."${snakeField}"` : `"${snakeField}"`;
+                        })();
 
                     // Build enriched join with all enrichments chained together
                     let enrichmentJoins = '';
@@ -289,7 +314,10 @@ export function buildJoinClauses(operations: Operation[], mainTableName?: string
                     // Get the original target's local field reference
                     const targetLocalFieldRef = target.localField.includes('.')
                         ? resolveLocalField(target.localField, mainTableName, operations)
-                        : (mainTableName ? `"${mainTableName}"."${target.localField}"` : `"${target.localField}"`);
+                        : (() => {
+                            const snakeField = convertFieldToSnakeCase(target.localField);
+                            return mainTableName ? `"${mainTableName}"."${snakeField}"` : `"${snakeField}"`;
+                        })();
 
                     // Determine if target is JoinMany or JoinThroughMany
                     const isTargetJoinMany = target instanceof JoinMany;

@@ -2817,7 +2817,7 @@ describe('GenericApiService - Integration Tests', () => {
         // Assert
         expect(preparedEntity.name).toBe(validEntity.name);
         expect(preparedEntity.description).toBe(validEntity.description);
-        expect(preparedEntity.isActive).toBe(validEntity.isActive);
+        expect((preparedEntity as any).is_active).toBe(validEntity.isActive);
         expect(preparedEntity.tags).toEqual(validEntity.tags);
         expect(preparedEntity.count).toBe(validEntity.count);
       });
@@ -2984,8 +2984,8 @@ describe('GenericApiService - Integration Tests', () => {
         const preparedEntity = await dateService.preProcessEntity(getTestMetaOrgUserContext(), entityWithDateString, true);
 
         // Assert
-        expect(preparedEntity.eventDate instanceof Date).toBe(true);
-        expect(preparedEntity.eventDate.toISOString()).toBe(isoDateString);
+        expect((preparedEntity as any).event_date instanceof Date).toBe(true);
+        expect((preparedEntity as any).event_date.toISOString()).toBe(isoDateString);
       });
     });
   });
@@ -3040,7 +3040,9 @@ describe('OrganizationService - Integration Tests', () => {
 
     it('should throw IdNotFoundError when organization does not exist', async () => {
       // Arrange
-      const nonExistentOrgId = testUtils.getRandomId();
+      // Use an ID that doesn't exist (type depends on database)
+      const isPostgres = process.env.TEST_DATABASE === 'postgres';
+      const nonExistentOrgId = isPostgres ? 999999 : testUtils.getRandomId();
 
       // Act & Assert
       await expect(
