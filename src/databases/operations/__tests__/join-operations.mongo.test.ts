@@ -201,15 +201,15 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
 
         // 2. Many-to-one: persons -> email_addresses (returns array)
-        // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
+        // Note: localField uses "client_person._id" to reference the joined person (alias from Join above)
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
 
         // 3. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
-        // Note: localField uses "person._id" to reference the joined person table, not the main clients table
+        // Note: localField uses "client_person._id" to reference the joined person (alias from Join above)
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',           // final table
             'persons_phone_numbers',   // join table
-            'person._id',              // local field (person._id) - references joined person table
+            'client_person._id',       // local field - references joined person table
             'person_id',               // join table local field
             'phone_number_id',         // join table foreign field
             '_id',                     // foreign field (phone_number._id)
@@ -280,11 +280,11 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     it('should handle get() query with joins and return paginated results', async () => {
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'person._id',
+            'client_person._id',
             'person_id',
             'phone_number_id',
             '_id',
@@ -331,11 +331,11 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     it('should handle getAll() query with joins', async () => {
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'person._id',
+            'client_person._id',
             'person_id',
             'phone_number_id',
             '_id',
@@ -398,11 +398,11 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Create join operations
         const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'client_person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
-            'person._id',
+            'client_person._id',
             'person_id',
             'phone_number_id',
             '_id',
@@ -425,9 +425,6 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Verify empty arrays are returned
         expect(result).toBeDefined();
-
-
-        console.log('result', JSON.stringify(result, null, 2));
         expect(result!.client_person).toBeDefined();
         expect(result!.client_person.client_email_addresses).toBeDefined();
         expect(Array.isArray(result!.client_person.client_email_addresses)).toBe(true);
