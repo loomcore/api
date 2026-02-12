@@ -65,23 +65,24 @@ export function getTestMetaOrgUser(): IUser {
 }
 
 export function getTestMetaOrgUserPerson(): IPersonModel {
-    return {
+    const person: IPersonModel = {
         _id: TEST_META_ORG_USER_PERSON_ID,
         _orgId: getTestMetaOrg()._id,
         externalId: 'test-meta-org-user-person-external-id',
-        middleName: null,
         firstName: 'Test',
+        middleName: null,
         lastName: 'User',
         isAgent: false,
         isClient: false,
         isEmployee: false,
         dateOfBirth: null,
-        extendedTypes: 0,
+        extendedTypes: null,
         _created: new Date(),
         _createdBy: 'system' as any,
         _updated: new Date(),
         _updatedBy: 'system' as any,
     };
+    return person;
 }
 
 
@@ -173,7 +174,7 @@ export function getTestOrgUserPerson(): IPersonModel {
         isClient: false,
         isEmployee: false,
         dateOfBirth: null,
-        extendedTypes: 0,
+        extendedTypes: null,
         _created: new Date(),
         _createdBy: 'system' as any,
         _updated: new Date(),

@@ -12,6 +12,7 @@ import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.
 import { UserService, OrganizationService } from '../../services/index.js';
 import { UsersController } from '../users.controller.js';
 import { AuthController } from '../auth.controller.js';
+import { IPersonModel, IUser } from '@loomcore/common/models';
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
@@ -75,7 +76,7 @@ describe('ApiController - Integration Tests', () => {
 
     // Get auth token from actual login (has proper userContext structure)
     authToken = await testUtils.loginWithTestUser(testAgent);
-    
+
     // Use the actual user ID from the created user (not the hardcoded one)
     // This ensures we have the correct ID type (number for PostgreSQL, string for MongoDB)
     userId = metaOrgUser._id;
@@ -108,7 +109,7 @@ describe('ApiController - Integration Tests', () => {
       expect(createResponse.status).toBe(201);
       const createdItem = createResponse.body.data;
       const itemId = createdItem._id;
-      
+
       // ID type depends on database: PostgreSQL uses numbers, MongoDB uses strings
       if (isPostgres) {
         expect(typeof itemId).toBe('number');
@@ -356,12 +357,11 @@ describe('ApiController - Integration Tests', () => {
       const uniqueEmail = `test-user-${Date.now()}@example.com`;
 
       // Only send properties allowed for user creation (exclude system properties)
-      const userDataForCreation = {
+      const userDataForCreation: Partial<IUser> = {
+        _orgId: testUser._orgId,
         email: uniqueEmail,
         password: testUser.password,
-        firstName: testUser.firstName,
-        lastName: testUser.lastName,
-        _orgId: testUser._orgId
+        displayName: 'Test User',
       };
 
       try {
@@ -384,11 +384,10 @@ describe('ApiController - Integration Tests', () => {
 
         // Verify user properties
         expect(entity.email).toBe(uniqueEmail);
-        expect(entity.firstName).toBe(testUser.firstName);
-        expect(entity.lastName).toBe(testUser.lastName);
-
         // Verify password is not included (removed by public schema)
         expect(entity).not.toHaveProperty('password');
+
+        console.log('entity', JSON.stringify(entity, null, 2));
 
         // Verify audit properties are present - this is what our test is checking for
         expect(entity).toHaveProperty('_created');

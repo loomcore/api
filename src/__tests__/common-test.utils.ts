@@ -34,10 +34,12 @@ import { entityUtils } from '@loomcore/common/utils';
 import { getTestMetaOrgUserPerson, getTestOrgUser, getTestOrgUserPerson, setTestMetaOrgUserPersonId, setTestOrgUserPersonId } from './test-objects.js';
 import { DbType } from '../databases/db-type.type.js';
 import { TestEmailClient } from './test-email-client.js';
+import { PersonService } from '../services/person.service.js';
 
 let deviceIdCookie: string;
 let authService: AuthService | undefined;
 let organizationService: OrganizationService | undefined;
+let personService: PersonService | undefined;
 
 const JWT_SECRET = 'test-secret';
 const newUser1Email = 'one@test.com';
@@ -46,6 +48,7 @@ const constDeviceIdCookie = crypto.randomBytes(16).toString('hex'); // Generate 
 
 function initialize(database: IDatabase) {
   authService = new AuthService(database);
+  personService = new PersonService(database);
   organizationService = new OrganizationService(database);
   deviceIdCookie = constDeviceIdCookie;
 }
@@ -136,7 +139,7 @@ async function setupTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUse
 }
 
 async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
-  if (!authService || !organizationService) {
+  if (!authService || !organizationService || !personService) {
     throw new Error('Database not initialized. Call initialize() first.');
   }
 
@@ -164,8 +167,20 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
       setTestOrgId(existingTestOrg._id);
     }
 
-    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser(), getTestOrgUserPerson());
-    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser(), getTestMetaOrgUserPerson());
+    const createdTestOrgUserPerson = await personService.create(getTestOrgUserContext(), getTestOrgUserPerson());
+    if (!createdTestOrgUserPerson) {
+      throw new Error('Failed to create test organization user person');
+    }
+    setTestOrgUserPersonId(createdTestOrgUserPerson._id);
+
+    const createdMetaOrgUserPerson = await personService.create(getTestMetaOrgUserContext(), getTestMetaOrgUserPerson());
+    if (!createdMetaOrgUserPerson) {
+      throw new Error('Failed to create meta organization user person');
+    }
+    setTestMetaOrgUserPersonId(createdMetaOrgUserPerson._id);
+
+    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser());
+    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
 
     if (!createdTestOrgUser || !createdMetaOrgUser) {
       throw new Error('Failed to create test user');
@@ -173,9 +188,7 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
 
     // Update test objects with the actual created user IDs (correct type for current database)
     setTestMetaOrgUserId(createdMetaOrgUser._id);
-    setTestMetaOrgUserPersonId(createdMetaOrgUser.personId!);
     setTestOrgUserId(createdTestOrgUser._id);
-    setTestOrgUserPersonId(createdTestOrgUser.personId!);
 
     return { metaOrgUser: createdMetaOrgUser, testOrgUser: createdTestOrgUser };
   }

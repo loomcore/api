@@ -76,7 +76,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             "isAgent" BOOLEAN NOT NULL DEFAULT FALSE,
             "isClient" BOOLEAN NOT NULL DEFAULT FALSE,
             "isEmployee" BOOLEAN NOT NULL DEFAULT FALSE,
-            "extendedTypes" INTEGER NOT NULL DEFAULT 0,
+            "extendedTypes" INTEGER,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
             "_updated" TIMESTAMPTZ NOT NULL,

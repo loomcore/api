@@ -2868,10 +2868,9 @@ describe('GenericApiService - Integration Tests', () => {
           user: {
             _id: testUtils.getRandomId(),
             email: 'updater@example.com',
-            firstName: 'Updater',
-            lastName: 'User',
             displayName: 'Updater User',
             password: 'password',
+            externalId: 'updater-external-id',
             _created: new Date(),
             _createdBy: 'system',
             _updated: new Date(),

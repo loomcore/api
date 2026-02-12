@@ -232,8 +232,6 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): ISyntheticMigrati
           isAgent: false,
           isClient: false,
           isEmployee: false,
-          dateOfBirth: null,
-          extendedTypes: 0,
           _created: new Date(),
           _createdBy: 'system' as any,
           _updated: new Date(),

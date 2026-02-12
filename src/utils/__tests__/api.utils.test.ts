@@ -53,9 +53,6 @@ describe('apiUtils', () => {
       expect(apiResponseArg.data).toBeDefined();
 
 
-      console.log('apiResponseArg.data.eventDate\n', apiResponseArg.data.eventDate);
-      console.log('typeof apiResponseArg.data.eventDate', typeof apiResponseArg.data.eventDate);
-
       // Most importantly, verify the Date was encoded to string
       expect(typeof apiResponseArg.data.eventDate).toBe('string');
       // Match date format with some flexibility for millisecond precision differences

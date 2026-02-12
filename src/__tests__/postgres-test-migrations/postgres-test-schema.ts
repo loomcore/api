@@ -114,38 +114,6 @@ export const getPostgresTestSchema = (config: IBaseApiConfig): SyntheticMigratio
     }
   });
 
-  // 5. Persons
-  migrations.push({
-    name: '00000000000105_schema-persons',
-    up: async ({ context: pool }) => {
-      const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
-
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "persons" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
-          "external_id" VARCHAR UNIQUE,
-          "is_agent" BOOLEAN NOT NULL DEFAULT FALSE,
-          "is_client" BOOLEAN NOT NULL DEFAULT FALSE,
-          "is_employee" BOOLEAN NOT NULL DEFAULT FALSE,
-          "first_name" VARCHAR NOT NULL,
-          "middle_name" VARCHAR,
-          "date_of_birth" DATE,
-          "last_name" VARCHAR NOT NULL,
-          "_created" TIMESTAMPTZ NOT NULL,
-          "_createdBy" INTEGER NOT NULL,
-          "_updated" TIMESTAMPTZ NOT NULL,
-          "_updatedBy" INTEGER NOT NULL,
-          "_deleted" TIMESTAMPTZ,
-          "_deletedBy" INTEGER
-)
-      `);
-    },
-    down: async ({ context: pool }) => {
-      await pool.query('DROP TABLE IF EXISTS "persons"');
-    }
-  });
-
   // 6. Agents (must come after persons since agents references persons, and before clients since clients references agents)
   migrations.push({
     name: '00000000000105_5_schema-agents',

@@ -198,11 +198,11 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     it('should build a client-report using all join operation types', async () => {
         // Create join operations
         // 1. One-to-one: clients -> persons
-        const joinPerson = new Join('persons', 'person_id', '_id', 'person');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
 
         // 2. Many-to-one: persons -> email_addresses (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
 
         // 3. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
@@ -213,7 +213,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
             'person_id',               // join table local field
             'phone_number_id',         // join table foreign field
             '_id',                     // foreign field (phone_number._id)
-            'phone_numbers'            // alias
+            'client_phone_numbers'            // alias
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -279,8 +279,8 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     it('should handle get() query with joins and return paginated results', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
@@ -288,7 +288,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
             'person_id',
             'phone_number_id',
             '_id',
-            'phone_numbers'
+            'client_phone_numbers'
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -330,8 +330,8 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     it('should handle getAll() query with joins', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'person');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
             'persons_phone_numbers',
@@ -339,7 +339,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
             'person_id',
             'phone_number_id',
             '_id',
-            'phone_numbers'
+            'client_phone_numbers'
         );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
@@ -397,7 +397,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         });
 
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'person');
+        const joinPerson = new Join('persons', 'person_id', '_id', 'client_person');
         const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'client_email_addresses');
         const joinPhoneNumbers = new JoinThroughMany(
             'phone_numbers',
@@ -425,6 +425,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // Verify empty arrays are returned
         expect(result).toBeDefined();
+
+
+        console.log('result', JSON.stringify(result, null, 2));
         expect(result!.client_person).toBeDefined();
         expect(result!.client_person.client_email_addresses).toBeDefined();
         expect(Array.isArray(result!.client_person.client_email_addresses)).toBe(true);

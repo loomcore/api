@@ -21,7 +21,6 @@ export class TestExpressApp {
   private static database: IDatabase;
   private static testDatabase: ITestDatabase;
   private static initPromise: Promise<{ app: Application, database: IDatabase, testDatabase: ITestDatabase, agent: any }> | null = null;
-  private static databaseName: string = 'test-db';
   /**
    * Initialize the Express application with a test database
    * @param useMongoDb - If not provided, will check TEST_DATABASE env var ('mongodb' or 'postgres')

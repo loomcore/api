@@ -7,8 +7,8 @@ import testUtils from '../../__tests__/common-test.utils.js';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/base-api-config.js';
 import { AuthController } from '../../controllers/auth.controller.js';
-import { getTestMetaOrgUser, getTestMetaOrgUserContext, getTestMetaOrg } from '../../__tests__/test-objects.js';
-import { IUser } from '@loomcore/common/models';
+import { getTestMetaOrgUser, getTestMetaOrgUserContext, getTestMetaOrg, getTestMetaOrgUserPerson } from '../../__tests__/test-objects.js';
+import { IPersonModel, IUser } from '@loomcore/common/models';
 
 describe('AuthController', () => {
   let authToken: string;
@@ -53,16 +53,29 @@ describe('AuthController', () => {
 
     it("should return a 201 and a newly created user on successful creation", async () => {
       const newUser: Partial<IUser> = {
+        _orgId: getTestMetaOrgUser()._orgId,
         email: testUtils.newUser1Email,
         password: testUtils.newUser1Password,
-        _orgId: getTestMetaOrgUser()._orgId
+      };
+
+      const newUserPerson: Partial<IPersonModel> = {
+        _orgId: getTestMetaOrgUser()._orgId,
+        firstName: 'Test',
+        lastName: 'User',
+        isAgent: false,
+        isClient: true,
+        isEmployee: false,
+        extendedTypes: 0
       };
 
       const response = await testAgent
         .post(apiEndpoint)
         .set('Authorization', `Bearer ${authToken}`) // Add auth token
-        .send(newUser)
-        .expect(201);
+        .send({ user: newUser, person: newUserPerson })
+
+      console.log('auth register response.body', JSON.stringify(response.body, null, 2));
+
+      expect(response.status).toBe(201);
       expect(response.body?.data).toHaveProperty('_id');
       expect(response.body?.data).toHaveProperty('email', newUser.email);
       expect(response.body?.data).toHaveProperty('_orgId', getTestMetaOrgUser()._orgId);

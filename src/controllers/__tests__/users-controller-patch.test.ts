@@ -38,9 +38,8 @@ describe('UsersController', () => {
 			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
 
 			const path = `${apiEndpoint}/${getTestMetaOrgUser()._id}`;
-			const updatedRole = 'admin';
 			const updatedUser = {
-				firstName: 'Updated First Name'
+				displayName: 'Updated Display Name'
 			};
 
 			const response = await testAgent
@@ -49,7 +48,7 @@ describe('UsersController', () => {
 				.send(updatedUser)
 				.expect(200);
 
-			expect(response.body?.data?.firstName).toEqual('Updated First Name');
+			expect(response.body?.data?.displayName).toEqual('Updated Display Name');
 			expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email); // because this is partial update, properties we did not provide should remain the same
 		});
 	});
