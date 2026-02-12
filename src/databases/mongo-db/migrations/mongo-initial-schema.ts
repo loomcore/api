@@ -226,7 +226,6 @@ export const getMongoInitialSchema = (config: IBaseApiConfig): ISyntheticMigrati
           _id: personId,
           _orgId: systemUserContext.organization?._id,
           externalId: 'admin-user-person-external-id',
-          middleName: null,
           firstName: 'Admin',
           lastName: 'User',
           isAgent: false,
