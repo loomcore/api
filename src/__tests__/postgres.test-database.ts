@@ -7,6 +7,7 @@ import { IDatabase } from '../databases/models/index.js';
 import { config } from '../config/base-api-config.js';
 import { runInitialSchemaMigrations, runTestSchemaMigrations } from '../databases/postgres/migrations/__tests__/test-migration-helper.js';
 import { IResetApiConfig } from '../models/reset-api-config.interface.js';
+import { IInitialDbMigrationConfig } from '../models/initial-database-config.interface.js';
 
 /**
  * Check if we should use a real PostgreSQL container instead of pg-mem
