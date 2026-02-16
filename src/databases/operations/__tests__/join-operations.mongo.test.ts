@@ -57,13 +57,13 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         personsCollection = db.collection('persons');
         clientsCollection = db.collection('clients');
         emailAddressesCollection = db.collection('email_addresses');
-        phoneNumbersCollection = db.collection('phone_numbers');
-        personsPhoneNumbersCollection = db.collection('persons_phone_numbers');
+        phoneNumbersCollection = db.collection('phoneNumbers');
+        personsPhoneNumbersCollection = db.collection('personsPhoneNumbers');
 
         // Clean up any existing test data first (in case of previous failed test runs)
         await personsPhoneNumbersCollection.deleteMany({});
         await emailAddressesCollection.deleteMany({ email_address: { $in: ['john.doe@example.com', 'john.m.doe@example.com'] } });
-        await phoneNumbersCollection.deleteMany({ phone_number: { $in: ['555-0100', '555-0200'] } });
+        await phoneNumbersCollection.deleteMany({ phoneNumber: { $in: ['555-0100', '555-0200'] } });
         await clientsCollection.deleteMany({});
         await personsCollection.deleteMany({ first_name: 'John' });
 
@@ -77,10 +77,10 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         // Keep personIdObj for foreign key references
         await personsCollection.insertOne({
             _id: personIdObj,
-            first_name: 'John',
-            middle_name: 'Michael',
-            last_name: 'Doe',
-            is_client: true,
+            firstName: 'John',
+            middleName: 'Michael',
+            lastName: 'Doe',
+            isClient: true,
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -92,7 +92,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         clientId = clientIdObj.toString();
         await clientsCollection.insertOne({
             _id: clientIdObj,
-            person_id: personIdObj, // Use ObjectId for foreign key reference
+            personId: personIdObj, // Use ObjectId for foreign key reference
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -104,9 +104,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         emailAddress1Id = email1IdObj.toString();
         await emailAddressesCollection.insertOne({
             _id: email1IdObj,
-            person_id: personIdObj, // Use ObjectId for foreign key reference
-            email_address: 'john.doe@example.com',
-            is_default: true,
+            personId: personIdObj, // Use ObjectId for foreign key reference
+            emailAddress: 'john.doe@example.com',
+            isDefault: true,
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -117,9 +117,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         emailAddress2Id = email2IdObj.toString();
         await emailAddressesCollection.insertOne({
             _id: email2IdObj,
-            person_id: personIdObj, // Use ObjectId for foreign key reference
-            email_address: 'john.m.doe@example.com',
-            is_default: false,
+            personId: personIdObj, // Use ObjectId for foreign key reference
+            emailAddress: 'john.m.doe@example.com',
+            isDefault: false,
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -131,9 +131,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         phoneNumber1Id = phone1IdObj.toString();
         await phoneNumbersCollection.insertOne({
             _id: phone1IdObj,
-            phone_number: '555-0100',
-            phone_number_type: 'mobile',
-            is_default: true,
+            phoneNumber: '555-0100',
+            phoneNumberType: 'mobile',
+            isDefault: true,
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -144,9 +144,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         phoneNumber2Id = phone2IdObj.toString();
         await phoneNumbersCollection.insertOne({
             _id: phone2IdObj,
-            phone_number: '555-0200',
-            phone_number_type: 'home',
-            is_default: false,
+            phoneNumber: '555-0200',
+            phoneNumberType: 'home',
+            isDefault: false,
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -155,8 +155,8 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         // 5. Link phone numbers to person via join collection
         await personsPhoneNumbersCollection.insertOne({
-            person_id: personIdObj, // Use ObjectId for foreign key reference
-            phone_number_id: phone1IdObj, // Use ObjectId for foreign key reference
+            personId: personIdObj, // Use ObjectId for foreign key reference
+            phoneNumberId: phone1IdObj, // Use ObjectId for foreign key reference
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -164,8 +164,8 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         });
 
         await personsPhoneNumbersCollection.insertOne({
-            person_id: personIdObj, // Use ObjectId for foreign key reference
-            phone_number_id: phone2IdObj, // Use ObjectId for foreign key reference
+            personId: personIdObj, // Use ObjectId for foreign key reference
+            phoneNumberId: phone2IdObj, // Use ObjectId for foreign key reference
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -178,10 +178,10 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         if (db) {
             try {
                 await personsPhoneNumbersCollection.deleteMany({});
-                await emailAddressesCollection.deleteMany({ email_address: { $in: ['john.doe@example.com', 'john.m.doe@example.com'] } });
-                await phoneNumbersCollection.deleteMany({ phone_number: { $in: ['555-0100', '555-0200'] } });
+                await emailAddressesCollection.deleteMany({ emailAddress: { $in: ['john.doe@example.com', 'john.m.doe@example.com'] } });
+                await phoneNumbersCollection.deleteMany({ phoneNumber: { $in: ['555-0100', '555-0200'] } });
                 await clientsCollection.deleteMany({});
-                await personsCollection.deleteMany({ first_name: 'John' });
+                await personsCollection.deleteMany({ firstName: 'John' });
             } catch (error) {
                 // Ignore cleanup errors
             }
@@ -198,21 +198,21 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     it('should build a client-report using all join operation types', async () => {
         // Create join operations
         // 1. One-to-one: clients -> persons
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
 
         // 2. Many-to-one: persons -> email_addresses (returns array)
         // Note: localField uses "clientPerson._id" to reference the joined person (alias from Join above)
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
 
-        // 3. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
+        // 3. Many-to-many via join table: persons -> persons_phoneNumbers -> phoneNumbers (returns array)
         // Note: localField uses "clientPerson._id" to reference the joined person (alias from Join above)
         const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',           // final table
-            'persons_phone_numbers',   // join table
+            'phoneNumbers',           // final table
+            'personsPhoneNumbers',   // join table
             'clientPerson._id',       // local field - references joined person table
-            'person_id',               // join table local field
-            'phone_number_id',         // join table foreign field
-            '_id',                     // foreign field (phone_number._id)
+            'personId',               // join table local field
+            'phoneNumberId',         // join table foreign field
+            '_id',                     // foreign field (phoneNumber._id)
             'clientPhoneNumbers'            // alias
         );
 
@@ -279,14 +279,14 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     it('should handle get() query with joins and return paginated results', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',
-            'persons_phone_numbers',
+            'phoneNumbers',
+            'personsPhoneNumbers',
             'clientPerson._id',
-            'person_id',
-            'phone_number_id',
+            'personId',
+            'phoneNumberId',
             '_id',
             'clientPhoneNumbers'
         );
@@ -330,14 +330,14 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     it('should handle getAll() query with joins', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',
-            'persons_phone_numbers',
+            'phoneNumbers',
+            'personsPhoneNumbers',
             'clientPerson._id',
-            'person_id',
-            'phone_number_id',
+            'personId',
+            'phoneNumberId',
             '_id',
             'clientPhoneNumbers'
         );
@@ -376,9 +376,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
         await personsCollection.insertOne({
             _id: newPersonIdObj,
-            first_name: 'Jane',
-            last_name: 'Smith',
-            is_client: true,
+            firstName: 'Jane',
+            lastName: 'Smith',
+            isClient: true,
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -389,7 +389,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         const newClientId = newClientIdObj.toString();
         await clientsCollection.insertOne({
             _id: newClientIdObj,
-            person_id: newPersonIdObj, // Use ObjectId for foreign key reference
+            personId: newPersonIdObj, // Use ObjectId for foreign key reference
             _created: now,
             _createdBy: systemUserId,
             _updated: now,
@@ -397,14 +397,14 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         });
 
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
         const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',
-            'persons_phone_numbers',
+            'phoneNumbers',
+            'personsPhoneNumbers',
             'clientPerson._id',
-            'person_id',
-            'phone_number_id',
+            'personId',
+            'phoneNumberId',
             '_id',
             'clientPhoneNumbers'
         );

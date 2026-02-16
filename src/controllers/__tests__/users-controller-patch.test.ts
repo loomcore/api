@@ -44,13 +44,10 @@ describe('UsersController', () => {
 				displayName: 'Updated Display Name'
 			};
 
-			console.log('path', path);
 			const response = await testAgent
 				.patch(path)
 				.set('Authorization', authorizationHeaderValue)
 				.send(updatedUser);
-
-			console.log('response.body', JSON.stringify(response.body, null, 2));
 
 			expect(response.status).toBe(200);
 			expect(response.body?.data?.displayName).toEqual('Updated Display Name');

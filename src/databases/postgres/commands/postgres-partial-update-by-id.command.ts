@@ -14,14 +14,9 @@ export async function partialUpdateById<T extends IEntity>(
     pluralResourceName: string
 ): Promise<T> {
     try {
-
-        console.log('entity', JSON.stringify(entity, null, 2));
         // Extract columns and values from the entity (only the fields to update)
         const { columns, values } = columnsAndValuesFromEntity(entity);
 
-
-        console.log('columns', JSON.stringify(columns, null, 2));
-        console.log('values', JSON.stringify(values, null, 2));
         // Filter out _id from columns for the SET clause (we use it in WHERE)
         const updateColumns = columns.filter(col => col !== '"_id"');
         const updateValues = values.filter((_, index) => columns[index] !== '"_id"');

@@ -14,6 +14,7 @@ import { TestEntity, TestEntitySchema, testModelSpec } from '../../__tests__/ind
 import { IDatabase } from '../../databases/models/index.js';
 import { getTestMetaOrg, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { AppIdType } from '@loomcore/common/types';
+import { MongoDBDatabase } from '../../databases/mongo-db/mongo-db.database.js';
 
 describe('GenericApiService - Integration Tests', () => {
   let database: IDatabase;
@@ -2817,7 +2818,13 @@ describe('GenericApiService - Integration Tests', () => {
         // Assert
         expect(preparedEntity.name).toBe(validEntity.name);
         expect(preparedEntity.description).toBe(validEntity.description);
-        expect((preparedEntity as any).is_active).toBe(validEntity.isActive);
+
+        if (database instanceof MongoDBDatabase) {
+          expect((preparedEntity as any).isActive).toBe(validEntity.isActive);
+        } else {
+          expect((preparedEntity as any).is_active).toBe(validEntity.isActive);
+        }
+
         expect(preparedEntity.tags).toEqual(validEntity.tags);
         expect(preparedEntity.count).toBe(validEntity.count);
       });
@@ -2984,8 +2991,13 @@ describe('GenericApiService - Integration Tests', () => {
         const preparedEntity = await dateService.preProcessEntity(getTestMetaOrgUserContext(), entityWithDateString, true);
 
         // Assert
-        expect((preparedEntity as any).event_date instanceof Date).toBe(true);
-        expect((preparedEntity as any).event_date.toISOString()).toBe(isoDateString);
+        if (database instanceof MongoDBDatabase) {
+          expect((preparedEntity as any).eventDate instanceof Date).toBe(true);
+          expect((preparedEntity as any).eventDate.toISOString()).toBe(isoDateString);
+        } else {
+          expect((preparedEntity as any).event_date instanceof Date).toBe(true);
+          expect((preparedEntity as any).event_date.toISOString()).toBe(isoDateString);
+        }
       });
     });
   });
