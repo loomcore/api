@@ -8,6 +8,7 @@ export type ITestDatabase = {
    * @returns Promise resolving to the database instance
    */
   init(): Promise<IDatabase>;
+  init(): Promise<IDatabase>;
 
   /**
    * Generate a random ID for testing
