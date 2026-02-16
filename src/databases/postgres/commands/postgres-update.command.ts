@@ -21,25 +21,25 @@ export async function update<T extends IEntity>(
 
         // Extract columns and values from the entity (only the fields to update)
         const { columns, values: entityValues } = columnsAndValuesFromEntity(entity);
-        
+
         // Filter out _id from columns for the SET clause
         const updateColumns = columns.filter(col => col !== '"_id"');
         const updateValues = entityValues.filter((_, index) => columns[index] !== '"_id"');
-        
+
         if (updateColumns.length === 0) {
             throw new BadRequestError('Cannot perform update with no fields to update');
         }
-        
+
         // Build SET clause for UPDATE
         const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
-        
+
         // Combine values: first the SET values, then the WHERE values
         // Need to adjust parameter indices in WHERE clause
         const whereClauseWithAdjustedParams = whereClause.replace(/\$(\d+)/g, (match, num) => {
             const originalIndex = parseInt(num, 10);
             return `$${originalIndex + updateValues.length}`;
         });
-        
+
         const updateQuery = `
             UPDATE "${pluralResourceName}"
             SET ${setClause}
@@ -48,15 +48,15 @@ export async function update<T extends IEntity>(
 
         const allUpdateValues = [...updateValues, ...whereValues];
         const result = await client.query(updateQuery, allUpdateValues);
-        
+
         if (result.rowCount === 0) {
             throw new NotFoundError('No records found matching update query');
         }
 
         // Retrieve updated entities with operations applied
-        const joinClauses = buildJoinClauses(operations);
+        const joinClauses = buildJoinClauses(operations, pluralResourceName);
         const orderByClause = buildOrderByClause(queryObject);
-        
+
         // Build SELECT query to retrieve updated entities
         // Use the same WHERE clause and operations as the update query
         const selectQuery = `
@@ -65,7 +65,7 @@ export async function update<T extends IEntity>(
         `.trim();
 
         const selectResult = await client.query(selectQuery, whereValues);
-        
+
         return selectResult.rows as T[];
     }
     catch (err: any) {
@@ -73,7 +73,7 @@ export async function update<T extends IEntity>(
         if (err instanceof NotFoundError) {
             throw err;
         }
-        
+
         // PostgreSQL error code 23505 is for unique constraint violations
         if (err.code === '23505') {
             throw new BadRequestError(`${pluralResourceName} has duplicate key violations`);
