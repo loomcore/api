@@ -1,13 +1,13 @@
 import { IDatabase } from "../databases/models/index.js";
 import { IResetApiConfig } from "../models/reset-api-config.interface.js";
 import { IInitialDbMigrationConfig } from "../models/initial-database-config.interface.js";
+import { IResetApiConfig } from "../models/reset-api-config.interface.js";
 
 export type ITestDatabase = {
   /**
    * Initialize the test database
    * @returns Promise resolving to the database instance
    */
-  init(): Promise<IDatabase>;
   init(): Promise<IDatabase>;
 
   /**
