@@ -95,7 +95,7 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getPostgresInitialSchema(this.dbMigrationConfig).map(m => ({
+          const initialSchema = getPostgresInitialSchema(this.config, this.resetConfig).map(m => ({
             name: m.name,
             up: async () => {
               console.log(`   Running [LIBRARY] ${m.name}...`);
@@ -144,7 +144,7 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getMongoInitialSchema(this.dbMigrationConfig).map(m => ({
+          const initialSchema = getMongoInitialSchema(this.config, this.resetConfig).map(m => ({
             name: m.name,
             up: async () => {
               console.log(`   Running [LIBRARY] ${m.name}...`);
