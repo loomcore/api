@@ -1,5 +1,6 @@
 export * from './app-config.interface.js';
 export * from './base-api-config.interface.js';
+export * from './reset-api-config.interface.js';
 export * from './database-config.interface.js';
 export * from './initial-database-config.interface.js';
 export * from './refresh-token.model.js';

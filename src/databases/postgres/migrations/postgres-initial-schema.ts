@@ -1,9 +1,8 @@
 import { Pool, Client } from 'pg';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
-import { OrganizationService } from '../../../services/index.js';
-import { passwordUtils } from '../../../utils/index.js';
-import { IInitialDbMigrationConfig } from '../../../models/initial-database-config.interface.js';
+import { AuthService, OrganizationService } from '../../../services/index.js';
+import { IResetApiConfig } from '../../../models/reset-api-config.interface.js';
 
 // Define the interface Umzug expects for code-based migrations
 export interface SyntheticMigration {
@@ -12,7 +11,7 @@ export interface SyntheticMigration {
   down: (context: { context: Pool }) => Promise<void>;
 }
 
-export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): SyntheticMigration[] => {
+export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: IResetApiConfig): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
 
   const isMultiTenant = dbConfig.app.isMultiTenant;
@@ -21,7 +20,7 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
   }
 
   const isAuthEnabled = dbConfig.app.isAuthEnabled;
-  
+
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
@@ -327,7 +326,7 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
   }
 
   // 11. ADMIN USER
-  if (isAuthEnabled && dbConfig.adminUser) {
+  if (isAuthEnabled && resetConfig?.adminUser) {
     migrations.push({
       name: '00000000000011_data-admin-user',
       up: async ({ context: pool }) => {
@@ -354,16 +353,16 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           // 1) Insert person
           const personResult = isMultiTenant && orgId
             ? await client.query(
-                `INSERT INTO "persons" ("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+              `INSERT INTO "persons" ("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
                  VALUES ($1, 'Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
                  RETURNING "_id"`,
-                [orgId]
-              )
+              [orgId]
+            )
             : await client.query(
-                `INSERT INTO "persons" ("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+              `INSERT INTO "persons" ("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
                  VALUES ('Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
                  RETURNING "_id"`
-              );
+            );
 
           const personId = personResult.rows[0]._id;
 
@@ -381,23 +380,46 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
               [email, hashedPassword, personId]
             );
           }
+
+          // Get the system user context (now guaranteed to be initialized)
+          const systemUserContext = getSystemUserContext();
+
+          // Only include _orgId if multi-tenant (non-multi-tenant users table doesn't have _orgId column)
+          const userData: Partial<IUser> = {
+            email: resetConfig.adminUser.email,
+            password: resetConfig.adminUser.password,
+            displayName: 'Admin User',
+          };
+          if (isMultiTenant && systemUserContext.organization?._id) {
+            userData._orgId = systemUserContext.organization._id;
+          }
+
+          const personData: Partial<IPersonModel> = {
+            firstName: 'Admin',
+            lastName: 'User',
+          };
+          if (isMultiTenant && systemUserContext.organization?._id) {
+            personData._orgId = systemUserContext.organization._id;
+          }
+
+          await authService.createUser(systemUserContext, userData, personData);
         } finally {
           client.release();
         }
       },
       down: async ({ context: pool }) => {
-        if (!dbConfig.adminUser?.email) return;
+        if (!resetConfig?.adminUser?.email) return;
 
         await pool.query(
           `DELETE FROM "users" WHERE "email" = $1`,
-          [dbConfig.adminUser.email.toLowerCase()]
+          [resetConfig.adminUser.email]
         );
       }
     });
   }
 
-  // 12. ADMIN AUTHORIZATION
-  if (isAuthEnabled && dbConfig.adminUser) {
+  // 12. ADMIN AUTHORIZATION (only if auth config is provided)
+  if (config.auth && resetConfig) {
     migrations.push({
       name: '00000000000012_data-admin-authorizations',
       up: async ({ context: pool }) => {
@@ -412,10 +434,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
           }
 
-          const email = dbConfig.adminUser.email.toLowerCase();
-          const userResult = await client.query(`SELECT "_id" FROM "users" WHERE "email" = $1`, [email]);
-          const adminUserRow = userResult.rows[0];
-          if (!adminUserRow) {
+          const adminUser = await authService.getUserByEmail(resetConfig.adminUser.email);
+          if (!adminUser) {
             throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
           }
           const adminUserId = adminUserRow._id;

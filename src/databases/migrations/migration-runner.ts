@@ -1,25 +1,31 @@
 import { Umzug, MongoDBStorage } from 'umzug';
 import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
+import { IBaseApiConfig } from '../../models/base-api-config.interface.js';
+import { setBaseApiConfig } from '../../config/index.js';
 import fs from 'fs';
 import path from 'path';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
 import { getMongoInitialSchema } from '../mongo-db/migrations/mongo-initial-schema.js';
-import { IInitialDbMigrationConfig } from '../../models/initial-database-config.interface.js';
+import { IResetApiConfig } from '../../models/reset-api-config.interface.js';
 
 export class MigrationRunner {
-  private dbMigrationConfig: IInitialDbMigrationConfig;
+  private config: IBaseApiConfig;
+  private resetConfig?: IResetApiConfig;
   private dbType: string;
   private dbUrl: string;
   private migrationsDir: string;
   private primaryTimezone: string;
   private dbConnection: Pool | MongoClient | undefined;
-  constructor(dbMigrationConfig: IInitialDbMigrationConfig) {
-    this.dbMigrationConfig = dbMigrationConfig;
-    this.dbType = dbMigrationConfig.app.dbType;
-    this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(dbMigrationConfig) : buildMongoUrl(dbMigrationConfig);
+  constructor(config: IBaseApiConfig, resetConfig?: IResetApiConfig) {
+    // Initialize the global config so services can access it during migrations
+    setBaseApiConfig(config);
+    this.config = config;
+    this.resetConfig = resetConfig;
+    this.dbType = config.app.dbType;
+    this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
     /** * The IANA timezone identifier (e.g., 'America/Chicago', 'UTC') 
       * Used for generating the YYYYMMDDHHMMSS prefix on new files.
@@ -235,7 +241,7 @@ export class MigrationRunner {
     try {
       if (command === 'reset') {
 
-        if (!this.dbMigrationConfig) {
+        if (!this.resetConfig) {
           throw new Error('Reset configuration not found');
         }
         await this.wipeDatabase();
