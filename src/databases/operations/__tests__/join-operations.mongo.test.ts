@@ -198,16 +198,23 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     it('should build a client-report using all join operation types', async () => {
         // Create join operations
         // 1. One-to-one: clients -> persons
-        const joinPerson = new LeftJoin('persons', 'personId', '_id', 'clientPerson');
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
 
         // 2. Many-to-one: persons -> email_addresses (returns array)
         // Note: localField uses "clientPerson._id" to reference the joined person (alias from Join above)
-        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
 
         // 3. Many-to-many via join table: persons -> persons_phoneNumbers -> phoneNumbers (returns array)
         // Note: localField uses "clientPerson._id" to reference the joined person (alias from Join above)
-        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
-        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPhoneNumbers = new JoinThroughMany(
+            'phoneNumbers',           // final table
+            'personsPhoneNumbers',   // join table
+            'clientPerson._id',       // local field - references joined person table
+            'personId',               // join table local field
+            'phoneNumberId',         // join table foreign field
+            '_id',                     // foreign field (phoneNumber._id)
+            'clientPhoneNumbers'            // alias
+        );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses].filter(op => op !== null) as Operation[];
 
@@ -272,10 +279,17 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     it('should handle get() query with joins and return paginated results', async () => {
         // Create join operations
-        const joinPerson = new LeftJoin('persons', 'personId', '_id', 'clientPerson');
-        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
-        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
-        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
+        const joinPhoneNumbers = new JoinThroughMany(
+            'phoneNumbers',
+            'personsPhoneNumbers',
+            'clientPerson._id',
+            'personId',
+            'phoneNumberId',
+            '_id',
+            'clientPhoneNumbers'
+        );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses].filter(op => op !== null) as Operation[];
 
@@ -316,10 +330,17 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     it('should handle getAll() query with joins', async () => {
         // Create join operations
-        const joinPerson = new LeftJoin('persons', 'personId', '_id', 'clientPerson');
-        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
-        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
-        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
+        const joinPhoneNumbers = new JoinThroughMany(
+            'phoneNumbers',
+            'personsPhoneNumbers',
+            'clientPerson._id',
+            'personId',
+            'phoneNumberId',
+            '_id',
+            'clientPhoneNumbers'
+        );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses].filter(op => op !== null) as Operation[];
 
@@ -376,10 +397,17 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
         });
 
         // Create join operations
-        const joinPerson = new LeftJoin('persons', 'personId', '_id', 'clientPerson');
-        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
-        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
-        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPerson = new Join('persons', 'personId', '_id', 'clientPerson');
+        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
+        const joinPhoneNumbers = new JoinThroughMany(
+            'phoneNumbers',
+            'personsPhoneNumbers',
+            'clientPerson._id',
+            'personId',
+            'phoneNumberId',
+            '_id',
+            'clientPhoneNumbers'
+        );
 
         const operations: Operation[] = [joinPerson, joinEmailAddresses].filter(op => op !== null) as Operation[];
 
