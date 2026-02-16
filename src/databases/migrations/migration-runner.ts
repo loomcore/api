@@ -1,7 +1,6 @@
 import { Umzug, MongoDBStorage } from 'umzug';
 import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
-import { DbType } from '../db-type.type.js';
 import { IBaseApiConfig } from '../../models/base-api-config.interface.js';
 import { setBaseApiConfig } from '../../config/index.js';
 import fs from 'fs';
@@ -10,18 +9,21 @@ import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
 import { getMongoInitialSchema } from '../mongo-db/migrations/mongo-initial-schema.js';
+import { IResetApiConfig } from '../../models/reset-api-config.interface.js';
 
 export class MigrationRunner {
   private config: IBaseApiConfig;
+  private resetConfig?: IResetApiConfig;
   private dbType: string;
   private dbUrl: string;
   private migrationsDir: string;
   private primaryTimezone: string;
   private dbConnection: Pool | MongoClient | undefined;
-  constructor(config: IBaseApiConfig) {
+  constructor(config: IBaseApiConfig, resetConfig?: IResetApiConfig) {
     // Initialize the global config so services can access it during migrations
     setBaseApiConfig(config);
     this.config = config;
+    this.resetConfig = resetConfig;
     this.dbType = config.app.dbType;
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
@@ -237,6 +239,10 @@ export class MigrationRunner {
   public async run(command: 'up' | 'down' | 'reset' = 'up', target?: string) {
     try {
       if (command === 'reset') {
+
+        if (!this.resetConfig) {
+          throw new Error('Reset configuration not found');
+        }
         await this.wipeDatabase();
         console.log('🚀 Restarting migrations...');
         const migrator = await this.getMigrator();
