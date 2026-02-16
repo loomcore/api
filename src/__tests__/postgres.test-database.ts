@@ -6,6 +6,7 @@ import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
 import { IDatabase } from '../databases/models/index.js';
 import { config } from '../config/base-api-config.js';
 import { runInitialSchemaMigrations, runTestSchemaMigrations } from '../databases/postgres/migrations/__tests__/test-migration-helper.js';
+import { IResetApiConfig } from '../models/reset-api-config.interface.js';
 
 /**
  * Check if we should use a real PostgreSQL container instead of pg-mem
@@ -28,14 +29,14 @@ export class TestPostgresDatabase implements ITestDatabase {
    * Initialize the PostgreSQL test database
    * @returns Promise resolving to the database client instance
    */
-  async init(adminUsername?: string, adminPassword?: string): Promise<IDatabase> {
+  async init(): Promise<IDatabase> {
     // Return existing promise if initialization is already in progress
     if (this.initPromise) {
       return this.initPromise;
     }
 
     // Create and cache the initialization promise
-    this.initPromise = this._performInit(adminUsername, adminPassword);
+    this.initPromise = this._performInit();
     return this.initPromise;
   }
 
@@ -46,7 +47,7 @@ export class TestPostgresDatabase implements ITestDatabase {
     throw new Error('getRandomId() should not be used for PostgreSQL _id fields. PostgreSQL uses auto-generated integer IDs. Remove _id from entities and let the database generate it.');
   }
 
-  private async _performInit(adminUsername?: string, adminPassword?: string): Promise<IDatabase> {
+  private async _performInit(): Promise<IDatabase> {
     // Set up PostgreSQL test database if not already done
     if (!this.database) {
       let postgresClient: Client;

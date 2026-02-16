@@ -314,10 +314,6 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
       dbType: dbType,
     },
     auth: {
-      adminUser: {
-        email: 'admin@test.com',
-        password: 'admin-password'
-      },
       clientSecret: 'test-secret',
       saltWorkFactor: 10,
       jwtExpirationInSeconds: 3600,

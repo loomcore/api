@@ -68,7 +68,7 @@ export class TestExpressApp {
       } else {
         const testPostgresDb = new TestPostgresDatabase();
         this.testDatabase = testPostgresDb;
-        this.database = await testPostgresDb.init('admin', 'password');
+        this.database = await testPostgresDb.init();
       }
     }
 
