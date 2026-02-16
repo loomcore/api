@@ -1,5 +1,5 @@
 import { IDatabase } from "../databases/models/index.js";
-import { IInitialDbMigrationConfig } from "../models/initial-database-config.interface.js";
+import { IResetApiConfig } from "../models/reset-api-config.interface.js";
 
 export type ITestDatabase = {
   /**
