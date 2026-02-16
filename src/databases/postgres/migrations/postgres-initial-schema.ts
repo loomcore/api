@@ -3,6 +3,7 @@ import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized, IUser, IPersonModel } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
 import { AuthService, OrganizationService } from '../../../services/index.js';
+import { IResetApiConfig } from '../../../models/reset-api-config.interface.js';
 
 // Define the interface Umzug expects for code-based migrations
 export interface SyntheticMigration {
@@ -11,7 +12,7 @@ export interface SyntheticMigration {
   down: (context: { context: Pool }) => Promise<void>;
 }
 
-export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigration[] => {
+export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: IResetApiConfig): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
 
   const isMultiTenant = config.app.isMultiTenant;
@@ -333,7 +334,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
   }
 
   // 11. ADMIN USER
-  if (isAuthEnabled) {
+  if (isAuthEnabled && resetConfig?.adminUser) {
     migrations.push({
       name: '00000000000011_data-admin-user',
       up: async ({ context: pool }) => {
@@ -362,8 +363,8 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
 
           // Only include _orgId if multi-tenant (non-multi-tenant users table doesn't have _orgId column)
           const userData: Partial<IUser> = {
-            email: config.auth?.adminUser?.email,
-            password: config.auth?.adminUser?.password,
+            email: resetConfig.adminUser.email,
+            password: resetConfig.adminUser.password,
             displayName: 'Admin User',
           };
           if (isMultiTenant && systemUserContext.organization?._id) {
@@ -384,18 +385,18 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
         }
       },
       down: async ({ context: pool }) => {
-        if (!config.auth?.adminUser?.email) return;
+        if (!resetConfig?.adminUser?.email) return;
 
         const result = await pool.query(
           `DELETE FROM "users" WHERE "email" = $1`,
-          [config.auth?.adminUser?.email]
+          [resetConfig.adminUser.email]
         );
       }
     });
   }
 
   // 12. ADMIN AUTHORIZATION (only if auth config is provided)
-  if (config.auth) {
+  if (config.auth && resetConfig) {
     migrations.push({
       name: '00000000000012_data-admin-authorizations',
       up: async ({ context: pool }) => {
@@ -412,7 +413,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig): SyntheticMigra
             throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
           }
 
-          const adminUser = await authService.getUserByEmail(config.auth!.adminUser.email);
+          const adminUser = await authService.getUserByEmail(resetConfig.adminUser.email);
           if (!adminUser) {
             throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
           }
