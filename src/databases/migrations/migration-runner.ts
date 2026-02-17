@@ -1,36 +1,31 @@
 import { Umzug, MongoDBStorage } from 'umzug';
 import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
-import { IBaseApiConfig } from '../../models/base-api-config.interface.js';
-import { setBaseApiConfig } from '../../config/index.js';
 import fs from 'fs';
 import path from 'path';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
 import { getMongoInitialSchema } from '../mongo-db/migrations/mongo-initial-schema.js';
-import { IResetApiConfig } from '../../models/reset-api-config.interface.js';
+import { IInitialDbMigrationConfig } from '../../models/initial-database-config.interface.js';
 
 export class MigrationRunner {
-  private config: IBaseApiConfig;
-  private resetConfig?: IResetApiConfig;
+  private dbMigrationConfig: IInitialDbMigrationConfig;
   private dbType: string;
   private dbUrl: string;
   private migrationsDir: string;
   private primaryTimezone: string;
   private dbConnection: Pool | MongoClient | undefined;
-  constructor(config: IBaseApiConfig, resetConfig?: IResetApiConfig) {
-    // Initialize the global config so services can access it during migrations
-    setBaseApiConfig(config);
-    this.config = config;
-    this.resetConfig = resetConfig;
-    this.dbType = config.app.dbType;
-    this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(config) : buildMongoUrl(config);
+  constructor(dbMigrationConfig: IInitialDbMigrationConfig, resetConfig?: IInitialDbMigrationConfig) {
+    this.dbMigrationConfig = dbMigrationConfig;
+    this.dbType = dbMigrationConfig.app.dbType;
+    this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(dbMigrationConfig) : buildMongoUrl(dbMigrationConfig);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
     /** * The IANA timezone identifier (e.g., 'America/Chicago', 'UTC') 
       * Used for generating the YYYYMMDDHHMMSS prefix on new files.
+      * Note: CI/CD translates from 'eastern', 'central', etc in github vars 'America/New_York', 'America/Chicago', etc
       */
-    this.primaryTimezone = config.app.primaryTimezone || 'UTC';
+    this.primaryTimezone = dbMigrationConfig.app.primaryTimezone || 'UTC';
   }
 
   private getTimestamp(): string {
@@ -83,18 +78,18 @@ export class MigrationRunner {
 
     if (this.dbType === 'postgres') {
       const pool = new Pool({
-        host: this.config.database.host,
-        user: this.config.database.username,
-        password: this.config.database.password,
-        port: this.config.database.port,
-        database: this.config.database.name
+        host: this.dbMigrationConfig.database.host,
+        user: this.dbMigrationConfig.database.username,
+        password: this.dbMigrationConfig.database.password,
+        port: this.dbMigrationConfig.database.port,
+        database: this.dbMigrationConfig.database.name
       });
       this.dbConnection = pool;
 
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getPostgresInitialSchema(this.config, this.resetConfig).map(m => ({
+          const initialSchema = getPostgresInitialSchema(this.dbMigrationConfig).map(m => ({
             name: m.name,
             up: async () => {
               console.log(`   Running [LIBRARY] ${m.name}...`);
@@ -143,7 +138,7 @@ export class MigrationRunner {
       return new Umzug({
         migrations: async () => {
           // A. Get initial schema (Strategy Pattern)
-          const initialSchema = getMongoInitialSchema(this.config, this.resetConfig).map(m => ({
+          const initialSchema = getMongoInitialSchema(this.dbMigrationConfig).map(m => ({
             name: m.name,
             up: async () => {
               console.log(`   Running [LIBRARY] ${m.name}...`);
@@ -215,11 +210,11 @@ export class MigrationRunner {
 
     if (this.dbType === 'postgres') {
       const pool = new Pool({
-        host: this.config.database.host,
-        user: this.config.database.username,
-        password: this.config.database.password,
-        port: this.config.database.port,
-        database: this.config.database.name
+        host: this.dbMigrationConfig.database.host,
+        user: this.dbMigrationConfig.database.username,
+        password: this.dbMigrationConfig.database.password,
+        port: this.dbMigrationConfig.database.port,
+        database: this.dbMigrationConfig.database.name
       });
       try {
         await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
@@ -240,7 +235,7 @@ export class MigrationRunner {
     try {
       if (command === 'reset') {
 
-        if (!this.resetConfig) {
+        if (!this.dbMigrationConfig) {
           throw new Error('Reset configuration not found');
         }
         await this.wipeDatabase();

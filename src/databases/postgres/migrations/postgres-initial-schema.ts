@@ -1,9 +1,9 @@
 import { Pool, Client } from 'pg';
-import { IBaseApiConfig } from '../../../models/base-api-config.interface.js';
-import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized, IUser, IPersonModel } from '@loomcore/common/models';
+import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
-import { AuthService, OrganizationService } from '../../../services/index.js';
-import { IResetApiConfig } from '../../../models/reset-api-config.interface.js';
+import { OrganizationService } from '../../../services/index.js';
+import { passwordUtils } from '../../../utils/index.js';
+import { IInitialDbMigrationConfig } from '../../../models/initial-database-config.interface.js';
 
 // Define the interface Umzug expects for code-based migrations
 export interface SyntheticMigration {
@@ -12,23 +12,16 @@ export interface SyntheticMigration {
   down: (context: { context: Pool }) => Promise<void>;
 }
 
-export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: IResetApiConfig): SyntheticMigration[] => {
+export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): SyntheticMigration[] => {
   const migrations: SyntheticMigration[] = [];
 
-  const isMultiTenant = config.app.isMultiTenant;
-  if (isMultiTenant && !config.multiTenant) {
+  const isMultiTenant = dbConfig.app.isMultiTenant;
+  if (isMultiTenant && !dbConfig.multiTenant) {
     throw new Error('Multi-tenant configuration is enabled but multi-tenant configuration is not provided');
   }
 
-  const isAuthEnabled = config.app.isAuthEnabled;
-  if (isAuthEnabled && !config.auth) {
-    throw new Error('Auth enabled without auth configuration');
-  }
-
-  if (isAuthEnabled && (!config.thirdPartyClients?.emailClient || !config.email)) {
-    throw new Error('Auth enabled without email client or email configuration');
-  }
-
+  const isAuthEnabled = dbConfig.app.isAuthEnabled;
+  
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
@@ -315,7 +308,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: I
           INSERT INTO "organizations" ("name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy")
           VALUES ($1, $2, 1, true, NOW(), 0, NOW(), 0)
           RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy"
-        `, [config.multiTenant?.metaOrgName, config.multiTenant?.metaOrgCode]);
+        `, [dbConfig.multiTenant?.metaOrgName, dbConfig.multiTenant?.metaOrgCode]);
 
         if (result.rowCount === 0) {
           throw new Error('Failed to create meta organization');
@@ -323,7 +316,7 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: I
 
         // Initialize system user context with the meta org
         initializeSystemUserContext(
-          config.email?.systemEmailAddress || 'system@example.com',
+          dbConfig.email?.systemEmailAddress || 'system@example.com',
           result.rows[0] as IOrganization
         );
       },
@@ -334,78 +327,84 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: I
   }
 
   // 11. ADMIN USER
-  if (isAuthEnabled && resetConfig?.adminUser) {
+  if (isAuthEnabled && dbConfig.adminUser) {
     migrations.push({
       name: '00000000000011_data-admin-user',
       up: async ({ context: pool }) => {
-        // Get a client from the pool to use with PostgresDatabase
+        // SystemUserContext MUST be initialized before this migration runs
+        // For multi-tenant: meta-org migration should have initialized it
+        // For non-multi-tenant: should be initialized before migrations run (bug if not)
+        if (!isSystemUserContextInitialized()) {
+          const errorMessage = isMultiTenant
+            ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000010_data-meta-org) should have run before this migration. ' +
+            'Please ensure metaOrgName and metaOrgCode are provided in your dbConfig.'
+            : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
+
+          console.error('❌ Migration Error:', errorMessage);
+          throw new Error(errorMessage);
+        }
+
+        const systemUserContext = getSystemUserContext();
+        const orgId = isMultiTenant ? systemUserContext.organization?._id : undefined;
+        const hashedPassword = await passwordUtils.hashPassword(dbConfig.adminUser.password);
+        const email = dbConfig.adminUser.email.toLowerCase();
+
         const client = await pool.connect();
         try {
-          const database = new PostgresDatabase(client as unknown as Client);
-          const authService = new AuthService(database);
+          // 1) Insert person
+          const personResult = isMultiTenant && orgId
+            ? await client.query(
+                `INSERT INTO "persons" ("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+                 VALUES ($1, 'Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
+                 RETURNING "_id"`,
+                [orgId]
+              )
+            : await client.query(
+                `INSERT INTO "persons" ("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+                 VALUES ('Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
+                 RETURNING "_id"`
+              );
 
-          // SystemUserContext MUST be initialized before this migration runs
-          // For multi-tenant: meta-org migration should have initialized it
-          // For non-multi-tenant: should be initialized before migrations run (bug if not)
-          if (!isSystemUserContextInitialized()) {
-            const errorMessage = isMultiTenant
-              ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000009_data-meta-org) should have run before this migration. ' +
-              'This migration only runs if config.app.metaOrgName and config.app.metaOrgCode are provided. ' +
-              'Please ensure both values are set in your config.'
-              : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
+          const personId = personResult.rows[0]._id;
 
-            console.error('❌ Migration Error:', errorMessage);
-            throw new Error(errorMessage);
+          // 2) Insert user
+          if (isMultiTenant && orgId) {
+            await client.query(
+              `INSERT INTO "users" ("_orgId", "email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
+               VALUES ($1, $2, 'Admin User', $3, $4, NOW(), 0, NOW(), 0)`,
+              [orgId, email, hashedPassword, personId]
+            );
+          } else {
+            await client.query(
+              `INSERT INTO "users" ("email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
+               VALUES ($1, 'Admin User', $2, $3, NOW(), 0, NOW(), 0)`,
+              [email, hashedPassword, personId]
+            );
           }
-
-          // Get the system user context (now guaranteed to be initialized)
-          const systemUserContext = getSystemUserContext();
-
-          // Only include _orgId if multi-tenant (non-multi-tenant users table doesn't have _orgId column)
-          const userData: Partial<IUser> = {
-            email: resetConfig.adminUser.email,
-            password: resetConfig.adminUser.password,
-            displayName: 'Admin User',
-          };
-          if (isMultiTenant && systemUserContext.organization?._id) {
-            userData._orgId = systemUserContext.organization._id;
-          }
-
-          const personData: Partial<IPersonModel> = {
-            firstName: 'Admin',
-            lastName: 'User',
-          };
-          if (isMultiTenant && systemUserContext.organization?._id) {
-            personData._orgId = systemUserContext.organization._id;
-          }
-
-          await authService.createUser(systemUserContext, userData, personData);
         } finally {
           client.release();
         }
       },
       down: async ({ context: pool }) => {
-        if (!resetConfig?.adminUser?.email) return;
+        if (!dbConfig.adminUser?.email) return;
 
-        const result = await pool.query(
+        await pool.query(
           `DELETE FROM "users" WHERE "email" = $1`,
-          [resetConfig.adminUser.email]
+          [dbConfig.adminUser.email.toLowerCase()]
         );
       }
     });
   }
 
-  // 12. ADMIN AUTHORIZATION (only if auth config is provided)
-  if (config.auth && resetConfig) {
+  // 12. ADMIN AUTHORIZATION
+  if (isAuthEnabled && dbConfig.adminUser) {
     migrations.push({
       name: '00000000000012_data-admin-authorizations',
       up: async ({ context: pool }) => {
-        // Get a client from the pool to use with services
         const client = await pool.connect();
         try {
           const database = new PostgresDatabase(client as unknown as Client);
           const organizationService = new OrganizationService(database);
-          const authService = new AuthService(database);
 
           // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
           const metaOrg = isMultiTenant ? await organizationService.getMetaOrg(EmptyUserContext) : undefined;
@@ -413,10 +412,13 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: I
             throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
           }
 
-          const adminUser = await authService.getUserByEmail(resetConfig.adminUser.email);
-          if (!adminUser) {
+          const email = dbConfig.adminUser.email.toLowerCase();
+          const userResult = await client.query(`SELECT "_id" FROM "users" WHERE "email" = $1`, [email]);
+          const adminUserRow = userResult.rows[0];
+          if (!adminUserRow) {
             throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
           }
+          const adminUserId = adminUserRow._id;
 
           await client.query('BEGIN');
 
@@ -444,11 +446,11 @@ export const getPostgresInitialSchema = (config: IBaseApiConfig, resetConfig?: I
               ? await client.query(`
                   INSERT INTO "user_roles" ("_orgId", "user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
                   VALUES ($1, $2, $3, NOW(), 0, NOW(), 0)
-                `, [metaOrg!._id, adminUser._id, roleId])
+                `, [metaOrg!._id, adminUserId, roleId])
               : await client.query(`
                   INSERT INTO "user_roles" ("user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
                   VALUES ($1, $2, NOW(), 0, NOW(), 0)
-                `, [adminUser._id, roleId]);
+                `, [adminUserId, roleId]);
 
             if (userRoleResult.rowCount === 0) {
               throw new Error('Failed to create user role');

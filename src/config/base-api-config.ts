@@ -2,23 +2,31 @@ import { EmptyUserContext, initializeSystemUserContext } from '@loomcore/common/
 import { IBaseApiConfig } from '../models/index.js';
 import { IDatabase } from '../databases/models/index.js';
 
-
 export let config: IBaseApiConfig;
 let isConfigSet = false;
 let isSystemUserContextSet = false;
 
-// Utility function to pick only IBaseApiConfig properties. We ignore any extended properties that are not in IBaseApiConfig.
-function copyOnlyBaseApiConfigProperties<T extends IBaseApiConfig>(obj: T): IBaseApiConfig {
-  const baseConfig: IBaseApiConfig = {} as IBaseApiConfig;
-  (Object.keys(obj) as (keyof IBaseApiConfig)[]).forEach((key) => {
-    (baseConfig as any)[key] = obj[key];
+const BASE_API_CONFIG_KEYS: (keyof IBaseApiConfig)[] = [
+  'app', 'auth', 'database', 'debug', 'email', 'env', 'network', 'thirdPartyClients'
+];
+
+/** Copies only the properties from obj that are in the specified interface. Ignores any extended properties. */
+function copyOnlySpecifiedConfigProperties<T extends I, I extends object>(
+  obj: T,
+  allowedKeys: (keyof I)[]
+): I {
+  const result = {} as I;
+  allowedKeys.forEach((key) => {
+    if (key in obj) {
+      (result as Record<string, unknown>)[key as string] = obj[key as keyof T];
+    }
   });
-  return baseConfig;
+  return result;
 }
 
-export function setBaseApiConfig(apiConfig: IBaseApiConfig) {
+export function setBaseApiConfig(theConfig: IBaseApiConfig) {
   if (!isConfigSet) {
-    config = copyOnlyBaseApiConfigProperties(apiConfig);
+    config = copyOnlySpecifiedConfigProperties(theConfig, BASE_API_CONFIG_KEYS);
     isConfigSet = true;
   } else if (config.env !== 'test') {
     console.warn('BaseApiConfig data has already been set. Ignoring subsequent calls to setBaseApiConfig.');
