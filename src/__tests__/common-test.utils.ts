@@ -340,10 +340,6 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
     thirdPartyClients: {
       emailClient: new TestEmailClient()
     },
-    multiTenant: isMultiTenant ? {
-      metaOrgName: 'Test Meta Organization',
-      metaOrgCode: 'TEST_META_ORG'
-    } : undefined,
     network: {
       hostName: 'localhost',
       internalPort: 8083,
