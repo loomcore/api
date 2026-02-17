@@ -156,22 +156,22 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       // Verify first order has customer data
       const order1 = results.find(o => o.orderNumber === 'ORD-001');
       expect(order1).toBeDefined();
-      expect(order1!.customer).toBeDefined();
-      expect(order1!.customer!.name).toBe('John Doe');
-      expect(order1!.customer!.email).toBe('john@example.com');
+      expect(order1!._joinData?.customer).toBeDefined();
+      expect(order1!._joinData?.customer!.name).toBe('John Doe');
+      expect(order1!._joinData?.customer!.email).toBe('john@example.com');
 
       // Verify second order has customer data
       const order2 = results.find(o => o.orderNumber === 'ORD-002');
       expect(order2).toBeDefined();
-      expect(order2!.customer).toBeDefined();
-      expect(order2!.customer!.name).toBe('Jane Smith');
-      expect(order2!.customer!.email).toBe('jane@example.com');
+      expect(order2!._joinData?.customer).toBeDefined();
+      expect(order2!._joinData?.customer!.name).toBe('Jane Smith');
+      expect(order2!._joinData?.customer!.email).toBe('jane@example.com');
 
       // Verify third order has customer data
       const order3 = results.find(o => o.orderNumber === 'ORD-003');
       expect(order3).toBeDefined();
-      expect(order3!.customer).toBeDefined();
-      expect(order3!.customer!.name).toBe('John Doe');
+      expect(order3!._joinData?.customer).toBeDefined();
+      expect(order3!._joinData?.customer!.name).toBe('John Doe');
     });
 
     it('should handle orders without matching customers (left outer join)', async () => {
@@ -201,7 +201,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       expect(results).toHaveLength(1);
       expect(results[0].orderNumber).toBe('ORD-004');
       // Customer should be null or undefined for non-matching join (MongoDB $unwind sets it to undefined)
-      expect(results[0].customer).toBeUndefined();
+      expect(results[0]._joinData?.customer).toBeUndefined();
     });
 
     it('should return all orders when no join operation is provided', async () => {
@@ -318,9 +318,9 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       expect(result.pageSize).toBe(2);
 
       // Verify first result has customer data
-      expect(result.entities![0].customer).toBeDefined();
-      expect(result.entities![0].customer!.name).toBeDefined();
-      expect(result.entities![0].customer!.email).toBeDefined();
+      expect(result.entities![0]._joinData?.customer).toBeDefined();
+      expect(result.entities![0]._joinData?.customer!.name).toBeDefined();
+      expect(result.entities![0]._joinData?.customer!.email).toBeDefined();
 
       // Verify orders are sorted by orderNumber
       expect(result.entities![0].orderNumber).toBe('ORD-101');
@@ -407,13 +407,13 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       // Verify all results are pending orders
       result.entities!.forEach((order: OrderWithCustomer) => {
         expect(order.status).toBe('pending');
-        expect(order.customer).toBeDefined();
+        expect(order._joinData?.customer).toBeDefined();
       });
 
       // Verify customer data is joined
       const order1 = result.entities!.find((o: OrderWithCustomer) => o.orderNumber === 'ORD-201');
       expect(order1).toBeDefined();
-      expect(order1!.customer!.name).toBe('John Doe');
+      expect(order1!._joinData?.customer!.name).toBe('John Doe');
     });
 
     it('should handle pagination with join operation', async () => {
@@ -475,8 +475,8 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
 
       // Verify customer data is joined on all results
       resultPage1.entities!.forEach((order: OrderWithCustomer) => {
-        expect(order.customer).toBeDefined();
-        expect(order.customer!.name).toBe('John Doe');
+        expect(order._joinData?.customer).toBeDefined();
+        expect(order._joinData?.customer!.name).toBe('John Doe');
       });
 
       // Test second page

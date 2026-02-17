@@ -39,14 +39,8 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 		.filter(op => op instanceof Join || op instanceof JoinMany || op instanceof JoinThrough || op instanceof JoinThroughMany)
 		.map(op => op.as);
 
-	// Initialize _joinData if there are any joins
-	if (joinAliases.length > 0) {
-		pipeline.push({
-			$set: {
-				_joinData: {}
-			}
-		});
-	}
+	// Note: _joinData will be created automatically by MongoDB when we use $addFields
+	// We don't initialize it here because MongoDB doesn't allow setting a field to an empty object {}
 
 	operations.forEach(operation => {
 		if (operation instanceof Join) {
@@ -92,7 +86,12 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					},
 					{
 						$addFields: {
-							[`_joinData.${operation.as}`]: `$${operation.as}Arr`
+							_joinData: {
+								$mergeObjects: [
+									{ $ifNull: ['$_joinData', {}] },
+									{ [operation.as]: `$${operation.as}Arr` }
+								]
+							}
 						}
 					},
 					{
@@ -120,7 +119,12 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					},
 					{
 						$addFields: {
-							[`_joinData.${operation.as}`]: `$${operation.as}Arr`
+							_joinData: {
+								$mergeObjects: [
+									{ $ifNull: ['$_joinData', {}] },
+									{ [operation.as]: `$${operation.as}Arr` }
+								]
+							}
 						}
 					},
 					{
@@ -139,12 +143,37 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 				);
 
 				if (parentJoin) {
+					// Merge _joinData at root level to ensure it exists, then set nested field
 					pipeline.push({
-						$set: {
-							[`_joinData.${parentAlias}`]: {
+						$addFields: {
+							_joinData: {
 								$mergeObjects: [
-									{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
-									{ [operation.as]: `$_joinData.${operation.as}` }
+									{ $ifNull: ['$_joinData', {}] },
+									{
+										[parentAlias]: {
+											$mergeObjects: [
+												{
+													$ifNull: [
+														{
+															$getField: {
+																field: parentAlias,
+																input: { $ifNull: ['$_joinData', {}] }
+															}
+														},
+														{}
+													]
+												},
+												{
+													[operation.as]: {
+														$getField: {
+															field: operation.as,
+															input: { $ifNull: ['$_joinData', {}] }
+														}
+													}
+												}
+											]
+										}
+									}
 								]
 							}
 						}
@@ -191,7 +220,12 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					},
 					{
 						$addFields: {
-							[`_joinData.${operation.as}`]: `$${operation.as}_temp`
+							_joinData: {
+								$mergeObjects: [
+									{ $ifNull: ['$_joinData', {}] },
+									{ [operation.as]: `$${operation.as}_temp` }
+								]
+							}
 						}
 					},
 					{
@@ -211,13 +245,20 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					);
 
 					if (parentJoin) {
-						// Merge the array into the parent object in _joinData using $mergeObjects
+						// Merge _joinData at root level to ensure it exists, then set nested field
 						pipeline.push({
-							$set: {
-								[`_joinData.${parentAlias}`]: {
+							$addFields: {
+								_joinData: {
 									$mergeObjects: [
-										{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
-										{ [operation.as]: `$_joinData.${operation.as}` }
+										{ $ifNull: ['$_joinData', {}] },
+										{
+											[parentAlias]: {
+												$mergeObjects: [
+													{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
+													{ [operation.as]: `$_joinData.${operation.as}` }
+												]
+											}
+										}
 									]
 								}
 							}
@@ -240,7 +281,12 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					},
 					{
 						$addFields: {
-							[`_joinData.${operation.as}`]: `$${operation.as}_temp`
+							_joinData: {
+								$mergeObjects: [
+									{ $ifNull: ['$_joinData', {}] },
+									{ [operation.as]: `$${operation.as}_temp` }
+								]
+							}
 						}
 					},
 					{
@@ -343,7 +389,12 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					},
 					{
 						$addFields: {
-							[`_joinData.${operation.as}`]: `$${operation.as}_temp`
+							_joinData: {
+								$mergeObjects: [
+									{ $ifNull: ['$_joinData', {}] },
+									{ [operation.as]: `$${operation.as}_temp` }
+								]
+							}
 						}
 					},
 					{
@@ -364,13 +415,20 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					);
 
 					if (parentJoin) {
-						// Merge the single object into the parent object in _joinData using $mergeObjects
+						// Merge _joinData at root level to ensure it exists, then set nested field
 						pipeline.push({
-							$set: {
-								[`_joinData.${parentAlias}`]: {
+							$addFields: {
+								_joinData: {
 									$mergeObjects: [
-										{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
-										{ [operation.as]: `$_joinData.${operation.as}` }
+										{ $ifNull: ['$_joinData', {}] },
+										{
+											[parentAlias]: {
+												$mergeObjects: [
+													{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
+													{ [operation.as]: `$_joinData.${operation.as}` }
+												]
+											}
+										}
 									]
 								}
 							}
@@ -450,7 +508,12 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					},
 					{
 						$addFields: {
-							[`_joinData.${operation.as}`]: `$${operation.as}_temp`
+							_joinData: {
+								$mergeObjects: [
+									{ $ifNull: ['$_joinData', {}] },
+									{ [operation.as]: `$${operation.as}_temp` }
+								]
+							}
 						}
 					},
 					{
@@ -471,13 +534,20 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					);
 
 					if (parentJoin) {
-						// Merge the single object into the parent object in _joinData using $mergeObjects
+						// Merge _joinData at root level to ensure it exists, then set nested field
 						pipeline.push({
-							$set: {
-								[`_joinData.${parentAlias}`]: {
+							$addFields: {
+								_joinData: {
 									$mergeObjects: [
-										{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
-										{ [operation.as]: `$_joinData.${operation.as}` }
+										{ $ifNull: ['$_joinData', {}] },
+										{
+											[parentAlias]: {
+												$mergeObjects: [
+													{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
+													{ [operation.as]: `$_joinData.${operation.as}` }
+												]
+											}
+										}
 									]
 								}
 							}
@@ -583,7 +653,17 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					{
 						$replaceRoot: {
 							newRoot: {
-								$mergeObjects: ['$root', { [`_joinData.${operation.as}`]: `$${operation.as}_temp_grouped` }]
+								$mergeObjects: [
+									'$root',
+									{
+										_joinData: {
+											$mergeObjects: [
+												{ $ifNull: ['$root._joinData', {}] },
+												{ [operation.as]: `$${operation.as}_temp_grouped` }
+											]
+										}
+									}
+								]
 							}
 						}
 					},
@@ -606,14 +686,20 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					);
 
 					if (parentJoin) {
-						// Merge the array into the parent object in _joinData using $mergeObjects
-						// Use $ifNull to ensure parentAlias exists, then merge the new field
+						// Merge _joinData at root level to ensure it exists, then set nested field
 						pipeline.push({
-							$set: {
-								[`_joinData.${parentAlias}`]: {
+							$addFields: {
+								_joinData: {
 									$mergeObjects: [
-										{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
-										{ [operation.as]: `$_joinData.${operation.as}` }
+										{ $ifNull: ['$_joinData', {}] },
+										{
+											[parentAlias]: {
+												$mergeObjects: [
+													{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
+													{ [operation.as]: `$_joinData.${operation.as}` }
+												]
+											}
+										}
 									]
 								}
 							}
@@ -694,7 +780,17 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					{
 						$replaceRoot: {
 							newRoot: {
-								$mergeObjects: ['$root', { [`_joinData.${operation.as}`]: `$${operation.as}_temp_grouped` }]
+								$mergeObjects: [
+									'$root',
+									{
+										_joinData: {
+											$mergeObjects: [
+												{ $ifNull: ['$root._joinData', {}] },
+												{ [operation.as]: `$${operation.as}_temp_grouped` }
+											]
+										}
+									}
+								]
 							}
 						}
 					},
@@ -717,13 +813,20 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
 					);
 
 					if (parentJoin) {
-						// Merge the array into the parent object in _joinData using $mergeObjects
+						// Merge _joinData at root level to ensure it exists, then set nested field
 						pipeline.push({
-							$set: {
-								[`_joinData.${parentAlias}`]: {
+							$addFields: {
+								_joinData: {
 									$mergeObjects: [
-										{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
-										{ [operation.as]: `$_joinData.${operation.as}` }
+										{ $ifNull: ['$_joinData', {}] },
+										{
+											[parentAlias]: {
+												$mergeObjects: [
+													{ $ifNull: [`$_joinData.${parentAlias}`, {}] },
+													{ [operation.as]: `$_joinData.${operation.as}` }
+												]
+											}
+										}
 									]
 								}
 							}
