@@ -1,8 +1,9 @@
 import { Db } from 'mongodb';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { MongoDBDatabase } from '../mongo-db.database.js';
-import { AuthService, GenericApiService, OrganizationService } from '../../../services/index.js';
-import { IResetApiConfig } from '../../../models/reset-api-config.interface.js';
+import { OrganizationService } from '../../../services/index.js';
+import { passwordUtils } from '../../../utils/index.js';
+import { IInitialDbMigrationConfig } from '../../../models/initial-database-config.interface.js';
 
 export interface ISyntheticMigration {
   name: string;
@@ -10,7 +11,7 @@ export interface ISyntheticMigration {
   down: (context: { context: Db }) => Promise<void>;
 }
 
-export const getMongoInitialSchema = (config: IBaseApiConfig, resetConfig?: IResetApiConfig): ISyntheticMigration[] => {
+export const getMongoInitialSchema = (dbConfig: IInitialDbMigrationConfig): ISyntheticMigration[] => {
   const migrations: ISyntheticMigration[] = [];
 
   const isMultiTenant = dbConfig.app.isMultiTenant;
@@ -222,8 +223,8 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, resetConfig?: IRes
     });
   }
 
-  // 9. ADMIN USER (only if adminUser config is provided)
-  if (isAuthEnabled && resetConfig) {
+  // 11. ADMIN USER (only if adminUser config is provided)
+  if (isAuthEnabled && dbConfig.adminUser) {
     migrations.push({
       name: '00000000000011_data-admin-user',
       up: async ({ context: db }) => {
@@ -262,8 +263,8 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, resetConfig?: IRes
         await db.collection('users').insertOne({
           ...orgDoc,
           externalId: 'admin-user-external-id',
-          email: resetConfig.adminUser.email,
-          password: resetConfig.adminUser.password,
+          email,
+          password: hashedPassword,
           displayName: 'Admin User',
           personId: personResult.insertedId,
           _created: new Date(),
@@ -273,14 +274,14 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, resetConfig?: IRes
         } as any);
       },
       down: async ({ context: db }) => {
-        if (!resetConfig?.adminUser?.email) return;
-        await db.collection('users').deleteOne({ email: resetConfig.adminUser.email });
+        if (!dbConfig?.adminUser?.email) return;
+        await db.collection('users').deleteOne({ email: dbConfig.adminUser.email.toLowerCase() });
       }
     });
   }
 
-  // 10. ADMIN AUTHORIZATION (only if adminUser config is provided and multi-tenant)
-  if (resetConfig?.adminUser?.email && isMultiTenant) {
+  // 12. ADMIN AUTHORIZATION
+  if (isAuthEnabled && dbConfig.adminUser) {
     migrations.push({
       name: '00000000000012_data-admin-authorizations',
       up: async ({ context: db }) => {
@@ -293,7 +294,8 @@ export const getMongoInitialSchema = (config: IBaseApiConfig, resetConfig?: IRes
           throw new Error('Meta organization not found. Ensure meta-org migration ran successfully.');
         }
 
-        const adminUser = await authService.getUserByEmail(resetConfig.adminUser.email);
+        const email = dbConfig.adminUser.email.toLowerCase();
+        const adminUser = await db.collection('users').findOne({ email });
         if (!adminUser) {
           throw new Error('Admin user not found. Ensure admin-user migration ran successfully.');
         }

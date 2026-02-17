@@ -3,7 +3,6 @@ import { IDatabaseConfig } from "./database-config.interface.js";
 import { IEmailConfig } from "./email-config.interface.js";
 
 export interface IInitialDbMigrationConfig {
-  env: string;
   app: IAppConfig;
   database: IDatabaseConfig;
   adminUser: {
