@@ -10,7 +10,6 @@ export interface IProduct extends IEntity, IAuditable {
     description?: string;
     internalNumber?: string; // a sensitive property
     categoryId: AppIdType;
-    category?: ICategory;
 }
 
 export const ProductSchema = Type.Object({

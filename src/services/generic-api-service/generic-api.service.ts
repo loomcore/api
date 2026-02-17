@@ -11,6 +11,7 @@ import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { IdNotFoundError, ServerError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
+import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../controllers/types.js';
 
 export class GenericApiService<T extends IEntity> implements IGenericApiService<T> {
   protected database: IDatabase;
@@ -37,12 +38,34 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     this.database = database;
   }
 
-  async getAll(userContext: IUserContext): Promise<T[]> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
+  async getAll(userContext: IUserContext): Promise<T[]>;
+
+  async getAll<TCustom extends IEntity>(userContext: IUserContext,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>): Promise<TCustom[]>;
+
+  async getAll<Y extends IEntity = T>(
+    userContext: IUserContext,
+    prepareQueryCustom?: PrepareQueryCustomFunction,
+    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>): Promise<Y[]> {
+
+    let operations: Operation[] = [];
+    if (prepareQueryCustom) {
+      operations = prepareQueryCustom(userContext, {}, []).operations;
+    }
+    else {
+      operations = this.prepareQuery(userContext, {}, []).operations;
+    }
 
     const entities = await this.database.getAll<T>(operations, this.pluralResourceName);
 
-    return entities.map(entity => this.postProcessEntity(userContext, entity));
+    return entities.map(entity => {
+      const dbProcessed = this.postProcessEntity(userContext, entity);
+      if (postProcessEntityCustom) {
+        return postProcessEntityCustom(userContext, dbProcessed);
+      }
+      return dbProcessed as unknown as Y;
+    });
   }
 
   /**
@@ -146,21 +169,44 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
   }
 
-  async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
+  async get(userContext: IUserContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
+
+  async get<TCustom extends IEntity>(
+    userContext: IUserContext,
+    queryOptions: IQueryOptions,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>): Promise<IPagedResult<TCustom>>;
+
+  async get<Y extends IEntity = T>(
+    userContext: IUserContext,
+    queryOptions: IQueryOptions = { ...DefaultQueryOptions },
+    prepareQueryCustom?: PrepareQueryCustomFunction,
+    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>): Promise<IPagedResult<Y>> {
     const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
 
-    const { operations } = this.prepareQuery(userContext, {}, []);
+    let operations: Operation[] = [];
+    if (prepareQueryCustom) {
+      operations = prepareQueryCustom(userContext, {}, []).operations;
+    }
+    else {
+      operations = this.prepareQuery(userContext, {}, []).operations;
+    }
 
     const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.pluralResourceName);
 
-    const transformedEntities = (pagedResult.entities || []).map(entity => this.postProcessEntity(userContext, entity));
-
+    const transformedEntities = (pagedResult.entities || []).map(entity => {
+      const transformedEntity: T = this.postProcessEntity(userContext, entity);
+      if (postProcessEntityCustom) {
+        return postProcessEntityCustom(userContext, transformedEntity);
+      }
+      return transformedEntity as unknown as Y;
+    });
     return {
       ...pagedResult,
       entities: transformedEntities
     };
-  }
 
+  }
   /**
    * Prepare query options before using them. Subclasses can override this to apply tenant filters, etc.
    * @param userContext The user context
@@ -171,8 +217,30 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
     return queryOptions;
   }
 
-  async getById(userContext: IUserContext, id: AppIdType): Promise<T> {
-    const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
+  async getById(userContext: IUserContext, id: AppIdType): Promise<T>;
+
+  async getById<TCustom extends IEntity>(userContext: IUserContext,
+    id: AppIdType,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>): Promise<TCustom>;
+
+  async getById<Y extends IEntity = T>(
+    userContext: IUserContext,
+    id: AppIdType,
+    prepareQueryCustom?: PrepareQueryCustomFunction,
+    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>): Promise<Y> {
+    let operations: Operation[] = [];
+    let queryObject: IQueryOptions = {};
+    if (prepareQueryCustom) {
+      const result = prepareQueryCustom(userContext, {}, []);
+      operations = result.operations;
+      queryObject = result.queryObject;
+    }
+    else {
+      const result = this.prepareQuery(userContext, {}, []);
+      operations = result.operations;
+      queryObject = result.queryObject;
+    }
 
     const entity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
 
@@ -180,8 +248,16 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
       throw new IdNotFoundError();
     }
 
-    return this.postProcessEntity(userContext, entity);
+    const transformedEntity = this.postProcessEntity(userContext, entity);
+
+    if (postProcessEntityCustom) {
+      return postProcessEntityCustom(userContext, transformedEntity);
+    }
+    else {
+      return transformedEntity as unknown as Y;
+    }
   }
+
   async getCount(userContext: IUserContext): Promise<number> {
     this.prepareQuery(userContext, {}, []);
     return await this.database.getCount(this.pluralResourceName);

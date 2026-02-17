@@ -119,13 +119,13 @@ export abstract class ApiController<T extends IEntity> {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    
+
     // Convert HTTP string to AppIdType using TypeBox
     const idParam = req.params?.id;
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
-    
+
     try {
       const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const entity = await this.service.getById(req.userContext!, id);
@@ -192,7 +192,7 @@ export abstract class ApiController<T extends IEntity> {
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
-    
+
     try {
       const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const updateResult = await this.service.fullUpdateById(req.userContext!, id, req.body);
@@ -213,7 +213,7 @@ export abstract class ApiController<T extends IEntity> {
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
-    
+
     try {
       const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const updateResult = await this.service.partialUpdateById(req.userContext!, id, req.body);
@@ -225,13 +225,13 @@ export abstract class ApiController<T extends IEntity> {
 
   async deleteById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    
+
     // Convert HTTP string to AppIdType using TypeBox
     const idParam = req.params?.id;
     if (!idParam) {
       throw new BadRequestError('ID parameter is required');
     }
-    
+
     try {
       const id = Value.Convert(this.idSchema, idParam) as AppIdType;
       const deleteResult = await this.service.deleteById(req.userContext!, id);

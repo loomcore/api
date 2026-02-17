@@ -3,6 +3,7 @@ import { IUserContext, IEntity, IPagedResult, IQueryOptions } from '@loomcore/co
 import type { AppIdType } from '@loomcore/common/types';
 import { DeleteResult } from '../../databases/models/delete-result.js';
 import { Operation } from '../../databases/operations/operation.js';
+import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../controllers/types.js';
 
 export interface IGenericApiService<T extends IEntity> {
   validate(doc: any, isPartial?: boolean): ValueError[] | null;
@@ -13,8 +14,27 @@ export interface IGenericApiService<T extends IEntity> {
   postProcessEntity(userContext: IUserContext, entity: T): T;
 
   getAll(userContext: IUserContext): Promise<T[]>;
-  get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;
+  getAll<TCustom extends IEntity>(
+    userContext: IUserContext,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>
+  ): Promise<TCustom[]>;
+
+  get(userContext: IUserContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
+  get<TCustom extends IEntity>(
+    userContext: IUserContext,
+    queryOptions: IQueryOptions,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>
+  ): Promise<IPagedResult<TCustom>>;
+
   getById(userContext: IUserContext, id: AppIdType): Promise<T>;
+  getById<TCustom extends IEntity>(
+    userContext: IUserContext,
+    id: AppIdType,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>
+  ): Promise<TCustom>;
   getCount(userContext: IUserContext): Promise<number>;
   create(userContext: IUserContext, entity: Partial<T>): Promise<T | null>;
   createMany(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;

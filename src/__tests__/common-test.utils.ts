@@ -1,8 +1,10 @@
-import { Request, Response, Application } from 'express';
+import { Request, Response, Application, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { IUserContext, IQueryOptions, IUser, EmptyUserContext } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, IUser, EmptyUserContext, IPagedResult, IEntity, DefaultQueryOptions } from '@loomcore/common/models';
 import { Type } from '@sinclair/typebox';
+import { Value } from '@sinclair/typebox/value';
+import type { AppIdType } from '@loomcore/common/types';
 
 import { JwtService } from '../services/jwt.service.js';
 import { ApiController } from '../controllers/api.controller.js';
@@ -10,7 +12,6 @@ import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
 import { Join } from '../databases/operations/join.operation.js';
 import { OrganizationService } from '../services/organization.service.js';
-import { IdNotFoundError } from '../errors/index.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
 import { IDatabase } from '../databases/models/index.js';
@@ -29,12 +30,15 @@ const {
   setTestOrgUserId } = testObjectsModule;
 import { CategorySpec, ICategory } from './models/category.model.js';
 import { IProduct, ProductSpec } from './models/product.model.js';
+import { IProductWithCategory, ProductWithCategoryPublicSpec, ProductWithCategorySpec } from './models/product-with-category.model.js';
 import { setBaseApiConfig, config } from '../config/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { getTestMetaOrgUserPerson, getTestOrgUser, getTestOrgUserPerson, setTestMetaOrgUserPersonId, setTestOrgUserPersonId } from './test-objects.js';
 import { DbType } from '../databases/db-type.type.js';
 import { TestEmailClient } from './test-email-client.js';
 import { PersonService } from '../services/person.service.js';
+import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../controllers/types.js';
+import { apiUtils } from '../utils/index.js';
 
 let deviceIdCookie: string;
 let authService: AuthService | undefined;
@@ -349,54 +353,112 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
   });
 }
 
-// Test service with aggregation pipeline
+const prepareQueryCustom: PrepareQueryCustomFunction =
+  (userContext: IUserContext | undefined,
+    queryObject: IQueryOptions,
+    operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } => {
+    return {
+      queryObject: queryObject,
+      operations: [
+        ...operations,
+        new Join('categories', 'categoryId', '_id', 'category')
+      ]
+    };
+  };
+
+const postProcessEntityCustom: PostProcessEntityCustomFunction<IProduct, IProductWithCategory> =
+  (userContext: IUserContext, entity: IProduct): IProductWithCategory => {
+    return {
+      ...entity,
+      category: entity._joinData?.category as ICategory
+    };
+  };
+
 export class ProductService extends GenericApiService<IProduct> {
-  private db: IDatabase;
   constructor(database: IDatabase) {
     super(database, 'products', 'product', ProductSpec);
-    this.db = database;
-  }
-
-  override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
-    const newOperations = [
-      ...operations,
-      new Join('categories', 'categoryId', '_id', 'category')
-    ];
-
-    return super.prepareQuery(userContext, queryObject, newOperations);
-  }
-
-  override postProcessEntity(userContext: IUserContext, single: any): any {
-    if (single && single.category) {
-      const categoryService = new CategoryService(this.db);
-      single.category = categoryService.postProcessEntity(userContext, single.category);
-    }
-    return super.postProcessEntity(userContext, single);
   }
 }
 
-// Controller that uses aggregation and overrides get/getById to handle it
 export class ProductsController extends ApiController<IProduct> {
   constructor(app: Application, database: IDatabase) {
-
     const productService = new ProductService(database);
+    super('products', app, productService, 'product', ProductSpec);
+  }
 
-    // 1. Define the full shape of the aggregated data, including the joined category.
-    const AggregatedProductSchema = Type.Intersect([
-      ProductSpec.fullSchema,
-      Type.Partial(Type.Object({
-        category: CategorySpec.fullSchema
-      }))
-    ]);
+  override async get(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
 
-    // 2. Create a public version of the aggregated schema by omitting sensitive fields.
-    const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new Error('User context not found');
+    }
 
-    const PublicAggregatedProductSpec = entityUtils.getModelSpec(PublicAggregatedProductSchema);
-    // 3. Pass the base ProductSpec for validation, and our new, more accurate public schema
-    //    for client-facing responses. The updated apiUtils.apiResponse will use this
-    //    public schema to correctly encode the final shape.
-    super('products', app, productService, 'product', ProductSpec, PublicAggregatedProductSpec);
+    // Extract query options from request
+    const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
+
+    // Get paged result from service using custom prepareQuery and postProcess functions
+    const pagedResult = await this.service.get<IProductWithCategory>(
+      userContext,
+      queryOptions,
+      prepareQueryCustom,
+      postProcessEntityCustom);
+
+    // Prepare API response
+    apiUtils.apiResponse<IPagedResult<IProductWithCategory>>(res, 200, { data: pagedResult }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
+  }
+
+  override async getAll(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new Error('User context not found');
+    }
+
+    // Get all entities from service using custom prepareQuery and postProcess functions
+    const entities = await this.service.getAll<IProductWithCategory>(
+      userContext,
+      prepareQueryCustom,
+      postProcessEntityCustom);
+
+    // Prepare API response
+    apiUtils.apiResponse<IProductWithCategory[]>(res, 200, { data: entities }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
+  }
+
+  override async getById(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new Error('User context not found');
+    }
+
+    // Convert HTTP string to AppIdType using TypeBox
+    const idParam = req.params?.id;
+    if (!idParam) {
+      throw new Error('ID parameter is required');
+    }
+
+    try {
+      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
+
+      console.log('got to Id response');
+
+      // Get entity by ID from service using custom prepareQuery and postProcess functions
+      const entity = await this.service.getById<IProductWithCategory>(
+        userContext,
+        id,
+        prepareQueryCustom,
+        postProcessEntityCustom);
+
+      console.log('got to Id response 2');
+
+      // Prepare API response
+      apiUtils.apiResponse<IProductWithCategory>(res, 200, { data: entity }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
+    } catch (error: any) {
+      throw new Error(`Invalid ID format: ${error.message || error}`);
+    }
   }
 }
 

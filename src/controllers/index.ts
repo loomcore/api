@@ -8,3 +8,4 @@ export * from './roles.controller.js';
 export * from './authorizations.controller.js';
 export * from './features.controller.js';
 export * from './persons.controller.js';
+export * from './types.js';
