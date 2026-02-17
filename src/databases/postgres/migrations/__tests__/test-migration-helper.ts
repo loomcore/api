@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { Umzug } from 'umzug';
 import { IBaseApiConfig } from '../../../../models/base-api-config.interface.js';
+import { IInitialDbMigrationConfig } from '../../../../models/initial-database-config.interface.js';
 import { getPostgresInitialSchema } from '../postgres-initial-schema.js';
 import { getPostgresTestSchema } from '../../../../__tests__/postgres-test-migrations/postgres-test-schema.js';
 
@@ -9,7 +10,14 @@ import { getPostgresTestSchema } from '../../../../__tests__/postgres-test-migra
  * This is used for tests in the API library to set up the database schema.
  */
 export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiConfig): Promise<void> {
-  const initialSchema = getPostgresInitialSchema(config, { adminUser: { email: 'admin@test.com', password: 'admin-password' } });
+  const migrationConfig: IInitialDbMigrationConfig = {
+    app: config.app,
+    database: config.database,
+    adminUser: (config as any).adminUser ?? { email: 'admin@test.com', password: 'admin-password' },
+    multiTenant: (config as any).multiTenant ?? (config.app.isMultiTenant ? { metaOrgName: 'Test Meta Organization', metaOrgCode: 'TEST_META_ORG' } : { metaOrgName: '', metaOrgCode: '' }),
+    email: config.email,
+  };
+  const initialSchema = getPostgresInitialSchema(migrationConfig);
 
   const umzug = new Umzug({
     migrations: async () => {

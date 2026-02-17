@@ -1,6 +1,6 @@
-import { IBaseApiConfig } from "../../../models/base-api-config.interface.js";
+import { IDatabaseConfig } from "../../../models/database-config.interface.js";
 
-export function buildPostgresUrl(config: IBaseApiConfig): string {
+export function buildPostgresUrl(config: { database: IDatabaseConfig }): string {
   const { database } = config;
 
   if (!database) {
