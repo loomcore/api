@@ -16,7 +16,7 @@ export class MigrationRunner {
   private migrationsDir: string;
   private primaryTimezone: string;
   private dbConnection: Pool | MongoClient | undefined;
-  constructor(dbMigrationConfig: IInitialDbMigrationConfig, resetConfig?: IInitialDbMigrationConfig) {
+  constructor(dbMigrationConfig: IInitialDbMigrationConfig) {
     this.dbMigrationConfig = dbMigrationConfig;
     this.dbType = dbMigrationConfig.app.dbType;
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(dbMigrationConfig) : buildMongoUrl(dbMigrationConfig);
