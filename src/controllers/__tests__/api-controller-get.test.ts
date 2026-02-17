@@ -80,6 +80,9 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
 
     // Assert that the entity and the aggregated data are correct
     const product = pagedResult.entities[0];
+
+    console.log("product", JSON.stringify(product, null, 2));
+
     expect(product._id).toBe(productId);
     expect(product.category).toBeDefined();
     expect(product.category.name).toBe('Test Category');

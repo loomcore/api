@@ -125,6 +125,7 @@ export function transformJoinResults<T>(
 
     return rows.map(row => {
         const transformed: any = {};
+        const joinData: any = {};
 
         // Copy main table columns (those without join prefix or alias)
         for (const key of Object.keys(row)) {
@@ -162,20 +163,20 @@ export function transformJoinResults<T>(
 
                 // Determine where to place this join result
                 if (operation.localField.includes('.')) {
-                    // Nested join: place under referenced join's alias
+                    // Nested join: place under referenced join's alias in _joinData
                     const [tableAlias] = operation.localField.split('.');
                     const relatedJoin = joinOperations.find(j => j.as === tableAlias);
                     const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
 
                     let targetObject: any = null;
-                    // First check top level
-                    if (relatedJoin && transformed[relatedJoin.as]) {
-                        targetObject = transformed[relatedJoin.as];
-                    } else if (relatedJoinThrough && transformed[relatedJoinThrough.as]) {
-                        targetObject = transformed[relatedJoinThrough.as];
+                    // First check in joinData
+                    if (relatedJoin && joinData[relatedJoin.as]) {
+                        targetObject = joinData[relatedJoin.as];
+                    } else if (relatedJoinThrough && joinData[relatedJoinThrough.as]) {
+                        targetObject = joinData[relatedJoinThrough.as];
                     } else {
                         // Search for nested object (could be nested under another join)
-                        const found = findNestedObject(transformed, tableAlias);
+                        const found = findNestedObject(joinData, tableAlias);
                         if (found) {
                             targetObject = found.obj;
                         }
@@ -184,11 +185,11 @@ export function transformJoinResults<T>(
                     if (targetObject) {
                         targetObject[operation.as] = hasAnyData ? joinedData : null;
                     } else {
-                        transformed[operation.as] = hasAnyData ? joinedData : null;
+                        joinData[operation.as] = hasAnyData ? joinedData : null;
                     }
                 } else {
-                    // Top-level join
-                    transformed[operation.as] = hasAnyData ? joinedData : null;
+                    // Top-level join - place in _joinData
+                    joinData[operation.as] = hasAnyData ? joinedData : null;
                 }
 
             } else if (operation instanceof JoinThrough) {
@@ -202,10 +203,10 @@ export function transformJoinResults<T>(
                     const relatedJoinThrough = joinThroughOperations.find(j => j.as === tableAlias);
 
                     let targetObject: any = null;
-                    if (relatedJoin && transformed[relatedJoin.as]) {
-                        targetObject = transformed[relatedJoin.as];
+                    if (relatedJoin && joinData[relatedJoin.as]) {
+                        targetObject = joinData[relatedJoin.as];
                     } else if (relatedJoinThrough) {
-                        const found = findNestedObject(transformed, relatedJoinThrough.as);
+                        const found = findNestedObject(joinData, relatedJoinThrough.as);
                         if (found) {
                             targetObject = found.obj;
                         }
@@ -214,10 +215,10 @@ export function transformJoinResults<T>(
                     if (targetObject) {
                         targetObject[operation.as] = jsonValue;
                     } else {
-                        transformed[operation.as] = jsonValue;
+                        joinData[operation.as] = jsonValue;
                     }
                 } else {
-                    transformed[operation.as] = jsonValue;
+                    joinData[operation.as] = jsonValue;
                 }
 
             } else if (operation instanceof JoinMany) {
@@ -258,26 +259,26 @@ export function transformJoinResults<T>(
                     const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
 
                     let targetObject: any = null;
-                    if (relatedJoin && transformed[relatedJoin.as]) {
-                        targetObject = transformed[relatedJoin.as];
+                    if (relatedJoin && joinData[relatedJoin.as]) {
+                        targetObject = joinData[relatedJoin.as];
                     } else if (relatedJoinThrough) {
-                        const found = findNestedObject(transformed, relatedJoinThrough.as);
+                        const found = findNestedObject(joinData, relatedJoinThrough.as);
                         if (found) {
                             targetObject = found.obj;
                         }
-                    } else if (relatedJoinMany && transformed[relatedJoinMany.as]) {
-                        targetObject = transformed[relatedJoinMany.as];
-                    } else if (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) {
-                        targetObject = transformed[relatedJoinThroughMany.as];
+                    } else if (relatedJoinMany && joinData[relatedJoinMany.as]) {
+                        targetObject = joinData[relatedJoinMany.as];
+                    } else if (relatedJoinThroughMany && joinData[relatedJoinThroughMany.as]) {
+                        targetObject = joinData[relatedJoinThroughMany.as];
                     }
 
                     if (targetObject) {
                         targetObject[operation.as] = parsedValue;
                     } else {
-                        transformed[operation.as] = parsedValue;
+                        joinData[operation.as] = parsedValue;
                     }
                 } else {
-                    transformed[operation.as] = parsedValue;
+                    joinData[operation.as] = parsedValue;
                 }
 
             } else if (operation instanceof JoinThroughMany) {
@@ -318,28 +319,33 @@ export function transformJoinResults<T>(
                     const relatedJoinThroughMany = joinThroughManyOperations.find(j => j.as === tableAlias);
 
                     let targetObject: any = null;
-                    if (relatedJoin && transformed[relatedJoin.as]) {
-                        targetObject = transformed[relatedJoin.as];
+                    if (relatedJoin && joinData[relatedJoin.as]) {
+                        targetObject = joinData[relatedJoin.as];
                     } else if (relatedJoinThrough) {
-                        const found = findNestedObject(transformed, relatedJoinThrough.as);
+                        const found = findNestedObject(joinData, relatedJoinThrough.as);
                         if (found) {
                             targetObject = found.obj;
                         }
-                    } else if (relatedJoinMany && transformed[relatedJoinMany.as]) {
-                        targetObject = transformed[relatedJoinMany.as];
-                    } else if (relatedJoinThroughMany && transformed[relatedJoinThroughMany.as]) {
-                        targetObject = transformed[relatedJoinThroughMany.as];
+                    } else if (relatedJoinMany && joinData[relatedJoinMany.as]) {
+                        targetObject = joinData[relatedJoinMany.as];
+                    } else if (relatedJoinThroughMany && joinData[relatedJoinThroughMany.as]) {
+                        targetObject = joinData[relatedJoinThroughMany.as];
                     }
 
                     if (targetObject) {
                         targetObject[operation.as] = parsedValue;
                     } else {
-                        transformed[operation.as] = parsedValue;
+                        joinData[operation.as] = parsedValue;
                     }
                 } else {
-                    transformed[operation.as] = parsedValue;
+                    joinData[operation.as] = parsedValue;
                 }
             }
+        }
+
+        // Add _joinData if there's any join data
+        if (Object.keys(joinData).length > 0) {
+            transformed._joinData = joinData;
         }
 
         return transformed as T;
