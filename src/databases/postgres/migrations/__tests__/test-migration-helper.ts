@@ -11,6 +11,7 @@ import { getPostgresTestSchema } from '../../../../__tests__/postgres-test-migra
  */
 export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiConfig): Promise<void> {
   const migrationConfig: IInitialDbMigrationConfig = {
+    env: config.env || 'dev',
     app: config.app,
     database: config.database,
     adminUser: (config as any).adminUser ?? { email: 'admin@test.com', password: 'admin-password' },
