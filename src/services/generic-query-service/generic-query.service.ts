@@ -8,8 +8,8 @@
  * @example
  * ```typescript
  * // Create join operations for client-report
- * const joinPerson = new Join('persons', 'person_id', '_id', 'person');
- * const joinEmailAddresses = new JoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
+ * const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'person');
+ * const joinEmailAddresses = new LeftJoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
  * 
  * // Create the service with default operations
  * const clientReportService = new GenericQueryService<IClientReportsModel>(

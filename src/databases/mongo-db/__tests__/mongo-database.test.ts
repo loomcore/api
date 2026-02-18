@@ -7,7 +7,7 @@ import { entityUtils } from '@loomcore/common/utils';
 import { initializeTypeBox, TypeboxIsoDate, TypeboxObjectId } from '@loomcore/common/validation';
 
 import { MongoDBDatabase } from '../mongo-db.database.js';
-import { Join } from '../../operations/join.operation.js';
+import { LeftJoin } from '../../operations/left-join.operation.js';
 import { GenericApiService } from '../../../services/generic-api-service/generic-api.service.js';
 import testUtils from '../../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../../__tests__/test-express-app.js';
@@ -140,7 +140,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       ]);
 
       // Create join operation
-      const joinOperation = new Join(
+      const joinOperation = new LeftJoin(
         'customers',
         'customerId',
         '_id',
@@ -187,7 +187,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       });
 
       // Create join operation
-      const joinOperation = new Join(
+      const joinOperation = new LeftJoin(
         'customers',
         'customerId',
         '_id',
@@ -285,7 +285,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       ]);
 
       // Create join operation
-      const joinOperation = new Join(
+      const joinOperation = new LeftJoin(
         'customers',
         'customerId',
         '_id',
@@ -371,7 +371,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       ]);
 
       // Create join operation
-      const joinOperation = new Join(
+      const joinOperation = new LeftJoin(
         'customers',
         'customerId',
         '_id',
@@ -440,7 +440,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       await ordersCollection.insertMany(orders);
 
       // Create join operation
-      const joinOperation = new Join(
+      const joinOperation = new LeftJoin(
         'customers',
         'customerId',
         '_id',

@@ -34,21 +34,21 @@ export async function fullUpdateById<T extends IEntity>(
 
         // System columns that should be preserved (not updated)
         const preservedColumns = new Set(['_id', '_created', '_createdBy']);
-        
+
         const entityRecord = entity as Record<string, any>;
         const updateColumns: string[] = [];
         const updateValues: any[] = [];
         let paramIndex = 1;
-        
+
         // Build SET clause for all columns
         for (const column of tableColumns.rows) {
             const columnName = column.column_name;
-            
+
             // Skip preserved system columns
             if (preservedColumns.has(columnName)) {
                 continue;
             }
-            
+
             // If entity has a value for this column, use it
             if (columnName in entityRecord && entityRecord[columnName] !== undefined) {
                 updateColumns.push(`"${columnName}" = $${paramIndex}`);
@@ -64,40 +64,40 @@ export async function fullUpdateById<T extends IEntity>(
                 paramIndex++;
             }
         }
-        
+
         if (updateColumns.length === 0) {
             throw new BadRequestError('Cannot perform full update with no fields to update');
         }
-        
+
         // Build SET clause
         const setClause = updateColumns.join(', ');
-        
+
         // Add id as the last parameter for WHERE clause
         const query = `
             UPDATE "${pluralResourceName}"
             SET ${setClause}
             WHERE "_id" = $${paramIndex}
         `;
-        
+
         const result = await client.query(query, [...updateValues, id]);
-        
+
         if (result.rowCount === 0) {
             throw new IdNotFoundError();
         }
 
         // Retrieve updated entity with operations applied
-        const joinClauses = buildJoinClauses(operations);
+        const joinClauses = buildJoinClauses(operations, pluralResourceName);
         const selectQuery = `
             SELECT * FROM "${pluralResourceName}" ${joinClauses}
             WHERE "_id" = $1 LIMIT 1
         `;
 
         const selectResult = await client.query<T>(selectQuery, [id]);
-        
+
         if (selectResult.rows.length === 0) {
             throw new IdNotFoundError();
         }
-        
+
         return selectResult.rows[0];
     }
     catch (err: any) {
@@ -105,7 +105,7 @@ export async function fullUpdateById<T extends IEntity>(
         if (err instanceof IdNotFoundError) {
             throw err;
         }
-        
+
         // PostgreSQL error code 23505 is for unique constraint violations
         if (err.code === '23505') {
             throw new BadRequestError(`${pluralResourceName} has duplicate key violations`);
