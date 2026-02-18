@@ -53,18 +53,7 @@ export function buildJoinClauses(
                 operation.foreignField
             );
             const joinType = operation instanceof InnerJoin ? "INNER JOIN" : "LEFT JOIN";
-
-            if (operation instanceof LeftJoinMany) {
-                // Subquery: one row per foreign key with json_agg(...) AS aggregated
-                // so the main SELECT can use {alias}.aggregated
-                joinClause += ` ${joinType} (
-                    SELECT "${foreignSnake}", json_agg(row_to_json(_many.*)) AS aggregated
-                    FROM "${operation.from}" _many
-                    GROUP BY "${foreignSnake}"
-                ) AS ${operation.as} ON ${localRef} = ${operation.as}."${foreignSnake}"`;
-            } else {
-                joinClause += ` ${joinType} "${operation.from}" AS ${operation.as} ON ${localRef} = ${operation.as}."${foreignSnake}"`;
-            }
+            joinClause = `${joinClause} ${joinType} "${operation.from}" AS ${operation.as} ON ${localRef} = ${operation.as}."${foreignSnake}"`;
         }
     }
     return joinClause;
