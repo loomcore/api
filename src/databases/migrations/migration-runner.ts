@@ -231,8 +231,16 @@ export class MigrationRunner {
   }
 
   // --- Main Entry Point ---
-  public async run(command: 'up' | 'down' | 'reset' = 'up', target?: string) {
+  public async run(command: 'up' | 'down' | 'reset' | 'create' = 'up', target?: string) {
     try {
+      if (command === 'create') {
+        if (!target) {
+          throw new Error('Migration name is required for create. Example: npm run migrate create add-users-table');
+        }
+        await this.create(target);
+        return;
+      }
+
       if (command === 'reset') {
 
         if (!this.dbMigrationConfig) {
