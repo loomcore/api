@@ -3,10 +3,9 @@ import { Client } from 'pg';
 import { TestPostgresDatabase } from '../../../__tests__/postgres.test-database.js';
 import { setupTestConfig } from '../../../__tests__/common-test.utils.js';
 import { PostgresDatabase } from '../../postgres/postgres.database.js';
-import { Join } from '../join.operation.js';
-import { JoinMany } from '../join-many.operation.js';
-import { JoinThroughMany } from '../join-through-many.operation.js';
-import { JoinThrough } from '../join-through.operation.js';
+import { LeftJoin } from '../left-join.operation.js';
+import { LeftJoinMany } from '../left-join-many.operation.js';
+import { InnerJoin } from '../inner-join.operation.js';
 import { Operation } from '../operation.js';
 import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
 import { ITestClientReportsModel, testClientReportsModelSpec } from './models/test-client-report.model.js';
@@ -271,32 +270,25 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
     it.skip('should build a client-report using all join operation types', async () => {
         // Create join operations
         // 1. One-to-one: clients -> persons
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
 
         // 2. One-to-one: clients -> agents
-        const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
+        const joinAgent = new LeftJoin('agents', 'agent_id', '_id', 'agent');
 
         // 3. One-to-one: agent -> persons (nested join)
-        const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agentPerson');
+        const joinAgentPerson = new LeftJoin('persons', 'agent.person_id', '_id', 'agentPerson');
 
         // 4. Many-to-one: persons -> email_addresses (returns array)
         // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
 
         // 5. Many-to-many via join table: persons -> persons_phone_numbers -> phone_numbers (returns array)
-        // Note: localField uses "person._id" to reference the joined person table, not the main clients table
-        const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',           // final table
-            'persons_phone_numbers',   // join table
-            'clientPerson._id',       // local field (clientPerson._id) - references joined person table
-            'person_id',               // join table local field
-            'phone_number_id',         // join table foreign field
-            '_id',                     // foreign field (phone_number._id)
-            'clientPhoneNumbers'     // alias
-        );
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        // For now, skipping this test case
+        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
 
         // 6. Many-to-one: clients -> policies (returns array)
-        const joinPolicies = new JoinMany(
+        const joinPolicies = new LeftJoinMany(
             'policies',                // final table
             '_id',                     // local field (clients._id)
             'client_id',               // foreign field (policy.client_id)
@@ -304,18 +296,12 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
         );
 
         // 7. Many-to-many via join table: policies -> agents_policies -> agents (returns array)
-        const joinPolicyAgents = new JoinThroughMany(
-            'agents',                  // final table
-            'agents_policies',         // join table
-            'clientPolicies._id',     // local field (clientPolicies._id) - references joined policies array
-            'policy_id',               // join table local field
-            'agent_id',               // join table foreign field
-            '_id',                     // foreign field (agent._id)
-            'policyAgents'            // alias (nested under each policy, different from top-level 'agents')
-        );
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        // For now, skipping this test case
+        const joinPolicyAgents = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
 
         // 8. Many-to-one: policies -> premiums (returns array)
-        const joinPremiums = new JoinMany(
+        const joinPremiums = new LeftJoinMany(
             'premiums',                // final table
             'clientPolicies._id',     // local field (clientPolicies._id) - references joined policies array
             'policy_id',               // foreign field (premium.policy_id)
@@ -324,7 +310,7 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
 
         // Note: Person joins for agents nested in policies are handled in the SQL enrichment
         // We'll need to update build-join-clauses to handle this case
-        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
+        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPolicies, joinPremiums].filter(op => op !== null) as Operation[];
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
@@ -480,42 +466,28 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
 
     it.skip('should handle get() query with joins and return paginated results', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
-        const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
-        const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agentPerson');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
-        const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',
-            'persons_phone_numbers',
-            'clientPerson._id',
-            'person_id',
-            'phone_number_id',
-            '_id',
-            'clientPhoneNumbers'
-        );
-        const joinPolicies = new JoinMany(
+        const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
+        const joinAgent = new LeftJoin('agents', 'agent_id', '_id', 'agent');
+        const joinAgentPerson = new LeftJoin('persons', 'agent.person_id', '_id', 'agentPerson');
+        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPolicies = new LeftJoinMany(
             'policies',
             '_id',
             'client_id',
             'clientPolicies'
         );
-        const joinPolicyAgents = new JoinThroughMany(
-            'agents',
-            'agents_policies',
-            'clientPolicies._id',
-            'policy_id',
-            'agent_id',
-            '_id',
-            'policyAgents'
-        );
-        const joinPremiums = new JoinMany(
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        const joinPolicyAgents = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPremiums = new LeftJoinMany(
             'premiums',
             'clientPolicies._id',
             'policy_id',
             'policyPremiums'
         );
 
-        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
+        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPolicies, joinPremiums].filter(op => op !== null) as Operation[];
 
         // Query using get with pagination
         const queryOptions: IQueryOptions = {
@@ -550,42 +522,28 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
 
     it.skip('should handle getAll() query with joins', async () => {
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
-        const joinAgent = new Join('agents', 'agent_id', '_id', 'agent');
-        const joinAgentPerson = new Join('persons', 'agent.person_id', '_id', 'agentPerson');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
-        const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',
-            'persons_phone_numbers',
-            'clientPerson._id',
-            'person_id',
-            'phone_number_id',
-            '_id',
-            'clientPhoneNumbers'
-        );
-        const joinPolicies = new JoinMany(
+        const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
+        const joinAgent = new LeftJoin('agents', 'agent_id', '_id', 'agent');
+        const joinAgentPerson = new LeftJoin('persons', 'agent.person_id', '_id', 'agentPerson');
+        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPolicies = new LeftJoinMany(
             'policies',
             '_id',
             'client_id',
             'clientPolicies'
         );
-        const joinPolicyAgents = new JoinThroughMany(
-            'agents',
-            'agents_policies',
-            'clientPolicies._id',
-            'policy_id',
-            'agent_id',
-            '_id',
-            'policyAgents'
-        );
-        const joinPremiums = new JoinMany(
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        const joinPolicyAgents = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
+        const joinPremiums = new LeftJoinMany(
             'premiums',
             'clientPolicies._id',
             'policy_id',
             'policyPremiums'
         );
 
-        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPhoneNumbers, joinPolicies, joinPolicyAgents, joinPremiums];
+        const operations: Operation[] = [joinPerson, joinAgent, joinAgentPerson, joinEmailAddresses, joinPolicies, joinPremiums].filter(op => op !== null) as Operation[];
 
         // Query using getAll
         const results = await database.getAll<ITestClientReportsModel>(
@@ -626,20 +584,13 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
         const newClientId = clientResult.rows[0]._id;
 
         // Create join operations
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
-        const joinEmailAddresses = new JoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
+        const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
+        const joinEmailAddresses = new LeftJoinMany('email_addresses', 'clientPerson._id', 'person_id', 'clientEmailAddresses');
 
-        const joinPhoneNumbers = new JoinThroughMany(
-            'phone_numbers',
-            'persons_phone_numbers',
-            'clientPerson._id',
-            'person_id',
-            'phone_number_id',
-            '_id',
-            'clientPhoneNumbers'
-        );
+        // Note: JoinThroughMany removed - would need to be replaced with InnerJoin + LeftJoinMany combination
+        const joinPhoneNumbers = null; // TODO: Replace with InnerJoin + LeftJoinMany combination
 
-        const operations: Operation[] = [joinPerson, joinEmailAddresses, joinPhoneNumbers];
+        const operations: Operation[] = [joinPerson, joinEmailAddresses].filter(op => op !== null) as Operation[];
 
         // Query the new client
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
@@ -664,26 +615,19 @@ describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
     it.skip('should join through join table to get single school and then join to district and state', async () => {
         // Create join operations
         // 1. One-to-one: clients -> persons
-        const joinPerson = new Join('persons', 'person_id', '_id', 'clientPerson');
+        const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
 
         // 2. JoinThrough (singular): clientPerson -> persons_schools -> schools
-        const joinSchool = new JoinThrough(
-            'schools',              // final table
-            'persons_schools',      // join table
-            'clientPerson._id',    // local field (clientPerson._id) - references joined person table
-            'person_id',            // join table local field
-            'school_id',           // join table foreign field
-            '_id',                 // foreign field (school._id)
-            'school'               // alias (singular - returns single object)
-        );
+        // Note: JoinThrough removed - would need to be replaced with InnerJoin + LeftJoin combination
+        const joinSchool = null; // TODO: Replace with InnerJoin + LeftJoin combination
 
         // 3. Join: school -> district
-        const joinDistrict = new Join('districts', 'school.district_id', '_id', 'district');
+        const joinDistrict = new LeftJoin('districts', 'school.district_id', '_id', 'district');
 
         // 4. Join: district -> state
-        const joinState = new Join('states', 'district.state_id', '_id', 'state');
+        const joinState = new LeftJoin('states', 'district.state_id', '_id', 'state');
 
-        const operations: Operation[] = [joinPerson, joinSchool, joinDistrict, joinState];
+        const operations: Operation[] = [joinPerson, joinDistrict, joinState].filter(op => op !== null) as Operation[];
 
         // Query using getById
         const queryOptions: IQueryOptions = { ...DefaultQueryOptions };

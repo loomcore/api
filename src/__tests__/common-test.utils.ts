@@ -10,7 +10,7 @@ import { JwtService } from '../services/jwt.service.js';
 import { ApiController } from '../controllers/api.controller.js';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
-import { Join } from '../databases/operations/join.operation.js';
+import { LeftJoin } from '../databases/operations/left-join.operation.js';
 import { OrganizationService } from '../services/organization.service.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
@@ -357,7 +357,7 @@ const prepareQueryCustom: PrepareQueryCustomFunction =
       queryObject: queryObject,
       operations: [
         ...operations,
-        new Join('categories', 'categoryId', '_id', 'category')
+        new LeftJoin('categories', 'categoryId', '_id', 'category')
       ]
     };
   };

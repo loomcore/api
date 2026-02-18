@@ -1,5 +1,6 @@
 import { Operation } from "../../operations/operation.js";
-import { Join } from "../../operations/join.operation.js";
+import { LeftJoin } from "../../operations/left-join.operation.js";
+import { InnerJoin } from "../../operations/inner-join.operation.js";
 import { toSnakeCase } from "./convert-keys.util.js";
 
 /**
@@ -32,8 +33,8 @@ function resolveLocalField(
 }
 
 /**
- * Builds SQL LEFT JOIN clauses for Join operations (one-to-one).
- * Only supports the basic Join operator; other operation types are ignored.
+ * Builds SQL JOIN clauses for LeftJoin, InnerJoin, and LeftJoinMany operations.
+ * LeftJoinMany operations are handled separately via aggregation, so they are ignored here.
  */
 export function buildJoinClauses(
     operations: Operation[],
@@ -41,7 +42,7 @@ export function buildJoinClauses(
 ): string {
     let joinClause = "";
     for (const operation of operations) {
-        if (operation instanceof Join) {
+        if (operation instanceof LeftJoin) {
             const localRef = resolveLocalField(
                 operation.localField,
                 mainTableName
@@ -50,7 +51,17 @@ export function buildJoinClauses(
                 operation.foreignField
             );
             joinClause += ` LEFT JOIN "${operation.from}" AS ${operation.as} ON ${localRef} = ${operation.as}."${foreignSnake}"`;
+        } else if (operation instanceof InnerJoin) {
+            const localRef = resolveLocalField(
+                operation.localField,
+                mainTableName
+            );
+            const foreignSnake = convertFieldToSnakeCase(
+                operation.foreignField
+            );
+            joinClause += ` INNER JOIN "${operation.from}" AS ${operation.as} ON ${localRef} = ${operation.as}."${foreignSnake}"`;
         }
+        // LeftJoinMany operations are handled via aggregation, not SQL joins
     }
     return joinClause;
 }
