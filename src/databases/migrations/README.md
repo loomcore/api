@@ -83,4 +83,3 @@ After creating the `migrate.ts` file, add a single npm script to your `package.j
 - For PostgreSQL, migrations are `.sql` files with `-- up` and `-- down` sections
 - For MongoDB, migrations are `.ts` files that export `up` and `down` functions
 - Migration files are automatically prefixed with a timestamp (YYYYMMDDHHMMSS) based on your configured timezone
-
