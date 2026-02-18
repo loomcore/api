@@ -42,7 +42,7 @@ export async function partialUpdateById<T extends IEntity>(
         }
 
         // Retrieve updated entity with operations applied
-        const joinClauses = buildJoinClauses(operations);
+        const joinClauses = buildJoinClauses(operations, pluralResourceName);
         const selectQuery = `
             SELECT * FROM "${pluralResourceName}" ${joinClauses}
             WHERE "_id" = $1 LIMIT 1

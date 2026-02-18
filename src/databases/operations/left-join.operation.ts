@@ -1,13 +1,11 @@
 /**
- * A join operation that returns an array of related records (many-to-one relationship)
- * For example: persons -> email_addresses (a person can have multiple email addresses)
- * 
+ * A left outer join operation (one-to-one relationship)
  * @field from: Specifies the foreign collection or table in the same database to join to the local collection or table.
  * @field localField: Specifies the field to match on for the current collection or table.
  * @field foreignField: Specifies the field to match on for the foreign collection or table.
- * @field as: Specifies the name of the new field to add to the input (will be an array).
+ * @field as: Specifies the name of the new field to add to the input.
  */
-export class JoinMany {
+export class LeftJoin {
     from: string;
     localField: string;
     foreignField: string;
@@ -20,7 +18,7 @@ export class JoinMany {
         as: string,
     ) {
         if (from === as) {
-            throw new Error(`JoinMany alias "${as}" must be different from table name "${from}". The alias is used to identify the join result and must be unique.`);
+            throw new Error(`LeftJoin alias "${as}" must be different from table name "${from}". The alias is used to identify the join result and must be unique.`);
         }
         this.from = from;
         this.localField = localField;
