@@ -10,7 +10,7 @@ import { JwtService } from '../services/jwt.service.js';
 import { ApiController } from '../controllers/api.controller.js';
 import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
 import { Operation } from '../databases/operations/operation.js';
-import { Join } from '../databases/operations/join.operation.js';
+import { LeftJoin } from '../databases/operations/left-join.operation.js';
 import { OrganizationService } from '../services/organization.service.js';
 import { AuthService, GenericApiService } from '../services/index.js';
 import { ObjectId } from 'mongodb';
@@ -357,7 +357,7 @@ const prepareQueryCustom: PrepareQueryCustomFunction =
       queryObject: queryObject,
       operations: [
         ...operations,
-        new Join('categories', 'categoryId', '_id', 'category')
+        new LeftJoin('categories', 'categoryId', '_id', 'category')
       ]
     };
   };
@@ -439,16 +439,12 @@ export class ProductsController extends ApiController<IProduct> {
     try {
       const id = Value.Convert(this.idSchema, idParam) as AppIdType;
 
-      console.log('got to Id response');
-
       // Get entity by ID from service using custom prepareQuery and postProcess functions
       const entity = await this.service.getById<IProductWithCategory>(
         userContext,
         id,
         prepareQueryCustom,
         postProcessEntityCustom);
-
-      console.log('got to Id response 2');
 
       // Prepare API response
       apiUtils.apiResponse<IProductWithCategory>(res, 200, { data: entity }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
@@ -469,7 +465,7 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
   override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
     const newOperations = [
       ...operations,
-      new Join('categories', 'categoryId', '_id', 'category')
+      new LeftJoin('categories', 'categoryId', '_id', 'category')
     ];
 
     return super.prepareQuery(userContext, queryObject, newOperations);
