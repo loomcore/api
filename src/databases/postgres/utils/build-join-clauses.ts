@@ -36,15 +36,16 @@ function resolveLocalField(
 /**
  * Builds SQL JOIN clauses for join operations.
  * Supports LeftJoin (LEFT JOIN), InnerJoin (INNER JOIN), and LeftJoinMany (LEFT JOIN with JSON aggregation).
- * LeftJoinMany uses a subquery that aggregates the many-side rows into a single "aggregated" JSON array per group.
+ * LeftJoinMany is not joined here; the SELECT clause uses a scalar subquery with jsonb_agg for each.
  */
 export function buildJoinClauses(
     operations: Operation[],
     mainTableName: string
 ): string {
+    // Only add JOIN for one-to-one (LeftJoin, InnerJoin). LeftJoinMany is handled in the SELECT via scalar subquery.
     let joinClause = "";
     for (const operation of operations) {
-        if (operation instanceof LeftJoin || operation instanceof InnerJoin || operation instanceof LeftJoinMany) {
+        if (operation instanceof LeftJoin || operation instanceof InnerJoin) {
             const localRef = resolveLocalField(
                 operation.localField,
                 mainTableName

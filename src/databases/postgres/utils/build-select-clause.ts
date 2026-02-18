@@ -3,6 +3,33 @@ import { Operation } from '../../operations/operation.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
+import { toSnakeCase } from './convert-keys.util.js';
+
+/**
+ * Converts a field name to snake_case for database column names.
+ * Preserves keys that start with underscore (e.g. _id).
+ */
+function convertFieldToSnakeCase(field: string): string {
+    if (field.startsWith('_')) {
+        return field;
+    }
+    return toSnakeCase(field);
+}
+
+/**
+ * Resolves the local side of a join to a SQL expression (for use in scalar subquery correlation).
+ * - Direct: "categoryId" -> "mainTable"."category_id"
+ * - Nested: "clients._id" -> clients."_id"
+ */
+function resolveLocalRef(localField: string, mainTableName: string): string {
+    if (!localField.includes('.')) {
+        const snake = convertFieldToSnakeCase(localField);
+        return `"${mainTableName}"."${snake}"`;
+    }
+    const [alias, field] = localField.split('.');
+    const snake = convertFieldToSnakeCase(field);
+    return `${alias}."${snake}"`;
+}
 
 /**
  * Gets column names for a table from PostgreSQL information_schema
@@ -49,7 +76,7 @@ function findEnrichmentTarget(
  * 
  * - Main table: all columns with table prefix
  * - LeftJoin/InnerJoin (one-to-one): columns prefixed with alias (e.g., "category__id")
- * - LeftJoinMany (arrays): JSON aggregated column
+ * - LeftJoinMany (arrays): scalar subquery with jsonb_agg(jsonb_build_object(...))
  */
 export async function buildSelectClause(
     client: Client,
@@ -75,15 +102,20 @@ export async function buildSelectClause(
         }
     }
 
-    // LeftJoinMany: JSON array
+    // LeftJoinMany: scalar subquery with jsonb_agg and jsonb_build_object (no .aggregated)
     // Skip enrichment operations - they're embedded in their target joins
     for (const joinMany of leftJoinManyOperations) {
         const enrichment = findEnrichmentTarget(joinMany, operations);
         if (enrichment) {
-            // This is an enrichment operation - skip it (it's embedded in the target)
             continue;
         }
-        joinSelects.push(`${joinMany.as}.aggregated AS "${joinMany.as}"`);
+        const manyColumns = await getTableColumns(client, joinMany.from);
+        const foreignSnake = convertFieldToSnakeCase(joinMany.foreignField);
+        const localRef = resolveLocalRef(joinMany.localField, mainTableName);
+        const subAlias = `_sub_${joinMany.as}`;
+        const objParts = manyColumns.map(c => `'${c.replace(/'/g, "''")}', ${subAlias}."${c}"`).join(', ');
+        const subquery = `(SELECT COALESCE(jsonb_agg(jsonb_build_object(${objParts})), '[]'::jsonb) FROM "${joinMany.from}" AS ${subAlias} WHERE ${subAlias}."${foreignSnake}" = ${localRef})`;
+        joinSelects.push(`${subquery} AS "${joinMany.as}"`);
     }
 
     // Combine all selects
