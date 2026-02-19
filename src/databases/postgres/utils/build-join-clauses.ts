@@ -16,46 +16,31 @@ function convertFieldToSnakeCase(field: string): string {
 }
 
 /**
- * Resolves a local field reference to a SQL expression for use in JOIN ON clauses.
- * - Direct main table: "person_id" -> "main_table"."person_id" (snake_case)
- * - Joined table: "alias.field" -> alias."field" (snake_case)
- */
-function resolveLocalField(
-    localField: string,
-    mainTableName: string
-): string {
-    if (!localField.includes(".")) {
-        const snake = convertFieldToSnakeCase(localField);
-        return `"${mainTableName}"."${snake}"`;
-    }
-    const [alias, field] = localField.split(".");
-    const snake = convertFieldToSnakeCase(field);
-    return `${alias}."${snake}"`;
-}
-
-/**
  * Builds SQL JOIN clauses for join operations.
  * Supports LeftJoin (LEFT JOIN), InnerJoin (INNER JOIN), and LeftJoinMany (LEFT JOIN with JSON aggregation).
  * LeftJoinMany is not joined here; the SELECT clause uses a scalar subquery with jsonb_agg for each.
+ * @param operations - Join operations to build clauses for
+ * @param mainTableName - Optional main table name; when provided, the join table is aliased (AS) and the ON clause left side is qualified for clarity
  */
 export function buildJoinClauses(
     operations: Operation[],
-    mainTableName: string
+    mainTableName?: string
 ): string {
-    // Only add JOIN for one-to-one (LeftJoin, InnerJoin). LeftJoinMany is handled in the SELECT via scalar subquery.
-    let joinClause = "";
+    let joinClauses = [];
     for (const operation of operations) {
         if (operation instanceof LeftJoin || operation instanceof InnerJoin) {
-            const localRef = resolveLocalField(
-                operation.localField,
-                mainTableName
+            const localRef = convertFieldToSnakeCase(
+                operation.localField
             );
             const foreignSnake = convertFieldToSnakeCase(
                 operation.foreignField
             );
             const joinType = operation instanceof InnerJoin ? "INNER JOIN" : "LEFT JOIN";
-            joinClause = `${joinClause} ${joinType} "${operation.from}" AS ${operation.as} ON ${localRef} = ${operation.as}."${foreignSnake}"`;
+            // Alias the join table so SELECT clause can reference operation.as (e.g. category."_id")
+            const joinTable = `"${operation.from}" AS "${operation.as}"`;
+            const leftSide = mainTableName ? `"${mainTableName}"."${localRef}"` : localRef;
+            joinClauses.push(`${joinType} ${joinTable} ON ${leftSide} = ${operation.as}."${foreignSnake}"`);
         }
     }
-    return joinClause;
+    return joinClauses.join('\n');
 }

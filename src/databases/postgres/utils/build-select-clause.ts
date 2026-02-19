@@ -54,7 +54,6 @@ function findEnrichmentTarget(
 export async function buildSelectClause(
     client: Client,
     mainTableName: string,
-    mainTableAlias: string,
     operations: Operation[]
 ): Promise<string> {
     const leftJoinOperations = operations.filter(op => op instanceof LeftJoin) as LeftJoin[];
@@ -77,5 +76,5 @@ export async function buildSelectClause(
 
     // Combine all selects
     const allSelects = [...mainSelects, ...joinSelects];
-    return allSelects.join(', ');
+    return allSelects.join(',\n');
 }
