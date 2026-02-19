@@ -4,15 +4,44 @@ import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 
 /**
- * Parses a value that may be JSON (string or already parsed) into an object or array.
+ * Finds a nested object in the transformed result by alias.
+ * Used to locate where nested joins should be placed.
  */
-function parseJsonValue(value: unknown): unknown {
+function findNestedObject(obj: any, alias: string, path: string[] = []): { obj: any; path: string[] } | null {
+    if (obj[alias] !== undefined && obj[alias] !== null) {
+        return { obj: obj[alias], path: [...path, alias] };
+    }
+    for (const key in obj) {
+        if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+            const found = findNestedObject(obj[key], alias, [...path, key]);
+            if (found !== null) {
+                return found;
+            }
+        } else if (Array.isArray(obj[key])) {
+            // Also search in arrays
+            for (const item of obj[key]) {
+                if (item && typeof item === 'object') {
+                    const found = findNestedObject(item, alias, [...path, key]);
+                    if (found !== null) {
+                        return found;
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Parses a JSON value (string or already parsed) into an object or array.
+ */
+function parseJsonValue(value: any): any {
     if (value === null || value === undefined) {
         return null;
     }
     if (typeof value === 'string') {
         try {
-            return JSON.parse(value) as unknown;
+            return JSON.parse(value);
         } catch {
             return value;
         }
@@ -21,122 +50,120 @@ function parseJsonValue(value: unknown): unknown {
 }
 
 /**
- * Returns the set of join aliases and a map of alias -> parent alias (null when top-level).
- */
-function getJoinAliasesAndParents(operations: Operation[]): { aliases: Set<string>; parentByAlias: Map<string, string | null> } {
-    const aliases = new Set<string>();
-    const parentByAlias = new Map<string, string | null>();
-    for (const op of operations) {
-        if (op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany) {
-            aliases.add(op.as);
-            const parent = op.localField.includes('.') ? op.localField.split('.')[0] : null;
-            parentByAlias.set(op.as, parent);
-        }
-    }
-    return { aliases, parentByAlias };
-}
-
-const PREFIX_SEP = '__';
-
-/**
- * Places a join value into joinData at the correct path (top-level or nested under parent).
- * When a child references a parent that is a LeftJoinMany (array), keep the parent as an array
- * and place the child at top level (since arrays can't have nested properties).
- */
-function setJoinValue(
-    joinData: Record<string, unknown>,
-    alias: string,
-    value: unknown,
-    parentByAlias: Map<string, string | null>,
-    operations: Operation[]
-): void {
-    const parent = parentByAlias.get(alias) ?? null;
-    if (parent) {
-        const parentValue = joinData[parent];
-        // Check if parent is a LeftJoinMany (array)
-        const parentOp = operations.find(
-            op => (op instanceof LeftJoinMany || op instanceof LeftJoin || op instanceof InnerJoin) && op.as === parent
-        );
-        const isParentArray = parentOp instanceof LeftJoinMany;
-        
-        if (isParentArray && Array.isArray(parentValue)) {
-            // Parent is an array - can't nest under it, so place child at top level
-            // The array structure is preserved
-            joinData[alias] = value;
-        } else {
-            // Parent is an object (LeftJoin/InnerJoin) - nest the child under it
-            let parentObj = parentValue;
-            if (parentObj == null || typeof parentObj !== 'object' || Array.isArray(parentObj)) {
-                parentObj = {};
-                joinData[parent] = parentObj;
-            }
-            (parentObj as Record<string, unknown>)[alias] = value;
-        }
-    } else {
-        joinData[alias] = value;
-    }
-}
-
-/**
- * Transforms PostgreSQL JOIN results into nested objects.
- *
- * Supports two row shapes:
- * 1. JSON columns: one column per join alias (from jsonb_build_object / jsonb_agg). Placed under _joinData, nested when localField references another join (e.g. "clients._id").
- * 2. Prefixed columns: alias__column. Grouped into _joinData[alias], nested under parent when localField references another join.
- *
- * Main table columns are copied to the top level.
+ * Transforms PostgreSQL JOIN results with prefixed columns into nested objects.
  */
 export function transformJoinResults<T>(
-    rows: Record<string, unknown>[],
+    rows: any[],
     operations: Operation[]
 ): T[] {
-    const { aliases: joinAliases, parentByAlias } = getJoinAliasesAndParents(operations);
+    const leftJoinOperations = operations.filter(op => op instanceof LeftJoin) as LeftJoin[];
+    const innerJoinOperations = operations.filter(op => op instanceof InnerJoin) as InnerJoin[];
+    const leftJoinManyOperations = operations.filter(op => op instanceof LeftJoinMany) as LeftJoinMany[];
+    const allJoinOperations = [...leftJoinOperations, ...innerJoinOperations, ...leftJoinManyOperations];
 
-    if (joinAliases.size === 0) {
+    // If no joins, return rows as-is
+    if (
+        allJoinOperations.length === 0
+    ) {
         return rows as T[];
     }
 
-    return rows.map((row) => {
-        const transformed: Record<string, unknown> = {};
-        const flatJoinValues: Record<string, unknown> = {};
-        const prefixedByAlias: Record<string, Record<string, unknown>> = {};
+    // Collect all join aliases
+    const allJoinAliases = allJoinOperations.map(j => j.as);
 
+    return rows.map(row => {
+        const transformed: any = {};
+        const joinData: any = {};
+
+        // Copy main table columns (those without join prefix or alias)
         for (const key of Object.keys(row)) {
-            if (joinAliases.has(key)) {
-                flatJoinValues[key] = parseJsonValue(row[key]);
-            } else if (key.includes(PREFIX_SEP)) {
-                const i = key.indexOf(PREFIX_SEP);
-                const alias = key.slice(0, i);
-                const column = key.slice(i + PREFIX_SEP.length);
-                if (joinAliases.has(alias)) {
-                    if (!prefixedByAlias[alias]) prefixedByAlias[alias] = {};
-                    prefixedByAlias[alias][column] = row[key];
-                } else {
-                    transformed[key] = row[key];
-                }
-            } else {
+            const hasJoinPrefix = allJoinOperations.some(join => key.startsWith(`${join.as}__`));
+            const isJoinAlias = allJoinAliases.includes(key);
+
+            if (!hasJoinPrefix && !isJoinAlias) {
                 transformed[key] = row[key];
             }
         }
 
-        for (const alias of Object.keys(prefixedByAlias)) {
-            const obj = prefixedByAlias[alias];
-            const hasAny = Object.values(obj).some(v => v !== null && v !== undefined);
-            if (!(alias in flatJoinValues)) {
-                flatJoinValues[alias] = hasAny ? obj : null;
+        // Process operations in order to handle dependencies
+        for (const operation of operations) {
+            if (operation instanceof LeftJoin || operation instanceof InnerJoin) {
+                // One-to-one join: group prefixed columns into nested object
+                const prefix = `${operation.as}__`;
+                const joinedData: any = {};
+                let hasAnyData = false;
+
+                for (const key of Object.keys(row)) {
+                    if (key.startsWith(prefix)) {
+                        const columnName = key.substring(prefix.length);
+                        const value = row[key];
+                        joinedData[columnName] = value;
+                        if (value !== null && value !== undefined) {
+                            hasAnyData = true;
+                        }
+                    }
+                }
+
+                // Determine where to place this join result
+                if (operation.localField.includes('.')) {
+                    // Nested join: place under referenced join's alias in _joinData
+                    const [tableAlias] = operation.localField.split('.');
+                    const relatedJoin = allJoinOperations.find(j => j.as === tableAlias);
+
+                    let targetObject: any = null;
+                    // First check in joinData
+                    if (relatedJoin && joinData[relatedJoin.as]) {
+                        targetObject = joinData[relatedJoin.as];
+                    } else {
+                        // Search for nested object (could be nested under another join)
+                        const found = findNestedObject(joinData, tableAlias);
+                        if (found) {
+                            targetObject = found.obj;
+                        }
+                    }
+
+                    if (targetObject) {
+                        targetObject[operation.as] = hasAnyData ? joinedData : null;
+                    } else {
+                        joinData[operation.as] = hasAnyData ? joinedData : null;
+                    }
+                } else {
+                    // Top-level join - place in _joinData
+                    joinData[operation.as] = hasAnyData ? joinedData : null;
+                }
+
+            } else if (operation instanceof LeftJoinMany) {
+                // Array join (many-to-one)
+                const jsonValue = parseJsonValue(row[operation.as]);
+                let parsedValue = Array.isArray(jsonValue) ? jsonValue : (jsonValue ? [jsonValue] : []);
+
+
+                if (operation.localField.includes('.')) {
+                    // Nested join: reference to another join's alias
+                    const [tableAlias] = operation.localField.split('.');
+
+                    const relatedJoin = allJoinOperations.find(j => j.as === tableAlias);
+                    const relatedJoinMany = leftJoinManyOperations.find(j => j.as === tableAlias);
+
+                    let targetObject: any = null;
+                    if (relatedJoin && joinData[relatedJoin.as]) {
+                        targetObject = joinData[relatedJoin.as];
+                    } else if (relatedJoinMany && joinData[relatedJoinMany.as]) {
+                        targetObject = joinData[relatedJoinMany.as];
+                    }
+
+                    if (targetObject) {
+                        targetObject[operation.as] = parsedValue;
+                    } else {
+                        joinData[operation.as] = parsedValue;
+                    }
+                } else {
+                    joinData[operation.as] = parsedValue;
+                }
             }
         }
 
-        // Build nested _joinData in operation order so parents exist before children
-        const joinData: Record<string, unknown> = {};
-        for (const op of operations) {
-            if (!(op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany)) continue;
-            const alias = op.as;
-            const value = flatJoinValues[alias];
-            if (value === undefined) continue;
-            setJoinValue(joinData, alias, value, parentByAlias, operations);
-        }
-
+        // Add _joinData if there's any join data
         if (Object.keys(joinData).length > 0) {
             transformed._joinData = joinData;
         }
