@@ -76,5 +76,5 @@ export async function buildSelectClause(
 
     // Combine all selects
     const allSelects = [...mainSelects, ...joinSelects];
-    return allSelects.join(',\n');
+    return allSelects.join(', ');
 }
