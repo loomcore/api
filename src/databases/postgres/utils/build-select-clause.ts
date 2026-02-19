@@ -20,14 +20,36 @@ function convertFieldToSnakeCase(field: string): string {
  * Resolves the local side of a join to a SQL expression (for use in scalar subquery correlation).
  * - Direct: "categoryId" -> "mainTable"."category_id"
  * - Nested: "clients._id" -> clients."_id"
+ * - LeftJoinMany array: "client_policies._id" -> extracts _id values from JSON array
  */
-function resolveLocalRef(localField: string, mainTableName: string): string {
+function resolveLocalRef(
+    localField: string,
+    mainTableName: string,
+    operations: Operation[],
+    currentIndex: number
+): string {
     if (!localField.includes('.')) {
         const snake = convertFieldToSnakeCase(localField);
         return `"${mainTableName}"."${snake}"`;
     }
     const [alias, field] = localField.split('.');
     const snake = convertFieldToSnakeCase(field);
+    
+    // Check if alias references a previous LeftJoinMany (which is a JSON array, not a table)
+    const priorOps = operations.slice(0, currentIndex);
+    const leftJoinMany = priorOps.find(
+        (op): op is LeftJoinMany => op instanceof LeftJoinMany && op.as === alias
+    );
+    
+    if (leftJoinMany) {
+        // Extract field values from the JSON array as a subquery for use with IN
+        // Cast to appropriate type based on field name (assume integer for _id, text otherwise)
+        const castType = field === '_id' || snake === '_id' ? '::int' : '::text';
+        const elemAlias = `_elem_${alias}`;
+        return `(SELECT (${elemAlias}->>'${snake}')${castType} FROM jsonb_array_elements("${alias}") AS ${elemAlias})`;
+    }
+    
+    // Regular table alias reference
     return `${alias}."${snake}"`;
 }
 
@@ -103,18 +125,72 @@ export async function buildSelectClause(
     }
 
     // LeftJoinMany: scalar subquery with jsonb_agg and jsonb_build_object (no .aggregated)
-    // Skip enrichment operations - they're embedded in their target joins
-    for (const joinMany of leftJoinManyOperations) {
-        const enrichment = findEnrichmentTarget(joinMany, operations);
-        if (enrichment) {
-            continue;
-        }
+    // Note: All LeftJoinMany operations are queried here; nesting/placement is handled in transform step
+    for (let i = 0; i < leftJoinManyOperations.length; i++) {
+        const joinMany = leftJoinManyOperations[i];
         const manyColumns = await getTableColumns(client, joinMany.from);
         const foreignSnake = convertFieldToSnakeCase(joinMany.foreignField);
-        const localRef = resolveLocalRef(joinMany.localField, mainTableName);
+        const currentOpIndex = operations.indexOf(joinMany);
+        const localRef = resolveLocalRef(joinMany.localField, mainTableName, operations, currentOpIndex);
         const subAlias = `_sub_${joinMany.as}`;
         const objParts = manyColumns.map(c => `'${c.replace(/'/g, "''")}', ${subAlias}."${c}"`).join(', ');
-        const subquery = `(SELECT COALESCE(jsonb_agg(jsonb_build_object(${objParts})), '[]'::jsonb) FROM "${joinMany.from}" AS ${subAlias} WHERE ${subAlias}."${foreignSnake}" = ${localRef})`;
+        
+        // Check if localField references a previous LeftJoinMany (which is a JSON array column)
+        const priorOps = operations.slice(0, currentOpIndex);
+        const referencedLeftJoinMany = joinMany.localField.includes('.') 
+            ? priorOps.find(
+                (op): op is LeftJoinMany => 
+                    op instanceof LeftJoinMany && op.as === joinMany.localField.split('.')[0]
+            )
+            : null;
+        
+        let whereClause: string;
+        if (referencedLeftJoinMany) {
+            // Instead of referencing the JSON array column (which we can't do in same SELECT),
+            // inline the previous LeftJoinMany's condition by referencing the original source
+            const [prevAlias, fieldName] = joinMany.localField.split('.');
+            const prevFieldSnake = convertFieldToSnakeCase(fieldName);
+            
+            // Recursively resolve the localField of the referenced LeftJoinMany to build nested IN queries
+            // This handles chained LeftJoinMany (e.g., client_policies -> client_agents_policies -> client_policies_agents)
+            // Returns a subquery that extracts the field value from the chain
+            const buildNestedInQuery = (refOp: LeftJoinMany, extractField: string): string => {
+                const extractFieldSnake = convertFieldToSnakeCase(extractField);
+                const refForeignSnake = convertFieldToSnakeCase(refOp.foreignField);
+                
+                if (!refOp.localField.includes('.')) {
+                    // Base case: refOp references main table directly
+                    const refLocalSnake = convertFieldToSnakeCase(refOp.localField);
+                    return `(SELECT "${extractFieldSnake}" FROM "${refOp.from}" WHERE "${refOp.from}"."${refForeignSnake}" = "${mainTableName}"."${refLocalSnake}")`;
+                }
+                
+                // Recursive case: refOp references another LeftJoinMany
+                const [parentAlias, parentField] = refOp.localField.split('.');
+                const parentOpIndex = operations.indexOf(refOp);
+                const parentOp = operations.slice(0, parentOpIndex).find(
+                    (op): op is LeftJoinMany => op instanceof LeftJoinMany && op.as === parentAlias
+                );
+                
+                if (parentOp) {
+                    // Recursively build the nested query for the parent
+                    const parentFieldSnake = convertFieldToSnakeCase(parentField);
+                    const nestedQuery = buildNestedInQuery(parentOp, parentFieldSnake);
+                    return `(SELECT "${extractFieldSnake}" FROM "${refOp.from}" WHERE "${refOp.from}"."${refForeignSnake}" IN ${nestedQuery})`;
+                }
+                
+                // Fallback: not a LeftJoinMany reference, use regular table alias
+                const parentFieldSnake = convertFieldToSnakeCase(parentField);
+                return `(SELECT "${extractFieldSnake}" FROM "${refOp.from}" WHERE "${refOp.from}"."${refForeignSnake}" = ${parentAlias}."${parentFieldSnake}")`;
+            };
+            
+            const nestedQuery = buildNestedInQuery(referencedLeftJoinMany, prevFieldSnake);
+            whereClause = `${subAlias}."${foreignSnake}" IN ${nestedQuery}`;
+        } else {
+            // Regular equality
+            whereClause = `${subAlias}."${foreignSnake}" = ${localRef}`;
+        }
+        
+        const subquery = `(SELECT COALESCE(jsonb_agg(jsonb_build_object(${objParts})), '[]'::jsonb) FROM "${joinMany.from}" AS ${subAlias} WHERE ${whereClause})`;
         joinSelects.push(`${subquery} AS "${joinMany.as}"`);
     }
 
