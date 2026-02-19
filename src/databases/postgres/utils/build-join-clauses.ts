@@ -28,7 +28,7 @@ export function buildJoinClauses(
 ): string {
     let joinClauses = [];
     for (const operation of operations) {
-        if (operation instanceof LeftJoin || operation instanceof InnerJoin) {
+        if (operation instanceof LeftJoin || operation instanceof InnerJoin || operation instanceof LeftJoinMany) {
             const localRef = convertFieldToSnakeCase(
                 operation.localField
             );
