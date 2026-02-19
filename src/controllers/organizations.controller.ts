@@ -29,9 +29,9 @@ export class OrganizationsController extends ApiController<IOrganization> {
 		app.get(`/api/${this.slug}/get-by-code/:code`, isAuthorized(), this.getByCode.bind(this));
 	}
 
-	async getByName(req: Request, res: Response, next: NextFunction) {
+	async getByName(req: Request<{ name: string }>, res: Response, next: NextFunction) {
 		console.log('in OrganizationController.getByName');
-		let name = req.params?.name;
+		const { name } = req.params;
 		try {
 			res.set('Content-Type', 'application/json');
 			const entity = await this.orgService.findOne(req.userContext!, { filters: { name: { contains: name } } });
@@ -45,8 +45,8 @@ export class OrganizationsController extends ApiController<IOrganization> {
 		}
 	}
 
-	async getByCode(req: Request, res: Response, next: NextFunction) {
-		let code = req.params?.code;
+	async getByCode(req: Request<{ code: string }>, res: Response, next: NextFunction) {
+		const { code } = req.params;
 		try {
 			res.set('Content-Type', 'application/json');
 			const entity = await this.orgService.findOne(req.userContext!, { filters: { code: { eq: code } } });
