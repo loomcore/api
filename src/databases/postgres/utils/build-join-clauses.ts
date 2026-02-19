@@ -42,5 +42,5 @@ export function buildJoinClauses(
             joinClauses.push(`${joinType} ${joinTable} ON ${leftSide} = ${operation.as}."${foreignSnake}"`);
         }
     }
-    return joinClauses.join('\n');
+    return joinClauses.join(' ');
 }
