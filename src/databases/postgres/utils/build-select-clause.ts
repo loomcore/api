@@ -4,6 +4,7 @@ import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 
+
 /**
  * Gets column names for a table from PostgreSQL information_schema
  */
@@ -66,8 +67,7 @@ export async function buildSelectClause(
 
     const joinSelects: string[] = [];
 
-    // One-to-one joins: select columns with prefix
-    for (const join of [...leftJoinOperations, ...leftJoinManyOperations, ...innerJoinOperations]) {
+    for (const join of [...leftJoinOperations, ...innerJoinOperations, ...leftJoinManyOperations]) {
         const joinColumns = await getTableColumns(client, join.from);
         for (const col of joinColumns) {
             joinSelects.push(`${join.as}."${col}" AS "${join.as}__${col}"`);
