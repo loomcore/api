@@ -20,14 +20,35 @@ function convertFieldToSnakeCase(field: string): string {
  * Resolves the local side of a join to a SQL expression (for use in scalar subquery correlation).
  * - Direct: "categoryId" -> "mainTable"."category_id"
  * - Nested: "clients._id" -> clients."_id"
+ * - LeftJoinMany array: "client_policies._id" -> extracts _id values from JSON array
  */
-function resolveLocalRef(localField: string, mainTableName: string): string {
+function resolveLocalRef(
+    localField: string,
+    mainTableName: string,
+    operations: Operation[],
+    currentIndex: number
+): string {
     if (!localField.includes('.')) {
         const snake = convertFieldToSnakeCase(localField);
         return `"${mainTableName}"."${snake}"`;
     }
     const [alias, field] = localField.split('.');
     const snake = convertFieldToSnakeCase(field);
+    
+    // Check if alias references a previous LeftJoinMany (which is a JSON array, not a table)
+    const priorOps = operations.slice(0, currentIndex);
+    const leftJoinMany = priorOps.find(
+        (op): op is LeftJoinMany => op instanceof LeftJoinMany && op.as === alias
+    );
+    
+    if (leftJoinMany) {
+        // Extract field values from the JSON array as a subquery for use with ANY()
+        // Cast to appropriate type based on field name (assume integer for _id, text otherwise)
+        const castType = field === '_id' || snake === '_id' ? '::int' : '::text';
+        return `(SELECT jsonb_array_elements("${alias}")->>'${snake}'${castType})`;
+    }
+    
+    // Regular table alias reference
     return `${alias}."${snake}"`;
 }
 
@@ -104,17 +125,35 @@ export async function buildSelectClause(
 
     // LeftJoinMany: scalar subquery with jsonb_agg and jsonb_build_object (no .aggregated)
     // Skip enrichment operations - they're embedded in their target joins
-    for (const joinMany of leftJoinManyOperations) {
+    for (let i = 0; i < leftJoinManyOperations.length; i++) {
+        const joinMany = leftJoinManyOperations[i];
         const enrichment = findEnrichmentTarget(joinMany, operations);
         if (enrichment) {
             continue;
         }
         const manyColumns = await getTableColumns(client, joinMany.from);
         const foreignSnake = convertFieldToSnakeCase(joinMany.foreignField);
-        const localRef = resolveLocalRef(joinMany.localField, mainTableName);
+        const currentOpIndex = operations.indexOf(joinMany);
+        const localRef = resolveLocalRef(joinMany.localField, mainTableName, operations, currentOpIndex);
         const subAlias = `_sub_${joinMany.as}`;
         const objParts = manyColumns.map(c => `'${c.replace(/'/g, "''")}', ${subAlias}."${c}"`).join(', ');
-        const subquery = `(SELECT COALESCE(jsonb_agg(jsonb_build_object(${objParts})), '[]'::jsonb) FROM "${joinMany.from}" AS ${subAlias} WHERE ${subAlias}."${foreignSnake}" = ${localRef})`;
+        
+        // If localRef references a JSON array (previous LeftJoinMany), use ANY() with the subquery
+        const isArrayRef = joinMany.localField.includes('.') && 
+            operations.slice(0, currentOpIndex).some(
+                op => op instanceof LeftJoinMany && op.as === joinMany.localField.split('.')[0]
+            );
+        
+        let whereClause: string;
+        if (isArrayRef) {
+            // Use IN with subquery: foreignField IN (SELECT jsonb_array_elements(...)->>'field')
+            whereClause = `${subAlias}."${foreignSnake}" IN ${localRef}`;
+        } else {
+            // Regular equality
+            whereClause = `${subAlias}."${foreignSnake}" = ${localRef}`;
+        }
+        
+        const subquery = `(SELECT COALESCE(jsonb_agg(jsonb_build_object(${objParts})), '[]'::jsonb) FROM "${joinMany.from}" AS ${subAlias} WHERE ${whereClause})`;
         joinSelects.push(`${subquery} AS "${joinMany.as}"`);
     }
 
