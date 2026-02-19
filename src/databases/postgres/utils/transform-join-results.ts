@@ -40,21 +40,38 @@ const PREFIX_SEP = '__';
 
 /**
  * Places a join value into joinData at the correct path (top-level or nested under parent).
+ * When a child references a parent that is a LeftJoinMany (array), keep the parent as an array
+ * and place the child at top level (since arrays can't have nested properties).
  */
 function setJoinValue(
     joinData: Record<string, unknown>,
     alias: string,
     value: unknown,
-    parentByAlias: Map<string, string | null>
+    parentByAlias: Map<string, string | null>,
+    operations: Operation[]
 ): void {
     const parent = parentByAlias.get(alias) ?? null;
     if (parent) {
-        let parentObj = joinData[parent];
-        if (parentObj == null || typeof parentObj !== 'object' || Array.isArray(parentObj)) {
-            parentObj = {};
-            joinData[parent] = parentObj;
+        const parentValue = joinData[parent];
+        // Check if parent is a LeftJoinMany (array)
+        const parentOp = operations.find(
+            op => (op instanceof LeftJoinMany || op instanceof LeftJoin || op instanceof InnerJoin) && op.as === parent
+        );
+        const isParentArray = parentOp instanceof LeftJoinMany;
+        
+        if (isParentArray && Array.isArray(parentValue)) {
+            // Parent is an array - can't nest under it, so place child at top level
+            // The array structure is preserved
+            joinData[alias] = value;
+        } else {
+            // Parent is an object (LeftJoin/InnerJoin) - nest the child under it
+            let parentObj = parentValue;
+            if (parentObj == null || typeof parentObj !== 'object' || Array.isArray(parentObj)) {
+                parentObj = {};
+                joinData[parent] = parentObj;
+            }
+            (parentObj as Record<string, unknown>)[alias] = value;
         }
-        (parentObj as Record<string, unknown>)[alias] = value;
     } else {
         joinData[alias] = value;
     }
@@ -117,7 +134,7 @@ export function transformJoinResults<T>(
             const alias = op.as;
             const value = flatJoinValues[alias];
             if (value === undefined) continue;
-            setJoinValue(joinData, alias, value, parentByAlias);
+            setJoinValue(joinData, alias, value, parentByAlias, operations);
         }
 
         if (Object.keys(joinData).length > 0) {
