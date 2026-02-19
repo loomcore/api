@@ -3,6 +3,7 @@ import { Operation } from '../../operations/operation.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
+import { buildAs } from './build-things.util.js';
 
 
 /**
@@ -70,7 +71,7 @@ export async function buildSelectClause(
     for (const join of [...leftJoinOperations, ...innerJoinOperations, ...leftJoinManyOperations]) {
         const joinColumns = await getTableColumns(client, join.from);
         for (const col of joinColumns) {
-            joinSelects.push(`${join.as}."${col}" AS "${join.as}__${col}"`);
+            joinSelects.push(`${join.as}."${col}" AS "${buildAs(col, join)}"`);
         }
     }
 
