@@ -42,10 +42,11 @@ function resolveLocalRef(
     );
     
     if (leftJoinMany) {
-        // Extract field values from the JSON array as a subquery for use with ANY()
+        // Extract field values from the JSON array as a subquery for use with IN
         // Cast to appropriate type based on field name (assume integer for _id, text otherwise)
         const castType = field === '_id' || snake === '_id' ? '::int' : '::text';
-        return `(SELECT jsonb_array_elements("${alias}")->>'${snake}'${castType})`;
+        const elemAlias = `_elem_${alias}`;
+        return `(SELECT (${elemAlias}->>'${snake}')${castType} FROM jsonb_array_elements("${alias}") AS ${elemAlias})`;
     }
     
     // Regular table alias reference
@@ -124,13 +125,9 @@ export async function buildSelectClause(
     }
 
     // LeftJoinMany: scalar subquery with jsonb_agg and jsonb_build_object (no .aggregated)
-    // Skip enrichment operations - they're embedded in their target joins
+    // Note: All LeftJoinMany operations are queried here; nesting/placement is handled in transform step
     for (let i = 0; i < leftJoinManyOperations.length; i++) {
         const joinMany = leftJoinManyOperations[i];
-        const enrichment = findEnrichmentTarget(joinMany, operations);
-        if (enrichment) {
-            continue;
-        }
         const manyColumns = await getTableColumns(client, joinMany.from);
         const foreignSnake = convertFieldToSnakeCase(joinMany.foreignField);
         const currentOpIndex = operations.indexOf(joinMany);
@@ -138,16 +135,33 @@ export async function buildSelectClause(
         const subAlias = `_sub_${joinMany.as}`;
         const objParts = manyColumns.map(c => `'${c.replace(/'/g, "''")}', ${subAlias}."${c}"`).join(', ');
         
-        // If localRef references a JSON array (previous LeftJoinMany), use ANY() with the subquery
-        const isArrayRef = joinMany.localField.includes('.') && 
-            operations.slice(0, currentOpIndex).some(
-                op => op instanceof LeftJoinMany && op.as === joinMany.localField.split('.')[0]
-            );
+        // Check if localField references a previous LeftJoinMany (which is a JSON array column)
+        const priorOps = operations.slice(0, currentOpIndex);
+        const referencedLeftJoinMany = joinMany.localField.includes('.') 
+            ? priorOps.find(
+                (op): op is LeftJoinMany => 
+                    op instanceof LeftJoinMany && op.as === joinMany.localField.split('.')[0]
+            )
+            : null;
         
         let whereClause: string;
-        if (isArrayRef) {
-            // Use IN with subquery: foreignField IN (SELECT jsonb_array_elements(...)->>'field')
-            whereClause = `${subAlias}."${foreignSnake}" IN ${localRef}`;
+        if (referencedLeftJoinMany) {
+            // Instead of referencing the JSON array column (which we can't do in same SELECT),
+            // inline the previous LeftJoinMany's condition by referencing the original source
+            const [prevAlias, fieldName] = joinMany.localField.split('.');
+            const prevFieldSnake = convertFieldToSnakeCase(fieldName);
+            // Find what the previous LeftJoinMany queries from and its condition
+            // We'll create a subquery that matches the same condition and extracts the field
+            const prevLocalRef = resolveLocalRef(
+                referencedLeftJoinMany.localField, 
+                mainTableName, 
+                operations, 
+                operations.indexOf(referencedLeftJoinMany)
+            );
+            // Create subquery: SELECT field FROM prevTable WHERE prevCondition matches main table
+            // Then use IN to match against that
+            const prevForeignSnake = convertFieldToSnakeCase(referencedLeftJoinMany.foreignField);
+            whereClause = `${subAlias}."${foreignSnake}" IN (SELECT "${prevFieldSnake}" FROM "${referencedLeftJoinMany.from}" WHERE "${referencedLeftJoinMany.from}"."${prevForeignSnake}" = ${prevLocalRef})`;
         } else {
             // Regular equality
             whereClause = `${subAlias}."${foreignSnake}" = ${localRef}`;
