@@ -150,18 +150,41 @@ export async function buildSelectClause(
             // inline the previous LeftJoinMany's condition by referencing the original source
             const [prevAlias, fieldName] = joinMany.localField.split('.');
             const prevFieldSnake = convertFieldToSnakeCase(fieldName);
-            // Find what the previous LeftJoinMany queries from and its condition
-            // We'll create a subquery that matches the same condition and extracts the field
-            const prevLocalRef = resolveLocalRef(
-                referencedLeftJoinMany.localField, 
-                mainTableName, 
-                operations, 
-                operations.indexOf(referencedLeftJoinMany)
-            );
-            // Create subquery: SELECT field FROM prevTable WHERE prevCondition matches main table
-            // Then use IN to match against that
-            const prevForeignSnake = convertFieldToSnakeCase(referencedLeftJoinMany.foreignField);
-            whereClause = `${subAlias}."${foreignSnake}" IN (SELECT "${prevFieldSnake}" FROM "${referencedLeftJoinMany.from}" WHERE "${referencedLeftJoinMany.from}"."${prevForeignSnake}" = ${prevLocalRef})`;
+            
+            // Recursively resolve the localField of the referenced LeftJoinMany to build nested IN queries
+            // This handles chained LeftJoinMany (e.g., client_policies -> client_agents_policies -> client_policies_agents)
+            // Returns a subquery that extracts the field value from the chain
+            const buildNestedInQuery = (refOp: LeftJoinMany, extractField: string): string => {
+                const extractFieldSnake = convertFieldToSnakeCase(extractField);
+                const refForeignSnake = convertFieldToSnakeCase(refOp.foreignField);
+                
+                if (!refOp.localField.includes('.')) {
+                    // Base case: refOp references main table directly
+                    const refLocalSnake = convertFieldToSnakeCase(refOp.localField);
+                    return `(SELECT "${extractFieldSnake}" FROM "${refOp.from}" WHERE "${refOp.from}"."${refForeignSnake}" = "${mainTableName}"."${refLocalSnake}")`;
+                }
+                
+                // Recursive case: refOp references another LeftJoinMany
+                const [parentAlias, parentField] = refOp.localField.split('.');
+                const parentOpIndex = operations.indexOf(refOp);
+                const parentOp = operations.slice(0, parentOpIndex).find(
+                    (op): op is LeftJoinMany => op instanceof LeftJoinMany && op.as === parentAlias
+                );
+                
+                if (parentOp) {
+                    // Recursively build the nested query for the parent
+                    const parentFieldSnake = convertFieldToSnakeCase(parentField);
+                    const nestedQuery = buildNestedInQuery(parentOp, parentFieldSnake);
+                    return `(SELECT "${extractFieldSnake}" FROM "${refOp.from}" WHERE "${refOp.from}"."${refForeignSnake}" IN ${nestedQuery})`;
+                }
+                
+                // Fallback: not a LeftJoinMany reference, use regular table alias
+                const parentFieldSnake = convertFieldToSnakeCase(parentField);
+                return `(SELECT "${extractFieldSnake}" FROM "${refOp.from}" WHERE "${refOp.from}"."${refForeignSnake}" = ${parentAlias}."${parentFieldSnake}")`;
+            };
+            
+            const nestedQuery = buildNestedInQuery(referencedLeftJoinMany, prevFieldSnake);
+            whereClause = `${subAlias}."${foreignSnake}" IN ${nestedQuery}`;
         } else {
             // Regular equality
             whereClause = `${subAlias}."${foreignSnake}" = ${localRef}`;
