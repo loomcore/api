@@ -3,7 +3,6 @@ import { Operation } from '../../operations/operation.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
-import { buildAs } from './build-things.util.js';
 
 
 /**
@@ -21,29 +20,6 @@ async function getTableColumns(client: Client, tableName: string): Promise<strin
         [tableName]
     );
     return result.rows.map(row => row.column_name);
-}
-
-/**
- * Checks if an operation enriches another array join.
- */
-function findEnrichmentTarget(
-    operation: LeftJoinMany,
-    operations: Operation[]
-): { target: LeftJoinMany; field: string } | null {
-    if (!operation.localField.includes('.')) {
-        return null;
-    }
-
-    const [alias] = operation.localField.split('.');
-    const target = operations.find(op =>
-        op instanceof LeftJoinMany && op.as === alias
-    ) as LeftJoinMany | undefined;
-
-    if (target && operations.indexOf(target) < operations.indexOf(operation)) {
-        return { target, field: operation.localField.split('.')[1] };
-    }
-
-    return null;
 }
 
 /**
@@ -71,7 +47,7 @@ export async function buildSelectClause(
     for (const join of [...leftJoinOperations, ...innerJoinOperations, ...leftJoinManyOperations]) {
         const joinColumns = await getTableColumns(client, join.from);
         for (const col of joinColumns) {
-            joinSelects.push(`${join.as}."${col}" AS "${buildAs(col, join)}"`);
+            joinSelects.push(`"${join.as}"."${col}" AS "${join.as}__${col}"`);
         }
     }
 
