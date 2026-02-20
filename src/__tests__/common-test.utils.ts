@@ -357,7 +357,7 @@ const prepareQueryCustom: PrepareQueryCustomFunction =
       queryObject: queryObject,
       operations: [
         ...operations,
-        new LeftJoin('categories', 'categoryId', '_id', 'category')
+        new LeftJoin('categories', 'category_id', '_id', 'category')
       ]
     };
   };
@@ -370,7 +370,7 @@ const postProcessEntityCustom: PostProcessEntityCustomFunction<IProduct, IProduc
     };
   };
 
-export class ProductService extends GenericApiService<IProduct> {
+export class ProductService extends GenericApiService<IProductWithCategory> {
   constructor(database: IDatabase) {
     super(database, 'products', 'product', ProductSpec);
   }

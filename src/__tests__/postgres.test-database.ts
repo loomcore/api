@@ -91,7 +91,6 @@ export class TestPostgresDatabase implements ITestDatabase {
           connectionString,
           connectionTimeoutMillis: 5000,
         });
-        this.postgresPool = pool;
       } else {
         // Use pg-mem (default)
         const { Client } = newDb().adapters.createPg();
@@ -101,9 +100,8 @@ export class TestPostgresDatabase implements ITestDatabase {
         // pg-mem's Client can be used as a Pool
         pool = postgresClient as unknown as Pool;
       }
-
-      const testDatabase = new PostgresDatabase(postgresClient);
-      this.database = testDatabase;
+      this.postgresPool = pool;
+      this.database = new PostgresDatabase(postgresClient);
       this.postgresClient = postgresClient;
 
       // Initialize system user context before running migrations
@@ -122,7 +120,7 @@ export class TestPostgresDatabase implements ITestDatabase {
       await runTestSchemaMigrations(pool, config);
 
       // Initialize test utilities with the database
-      testUtils.initialize(testDatabase);
+      testUtils.initialize(this.database);
       await this.createIndexes(postgresClient);
 
       // Create meta org (this will re-initialize system user context with the meta org if multi-tenant)
@@ -164,10 +162,14 @@ export class TestPostgresDatabase implements ITestDatabase {
     `);
 
     // Truncate all tables
-    // pg-mem does not support truncating mutliple tables at once yet, so we need to truncate each table individually
-    result.rows.forEach(async (row) => {
-      await this.postgresClient?.query(`TRUNCATE TABLE "${row.table_name}" RESTART IDENTITY CASCADE`);
-    });
+    if (USE_REAL_POSTGRES) {
+      await this.postgresClient?.query(`TRUNCATE TABLE ${result.rows.map(row => `"${row.table_name}"`).join(', ')} RESTART IDENTITY CASCADE`);
+    } else {
+      // pg-mem does not support truncating mutliple tables at once yet, so we need to truncate each table individually
+      result.rows.forEach(async (row) => {
+        await this.postgresClient?.query(`TRUNCATE TABLE "${row.table_name}" RESTART IDENTITY CASCADE`);
+      });
+    }
   }
 
   /**

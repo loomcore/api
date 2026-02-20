@@ -22,4 +22,4 @@ export const ProductSchema = Type.Object({
 export const ProductSpec = entityUtils.getModelSpec(ProductSchema, { isAuditable: true });
 
 // Create a public schema for products that omits the sensitive internalNumber
-export const PublicProductSchema = Type.Omit(ProductSpec.fullSchema, ['internalNumber']);
+export const ProductPublicSchema = Type.Omit(ProductSpec.fullSchema, ['internalNumber']);
