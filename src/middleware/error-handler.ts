@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import {CustomError} from '@loomcore/common/errors';
-import {apiUtils} from '../utils/index.js';
+import { CustomError } from '@loomcore/common/errors';
+import { apiUtils } from '../utils/index.js';
 import { config } from '../config/base-api-config.js';
 
 /**
@@ -26,7 +26,7 @@ const sanitizeData = (data: any): any => {
 	}
 
 	// Handle objects
-	const sanitized = {...data};
+	const sanitized = { ...data };
 	for (const key in sanitized) {
 		if (SENSITIVE_FIELDS.includes(key.toLowerCase())) {
 			sanitized[key] = '********';
@@ -66,7 +66,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
 	}
 	else {
 		apiUtils.apiResponse(res, 500, {
-			errors: [{ message: 'Server Error' }]
+			errors: [{ message: err.message }]
 		});
 	}
 };

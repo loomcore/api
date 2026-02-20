@@ -5,7 +5,6 @@ import { InnerJoin } from "../../operations/inner-join.operation.js";
 import { LeftJoinMany } from "../../operations/left-join-many.operation.js";
 import { buildJoinClauses } from "../utils/build-join-clauses.js";
 import { buildSelectClause } from "../utils/build-select-clause.js";
-import { transformJoinResults } from "../utils/transform-join-results.js";
 import { BadRequestError } from '../../../errors/index.js';
 import { IQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
@@ -21,11 +20,11 @@ export async function getById<T>(
     if (!id)
         throw new BadRequestError('id is required');
 
-    const joinClauses = buildJoinClauses(operations, pluralResourceName);
-
-    // Build SELECT clause with explicit columns and JSON aggregation for joins
-    // If no joins, use SELECT * for simplicity
     const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+    const joinClauses = hasJoins
+        ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
+        : buildJoinClauses(operations, pluralResourceName);
+
     const selectClause = hasJoins
         ? await buildSelectClause(client, pluralResourceName, operations)
         : '*';
@@ -33,7 +32,6 @@ export async function getById<T>(
     queryObject.filters || (queryObject.filters = {});
     queryObject.filters._id = { eq: id };
 
-    // When there are joins, qualify column names with table prefix to avoid ambiguity
     const tablePrefix = hasJoins ? pluralResourceName : undefined;
     const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix);
     const query = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause} LIMIT 1`;
@@ -43,8 +41,9 @@ export async function getById<T>(
         return null;
     }
 
-    // Transform flat results into nested objects
-    const transformed = transformJoinResults<T>([result.rows[0]], operations);
-    return transformed[0] || null;
+    if (hasJoins) {
+        return (result.rows[0] as { entity: T }).entity;
+    }
+    return result.rows[0] as T;
 }
 

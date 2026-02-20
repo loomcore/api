@@ -58,7 +58,7 @@
     "qs": "^6.15.0"
   },
   "peerDependencies": {
-    "@loomcore/common": "^0.0.52",
+    "@loomcore/common": "^0.0.53",
     "@sinclair/typebox": "0.34.33",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
