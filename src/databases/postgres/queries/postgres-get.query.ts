@@ -8,7 +8,6 @@ import { buildWhereClause } from "../utils/build-where-clause.js";
 import { buildOrderByClause } from "../utils/build-order-by-clause.js";
 import { buildJoinClauses } from "../utils/build-join-clauses.js";
 import { buildSelectClause } from "../utils/build-select-clause.js";
-import { transformJoinResults } from "../utils/transform-join-results.js";
 import { executeCountQuery } from "../utils/build-count-query.js";
 import { apiUtils } from "../../../utils/api.utils.js";
 import { buildPaginationClause } from '../utils/build-pagination-clause.js';
@@ -19,13 +18,14 @@ export async function get<T>(
     queryOptions: IQueryOptions,
     pluralResourceName: string
 ): Promise<IPagedResult<T>> {
-    const joinClauses = buildJoinClauses(operations, pluralResourceName);
-    const orderByClause = buildOrderByClause(queryOptions);
+    const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+    const joinClauses = hasJoins
+        ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
+        : buildJoinClauses(operations, pluralResourceName);
+    const orderByClause = buildOrderByClause(queryOptions, hasJoins ? { tablePrefix: pluralResourceName } : undefined);
     const paginationClause = buildPaginationClause(queryOptions);
 
-    // Build SELECT clause with explicit columns and JSON aggregation for joins
-    // If no joins, use SELECT * for simplicity
-    const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+    // Build SELECT clause: with joins, single jsonb entity column; otherwise *
     const selectClause = hasJoins
         ? await buildSelectClause(client, pluralResourceName, operations)
         : '*';
@@ -44,8 +44,9 @@ export async function get<T>(
     const dataQuery = `${baseQuery} ${orderByClause} ${paginationClause}`.trim();
     const dataResult = await client.query(dataQuery, values);
 
-    // Transform flat results into nested objects
-    const entities = transformJoinResults<T>(dataResult.rows, operations);
+    const entities = hasJoins
+        ? (dataResult.rows as { entity: T }[]).map(r => r.entity)
+        : (dataResult.rows as T[]);
 
     return apiUtils.getPagedResult<T>(entities, total, queryOptions);
 }
