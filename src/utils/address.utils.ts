@@ -1,4 +1,4 @@
-import {IAddress} from '@loomcore/common/models';
+import { IAddressModel } from '@loomcore/common/models';
 
 /**
  * Checks if a value is effectively empty (null, undefined, or whitespace only)
@@ -7,13 +7,13 @@ import {IAddress} from '@loomcore/common/models';
  */
 function isEmptyValue(value: any): boolean {
 	let result = false;
-	
+
 	if (value === null || value === undefined) {
 		result = true;
 	} else if (typeof value === 'string' && value.trim() === '') {
 		result = true;
 	}
-	
+
 	return result;
 }
 
@@ -25,14 +25,14 @@ function isEmptyValue(value: any): boolean {
  */
 function standardizeField(field: string | undefined | null): string | null {
 	let result = null;
-	
+
 	if (!isEmptyValue(field)) {
 		const standardized = field!.trim().toUpperCase();
 		if (standardized.length > 0) {
 			result = standardized;
 		}
 	}
-	
+
 	return result;
 }
 
@@ -42,9 +42,9 @@ function standardizeField(field: string | undefined | null): string | null {
  * @param address The address to convert to a single line
  * @returns A standardized single line address or null if essential parts are missing
  */
-function getSingleLineAddress(address: IAddress): string | null {
+function getSingleLineAddress(address: IAddressModel): string | null {
 	let result = null;
-	
+
 	if (address) {
 		// Standardize all fields
 		const street = standardizeField(address.address1);
@@ -53,32 +53,32 @@ function getSingleLineAddress(address: IAddress): string | null {
 		const city = standardizeField(address.city);
 		const state = standardizeField(address.state);
 		const postalCode = standardizeField(address.postalCode);
-		
+
 		// If we don't have at least street, city and postalCode, return null
 		if (street && city && postalCode) {
 			// Build address parts without postal code
 			let parts = [street];
-			
+
 			if (address2) {
 				parts.push(address2);
 			}
-			
+
 			if (address3) {
 				parts.push(address3);
 			}
-			
+
 			parts.push(city);
-			
+
 			// Handle state and postal code with special formatting
 			// State and postal code are separated by space, not comma
 			let statePostalPart = state;
 			statePostalPart += ' ' + postalCode;
 			parts.push(statePostalPart!);
-			
+
 			result = parts.join(', ');
 		}
 	}
-	
+
 	return result;
 }
 
@@ -87,16 +87,16 @@ function getSingleLineAddress(address: IAddress): string | null {
  * @param address The address to update
  * @returns The updated address with formattedAddress or the original address if formatting fails
  */
-function addFormattedAddress(address: IAddress): IAddress {
+function addFormattedAddress(address: IAddressModel): IAddressModel {
 	const formattedAddress = getSingleLineAddress(address);
-	
+
 	if (formattedAddress) {
 		return {
 			...address,
 			formattedAddress
 		};
 	}
-	
+
 	return address;
 }
 
