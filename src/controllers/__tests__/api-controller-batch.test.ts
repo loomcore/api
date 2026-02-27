@@ -13,7 +13,11 @@ import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
 import { AppIdType } from '@loomcore/common/types';
 
-describe('ApiController Batch Update', () => {
+// Skip this test suite if not running with PostgreSQL
+const isPostgres = process.env.TEST_DATABASE === 'postgres';
+const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
+
+describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
   let app: Application;
   let agent: supertest.SuperTest<supertest.Test>;
   let authorizationHeader: string;

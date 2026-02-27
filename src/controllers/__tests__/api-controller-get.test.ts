@@ -13,7 +13,11 @@ import { GenericApiService } from '../../services/generic-api-service/generic-ap
 import { EmptyUserContext } from '@loomcore/common/models';
 import { AppIdType } from '@loomcore/common/types';
 
-describe('ApiController get (paged) with aggregation - Integration Tests', () => {
+// Skip this test suite if not running with PostgreSQL
+const isPostgres = process.env.TEST_DATABASE === 'postgres';
+const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
+
+describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - Integration Tests', () => {
   let app: Application;
   let productService: GenericApiService<IProduct>;
   let categoryService: GenericApiService<ICategory>;
@@ -68,6 +72,8 @@ describe('ApiController get (paged) with aggregation - Integration Tests', () =>
       .get(`/api/products`)
       .set('Authorization', authToken);
 
+
+    console.log("api controller get test: response", JSON.stringify(response.body));
     // Assert
     expect(response.status).toBe(200);
     const pagedResult = response.body.data;

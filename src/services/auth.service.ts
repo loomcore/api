@@ -54,10 +54,12 @@ export class AuthService extends MultiTenantApiService<IUser> {
         if (!passwordsMatch) {
             throw new BadRequestError('Invalid Credentials');
         }
+        const person = await this.personService.findOne(EmptyUserContext, { filters: { _id: { eq: user.personId } } });
 
         const authorizations = await getUserContextAuthorizations(this.database, user);
         const userContext = {
             user: user,
+            person: person ?? undefined,
             organization: organization ?? undefined,
             authorizations: authorizations
         };
@@ -155,13 +157,21 @@ export class AuthService extends MultiTenantApiService<IUser> {
         if (activeRefreshToken) {
             const systemUserContext = getSystemUserContext();
             const user = await this.getById(systemUserContext, activeRefreshToken.userId);
+            const person = await this.personService.findOne(EmptyUserContext, { filters: { _id: { eq: user?.personId } } });
             const organization = await this.organizationService.findOne(EmptyUserContext, { filters: { _id: { eq: user?._orgId } } });
             const authorizations = await getUserContextAuthorizations(this.database, user);
-            const userContext: IUserContext = {
+            let userContext: IUserContext = {
                 user: user,
+                person: person ?? undefined,
                 organization: organization ?? undefined,
                 authorizations: authorizations
             };
+            if (user.personId) {
+                const person = await this.personService.getById(EmptyUserContext, user.personId);
+                if (person) {
+                    userContext.person = person;
+                }
+            }
             tokens = await this.createNewTokens(userContext, activeRefreshToken);
         }
         return tokens;

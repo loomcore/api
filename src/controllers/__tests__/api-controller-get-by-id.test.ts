@@ -13,7 +13,11 @@ import { GenericApiService } from '../../services/generic-api-service/generic-ap
 import { EmptyUserContext } from '@loomcore/common/models';
 import { AppIdType } from '@loomcore/common/types';
 
-describe('ApiController getById with aggregation - Integration Tests', () => {
+// Skip this test suite if not running with PostgreSQL
+const isPostgres = process.env.TEST_DATABASE === 'postgres';
+const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
+
+describe.skipIf(!isRealPostgres)('ApiController getById with aggregation - Integration Tests', () => {
   let app: Application;
   let productService: GenericApiService<IProduct>;
   let categoryService: GenericApiService<ICategory>

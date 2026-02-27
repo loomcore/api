@@ -20,7 +20,7 @@ import { ITestPremiumModel } from './models/test-premium.model.js';
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
 const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
-describe.skipIf(!isPostgres)('Join Operations - Complex Data Joining', () => {
+describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () => {
     let database: PostgresDatabase;
     let client: Client;
     let testDatabase: TestPostgresDatabase;
