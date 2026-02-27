@@ -171,20 +171,39 @@ async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUs
       setTestOrgId(existingTestOrg._id);
     }
 
-    const createdTestOrgUserPerson = await personService.create(getTestOrgUserContext(), getTestOrgUserPerson());
-    if (!createdTestOrgUserPerson) {
-      throw new Error('Failed to create test organization user person');
+    // Find or create test org user person (idempotent for shared DB / multiple test files)
+    const testOrgUserPerson = getTestOrgUserPerson();
+    let existingTestOrgUserPerson = await personService.findOne(getTestOrgUserContext(), { filters: { externalId: { eq: testOrgUserPerson.externalId } } });
+    if (existingTestOrgUserPerson) {
+      setTestOrgUserPersonId(existingTestOrgUserPerson._id);
+    } else {
+      const created = await personService.create(getTestOrgUserContext(), testOrgUserPerson);
+      if (!created) throw new Error('Failed to create test organization user person');
+      setTestOrgUserPersonId(created._id);
     }
-    setTestOrgUserPersonId(createdTestOrgUserPerson._id);
 
-    const createdMetaOrgUserPerson = await personService.create(getTestMetaOrgUserContext(), getTestMetaOrgUserPerson());
-    if (!createdMetaOrgUserPerson) {
-      throw new Error('Failed to create meta organization user person');
+    // Find or create meta org user person (idempotent for shared DB / multiple test files)
+    const metaOrgUserPerson = getTestMetaOrgUserPerson();
+    let existingMetaOrgUserPerson = await personService.findOne(getTestMetaOrgUserContext(), { filters: { externalId: { eq: metaOrgUserPerson.externalId } } });
+    if (existingMetaOrgUserPerson) {
+      setTestMetaOrgUserPersonId(existingMetaOrgUserPerson._id);
+    } else {
+      const created = await personService.create(getTestMetaOrgUserContext(), metaOrgUserPerson);
+      if (!created) throw new Error('Failed to create meta organization user person');
+      setTestMetaOrgUserPersonId(created._id);
     }
-    setTestMetaOrgUserPersonId(createdMetaOrgUserPerson._id);
 
-    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser());
-    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
+    // Find or create users (idempotent for shared DB / multiple test files)
+    const testOrgUser = getTestOrgUser();
+    const metaOrgUser = getTestMetaOrgUser();
+    let createdTestOrgUser = await authService.getUserByEmail(testOrgUser.email);
+    if (!createdTestOrgUser) {
+      createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), testOrgUser);
+    }
+    let createdMetaOrgUser = await authService.getUserByEmail(metaOrgUser.email);
+    if (!createdMetaOrgUser) {
+      createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), metaOrgUser);
+    }
 
     if (!createdTestOrgUser || !createdMetaOrgUser) {
       throw new Error('Failed to create test user');

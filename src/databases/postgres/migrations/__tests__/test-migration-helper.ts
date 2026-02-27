@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Client, Pool } from 'pg';
 import { Umzug } from 'umzug';
 import { IBaseApiConfig } from '../../../../models/base-api-config.interface.js';
 import { IInitialDbMigrationConfig } from '../../../../models/initial-database-config.interface.js';
@@ -89,5 +89,55 @@ export async function runTestSchemaMigrations(pool: Pool, config: IBaseApiConfig
   });
 
   await umzug.up();
+}
+
+/** Docker Postgres URL for the main test DB (see docker-compose.test.yml). */
+const TEST_POSTGRES_URL = 'postgresql://test-user:test-password@localhost:5444/test-db';
+
+/**
+ * Create an isolated database on the Docker Postgres server for migration tests.
+ * Each suite gets its own database so parallel runs don't conflict.
+ * Call the returned `drop()` in afterAll to tear down.
+ */
+export async function createIsolatedMigrationDb(
+  suiteName: string
+): Promise<{ client: Client; pool: Pool; drop: () => Promise<void> }> {
+  const safeName = suiteName.replace(/\W/g, '_').toLowerCase();
+  const dbName = `test_migrations_${safeName}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+  const adminClient = new Client({
+    connectionString: TEST_POSTGRES_URL,
+    connectionTimeoutMillis: 5000,
+  });
+  await adminClient.connect();
+  await adminClient.query(`CREATE DATABASE "${dbName}"`);
+  await adminClient.end();
+
+  const connectionString = `postgresql://test-user:test-password@localhost:5444/${dbName}`;
+  const client = new Client({ connectionString, connectionTimeoutMillis: 5000 });
+  await client.connect();
+  const pool = new Pool({ connectionString, connectionTimeoutMillis: 5000 });
+
+  async function drop() {
+    try {
+      await client.end();
+    } catch (e) {
+      console.warn('Error closing migration test client:', e);
+    }
+    try {
+      await pool.end();
+    } catch (e) {
+      console.warn('Error closing migration test pool:', e);
+    }
+    const dropClient = new Client({
+      connectionString: TEST_POSTGRES_URL,
+      connectionTimeoutMillis: 5000,
+    });
+    await dropClient.connect();
+    await dropClient.query(`DROP DATABASE IF EXISTS "${dbName}"`);
+    await dropClient.end();
+  }
+
+  return { client, pool, drop };
 }
 

@@ -46,6 +46,13 @@ describe('AuthController', () => {
     await TestExpressApp.clearCollections();
     // Re-create test user for tests that need it
     await testUtils.setupTestUsers();
+    // Re-sign token so it has current org/user IDs after DB reset
+    const userContext = getTestMetaOrgUserContext();
+    authToken = jwt.sign(
+      userContext,
+      config.auth?.clientSecret ?? '',
+      { expiresIn: 3600 }
+    );
   });
 
   describe('POST /auth/register', () => {

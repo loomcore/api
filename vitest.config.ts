@@ -5,6 +5,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    // Postgres tests share one Docker DB; run in single worker so init/migrations run once
+    pool: process.env.TEST_DATABASE === 'postgres' ? 'forks' : undefined,
+    poolOptions: process.env.TEST_DATABASE === 'postgres' ? { forks: { singleFork: true } } : undefined,
     setupFiles: ['src/__tests__/setup/vitest-setup.ts'],
     globalSetup: [],
     include: ['src/**/__tests__/**/*.test.ts?(x)', 'src/**/?(*.)+(test).ts?(x)'],

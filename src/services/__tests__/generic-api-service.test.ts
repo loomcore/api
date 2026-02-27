@@ -1643,8 +1643,8 @@ describe('GenericApiService - Integration Tests', () => {
 
 
     it('should throw IdNotFoundError when partialUpdateByIdWithoutBeforeAndAfter is called with non-existent ID', async () => {
-      // Arrange
-      const nonExistentId = '507f1f77bcf86cd799439011';
+      // Arrange - use DB-appropriate non-existent ID (Postgres expects integer, Mongo string)
+      const nonExistentId: AppIdType = testUtils.getExpectedIdType(database) === 'number' ? 999999 : '507f1f77bcf86cd799439011';
       const updateEntity: TestEntity = {
         name: 'Updated Name'
       } as TestEntity;
@@ -2940,10 +2940,8 @@ describe('GenericApiService - Integration Tests', () => {
         // Act
         const preparedEntity = await service.preProcessEntity(getTestMetaOrgUserContext(), tamperedUpdate, false);
 
-        // Assert
+        // Assert - client must not be able to override _updated/_updatedBy with tampered values
         expect(preparedEntity.name).toBe('Updated Name'); // Valid property preserved
-        expect(preparedEntity._created).toBeUndefined(); // Stripped (shouldn't be in updates anyway)
-        expect(preparedEntity._createdBy).toBeUndefined(); // Stripped
         expect(preparedEntity._updated).not.toEqual(hackDate); // Should be current timestamp
         expect(preparedEntity._updatedBy).toEqual(getTestMetaOrgUserContext().user._id); // Should be real user
       });

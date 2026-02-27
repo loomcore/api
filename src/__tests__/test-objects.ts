@@ -1,8 +1,10 @@
 import { IOrganization, IUserContext, IUser, IPersonModel } from "@loomcore/common/models";
 
-export let TEST_META_ORG_ID: string | number = '69261691f936c45f85da24d0';
-export let TEST_META_ORG_USER_ID: string | number = '69261672f48fb7bf76e54dfb';
-export let TEST_META_ORG_USER_PERSON_ID: string | number = '69261672f48fb7bf76e54dfc';
+// Placeholder IDs before setTest* are called. Use numbers for Postgres to avoid "invalid input syntax for type integer".
+const isPostgres = process.env.TEST_DATABASE === 'postgres';
+export let TEST_META_ORG_ID: string | number = isPostgres ? 0 : '69261691f936c45f85da24d0';
+export let TEST_META_ORG_USER_ID: string | number = isPostgres ? 0 : '69261672f48fb7bf76e54dfb';
+export let TEST_META_ORG_USER_PERSON_ID: string | number = isPostgres ? 0 : '69261672f48fb7bf76e54dfc';
 
 export function setTestMetaOrgId(metaOrgId: string | number) {
     TEST_META_ORG_ID = metaOrgId;
@@ -97,9 +99,9 @@ export function getTestMetaOrgUserContext(): IUserContext {
     };
 };
 
-let TEST_ORG_ID: string | number = '6926167d06c0073a778a124f';
-let TEST_ORG_USER_ID: string | number = '6926167d06c0073a778a1250';
-let TEST_ORG_USER_PERSON_ID: string | number = '6926167d06c0073a778a1251';
+let TEST_ORG_ID: string | number = isPostgres ? 1 : '6926167d06c0073a778a124f';
+let TEST_ORG_USER_ID: string | number = isPostgres ? 1 : '6926167d06c0073a778a1250';
+let TEST_ORG_USER_PERSON_ID: string | number = isPostgres ? 1 : '6926167d06c0073a778a1251';
 export function setTestOrgId(orgId: string | number) {
     TEST_ORG_ID = orgId;
 }

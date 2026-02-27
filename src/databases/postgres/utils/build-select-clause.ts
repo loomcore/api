@@ -250,9 +250,7 @@ async function buildJoinDataObject(
  * - LeftJoin/InnerJoin: in FROM; value = CASE WHEN row present THEN jsonb_build_object(...) ELSE NULL
  * - LeftJoinMany: correlated subquery (SELECT jsonb_agg(...) FROM many_table WHERE fk = parent_ref)
  *
- * Note: Correlated subqueries and jsonb functions require real PostgreSQL. The in-memory test driver
- * (pg-mem) may not resolve outer scope in subqueries or support all jsonb_build_object signatures;
- * run join tests with USE_REAL_POSTGRES=true to validate.
+ * Correlated subqueries and jsonb functions require PostgreSQL (tests use the Docker Postgres container).
  */
 export async function buildSelectClause(
     client: Client,
