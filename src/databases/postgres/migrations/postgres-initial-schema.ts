@@ -72,7 +72,7 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "middle_name" VARCHAR(255),
             "last_name" VARCHAR(255) NOT NULL,
             "date_of_birth" DATE,
-            "ssn" INTEGER,
+            "ssn" BIGINT,
             "is_agent" BOOLEAN NOT NULL DEFAULT FALSE,
             "is_client" BOOLEAN NOT NULL DEFAULT FALSE,
             "is_employee" BOOLEAN NOT NULL DEFAULT FALSE,
