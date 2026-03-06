@@ -21,7 +21,7 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
   }
 
   const isAuthEnabled = dbConfig.app.isAuthEnabled;
-  
+
   // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
@@ -57,16 +57,22 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       name: '00000000000002_schema-persons',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
+        const personsUniqueConstraints = isMultiTenant
+          ? `CONSTRAINT "uk_persons_org_external_id" UNIQUE ("_orgId", "external_id"),
+            CONSTRAINT "uk_persons_org_ssn" UNIQUE ("_orgId", "ssn")`
+          : `CONSTRAINT "uk_persons_external_id" UNIQUE ("external_id"),
+            CONSTRAINT "uk_persons_ssn" UNIQUE ("ssn")`;
 
         await pool.query(`
           CREATE TABLE IF NOT EXISTS "persons" (
             "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             ${orgColumnDef}
-            "external_id" VARCHAR(255) UNIQUE,
+            "external_id" VARCHAR(255),
             "first_name" VARCHAR(255) NOT NULL,
             "middle_name" VARCHAR(255),
             "last_name" VARCHAR(255) NOT NULL,
             "date_of_birth" DATE,
+            "ssn" INTEGER,
             "is_agent" BOOLEAN NOT NULL DEFAULT FALSE,
             "is_client" BOOLEAN NOT NULL DEFAULT FALSE,
             "is_employee" BOOLEAN NOT NULL DEFAULT FALSE,
@@ -76,7 +82,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "_updated" TIMESTAMPTZ NOT NULL,
             "_updatedBy" INTEGER NOT NULL,
             "_deleted" TIMESTAMPTZ,
-            "_deletedBy" INTEGER
+            "_deletedBy" INTEGER,
+            ${personsUniqueConstraints}
           )
         `);
       },
@@ -354,16 +361,16 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           // 1) Insert person
           const personResult = isMultiTenant && orgId
             ? await client.query(
-                `INSERT INTO "persons" ("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+              `INSERT INTO "persons" ("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
                  VALUES ($1, 'Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
                  RETURNING "_id"`,
-                [orgId]
-              )
+              [orgId]
+            )
             : await client.query(
-                `INSERT INTO "persons" ("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+              `INSERT INTO "persons" ("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
                  VALUES ('Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
                  RETURNING "_id"`
-              );
+            );
 
           const personId = personResult.rows[0]._id;
 
