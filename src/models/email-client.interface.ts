@@ -1,3 +1,3 @@
 export interface IEmailClient {
-    sendHtmlEmail(toEmailAddress: string, subject: string, body: string): Promise<void>;
+    sendResetPasswordEmail(toEmailAddress: string, resetPasswordLink: string): Promise<void>;
 }

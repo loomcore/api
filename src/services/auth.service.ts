@@ -261,8 +261,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         const urlEncodedEmail = encodeURIComponent(emailAddress);
         const resetPasswordLink = `${httpOrHttps}://${config.app.name}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
-        const htmlEmailBody = `<strong><a href="${resetPasswordLink}">Reset Password</a></strong>`;
-        await this.emailService.sendHtmlEmail(emailAddress, `Reset Password for ${config.app.name}`, htmlEmailBody);
+        await this.emailService.sendResetPasswordEmail(emailAddress, resetPasswordLink);
     }
 
     async resetPassword(email: string, passwordResetToken: string, password: string): Promise<UpdateResult> {
