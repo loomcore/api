@@ -114,10 +114,18 @@ export class AuthController {
   async forgotPassword(req: Request, res: Response) {
     const email = req.body?.email;
 
+    let referer = req.get('referer') || req.headers.referer;
+
+    if (!referer) {
+      throw new BadRequestError('Missing required fields: referer is required.');
+    }
+    // remove the trailing slash from the referer if present
+    referer = referer.replace(/\/$/, '');
+
     const user = await this.authService.getUserByEmail(email);
     if (user) {
       // only try to send an email if we have a user with this email
-      await this.authService.sendResetPasswordEmail(email);
+      await this.authService.sendResetPasswordEmail(email, referer);
     }
 
     apiUtils.apiResponse<any>(res, 200);

@@ -246,7 +246,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         return insertResult;
     }
 
-    async sendResetPasswordEmail(emailAddress: string) {
+    async sendResetPasswordEmail(emailAddress: string, clientBaseUrl: string) {
         // create passwordResetToken
         const expiresOn = this.getExpiresOnFromMinutes(this.authConfig.passwordResetTokenExpirationInMinutes);
         const passwordResetToken = await this.passwordResetTokenService.createPasswordResetToken(emailAddress, expiresOn);
@@ -257,9 +257,8 @@ export class AuthService extends MultiTenantApiService<IUser> {
         }
 
         // create reset password link
-        const httpOrHttps = config.env === 'local' ? 'http' : 'https';
         const urlEncodedEmail = encodeURIComponent(emailAddress);
-        const resetPasswordLink = `${httpOrHttps}://${config.network.hostName}${config.network.externalPort ? `:${config.network.externalPort}` : ''}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
+        const resetPasswordLink = `${clientBaseUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
         await this.emailService.sendResetPasswordEmail(emailAddress, resetPasswordLink);
     }
