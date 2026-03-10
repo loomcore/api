@@ -259,7 +259,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         // create reset password link
         const httpOrHttps = config.env === 'local' ? 'http' : 'https';
         const urlEncodedEmail = encodeURIComponent(emailAddress);
-        const resetPasswordLink = `${httpOrHttps}://${config.app.name}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
+        const resetPasswordLink = `${httpOrHttps}://${config.network.hostName}${config.network.externalPort ? `:${config.network.externalPort}` : ''}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
         await this.emailService.sendResetPasswordEmail(emailAddress, resetPasswordLink);
     }
