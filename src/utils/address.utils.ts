@@ -47,9 +47,9 @@ function getSingleLineAddress(address: IAddressModel): string | null {
 
 	if (address) {
 		// Standardize all fields
-		const street = standardizeField(address.address1);
-		const address2 = standardizeField(address.address2);
-		const address3 = standardizeField(address.address3);
+		const street = standardizeField(address.addressLine1);
+		const address2 = standardizeField(address.addressLine2);
+		const address3 = standardizeField(address.addressLine3);
 		const city = standardizeField(address.city);
 		const state = standardizeField(address.state);
 		const postalCode = standardizeField(address.postalCode);
