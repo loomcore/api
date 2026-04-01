@@ -41,9 +41,16 @@ export class AuthService extends MultiTenantApiService<IUser> {
     }
 
     async attemptLogin(req: Request, res: Response, email: string, password: string): Promise<ILoginResponse | null> {
+        console.log('auth service attemptLogin', email, password);
+
         const lowerCaseEmail = email.toLowerCase();
         const user = await this.getUserByEmail(lowerCaseEmail);
+
+        console.log('auth service attemptLogin user', user);
+
         const organization = await this.organizationService.findOne(EmptyUserContext, { filters: { _id: { eq: user?._orgId } } });
+
+        console.log('auth service attemptLogin organization', organization);
 
         // Basic validation to prevent errors with undefined user
         if (!user) {
@@ -56,7 +63,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
         }
         const person = await this.personService.findOne(EmptyUserContext, { filters: { _id: { eq: user.personId } } });
 
+        console.log('auth service attemptLogin person', person);
+
         const authorizations = await getUserContextAuthorizations(this.database, user);
+        console.log('auth service attemptLogin authorizations', authorizations);
+
         const userContext = {
             user: user,
             person: person ?? undefined,
@@ -64,8 +75,14 @@ export class AuthService extends MultiTenantApiService<IUser> {
             authorizations: authorizations
         };
 
+        console.log('auth service attemptLogin userContext', userContext);
+
         const deviceId = this.getAndSetDeviceIdCookie(req, res);
+        console.log('auth service attemptLogin deviceId', deviceId);
+
         const loginResponse = await this.logUserIn(userContext, deviceId);
+        console.log('auth service attemptLogin loginResponse', loginResponse);
+
         return loginResponse;
     }
 
