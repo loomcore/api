@@ -53,29 +53,32 @@ describe.skipIf(!isPostgres)('setupDatabaseForMultitenant', () => {
         const migrationNames = migrationsResult.rows.map((row) => row.name as string);
 
         // For multi-tenant, we expect at minimum:
-        // - schema-organizations (00000000000001)
-        // - schema-users (00000000000002)
-        // - schema-refresh-tokens (00000000000003)
-        // - schema-roles (00000000000004)
-        // - schema-user-roles (00000000000005)
-        // - schema-features (00000000000006)
-        // - schema-authorizations (00000000000007)
-        // - data-meta-org (00000000000008) - if metaOrgName and metaOrgCode are provided
+        // - system-configurations (00000000000001)
+        // - schema-organizations (00000000000002)
+        // - schema-persons (00000000000003)
+        // - schema-users (00000000000004)
+        // - schema-refresh-tokens (00000000000005)
+        // - schema-roles (00000000000007)
+        // - schema-user-roles (00000000000008)
+        // - schema-features (00000000000009)
+        // - schema-authorizations (00000000000010)
+        // - data-meta-org (00000000000011) - if metaOrgName and metaOrgCode are provided
 
         // Verify we have the expected schema migrations
-        expect(migrationNames).toContain('00000000000001_schema-organizations');
-        expect(migrationNames).toContain('00000000000002_schema-persons');
-        expect(migrationNames).toContain('00000000000003_schema-users');
-        expect(migrationNames).toContain('00000000000004_schema-refresh-tokens');
-        expect(migrationNames).toContain('00000000000005_schema-password-reset-tokens');
-        expect(migrationNames).toContain('00000000000006_schema-roles');
-        expect(migrationNames).toContain('00000000000007_schema-user-roles');
-        expect(migrationNames).toContain('00000000000008_schema-features');
-        expect(migrationNames).toContain('00000000000009_schema-authorizations');
+        expect(migrationNames).toContain('00000000000001_system-configurations');
+        expect(migrationNames).toContain('00000000000002_schema-organizations');
+        expect(migrationNames).toContain('00000000000003_schema-persons');
+        expect(migrationNames).toContain('00000000000004_schema-users');
+        expect(migrationNames).toContain('00000000000005_schema-refresh-tokens');
+        expect(migrationNames).toContain('00000000000006_schema-password-reset-tokens');
+        expect(migrationNames).toContain('00000000000007_schema-roles');
+        expect(migrationNames).toContain('00000000000008_schema-user-roles');
+        expect(migrationNames).toContain('00000000000009_schema-features');
+        expect(migrationNames).toContain('00000000000010_schema-authorizations');
 
         // Meta org is only created if metaOrgName and metaOrgCode are provided
         if (config.app.isMultiTenant) {
-            expect(migrationNames).toContain('00000000000010_data-meta-org');
+            expect(migrationNames).toContain('00000000000011_data-meta-org');
         }
     });
 

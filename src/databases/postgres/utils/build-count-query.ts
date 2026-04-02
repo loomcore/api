@@ -1,9 +1,9 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions } from "@loomcore/common/models";
 import { buildWhereClause } from "./build-where-clause.js";
 
 export async function executeCountQuery(
-    client: Client,
+    client: PostgresConnection,
     pluralResourceName: string,
     queryOptions: IQueryOptions = {}
 ): Promise<number> {

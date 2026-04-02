@@ -1,4 +1,4 @@
-import { Pool, Client } from 'pg';
+import { Pool } from 'pg';
 import { initializeSystemUserContext, IOrganization, EmptyUserContext, getSystemUserContext, isSystemUserContextInitialized } from '@loomcore/common/models';
 import { PostgresDatabase } from '../postgres.database.js';
 import { OrganizationService } from '../../../services/index.js';
@@ -22,10 +22,30 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
 
   const isAuthEnabled = dbConfig.app.isAuthEnabled;
 
-  // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
+  const dbName = dbConfig.database.name.replace(/"/g, '""');
+
+  // 1. SYSTEM-LEVEL DATABASE SETTINGS (extend this migration for more ALTER DATABASE ... settings)
+  migrations.push({
+    name: '00000000000001_system-configurations',
+    up: async ({ context: pool }) => {
+      // pg-mem (used by migration tests) does not implement ALTER DATABASE
+      if (dbConfig.env === 'test') {
+        return;
+      }
+      await pool.query(`ALTER DATABASE "${dbName}" SET statement_timeout = '60s'`);
+    },
+    down: async ({ context: pool }) => {
+      if (dbConfig.env === 'test') {
+        return;
+      }
+      await pool.query(`ALTER DATABASE "${dbName}" RESET statement_timeout`);
+    }
+  });
+
+  // 2. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
-      name: '00000000000001_schema-organizations',
+      name: '00000000000002_schema-organizations',
       up: async ({ context: pool }) => {
         await pool.query(`
           CREATE TABLE IF NOT EXISTS "organizations" (
@@ -51,10 +71,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
     });
   }
 
-  // 2. PERSONS
+  // 3. PERSONS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000002_schema-persons',
+      name: '00000000000003_schema-persons',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const personsUniqueConstraints = isMultiTenant
@@ -92,10 +112,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 3. USERS
+  // 4. USERS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000003_schema-users',
+      name: '00000000000004_schema-users',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         let uniqueConstraint = isMultiTenant
@@ -129,10 +149,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 4. REFRESH TOKENS
+  // 5. REFRESH TOKENS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000004_schema-refresh-tokens',
+      name: '00000000000005_schema-refresh-tokens',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
@@ -155,10 +175,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 5. PASSWORD RESET TOKENS
+  // 6. PASSWORD RESET TOKENS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000005_schema-password-reset-tokens',
+      name: '00000000000006_schema-password-reset-tokens',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -187,10 +207,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 6. ROLES
+  // 7. ROLES
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000006_schema-roles',
+      name: '00000000000007_schema-roles',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -212,10 +232,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 7. USER ROLES
+  // 8. USER ROLES
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000007_schema-user-roles',
+      name: '00000000000008_schema-user-roles',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -245,10 +265,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 8. FEATURES
+  // 9. FEATURES
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000008_schema-features',
+      name: '00000000000009_schema-features',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -270,10 +290,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 9. AUTHORIZATIONS
+  // 10. AUTHORIZATIONS
   if (isAuthEnabled)
     migrations.push({
-      name: '00000000000009_schema-authorizations',
+      name: '00000000000010_schema-authorizations',
       up: async ({ context: pool }) => {
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
         const uniqueConstraint = isMultiTenant
@@ -306,10 +326,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       }
     });
 
-  // 10. META ORG (only for multi-tenant)
+  // 11. META ORG (only for multi-tenant)
   if (isMultiTenant) {
     migrations.push({
-      name: '00000000000010_data-meta-org',
+      name: '00000000000011_data-meta-org',
       up: async ({ context: pool }) => {
         const result = await pool.query(`
           INSERT INTO "organizations" ("name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy")
@@ -333,17 +353,17 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
     });
   }
 
-  // 11. ADMIN USER
+  // 12. ADMIN USER
   if (isAuthEnabled && dbConfig.adminUser) {
     migrations.push({
-      name: '00000000000011_data-admin-user',
+      name: '00000000000012_data-admin-user',
       up: async ({ context: pool }) => {
         // SystemUserContext MUST be initialized before this migration runs
         // For multi-tenant: meta-org migration should have initialized it
         // For non-multi-tenant: should be initialized before migrations run (bug if not)
         if (!isSystemUserContextInitialized()) {
           const errorMessage = isMultiTenant
-            ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000010_data-meta-org) should have run before this migration. ' +
+            ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000011_data-meta-org) should have run before this migration. ' +
             'Please ensure metaOrgName and metaOrgCode are provided in your dbConfig.'
             : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
 
@@ -403,14 +423,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
     });
   }
 
-  // 12. ADMIN AUTHORIZATION
+  // 13. ADMIN AUTHORIZATION
   if (isAuthEnabled && dbConfig.adminUser) {
     migrations.push({
-      name: '00000000000012_data-admin-authorizations',
+      name: '00000000000013_data-admin-authorizations',
       up: async ({ context: pool }) => {
         const client = await pool.connect();
         try {
-          const database = new PostgresDatabase(client as unknown as Client);
+          const database = new PostgresDatabase(client);
           const organizationService = new OrganizationService(database);
 
           // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
@@ -514,7 +534,7 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       down: async ({ context: pool }) => {
         const client = await pool.connect();
         try {
-          const database = new PostgresDatabase(client as unknown as Client);
+          const database = new PostgresDatabase(client);
           const organizationService = new OrganizationService(database);
           const metaOrg = isMultiTenant ? await organizationService.getMetaOrg(EmptyUserContext) : undefined;
 

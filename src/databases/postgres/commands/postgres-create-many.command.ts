@@ -1,10 +1,10 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
 import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 
 export async function createMany<T extends IEntity>(
-    client: Client,
+    client: PostgresConnection,
     pluralResourceName: string,
     entities: Partial<T>[]
 ): Promise<{ insertedIds: AppIdType[]; entities: T[] }> {

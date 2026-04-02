@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
 import { BadRequestError, NotFoundError } from "../../../errors/index.js";
@@ -9,7 +9,7 @@ import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-ent
 import { IEntity } from '@loomcore/common/models';
 
 export async function update<T extends IEntity>(
-    client: Client,
+    client: PostgresConnection,
     queryObject: IQueryOptions,
     entity: Partial<T>,
     operations: Operation[],

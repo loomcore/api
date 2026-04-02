@@ -1,5 +1,6 @@
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { Db, MongoClient } from "mongodb";
+import type { Client, Pool } from "pg";
 import { Server } from "http";
 import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
@@ -55,14 +56,16 @@ function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoute
 /**
  * Performs a graceful shutdown of all server resources
  * - Closes HTTP servers with a timeout
- * - Ensures MongoDB connection is always closed
+ * - Ensures MongoDB connection is closed when a client was provided
+ * - Ensures PostgreSQL pool (or single Client) is ended when provided
  * - Exits the process when cleanup is complete
  */
 function performGracefulShutdown(
   event: any,
   mongoClient: MongoClient | null,
   externalServer: Server | null,
-  internalServer: Server | null
+  internalServer: Server | null,
+  postgres: Pool | Client | null = null
 ): void {
   // Function to close MongoDB connection
   const closeMongoConnection = async (): Promise<void> => {
@@ -74,6 +77,19 @@ function performGracefulShutdown(
       } catch (err) {
         console.error('Error closing MongoDB connection:', err);
       }
+    }
+  };
+
+  const closePostgres = async (): Promise<void> => {
+    if (!postgres) {
+      return;
+    }
+    console.log('closing PostgreSQL pool');
+    try {
+      await postgres.end();
+      console.log('PostgreSQL pool closed successfully');
+    } catch (err) {
+      console.error('Error closing PostgreSQL pool:', err);
     }
   };
 
@@ -116,21 +132,25 @@ function performGracefulShutdown(
 
     // Force resolve after timeout if servers don't close gracefully
     setTimeout(() => {
-      console.log('Server shutdown timeout reached, proceeding with MongoDB cleanup');
+      console.log('Server shutdown timeout reached, proceeding with database cleanup');
       resolve();
     }, 5000); // 5 second timeout
   });
 
+  const closeAllDatabases = async (): Promise<void> => {
+    await Promise.all([closeMongoConnection(), closePostgres()]);
+  };
+
   // Handle the complete shutdown sequence
   Promise.race([
-    // Normal path: servers close, then MongoDB
-    shutdownServers.then(() => closeMongoConnection()),
+    // Normal path: servers close, then database connections
+    shutdownServers.then(() => closeAllDatabases()),
 
-    // Timeout path: ensure MongoDB closes even if servers timeout
+    // Timeout path: ensure database connections close even if servers timeout
     new Promise<void>(resolve => {
       setTimeout(async () => {
-        console.log('Ensuring MongoDB connection is closed before exit');
-        await closeMongoConnection();
+        console.log('Ensuring database connections are closed before exit');
+        await closeAllDatabases();
         resolve();
       }, 6000); // Give a bit more time than the server timeout
     })

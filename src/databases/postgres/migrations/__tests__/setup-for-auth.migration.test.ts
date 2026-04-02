@@ -52,30 +52,33 @@ describe.skipIf(!isPostgres)('setupDatabaseForAuth', () => {
         const migrationNames = migrationsResult.rows.map((row) => row.name as string);
 
         // For non-multi-tenant, we expect:
-        // - schema-users (00000000000002)
-        // - schema-refresh-tokens (00000000000003)
-        // - schema-roles (00000000000004)
-        // - schema-user-roles (00000000000005)
-        // - schema-features (00000000000006)
-        // - schema-authorizations (00000000000007)
-        // - data-admin-user (00000000000009) - if adminUser config provided
-        // - data-admin-authorizations (00000000000010) - if adminUser config provided
+        // - system-configurations (00000000000001)
+        // - schema-persons (00000000000003)
+        // - schema-users (00000000000004)
+        // - schema-refresh-tokens (00000000000005)
+        // - schema-roles (00000000000007)
+        // - schema-user-roles (00000000000008)
+        // - schema-features (00000000000009)
+        // - schema-authorizations (00000000000010)
+        // - data-admin-user (00000000000012) - if adminUser config provided
+        // - data-admin-authorizations (00000000000013) - if adminUser config provided
 
         // Verify we have the expected schema migrations
-        expect(migrationNames).toContain('00000000000002_schema-persons');
-        expect(migrationNames).toContain('00000000000003_schema-users');
-        expect(migrationNames).toContain('00000000000004_schema-refresh-tokens');
-        expect(migrationNames).toContain('00000000000005_schema-password-reset-tokens');
-        expect(migrationNames).toContain('00000000000006_schema-roles');
-        expect(migrationNames).toContain('00000000000007_schema-user-roles');
-        expect(migrationNames).toContain('00000000000008_schema-features');
-        expect(migrationNames).toContain('00000000000009_schema-authorizations');
+        expect(migrationNames).toContain('00000000000001_system-configurations');
+        expect(migrationNames).toContain('00000000000003_schema-persons');
+        expect(migrationNames).toContain('00000000000004_schema-users');
+        expect(migrationNames).toContain('00000000000005_schema-refresh-tokens');
+        expect(migrationNames).toContain('00000000000006_schema-password-reset-tokens');
+        expect(migrationNames).toContain('00000000000007_schema-roles');
+        expect(migrationNames).toContain('00000000000008_schema-user-roles');
+        expect(migrationNames).toContain('00000000000009_schema-features');
+        expect(migrationNames).toContain('00000000000010_schema-authorizations');
 
         // Admin user and authorizations are only created if adminUser config is provided
         // Check if they exist (they should if config.adminUser is set)
         if (config.app.isAuthEnabled) {
-            expect(migrationNames).toContain('00000000000011_data-admin-user');
-            expect(migrationNames).toContain('00000000000012_data-admin-authorizations');
+            expect(migrationNames).toContain('00000000000012_data-admin-user');
+            expect(migrationNames).toContain('00000000000013_data-admin-authorizations');
         }
     });
 

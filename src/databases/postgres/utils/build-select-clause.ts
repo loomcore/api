@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from '../../operations/operation.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
@@ -9,7 +9,7 @@ const PK = '_id';
 /**
  * Gets column names for a table from PostgreSQL information_schema
  */
-export async function getTableColumns(client: Client, tableName: string): Promise<string[]> {
+export async function getTableColumns(client: PostgresConnection, tableName: string): Promise<string[]> {
     const result = await client.query<{ column_name: string }>(
         `
             SELECT column_name
@@ -74,7 +74,7 @@ function buildParentRef(
  * Includes nested children (one-to-one and many) inside the object.
  */
 async function buildOneToOneValue(
-    client: Client,
+    client: PostgresConnection,
     op: LeftJoin | InnerJoin,
     operations: Operation[],
     mainTableName: string,
@@ -131,7 +131,7 @@ function getThroughAliasesUsedBySiblings(childOps: Operation[]): Set<string> {
  * Handles direct many, many-via-through, and nested one-to-one/one-to-many inside the aggregated item.
  */
 async function buildManyValue(
-    client: Client,
+    client: PostgresConnection,
     op: LeftJoinMany,
     operations: Operation[],
     mainTableName: string,
@@ -216,7 +216,7 @@ async function buildManyValue(
  * Builds the _joinData object SQL for top-level joins only.
  */
 async function buildJoinDataObject(
-    client: Client,
+    client: PostgresConnection,
     operations: Operation[],
     mainTableName: string
 ): Promise<string> {
@@ -255,7 +255,7 @@ async function buildJoinDataObject(
  * run join tests with USE_REAL_POSTGRES=true to validate.
  */
 export async function buildSelectClause(
-    client: Client,
+    client: PostgresConnection,
     mainTableName: string,
     operations: Operation[]
 ): Promise<string> {
