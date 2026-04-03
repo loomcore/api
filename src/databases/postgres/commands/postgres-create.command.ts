@@ -1,11 +1,11 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { IEntity } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import { BadRequestError, DuplicateKeyError } from "../../../errors/index.js";
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 
 export async function create<T extends IEntity>(
-    client: Client,
+    client: PostgresConnection,
     pluralResourceName: string,
     entity: Partial<T>
 ): Promise<{ insertedId: AppIdType; entity: T }> {

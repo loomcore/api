@@ -1,11 +1,11 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions } from "@loomcore/common/models";
 import { buildWhereClause } from "../utils/build-where-clause.js";
 import { buildOrderByClause } from "../utils/build-order-by-clause.js";
 import { buildPaginationClause } from '../utils/build-pagination-clause.js';
 
 export async function find<T>(
-    client: Client,
+    client: PostgresConnection,
     queryObject: IQueryOptions,
     pluralResourceName: string
 ): Promise<T[]> {

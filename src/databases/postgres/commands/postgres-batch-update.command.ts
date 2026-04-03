@@ -1,4 +1,5 @@
-import { Client } from 'pg';
+import { Pool, type PoolClient, type Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from "../../operations/operation.js";
 import { LeftJoin } from "../../operations/left-join.operation.js";
 import { InnerJoin } from "../../operations/inner-join.operation.js";
@@ -13,7 +14,7 @@ import type { AppIdType } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function batchUpdate<T extends IEntity>(
-    client: Client,
+    connection: PostgresConnection,
     entities: Partial<T>[],
     operations: Operation[],
     queryObject: IQueryOptions,
@@ -34,9 +35,18 @@ export async function batchUpdate<T extends IEntity>(
     }
     queryObject.filters = queryObject.filters || {};
 
+    let session: PoolClient | Client;
+    let releaseSession = false;
+    if (connection instanceof Pool) {
+        session = await connection.connect();
+        releaseSession = true;
+    } else {
+        session = connection as Client | PoolClient;
+    }
+
     try {
         // Start a transaction
-        await client.query('BEGIN');
+        await session.query('BEGIN');
 
         // Update each entity
         for (const entity of entities) {
@@ -60,10 +70,10 @@ export async function batchUpdate<T extends IEntity>(
                 ${whereClause}
             `;
 
-            await client.query(query, values);
+            await session.query(query, values);
         }
 
-        await client.query('COMMIT');
+        await session.query('COMMIT');
 
         const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
@@ -78,7 +88,7 @@ export async function batchUpdate<T extends IEntity>(
         // Build SELECT clause with explicit columns and JSON aggregation for joins
         // If no joins, use SELECT * for simplicity
         const selectClause = hasJoins
-            ? await buildSelectClause(client, pluralResourceName, operations)
+            ? await buildSelectClause(session, pluralResourceName, operations)
             : '*';
 
         const selectQuery = `
@@ -86,7 +96,7 @@ export async function batchUpdate<T extends IEntity>(
             ${whereClause}
         `;
 
-        const result = await client.query(selectQuery, values);
+        const result = await session.query(selectQuery, values);
 
         // Transform flat results into nested objects if joins are present
         return hasJoins
@@ -95,7 +105,7 @@ export async function batchUpdate<T extends IEntity>(
     }
     catch (err: any) {
         // Rollback transaction on error
-        await client.query('ROLLBACK');
+        await session.query('ROLLBACK');
 
         // PostgreSQL error code 23505 is for unique constraint violations
         if (err.code === '23505') {
@@ -103,5 +113,9 @@ export async function batchUpdate<T extends IEntity>(
         }
         throw new BadRequestError(`Error updating ${pluralResourceName}: ${err.message}`);
     }
+    finally {
+        if (releaseSession) {
+            (session as PoolClient).release();
+        }
+    }
 }
-

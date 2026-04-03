@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Client } from 'pg';
+import type { PostgresConnection } from '../../../databases/postgres/postgres-connection.js';
 import { TestPostgresDatabase } from '../../../__tests__/postgres.test-database.js';
 import { setupTestConfig } from '../../../__tests__/common-test.utils.js';
 import { PostgresDatabase } from '../../postgres/postgres.database.js';
@@ -22,7 +22,7 @@ const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
 describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () => {
     let database: PostgresDatabase;
-    let client: Client;
+    let client: PostgresConnection;
     let testDatabase: TestPostgresDatabase;
     let personId: number;
     let person2Id: number;
@@ -52,7 +52,7 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
 
         // Get the underlying PostgreSQL client for direct queries
         // We need direct access to insert into join tables
-        client = (testDatabase as any).postgresClient as Client;
+        client = (testDatabase as any).postgresClient as PostgresConnection;
 
         // Create test data
         // 1. Create a person

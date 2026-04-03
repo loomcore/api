@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from "../../operations/operation.js";
 import { LeftJoin } from "../../operations/left-join.operation.js";
 import { InnerJoin } from "../../operations/inner-join.operation.js";
@@ -11,7 +11,7 @@ import type { AppIdType } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 
 export async function getById<T>(
-    client: Client,
+    client: PostgresConnection,
     operations: Operation[],
     queryObject: IQueryOptions,
     id: AppIdType,

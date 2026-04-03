@@ -1,10 +1,10 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions } from "@loomcore/common/models";
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { DeleteResult } from "../../models/delete-result.js";
 
 export async function deleteMany(
-    client: Client,
+    client: PostgresConnection,
     queryObject: IQueryOptions,
     pluralResourceName: string
 ): Promise<DeleteResult> {

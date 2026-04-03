@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Application, Request, Response } from 'express';
-import { Client } from 'pg';
+import type { PostgresConnection } from '../../../databases/postgres/postgres-connection.js';
 import { TestExpressApp } from '../../../__tests__/test-express-app.js';
 import { setupTestConfig } from '../../../__tests__/common-test.utils.js';
 import { TestPostgresDatabase } from '../../../__tests__/postgres.test-database.js';
@@ -270,7 +270,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
 describe.skipIf(!isRealPostgres)('Join Operations - API Response Level Tests', () => {
     let app: Application;
     let database: PostgresDatabase;
-    let client: Client;
+    let client: PostgresConnection;
     let testDatabase: TestPostgresDatabase;
     let testAgent: any;
     let authToken: string;
@@ -298,7 +298,7 @@ describe.skipIf(!isRealPostgres)('Join Operations - API Response Level Tests', (
         database = db as PostgresDatabase;
 
         // Get the underlying PostgreSQL client for direct queries
-        client = (testDatabase as any).postgresClient as Client;
+        client = (testDatabase as any).postgresClient as PostgresConnection;
 
         // Initialize Express app
         const testSetup = await TestExpressApp.init(false);

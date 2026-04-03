@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Client } from 'pg';
+import type { PostgresConnection } from '../../../databases/postgres/postgres-connection.js';
 import { TestPostgresDatabase } from '../../../__tests__/postgres.test-database.js';
 import { setupTestConfig } from '../../../__tests__/common-test.utils.js';
 import { PostgresDatabase } from '../../../databases/postgres/postgres.database.js';
@@ -22,7 +22,7 @@ const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
 describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex Data Fetching', () => {
     let database: PostgresDatabase;
-    let client: Client;
+    let client: PostgresConnection;
     let testDatabase: TestPostgresDatabase;
     let service: GenericQueryService<ITestClientReportsModel>;
     let userContext: IUserContext;
@@ -42,7 +42,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         database = db as PostgresDatabase;
 
         // Get the underlying PostgreSQL client for direct queries
-        client = (testDatabase as any).postgresClient as Client;
+        client = (testDatabase as any).postgresClient as PostgresConnection;
 
         // Get user context for tests
         userContext = getTestMetaOrgUserContext();

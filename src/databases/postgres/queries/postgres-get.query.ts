@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions, IModelSpec, IPagedResult } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
 import { LeftJoin } from "../../operations/left-join.operation.js";
@@ -13,7 +13,7 @@ import { apiUtils } from "../../../utils/api.utils.js";
 import { buildPaginationClause } from '../utils/build-pagination-clause.js';
 
 export async function get<T>(
-    client: Client,
+    client: PostgresConnection,
     operations: Operation[],
     queryOptions: IQueryOptions,
     pluralResourceName: string

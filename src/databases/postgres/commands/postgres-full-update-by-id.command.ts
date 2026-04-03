@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from "../../operations/operation.js";
 import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
@@ -6,7 +6,7 @@ import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 
 export async function fullUpdateById<T extends IEntity>(
-    client: Client,
+    client: PostgresConnection,
     operations: Operation[],
     id: AppIdType,
     entity: Partial<T>,

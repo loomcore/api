@@ -1,13 +1,12 @@
 import testUtils from './common-test.utils.js';
 import { ITestDatabase } from './test-database.interface.js';
 import { newDb } from "pg-mem";
-import { Client, Pool } from 'pg';
+import { Pool, Client } from 'pg';
 import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
+import type { PostgresConnection } from '../databases/postgres/postgres-connection.js';
 import { IDatabase } from '../databases/models/index.js';
 import { config } from '../config/base-api-config.js';
 import { runInitialSchemaMigrations, runTestSchemaMigrations } from '../databases/postgres/migrations/__tests__/test-migration-helper.js';
-import { IInitialDbMigrationConfig } from '../models/initial-database-config.interface.js';
-
 /**
  * Check if we should use a real PostgreSQL container instead of pg-mem
  * Set USE_REAL_POSTGRES=true to use Docker container
@@ -22,8 +21,9 @@ const USE_REAL_POSTGRES = process.env.USE_REAL_POSTGRES === 'true';
  */
 export class TestPostgresDatabase implements ITestDatabase {
   private database: IDatabase | null = null;
-  private postgresClient: Client | null = null;
-  private postgresPool: Pool | null = null;
+  /** Underlying pg handle (Pool when using real Postgres, Client for pg-mem). Exposed for tests via cast. */
+  private postgresClient: PostgresConnection | null = null;
+  private migrationPool: Pool | null = null;
   private initPromise: Promise<IDatabase> | null = null;
   /**
    * Initialize the PostgreSQL test database
@@ -50,20 +50,23 @@ export class TestPostgresDatabase implements ITestDatabase {
   private async _performInit(): Promise<IDatabase> {
     // Set up PostgreSQL test database if not already done
     if (!this.database) {
-      let postgresClient: Client;
+      let connection: PostgresConnection;
       let pool: Pool;
 
       if (USE_REAL_POSTGRES) {
-        // Use real PostgreSQL container
+        // Use real PostgreSQL container — one Pool for migrations and for PostgresDatabase
         const connectionString = `postgresql://test-user:test-password@localhost:5444/test-db`;
-        postgresClient = new Client({
+        pool = new Pool({
           connectionString,
           connectionTimeoutMillis: 5000, // 5 second timeout
         });
+        this.migrationPool = pool;
 
         try {
-          await postgresClient.connect();
+          await pool.query('SELECT now(), current_database()');
         } catch (error: any) {
+          await pool.end();
+          this.migrationPool = null;
           const errorMessage = error.message || String(error);
           const isPermissionError = errorMessage.includes('permission denied') || errorMessage.includes('operation not permitted');
 
@@ -86,23 +89,20 @@ export class TestPostgresDatabase implements ITestDatabase {
           );
         }
 
-        // Create a Pool for migrations
-        pool = new Pool({
-          connectionString,
-          connectionTimeoutMillis: 5000,
-        });
+        connection = pool;
       } else {
         // Use pg-mem (default)
         const { Client } = newDb().adapters.createPg();
-        postgresClient = new Client();
-        await postgresClient.connect();
+        const pgMemClient = new Client();
+        await pgMemClient.connect();
 
         // pg-mem's Client can be used as a Pool
-        pool = postgresClient as unknown as Pool;
+        pool = pgMemClient as unknown as Pool;
+        connection = pgMemClient;
+        this.migrationPool = pool;
       }
-      this.postgresPool = pool;
-      this.database = new PostgresDatabase(postgresClient);
-      this.postgresClient = postgresClient;
+      this.database = new PostgresDatabase(connection);
+      this.postgresClient = connection;
 
       // Initialize system user context before running migrations
       // (migrations may need it, especially admin-user migration)
@@ -121,7 +121,7 @@ export class TestPostgresDatabase implements ITestDatabase {
 
       // Initialize test utilities with the database
       testUtils.initialize(this.database);
-      await this.createIndexes(postgresClient);
+      await this.createIndexes(connection);
 
       // Create meta org (this will re-initialize system user context with the meta org if multi-tenant)
       await testUtils.createMetaOrg();
@@ -130,11 +130,11 @@ export class TestPostgresDatabase implements ITestDatabase {
     return this.database;
   }
 
-  private async createIndexes(client: Client) {
+  private async createIndexes(connection: PostgresConnection) {
     // Create indexes - keep this in sync with any production schema that is used for actual deployment
     // Create a unique, case-insensitive index on users.email (similar to MongoDB implementation)
     try {
-      await client.query(`
+      await connection.query(`
         CREATE INDEX IF NOT EXISTS email_index ON users (LOWER(email));
         CREATE UNIQUE INDEX IF NOT EXISTS email_unique_index ON users (LOWER(email));
       `);
@@ -163,7 +163,7 @@ export class TestPostgresDatabase implements ITestDatabase {
 
     // Truncate all tables
     if (USE_REAL_POSTGRES) {
-      await this.postgresClient?.query(`TRUNCATE TABLE ${result.rows.map(row => `"${row.table_name}"`).join(', ')} RESTART IDENTITY CASCADE`);
+      await this.postgresClient.query(`TRUNCATE TABLE ${result.rows.map(row => `"${row.table_name}"`).join(', ')} RESTART IDENTITY CASCADE`);
     } else {
       // pg-mem does not support truncating mutliple tables at once yet, so we need to truncate each table individually
       result.rows.forEach(async (row) => {
@@ -181,26 +181,20 @@ export class TestPostgresDatabase implements ITestDatabase {
       await testUtils.cleanup();
     }
 
-    // Close the client connection if it exists
     if (this.postgresClient) {
       try {
-        await this.postgresClient.end();
+        if (this.postgresClient instanceof Pool) {
+          await this.postgresClient.end();
+        } else {
+          await (this.postgresClient as Client).end();
+        }
       } catch (error) {
         // Ignore errors during cleanup
-        console.warn('Error closing PostgreSQL client:', error);
+        console.warn('Error closing PostgreSQL connection:', error);
       }
     }
 
-    // Close the pool if it exists (for real PostgreSQL)
-    if (this.postgresPool) {
-      try {
-        await this.postgresPool.end();
-      } catch (error) {
-        // Ignore errors during cleanup
-        console.warn('Error closing PostgreSQL pool:', error);
-      }
-      this.postgresPool = null;
-    }
+    this.migrationPool = null;
 
     // Reset initialization state
     this.initPromise = null;

@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from "../../operations/operation.js";
 import { LeftJoin } from "../../operations/left-join.operation.js";
 import { InnerJoin } from "../../operations/inner-join.operation.js";
@@ -7,7 +7,7 @@ import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 
 export async function getAll<T>(
-    client: Client,
+    client: PostgresConnection,
     operations: Operation[],
     pluralResourceName: string
 ): Promise<T[]> {

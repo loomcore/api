@@ -3,7 +3,7 @@ import type { AppIdType } from "@loomcore/common/types";
 import { TSchema } from "@sinclair/typebox";
 import { DeleteResult, IDatabase } from "../models/index.js";
 import { Operation } from "../operations/operation.js";
-import { Client } from 'pg';
+import type { PostgresConnection } from './postgres-connection.js';
 import { create as createCommand } from "./commands/postgres-create.command.js";
 import { createMany as createManyCommand } from "./commands/postgres-create-many.command.js";
 import { batchUpdate as batchUpdateCommand } from "./commands/postgres-batch-update.command.js";
@@ -22,10 +22,13 @@ import { convertNullToUndefined } from "./utils/convert-null-to-undefined.util.j
 import { convertKeysToSnakeCase, convertKeysToCamelCase } from "./utils/convert-keys.util.js";
 
 export class PostgresDatabase implements IDatabase {
-    private client: Client;
+    private connection: PostgresConnection;
 
-    constructor(client: Client) {
-        this.client = client;
+    /**
+     * @param connection — Prefer a `pg` Pool in production; a single Client is supported for tests (e.g. pg-mem).
+     */
+    constructor(connection: PostgresConnection) {
+        this.connection = connection;
     }
     preProcessEntity<T extends IEntity>(entity: Partial<T>, modelSpec: TSchema): Partial<T> {
         return convertKeysToSnakeCase(entity);
@@ -35,46 +38,46 @@ export class PostgresDatabase implements IDatabase {
         return convertKeysToCamelCase(withNullsConverted);
     }
     async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
-        return getAllQuery(this.client, operations, pluralResourceName);
+        return getAllQuery(this.connection, operations, pluralResourceName);
     }
     async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
-        return getQuery(this.client, operations, queryOptions, pluralResourceName);
+        return getQuery(this.connection, operations, queryOptions, pluralResourceName);
     }
     async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: AppIdType, pluralResourceName: string): Promise<T | null> {
-        return getByIdQuery(this.client, operations, queryObject, id, pluralResourceName);
+        return getByIdQuery(this.connection, operations, queryObject, id, pluralResourceName);
     }
     async getCount(pluralResourceName: string): Promise<number> {
-        return getCountQuery(this.client, pluralResourceName);
+        return getCountQuery(this.connection, pluralResourceName);
     }
     async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppIdType; entity: T; }> {
-        return createCommand(this.client, pluralResourceName, entity);
+        return createCommand(this.connection, pluralResourceName, entity);
     }
     async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: AppIdType[]; entities: T[]; }> {
-        return createManyCommand(this.client, pluralResourceName, entities);
+        return createManyCommand(this.connection, pluralResourceName, entities);
     }
     async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
-        return batchUpdateCommand(this.client, entities, operations, queryObject, pluralResourceName);
+        return batchUpdateCommand(this.connection, entities, operations, queryObject, pluralResourceName);
     }
     async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-        return fullUpdateByIdCommand(this.client, operations, id, entity, pluralResourceName);
+        return fullUpdateByIdCommand(this.connection, operations, id, entity, pluralResourceName);
     }
     async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-        return partialUpdateByIdCommand(this.client, operations, id, entity, pluralResourceName);
+        return partialUpdateByIdCommand(this.connection, operations, id, entity, pluralResourceName);
     }
     async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
-        return updateCommand(this.client, queryObject, entity, operations, pluralResourceName);
+        return updateCommand(this.connection, queryObject, entity, operations, pluralResourceName);
     }
     async deleteById(id: AppIdType, pluralResourceName: string): Promise<DeleteResult> {
-        return deleteByIdCommand(this.client, id, pluralResourceName);
+        return deleteByIdCommand(this.connection, id, pluralResourceName);
     }
     async deleteMany(queryObject: IQueryOptions, pluralResourceName: string): Promise<DeleteResult> {
-        return deleteManyCommand(this.client, queryObject, pluralResourceName);
+        return deleteManyCommand(this.connection, queryObject, pluralResourceName);
     }
     async find<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
-        return findQuery<T>(this.client, queryObject, pluralResourceName);
+        return findQuery<T>(this.connection, queryObject, pluralResourceName);
     }
     async findOne<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
-        return findOneQuery(this.client, queryObject, pluralResourceName);
+        return findOneQuery(this.connection, queryObject, pluralResourceName);
     }
 
     /**
@@ -110,7 +113,7 @@ export class PostgresDatabase implements IDatabase {
             values.push(orgId);
         }
 
-        const result = await this.client.query(query, values);
+        const result = await this.connection.query(query, values);
 
         const authorizations: IUserContextAuthorization[] = [];
 

@@ -1,9 +1,9 @@
-import { Client } from 'pg';
+import type { PostgresConnection } from '../postgres-connection.js';
 import { DeleteResult } from "../../models/delete-result.js";
 import type { AppIdType } from '@loomcore/common/types';
 
 export async function deleteById(
-    client: Client,
+    client: PostgresConnection,
     id: AppIdType,
     pluralResourceName: string
 ): Promise<DeleteResult> {
