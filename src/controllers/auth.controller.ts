@@ -45,11 +45,7 @@ export class AuthController {
     const { email, password } = req.body;
     res.set('Content-Type', 'application/json');
 
-    console.log('auth controller login', email);
-
     const loginResponse = await this.authService.attemptLogin(req, res, email, password);
-
-    console.log('auth controller login response', loginResponse);
 
     apiUtils.apiResponse<ILoginResponse | null>(res, 200, { data: loginResponse }, LoginResponseSpec);
   }
