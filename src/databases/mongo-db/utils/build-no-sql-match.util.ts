@@ -32,7 +32,7 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
 					match[key] = valueToCompare;
 				}
 			}
-			else if (value.in !== undefined && Array.isArray(value.in)) {
+			if (value.in !== undefined && Array.isArray(value.in)) {
 				const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
 
 				// Use schema to check for ObjectId array, otherwise fall back to name-based check
@@ -52,19 +52,19 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
 					match[key] = { $in: convertedValues };
 				}
 			}
-			else if (value.gte !== undefined) {
+			if (value.gte !== undefined) {
 				match[key] = { $gte: value.gte };
 			}
-			else if (value.lte !== undefined) {
+			if (value.lte !== undefined) {
 				match[key] = { $lte: value.lte };
 			}
-			else if (value.gt !== undefined) {
+			if (value.gt !== undefined) {
 				match[key] = { $gt: value.gt };
 			}
-			else if (value.lt !== undefined) {
+			if (value.lt !== undefined) {
 				match[key] = { $lt: value.lt };
 			}
-			else if (value.contains !== undefined) {
+			if (value.contains !== undefined) {
 				match[key] = { $regex: value.contains, $options: 'i' };
 			}
 		}
