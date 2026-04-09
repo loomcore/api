@@ -194,8 +194,6 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
 
     const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.pluralResourceName);
 
-
-    // console.log("pagedResult 198", JSON.stringify(pagedResult, null, 2));
     const transformedEntities = (pagedResult.entities || []).map(entity => {
       const transformedEntity: T = this.postProcessEntity(userContext, entity);
       if (postProcessEntityCustom) {

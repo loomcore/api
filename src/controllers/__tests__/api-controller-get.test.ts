@@ -72,8 +72,6 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
       .get(`/api/products`)
       .set('Authorization', authToken);
 
-
-    console.log("api controller get test: response", JSON.stringify(response.body));
     // Assert
     expect(response.status).toBe(200);
     const pagedResult = response.body.data;
