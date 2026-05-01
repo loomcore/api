@@ -104,11 +104,17 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${personsUniqueConstraints}
-          )
+          );
+          CREATE INDEX IF NOT EXISTS "idx_persons_external_id" ON "persons" ("external_id");
+          CREATE INDEX IF NOT EXISTS "idx_persons_ssn" ON "persons" ("ssn");
         `);
       },
       down: async ({ context: pool }) => {
-        await pool.query('DROP TABLE IF EXISTS "persons"');
+        await pool.query(`
+          DROP INDEX IF EXISTS "idx_persons_external_id";
+          DROP INDEX IF EXISTS "idx_persons_ssn";
+          DROP TABLE IF EXISTS "persons"
+        `);
       }
     });
 
@@ -124,28 +130,36 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
         uniqueConstraint += `,
           CONSTRAINT "fk_users_person_id" FOREIGN KEY("person_id") REFERENCES "persons"("_id") ON DELETE CASCADE`;
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "users" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "users"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "external_id" VARCHAR(255) UNIQUE,
-          "email" VARCHAR(255) NOT NULL,
-          "display_name" VARCHAR(255),
-          "password" VARCHAR(255) NOT NULL,
-          "person_id" INTEGER UNIQUE,
-          "_lastLoggedIn" TIMESTAMPTZ,
-          "_lastPasswordChange" TIMESTAMPTZ,
-          "_created" TIMESTAMPTZ NOT NULL,
-          "_createdBy" INTEGER NOT NULL,
-          "_updated" TIMESTAMPTZ NOT NULL,
-          "_updatedBy" INTEGER NOT NULL,
-          "_deleted" TIMESTAMPTZ,
-          "_deletedBy" INTEGER,
-          ${uniqueConstraint}
-        )
-      `);
+            "email" VARCHAR(255) NOT NULL,
+            "display_name" VARCHAR(255),
+            "password" VARCHAR(255) NOT NULL,
+            "person_id" INTEGER UNIQUE,
+            "_lastLoggedIn" TIMESTAMPTZ,
+            "_lastPasswordChange" TIMESTAMPTZ,
+            "_created" TIMESTAMPTZ NOT NULL,
+            "_createdBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ NOT NULL,
+            "_updatedBy" INTEGER NOT NULL,
+            "_deleted" TIMESTAMPTZ,
+            "_deletedBy" INTEGER,
+            ${uniqueConstraint}
+          )
+        CREATE INDEX IF NOT EXISTS "idx_users_external_id" ON "users"("external_id");
+        CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users"("email");
+        CREATE INDEX IF NOT EXISTS "idx_users_person_id" ON "users"("person_id");
+        `);
       },
       down: async ({ context: pool }) => {
-        await pool.query('DROP TABLE IF EXISTS "users"');
+        await pool.query(`
+          DROP INDEX IF EXISTS "idx_users_external_id";
+          DROP INDEX IF EXISTS "idx_users_email";
+          DROP INDEX IF EXISTS "idx_users_person_id";
+          DROP TABLE IF EXISTS "users"
+          `);
       }
     });
 
@@ -157,18 +171,18 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
         const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : '';
 
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "refresh_tokens" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "refresh_tokens"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "token" VARCHAR(255) NOT NULL,
-          "device_id" VARCHAR(255) NOT NULL,
-          "user_id" INTEGER NOT NULL,
-          "expires_on" BIGINT NOT NULL,
-          "created" TIMESTAMPTZ NOT NULL,
-          "created_by" INTEGER NOT NULL,
-          CONSTRAINT "fk_refresh_tokens_user" FOREIGN KEY ("user_id") REFERENCES "users"("_id") ON DELETE CASCADE
-        )
-      `);
+            "device_id" VARCHAR(255) NOT NULL,
+            "user_id" INTEGER NOT NULL,
+            "expires_on" BIGINT NOT NULL,
+            "created" TIMESTAMPTZ NOT NULL,
+            "created_by" INTEGER NOT NULL,
+            CONSTRAINT "fk_refresh_tokens_user" FOREIGN KEY("user_id") REFERENCES "users"("_id") ON DELETE CASCADE
+          )
+          `);
       },
       down: async ({ context: pool }) => {
         await pool.query('DROP TABLE IF EXISTS "refresh_tokens"');
@@ -186,21 +200,21 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           : 'CONSTRAINT "uk_passwordResetTokens_email" UNIQUE ("email")';
 
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "password_reset_tokens"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "email" VARCHAR(255) NOT NULL,
-          "token" VARCHAR(255) NOT NULL,
-          "expires_on" BIGINT NOT NULL,
-          "_created" TIMESTAMPTZ NOT NULL,
-          "_createdBy" INTEGER NOT NULL,
-          "_updated" TIMESTAMPTZ NOT NULL,
-          "_updatedBy" INTEGER NOT NULL,
-          "_deleted" TIMESTAMPTZ,
-          "_deletedBy" INTEGER,
-          ${uniqueConstraint}
-        )
-      `);
+            "token" VARCHAR(255) NOT NULL,
+            "expires_on" BIGINT NOT NULL,
+            "_created" TIMESTAMPTZ NOT NULL,
+            "_createdBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ NOT NULL,
+            "_updatedBy" INTEGER NOT NULL,
+            "_deleted" TIMESTAMPTZ,
+            "_deletedBy" INTEGER,
+            ${uniqueConstraint}
+          )
+          `);
       },
       down: async ({ context: pool }) => {
         await pool.query('DROP TABLE IF EXISTS "password_reset_tokens"');
@@ -218,14 +232,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           : 'CONSTRAINT "uk_roles_name" UNIQUE ("name")';
 
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "roles" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "roles"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
-          "description" TEXT,
-          ${uniqueConstraint}
-        )
-      `);
+            "description" TEXT,
+            ${uniqueConstraint}
+          )
+          `);
       },
       down: async ({ context: pool }) => {
         await pool.query('DROP TABLE IF EXISTS "roles"');
@@ -243,22 +257,22 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           : 'CONSTRAINT "uk_user_roles" UNIQUE ("user_id", "role_id")';
 
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "user_roles" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "user_roles"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "user_id" INTEGER NOT NULL,
-          "role_id" INTEGER NOT NULL,
-          "_created" TIMESTAMPTZ NOT NULL,
-          "_createdBy" INTEGER NOT NULL,
-          "_updated" TIMESTAMPTZ NOT NULL,
-          "_updatedBy" INTEGER NOT NULL,
-          "_deleted" TIMESTAMPTZ,
-          "_deletedBy" INTEGER,
-          CONSTRAINT "fk_user_roles_user" FOREIGN KEY ("user_id") REFERENCES "users"("_id") ON DELETE CASCADE,
-          CONSTRAINT "fk_user_roles_role" FOREIGN KEY ("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
-          ${uniqueConstraint}
-        )
-      `);
+            "role_id" INTEGER NOT NULL,
+            "_created" TIMESTAMPTZ NOT NULL,
+            "_createdBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ NOT NULL,
+            "_updatedBy" INTEGER NOT NULL,
+            "_deleted" TIMESTAMPTZ,
+            "_deletedBy" INTEGER,
+            CONSTRAINT "fk_user_roles_user" FOREIGN KEY("user_id") REFERENCES "users"("_id") ON DELETE CASCADE,
+            CONSTRAINT "fk_user_roles_role" FOREIGN KEY("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
+            ${uniqueConstraint}
+          )
+          `);
       },
       down: async ({ context: pool }) => {
         await pool.query('DROP TABLE IF EXISTS "user_roles"');
@@ -276,14 +290,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           : 'CONSTRAINT "uk_features" UNIQUE ("name")';
 
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "features" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "features"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
-          "description" TEXT,
-          ${uniqueConstraint}
-        )
-      `);
+            "description" TEXT,
+            ${uniqueConstraint}
+          )
+          `);
       },
       down: async ({ context: pool }) => {
         await pool.query('DROP TABLE IF EXISTS "features"');
@@ -301,25 +315,25 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           : 'CONSTRAINT "uk_authorizations" UNIQUE ("role_id", "feature_id")';
 
         await pool.query(`
-        CREATE TABLE IF NOT EXISTS "authorizations" (
-          "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-          ${orgColumnDef}
+        CREATE TABLE IF NOT EXISTS "authorizations"(
+            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            ${orgColumnDef}
           "role_id" INTEGER NOT NULL,
-          "feature_id" INTEGER NOT NULL,
-          "start_date" TIMESTAMPTZ,
-          "end_date" TIMESTAMPTZ,
-          "config" JSONB,
-          "_created" TIMESTAMPTZ NOT NULL,
-          "_createdBy" INTEGER NOT NULL,
-          "_updated" TIMESTAMPTZ NOT NULL,
-          "_updatedBy" INTEGER NOT NULL,
-          "_deleted" TIMESTAMPTZ,
-          "_deletedBy" INTEGER,
-          CONSTRAINT "fk_authorizations_role" FOREIGN KEY ("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
-          CONSTRAINT "fk_authorizations_feature" FOREIGN KEY ("feature_id") REFERENCES "features"("_id") ON DELETE CASCADE,
-          ${uniqueConstraint}
-        )
-      `);
+            "feature_id" INTEGER NOT NULL,
+            "start_date" TIMESTAMPTZ,
+            "end_date" TIMESTAMPTZ,
+            "config" JSONB,
+            "_created" TIMESTAMPTZ NOT NULL,
+            "_createdBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ NOT NULL,
+            "_updatedBy" INTEGER NOT NULL,
+            "_deleted" TIMESTAMPTZ,
+            "_deletedBy" INTEGER,
+            CONSTRAINT "fk_authorizations_role" FOREIGN KEY("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
+            CONSTRAINT "fk_authorizations_feature" FOREIGN KEY("feature_id") REFERENCES "features"("_id") ON DELETE CASCADE,
+            ${uniqueConstraint}
+          )
+          `);
       },
       down: async ({ context: pool }) => {
         await pool.query('DROP TABLE IF EXISTS "authorizations"');
@@ -332,10 +346,10 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       name: '00000000000011_data-meta-org',
       up: async ({ context: pool }) => {
         const result = await pool.query(`
-          INSERT INTO "organizations" ("name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy")
-          VALUES ($1, $2, 1, true, NOW(), 0, NOW(), 0)
+          INSERT INTO "organizations"("name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES($1, $2, 1, true, NOW(), 0, NOW(), 0)
           RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy"
-        `, [dbConfig.multiTenant?.metaOrgName, dbConfig.multiTenant?.metaOrgCode]);
+          `, [dbConfig.multiTenant?.metaOrgName, dbConfig.multiTenant?.metaOrgCode]);
 
         if (result.rowCount === 0) {
           throw new Error('Failed to create meta organization');
@@ -381,14 +395,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           // 1) Insert person
           const personResult = isMultiTenant && orgId
             ? await client.query(
-              `INSERT INTO "persons" ("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
-                 VALUES ($1, 'Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
+              `INSERT INTO "persons"("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES($1, 'Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
                  RETURNING "_id"`,
               [orgId]
             )
             : await client.query(
-              `INSERT INTO "persons" ("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
-                 VALUES ('Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
+              `INSERT INTO "persons"("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES('Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
                  RETURNING "_id"`
             );
 
@@ -397,14 +411,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           // 2) Insert user
           if (isMultiTenant && orgId) {
             await client.query(
-              `INSERT INTO "users" ("_orgId", "email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
-               VALUES ($1, $2, 'Admin User', $3, $4, NOW(), 0, NOW(), 0)`,
+              `INSERT INTO "users"("_orgId", "email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES($1, $2, 'Admin User', $3, $4, NOW(), 0, NOW(), 0)`,
               [orgId, email, hashedPassword, personId]
             );
           } else {
             await client.query(
-              `INSERT INTO "users" ("email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
-               VALUES ($1, 'Admin User', $2, $3, NOW(), 0, NOW(), 0)`,
+              `INSERT INTO "users"("email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES($1, 'Admin User', $2, $3, NOW(), 0, NOW(), 0)`,
               [email, hashedPassword, personId]
             );
           }
@@ -453,15 +467,15 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             // 1) Add 'admin' role
             const roleResult = isMultiTenant
               ? await client.query(`
-                  INSERT INTO "roles" ("_orgId", "name")
-                  VALUES ($1, 'admin')
+                  INSERT INTO "roles"("_orgId", "name")
+        VALUES($1, 'admin')
                   RETURNING "_id"
-                `, [metaOrg!._id])
+          `, [metaOrg!._id])
               : await client.query(`
-                  INSERT INTO "roles" ("name")
-                  VALUES ('admin')
+                  INSERT INTO "roles"("name")
+        VALUES('admin')
                   RETURNING "_id"
-                `);
+          `);
 
             if (roleResult.rowCount === 0) {
               throw new Error('Failed to create admin role');
@@ -471,13 +485,13 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             // 2) Add user role mapping
             const userRoleResult = isMultiTenant
               ? await client.query(`
-                  INSERT INTO "user_roles" ("_orgId", "user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
-                  VALUES ($1, $2, $3, NOW(), 0, NOW(), 0)
-                `, [metaOrg!._id, adminUserId, roleId])
+                  INSERT INTO "user_roles"("_orgId", "user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES($1, $2, $3, NOW(), 0, NOW(), 0)
+          `, [metaOrg!._id, adminUserId, roleId])
               : await client.query(`
-                  INSERT INTO "user_roles" ("user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
-                  VALUES ($1, $2, NOW(), 0, NOW(), 0)
-                `, [adminUserId, roleId]);
+                  INSERT INTO "user_roles"("user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
+        VALUES($1, $2, NOW(), 0, NOW(), 0)
+          `, [adminUserId, roleId]);
 
             if (userRoleResult.rowCount === 0) {
               throw new Error('Failed to create user role');
@@ -486,15 +500,15 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             // 3) Add admin feature
             const featureResult = isMultiTenant
               ? await client.query(`
-                  INSERT INTO "features" ("_orgId", "name")
-                  VALUES ($1, 'admin')
+                  INSERT INTO "features"("_orgId", "name")
+        VALUES($1, 'admin')
                   RETURNING "_id"
-                `, [metaOrg!._id])
+          `, [metaOrg!._id])
               : await client.query(`
-                  INSERT INTO "features" ("name")
-                  VALUES ('admin')
+                  INSERT INTO "features"("name")
+        VALUES('admin')
                   RETURNING "_id"
-                `);
+          `);
 
             if (featureResult.rowCount === 0) {
               throw new Error('Failed to create admin feature');
@@ -504,19 +518,19 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             // 4) Add authorization
             const authorizationResult = isMultiTenant
               ? await client.query(`
-                  INSERT INTO "authorizations" (
-                    "_orgId", "role_id", "feature_id", 
-                    "_created", "_createdBy", "_updated", "_updatedBy"
-                  )
-                  VALUES ($1, $2, $3, NOW(), 0, NOW(), 0)
-                `, [metaOrg!._id, roleId, featureId])
+                  INSERT INTO "authorizations"(
+            "_orgId", "role_id", "feature_id",
+            "_created", "_createdBy", "_updated", "_updatedBy"
+          )
+        VALUES($1, $2, $3, NOW(), 0, NOW(), 0)
+          `, [metaOrg!._id, roleId, featureId])
               : await client.query(`
-                  INSERT INTO "authorizations" (
-                    "role_id", "feature_id", 
-                    "_created", "_createdBy", "_updated", "_updatedBy"
-                  )
-                  VALUES ($1, $2, NOW(), 0, NOW(), 0)
-                `, [roleId, featureId]);
+                  INSERT INTO "authorizations"(
+            "role_id", "feature_id",
+            "_created", "_createdBy", "_updated", "_updatedBy"
+          )
+        VALUES($1, $2, NOW(), 0, NOW(), 0)
+          `, [roleId, featureId]);
 
             if (authorizationResult.rowCount === 0) {
               throw new Error('Failed to create admin authorization');
@@ -548,71 +562,71 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
               await client.query(`
                 DELETE FROM "authorizations" 
                 WHERE "_orgId" = $1 
-                AND "feature_id" IN (
-                  SELECT "_id" FROM "features" 
+                AND "feature_id" IN(
+            SELECT "_id" FROM "features" 
                   WHERE "_orgId" = $1 AND "name" = 'admin'
-                )
-                AND "role_id" IN (
-                  SELECT "_id" FROM "roles" 
+          )
+                AND "role_id" IN(
+            SELECT "_id" FROM "roles" 
                   WHERE "_orgId" = $1 AND "name" = 'admin'
-                )
-              `, [metaOrg!._id]);
+          )
+          `, [metaOrg!._id]);
 
               // Remove feature
               await client.query(`
                 DELETE FROM "features" 
                 WHERE "_orgId" = $1 AND "name" = 'admin'
-              `, [metaOrg!._id]);
+          `, [metaOrg!._id]);
 
               // Remove user role mapping
               await client.query(`
                 DELETE FROM "user_roles" 
                 WHERE "_orgId" = $1 
-                AND "role_id" IN (
-                  SELECT "_id" FROM "roles" 
+                AND "role_id" IN(
+            SELECT "_id" FROM "roles" 
                   WHERE "_orgId" = $1 AND "name" = 'admin'
-                )
-              `, [metaOrg!._id]);
+          )
+          `, [metaOrg!._id]);
 
               // Remove role
               await client.query(`
                 DELETE FROM "roles" 
                 WHERE "_orgId" = $1 AND "name" = 'admin'
-              `, [metaOrg!._id]);
+          `, [metaOrg!._id]);
             } else {
               // Remove authorization
               await client.query(`
                 DELETE FROM "authorizations" 
-                WHERE "feature_id" IN (
-                  SELECT "_id" FROM "features" 
+                WHERE "feature_id" IN(
+            SELECT "_id" FROM "features" 
                   WHERE "name" = 'admin'
-                )
-                AND "role_id" IN (
-                  SELECT "_id" FROM "roles" 
+          )
+                AND "role_id" IN(
+            SELECT "_id" FROM "roles" 
                   WHERE "name" = 'admin'
-                )
-              `);
+          )
+          `);
 
               // Remove feature
               await client.query(`
                 DELETE FROM "features" 
                 WHERE "name" = 'admin'
-              `);
+          `);
 
               // Remove user role mapping
               await client.query(`
                 DELETE FROM "user_roles" 
-                WHERE "role_id" IN (
-                  SELECT "_id" FROM "roles" 
+                WHERE "role_id" IN(
+            SELECT "_id" FROM "roles" 
                   WHERE "name" = 'admin'
-                )
-              `);
+          )
+          `);
 
               // Remove role
               await client.query(`
                 DELETE FROM "roles" 
                 WHERE "name" = 'admin'
-              `);
+          `);
             }
 
             await client.query('COMMIT');
