@@ -147,7 +147,7 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${uniqueConstraint}
-          )
+          );
         CREATE INDEX IF NOT EXISTS "idx_users_external_id" ON "users"("external_id");
         CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users"("email");
         CREATE INDEX IF NOT EXISTS "idx_users_person_id" ON "users"("person_id");
