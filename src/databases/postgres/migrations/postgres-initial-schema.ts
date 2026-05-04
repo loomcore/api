@@ -104,17 +104,16 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${personsUniqueConstraints}
-          );
-          CREATE INDEX IF NOT EXISTS "idx_persons_external_id" ON "persons" ("external_id");
-          CREATE INDEX IF NOT EXISTS "idx_persons_ssn" ON "persons" ("ssn");
-        `);
+          )`);
+        await pool.query(
+          `CREATE INDEX IF NOT EXISTS "idx_persons_external_id" ON "persons" ("external_id")`
+        );
+        await pool.query(`CREATE INDEX IF NOT EXISTS "idx_persons_ssn" ON "persons" ("ssn")`);
       },
       down: async ({ context: pool }) => {
-        await pool.query(`
-          DROP INDEX IF EXISTS "idx_persons_external_id";
-          DROP INDEX IF EXISTS "idx_persons_ssn";
-          DROP TABLE IF EXISTS "persons"
-        `);
+        await pool.query(`DROP INDEX IF EXISTS "idx_persons_external_id"`);
+        await pool.query(`DROP INDEX IF EXISTS "idx_persons_ssn"`);
+        await pool.query(`DROP TABLE IF EXISTS "persons"`);
       }
     });
 
@@ -147,19 +146,16 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${uniqueConstraint}
-          );
-        CREATE INDEX IF NOT EXISTS "idx_users_external_id" ON "users"("external_id");
-        CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users"("email");
-        CREATE INDEX IF NOT EXISTS "idx_users_person_id" ON "users"("person_id");
-        `);
+          )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS "idx_users_external_id" ON "users"("external_id")`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users"("email")`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS "idx_users_person_id" ON "users"("person_id")`);
       },
       down: async ({ context: pool }) => {
-        await pool.query(`
-          DROP INDEX IF EXISTS "idx_users_external_id";
-          DROP INDEX IF EXISTS "idx_users_email";
-          DROP INDEX IF EXISTS "idx_users_person_id";
-          DROP TABLE IF EXISTS "users"
-          `);
+        await pool.query(`DROP INDEX IF EXISTS "idx_users_external_id"`);
+        await pool.query(`DROP INDEX IF EXISTS "idx_users_email"`);
+        await pool.query(`DROP INDEX IF EXISTS "idx_users_person_id"`);
+        await pool.query(`DROP TABLE IF EXISTS "users"`);
       }
     });
 
