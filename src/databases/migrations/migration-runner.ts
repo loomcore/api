@@ -82,7 +82,8 @@ export class MigrationRunner {
         user: this.dbMigrationConfig.database.username,
         password: this.dbMigrationConfig.database.password,
         port: this.dbMigrationConfig.database.port,
-        database: this.dbMigrationConfig.database.name
+        database: this.dbMigrationConfig.database.name,
+        ssl: typeof this.dbMigrationConfig.database.ssl === 'boolean' ? this.dbMigrationConfig.database.ssl : undefined
       });
       this.dbConnection = pool;
 

@@ -4,4 +4,5 @@ export interface IDatabaseConfig {
   password: string;
   port: number;
   username: string;
+  ssl?: boolean;
 }
