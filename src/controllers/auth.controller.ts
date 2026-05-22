@@ -104,7 +104,7 @@ export class AuthController {
     const body = req.body;
 
     // Validate password in controller using the correct passwordValidator
-    const validationErrors = entityUtils.validate(passwordValidator, { password: body.password });
+    const validationErrors = entityUtils.validate(UserSpec, { password: body.password }, true, passwordValidator);
     entityUtils.handleValidationResult(validationErrors, 'AuthController.changePassword');
 
     const updateResult = await this.authService.changeLoggedInUsersPassword(userContext, body);

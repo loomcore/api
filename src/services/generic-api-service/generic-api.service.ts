@@ -87,10 +87,8 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns null if valid, or an array of ValueError objects if invalid
    */
   validate(doc: any, isPartial: boolean = false): ValueError[] | null {
-    const validator = isPartial ? this.modelSpec.partialValidator : this.modelSpec.validator;
-
     // Use common validation function
-    return entityUtils.validate(validator, doc);
+    return entityUtils.validate(this.modelSpec, doc, isPartial);
   }
 
   /**
@@ -100,11 +98,10 @@ export class GenericApiService<T extends IEntity> implements IGenericApiService<
    * @returns null if all valid, or an array of ValueError objects if any are invalid
    */
   validateMany(docs: any[], isPartial: boolean = false): ValueError[] | null {
-    const validator = isPartial ? this.modelSpec.partialValidator : this.modelSpec.validator;
     let allErrors: ValueError[] = [];
 
     for (const doc of docs) {
-      const errors = entityUtils.validate(validator, doc);
+      const errors = entityUtils.validate(this.modelSpec, doc, isPartial);
       if (errors && errors.length > 0) {
         allErrors.push(...errors);
       }

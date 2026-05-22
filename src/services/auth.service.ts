@@ -277,7 +277,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
         }
 
         // Validate password before attempting to change it
-        const validationErrors = entityUtils.validate(passwordValidator, { password: password });
+        const validationErrors = entityUtils.validate(UserSpec, { password: password }, true, passwordValidator);
         entityUtils.handleValidationResult(validationErrors, 'AuthService.resetPassword');
 
         // update user password
