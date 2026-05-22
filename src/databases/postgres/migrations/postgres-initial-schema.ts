@@ -58,8 +58,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "auth_token" TEXT,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ NOT NULL,
-            "_updatedBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ,
+            "_updatedBy" INTEGER,
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER
           )
@@ -99,8 +99,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "extended_types" INTEGER,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ NOT NULL,
-            "_updatedBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ,
+            "_updatedBy" INTEGER,
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${personsUniqueConstraints}
@@ -141,8 +141,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "_lastPasswordChange" TIMESTAMPTZ,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ NOT NULL,
-            "_updatedBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ,
+            "_updatedBy" INTEGER,
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${uniqueConstraint}
@@ -204,8 +204,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "expires_on" BIGINT NOT NULL,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ NOT NULL,
-            "_updatedBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ,
+            "_updatedBy" INTEGER,
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             ${uniqueConstraint}
@@ -260,8 +260,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "role_id" INTEGER NOT NULL,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ NOT NULL,
-            "_updatedBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ,
+            "_updatedBy" INTEGER,
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             CONSTRAINT "fk_user_roles_user" FOREIGN KEY("user_id") REFERENCES "users"("_id") ON DELETE CASCADE,
@@ -321,8 +321,8 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             "config" JSONB,
             "_created" TIMESTAMPTZ NOT NULL,
             "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ NOT NULL,
-            "_updatedBy" INTEGER NOT NULL,
+            "_updated" TIMESTAMPTZ,
+            "_updatedBy" INTEGER,
             "_deleted" TIMESTAMPTZ,
             "_deletedBy" INTEGER,
             CONSTRAINT "fk_authorizations_role" FOREIGN KEY("role_id") REFERENCES "roles"("_id") ON DELETE CASCADE,
@@ -342,9 +342,9 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
       name: '00000000000011_data-meta-org',
       up: async ({ context: pool }) => {
         const result = await pool.query(`
-          INSERT INTO "organizations"("name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES($1, $2, 1, true, NOW(), 0, NOW(), 0)
-          RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy", "_updated", "_updatedBy"
+          INSERT INTO "organizations"("name", "code", "status", "is_meta_org", "_created", "_createdBy")
+        VALUES($1, $2, 1, true, NOW(), 0)
+          RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy"
           `, [dbConfig.multiTenant?.metaOrgName, dbConfig.multiTenant?.metaOrgCode]);
 
         if (result.rowCount === 0) {
@@ -391,14 +391,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           // 1) Insert person
           const personResult = isMultiTenant && orgId
             ? await client.query(
-              `INSERT INTO "persons"("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES($1, 'Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
+              `INSERT INTO "persons"("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy")
+        VALUES($1, 'Admin', 'User', false, false, false, NOW(), 0)
                  RETURNING "_id"`,
               [orgId]
             )
             : await client.query(
-              `INSERT INTO "persons"("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES('Admin', 'User', false, false, false, NOW(), 0, NOW(), 0)
+              `INSERT INTO "persons"("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy")
+        VALUES('Admin', 'User', false, false, false, NOW(), 0)
                  RETURNING "_id"`
             );
 
@@ -407,14 +407,14 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
           // 2) Insert user
           if (isMultiTenant && orgId) {
             await client.query(
-              `INSERT INTO "users"("_orgId", "email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES($1, $2, 'Admin User', $3, $4, NOW(), 0, NOW(), 0)`,
+              `INSERT INTO "users"("_orgId", "email", "display_name", "password", "person_id", "_created", "_createdBy")
+        VALUES($1, $2, 'Admin User', $3, $4, NOW(), 0)`,
               [orgId, email, hashedPassword, personId]
             );
           } else {
             await client.query(
-              `INSERT INTO "users"("email", "display_name", "password", "person_id", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES($1, 'Admin User', $2, $3, NOW(), 0, NOW(), 0)`,
+              `INSERT INTO "users"("email", "display_name", "password", "person_id", "_created", "_createdBy")
+        VALUES($1, 'Admin User', $2, $3, NOW(), 0)`,
               [email, hashedPassword, personId]
             );
           }
@@ -481,12 +481,12 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
             // 2) Add user role mapping
             const userRoleResult = isMultiTenant
               ? await client.query(`
-                  INSERT INTO "user_roles"("_orgId", "user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES($1, $2, $3, NOW(), 0, NOW(), 0)
+                  INSERT INTO "user_roles"("_orgId", "user_id", "role_id", "_created", "_createdBy")
+        VALUES($1, $2, $3, NOW(), 0)
           `, [metaOrg!._id, adminUserId, roleId])
               : await client.query(`
-                  INSERT INTO "user_roles"("user_id", "role_id", "_created", "_createdBy", "_updated", "_updatedBy")
-        VALUES($1, $2, NOW(), 0, NOW(), 0)
+                  INSERT INTO "user_roles"("user_id", "role_id", "_created", "_createdBy")
+        VALUES($1, $2, NOW(), 0)
           `, [adminUserId, roleId]);
 
             if (userRoleResult.rowCount === 0) {
@@ -516,16 +516,16 @@ export const getPostgresInitialSchema = (dbConfig: IInitialDbMigrationConfig): S
               ? await client.query(`
                   INSERT INTO "authorizations"(
             "_orgId", "role_id", "feature_id",
-            "_created", "_createdBy", "_updated", "_updatedBy"
+            "_created", "_createdBy"
           )
-        VALUES($1, $2, $3, NOW(), 0, NOW(), 0)
+        VALUES($1, $2, $3, NOW(), 0)
           `, [metaOrg!._id, roleId, featureId])
               : await client.query(`
                   INSERT INTO "authorizations"(
             "role_id", "feature_id",
-            "_created", "_createdBy", "_updated", "_updatedBy"
+            "_created", "_createdBy"
           )
-        VALUES($1, $2, NOW(), 0, NOW(), 0)
+        VALUES($1, $2, NOW(), 0)
           `, [roleId, featureId]);
 
             if (authorizationResult.rowCount === 0) {
