@@ -149,8 +149,8 @@ describe('ApiController - Integration Tests', () => {
       expect(response.status).toBe(201);
       expect(response.body.data).toHaveProperty('_created');
       expect(response.body.data).toHaveProperty('_createdBy');
-      expect(response.body.data).toHaveProperty('_updated');
-      expect(response.body.data).toHaveProperty('_updatedBy');
+      expect(response.body.data).not.toHaveProperty('_updated');
+      expect(response.body.data).not.toHaveProperty('_updatedBy');
     });
 
     it('should update audit fields correctly when using PATCH', async () => {
@@ -307,8 +307,8 @@ describe('ApiController - Integration Tests', () => {
       items.forEach((item: any) => {
         expect(item).toHaveProperty('_created');
         expect(item).toHaveProperty('_createdBy');
-        expect(item).toHaveProperty('_updated');
-        expect(item).toHaveProperty('_updatedBy');
+        expect(item).not.toHaveProperty('_updated');
+        expect(item).not.toHaveProperty('_updatedBy');
       });
     });
 
@@ -342,8 +342,8 @@ describe('ApiController - Integration Tests', () => {
       // Verify audit properties
       expect(retrievedItem).toHaveProperty('_created');
       expect(retrievedItem).toHaveProperty('_createdBy', userId);
-      expect(retrievedItem).toHaveProperty('_updated');
-      expect(retrievedItem).toHaveProperty('_updatedBy', userId);
+      expect(retrievedItem).not.toHaveProperty('_updated');
+      expect(retrievedItem).not.toHaveProperty('_updatedBy');
     });
   });
 
@@ -390,8 +390,8 @@ describe('ApiController - Integration Tests', () => {
         // Verify audit properties are present - this is what our test is checking for
         expect(entity).toHaveProperty('_created');
         expect(entity).toHaveProperty('_createdBy', userId);
-        expect(entity).toHaveProperty('_updated');
-        expect(entity).toHaveProperty('_updatedBy', userId);
+        expect(entity).not.toHaveProperty('_updated');
+        expect(entity).not.toHaveProperty('_updatedBy');
       } catch (error) {
         console.error('Error during user creation test:', error);
         throw error;
@@ -446,8 +446,8 @@ describe('ApiController - Integration Tests', () => {
       expect(createdEntity._id).toBeDefined();
       expect(createdEntity._created).toBeDefined();
       expect(createdEntity._createdBy).toBeDefined();
-      expect(createdEntity._updated).toBeDefined();
-      expect(createdEntity._updatedBy).toBeDefined();
+      expect(createdEntity._updated).toBeUndefined();
+      expect(createdEntity._updatedBy).toBeUndefined();
     });
 
     it('should reject invalid entities with proper validation errors', async () => {
@@ -539,10 +539,9 @@ describe('ApiController - Integration Tests', () => {
       expect(result).toBeDefined();
       expect(result._created).toBeDefined();
       expect(result._createdBy).toBe(userId);
-      expect(result._updated).toBeDefined();
-      expect(result._updatedBy).toBe(userId);
+      expect(result._updated).toBeUndefined();
+      expect(result._updatedBy).toBeUndefined();
       expect(new Date(result._created)).toBeInstanceOf(Date);
-      expect(new Date(result._updated)).toBeInstanceOf(Date);
     });
 
     it('should not allow client to override audit properties on create', async () => {
@@ -572,7 +571,7 @@ describe('ApiController - Integration Tests', () => {
       expect(result._updated).not.toEqual(hackDate);
       expect(result._updatedBy).not.toEqual('hacker');
       expect(result._createdBy).toEqual(userId);
-      expect(result._updatedBy).toEqual(userId);
+      expect(result._updatedBy).toBeUndefined();
     });
 
     it('should update _updated and _updatedBy on update but preserve _created and _createdBy', async () => {
@@ -667,8 +666,8 @@ describe('ApiController - Integration Tests', () => {
         expect(item.value).toBe(entities[index].value);
         expect(item._created).toBeDefined();
         expect(item._createdBy).toBe(userId);
-        expect(item._updated).toBeDefined();
-        expect(item._updatedBy).toBe(userId);
+        expect(item._updated).toBeUndefined();
+        expect(item._updatedBy).toBeUndefined();
       });
 
       // Verify via list endpoint
@@ -684,8 +683,8 @@ describe('ApiController - Integration Tests', () => {
       pagedResult.entities.forEach((item: any) => {
         expect(item._created).toBeDefined();
         expect(item._createdBy).toBeDefined();
-        expect(item._updated).toBeDefined();
-        expect(item._updatedBy).toBeDefined();
+        expect(item._updated).toBeUndefined();
+        expect(item._updatedBy).toBeUndefined();
       });
     });
   });

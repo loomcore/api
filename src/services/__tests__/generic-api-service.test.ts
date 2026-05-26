@@ -93,8 +93,8 @@ describe('GenericApiService - Integration Tests', () => {
       }
       expect(createdEntity._created).toBeDefined();
       expect(createdEntity._createdBy).toBeDefined();
-      expect(createdEntity._updated).toBeDefined();
-      expect(createdEntity._updatedBy).toBeDefined();
+      expect(createdEntity._updated).toBeUndefined();
+      expect(createdEntity._updatedBy).toBeUndefined();
     });
 
     it('should create multiple entities at once using createMany', async () => {
@@ -124,8 +124,8 @@ describe('GenericApiService - Integration Tests', () => {
       createdEntities.forEach(entity => {
         expect(entity._created).toBeDefined();
         expect(entity._createdBy).toBeDefined();
-        expect(entity._updated).toBeDefined();
-        expect(entity._updatedBy).toBeDefined();
+        expect(entity._updated).toBeUndefined();
+        expect(entity._updatedBy).toBeUndefined();
       });
     });
 
@@ -258,8 +258,8 @@ describe('GenericApiService - Integration Tests', () => {
       // Verify audit fields are set on creation
       expect(createdEntity._created).toBeDefined();
       expect(createdEntity._createdBy).toBeDefined();
-      expect(createdEntity._updated).toBeDefined();
-      expect(createdEntity._updatedBy).toBeDefined();
+      expect(createdEntity._updated).toBeUndefined();
+      expect(createdEntity._updatedBy).toBeUndefined();
 
       // Act
       const retrievedEntity = await service.getById(getTestMetaOrgUserContext(), createdEntity._id);
@@ -268,8 +268,8 @@ describe('GenericApiService - Integration Tests', () => {
       expect(retrievedEntity).toBeDefined();
       expect(retrievedEntity._created).toBeDefined();
       expect(retrievedEntity._createdBy).toBeDefined();
-      expect(retrievedEntity._updated).toBeDefined();
-      expect(retrievedEntity._updatedBy).toBeDefined();
+      expect(retrievedEntity._updated).toBeUndefined();
+      expect(retrievedEntity._updatedBy).toBeUndefined();
       // Audit fields should match the created entity
       expect(retrievedEntity._created).toEqual(createdEntity._created);
       expect(retrievedEntity._createdBy).toBe(createdEntity._createdBy);
@@ -1616,9 +1616,6 @@ describe('GenericApiService - Integration Tests', () => {
         throw new Error('Entity not created or missing ID');
       }
 
-      const originalUpdated = createdEntity._updated;
-      const originalUpdatedBy = createdEntity._updatedBy;
-
       // Wait to ensure timestamp difference
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -1634,11 +1631,10 @@ describe('GenericApiService - Integration Tests', () => {
       );
 
       // Assert
-      expect(updatedEntity._updated).toBeDefined();
-      expect(updatedEntity._updatedBy).toBeDefined();
-      expect(updatedEntity._updated).toEqual(originalUpdated);
-      // _updatedBy should match _createdBy (same user created and updated)
-      expect(updatedEntity._updatedBy).toBe(createdEntity._createdBy);
+      expect(updatedEntity._created).toBeDefined();
+      expect(updatedEntity._createdBy).toBeDefined();
+      expect(updatedEntity._updated).toBeUndefined();
+      expect(updatedEntity._updatedBy).toBeUndefined();
     });
 
 
@@ -2841,8 +2837,6 @@ describe('GenericApiService - Integration Tests', () => {
         // Assert
         expect(preparedEntity._created).toBeDefined();
         expect(preparedEntity._createdBy).toBe(getTestMetaOrgUserContext().user._id);
-        expect(preparedEntity._updated).toBeDefined();
-        expect(preparedEntity._updatedBy).toBe(getTestMetaOrgUserContext().user._id);
       });
 
       it('should not add audit properties when model is not auditable', async () => {

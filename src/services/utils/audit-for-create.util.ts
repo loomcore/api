@@ -8,6 +8,4 @@ export function auditForCreate(userContext: IUserContext, doc: any) {
     const userId: AppIdType = userContext.user?._id ?? getSystemUserId();
     doc._created = now;
     doc._createdBy = userId;
-    doc._updated = now;
-    doc._updatedBy = userId;
 }

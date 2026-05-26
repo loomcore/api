@@ -34,8 +34,6 @@ export function getTestMetaOrg(): IOrganization {
         isMetaOrg: true,
         _created: new Date(),
         _createdBy: 'system',
-        _updated: new Date(),
-        _updatedBy: 'system',
     };
 };
 
@@ -59,8 +57,6 @@ export function getTestMetaOrgUser(): IUser {
         password: TEST_META_ORG_USER_PASSWORD,
         _created: new Date(),
         _createdBy: 'system' as any,
-        _updated: new Date(),
-        _updatedBy: 'system' as any,
     };
 }
 
@@ -76,8 +72,6 @@ export function getTestMetaOrgUserPerson(): IPersonModel {
         isEmployee: false,
         _created: new Date(),
         _createdBy: 'system' as any,
-        _updated: new Date(),
-        _updatedBy: 'system' as any,
     };
     return person;
 }
@@ -128,8 +122,6 @@ export function getTestOrg(): IOrganization {
         isMetaOrg: false,
         _created: new Date(),
         _createdBy: 'system',
-        _updated: new Date(),
-        _updatedBy: 'system',
     };
 };
 export const TEST_ORG_USER_PASSWORD = 'test-org-user-password';
@@ -154,8 +146,6 @@ export function getTestOrgUser(): IUser {
         password: TEST_ORG_USER_PASSWORD,
         _created: new Date(),
         _createdBy: 'system' as any,
-        _updated: new Date(),
-        _updatedBy: 'system' as any,
     };
 }
 
@@ -171,8 +161,6 @@ export function getTestOrgUserPerson(): IPersonModel {
         isEmployee: false,
         _created: new Date(),
         _createdBy: 'system' as any,
-        _updated: new Date(),
-        _updatedBy: 'system' as any,
     };
 }
 
