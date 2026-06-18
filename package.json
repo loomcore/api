@@ -1,6 +1,6 @@
 {
   "name": "@loomcore/api",
-  "version": "0.1.149",
+  "version": "0.2.0",
   "private": false,
   "description": "Loom Core Api - An opinionated Node.js api using Typescript, Express, and MongoDb or PostgreSQL",
   "scripts": {
@@ -67,7 +67,6 @@
     "moment": "^2.30.1",
     "mongodb": "^6.16.0",
     "pg": "^8.15.6",
-    "rxjs": "^7.8.0",
     "umzug": "^3.8.2"
   },
   "devDependencies": {
@@ -84,7 +83,6 @@
     "mongodb-memory-server": "^9.3.0",
     "npm-run-all": "^4.1.5",
     "pg-mem": "^3.0.12",
-    "rxjs": "^7.8.0",
     "supertest": "^7.1.0",
     "typescript": "^5.8.3",
     "vite": "^6.2.5",
