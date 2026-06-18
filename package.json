@@ -55,7 +55,7 @@
   "dependencies": {
     "jsonwebtoken": "^9.0.2",
     "node-mailjet": "^6.0.8",
-    "qs": "^6.15.0"
+    "qs": "^6.15.2"
   },
   "peerDependencies": {
     "@loomcore/common": "^0.0.70",
