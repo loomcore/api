@@ -1,224 +1,281 @@
-import { Request, Response, Application, NextFunction } from 'express';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
-import { IUserContext, IQueryOptions, IUser, EmptyUserContext, IPagedResult, IEntity, DefaultQueryOptions } from '@loomcore/common/models';
-import { Type } from '@sinclair/typebox';
-import { Value } from '@sinclair/typebox/value';
-import type { AppIdType } from '@loomcore/common/types';
+import {
+	DefaultQueryOptions,
+	EmptyUserContext,
+	IEntity,
+	IPagedResult,
+	IQueryOptions,
+	IUser,
+	IUserContext,
+} from "@loomcore/common/models";
+import type { AppIdType } from "@loomcore/common/types";
+import { Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
+import crypto from "crypto";
+import { Application, NextFunction, Request, Response } from "express";
+import jwt from "jsonwebtoken";
+import { ObjectId } from "mongodb";
+import { ApiController } from "../controllers/api.controller.js";
+import { IDatabase } from "../databases/models/index.js";
+import { MongoDBDatabase } from "../databases/mongo-db/mongo-db.database.js";
+import { LeftJoin } from "../databases/operations/left-join.operation.js";
+import { Operation } from "../databases/operations/operation.js";
+import { PostgresDatabase } from "../databases/postgres/postgres.database.js";
+import { AuthService, GenericApiService } from "../services/index.js";
+import { JwtService } from "../services/jwt.service.js";
+import { MultiTenantApiService } from "../services/multi-tenant-api.service.js";
+import { OrganizationService } from "../services/organization.service.js";
+import * as testObjectsModule from "./test-objects.js";
 
-import { JwtService } from '../services/jwt.service.js';
-import { ApiController } from '../controllers/api.controller.js';
-import { MultiTenantApiService } from '../services/multi-tenant-api.service.js';
-import { Operation } from '../databases/operations/operation.js';
-import { LeftJoin } from '../databases/operations/left-join.operation.js';
-import { OrganizationService } from '../services/organization.service.js';
-import { AuthService, GenericApiService } from '../services/index.js';
-import { ObjectId } from 'mongodb';
-import { IDatabase } from '../databases/models/index.js';
-import { MongoDBDatabase } from '../databases/mongo-db/mongo-db.database.js';
-import { PostgresDatabase } from '../databases/postgres/postgres.database.js';
-import * as testObjectsModule from './test-objects.js';
 const {
-  getTestMetaOrg,
-  getTestOrg,
-  getTestMetaOrgUser,
-  getTestMetaOrgUserContext,
-  getTestOrgUserContext,
-  setTestOrgId,
-  setTestMetaOrgId,
-  setTestMetaOrgUserId,
-  setTestOrgUserId } = testObjectsModule;
-import { CategorySpec, ICategory } from './models/category.model.js';
-import { IProduct, ProductSpec } from './models/product.model.js';
-import { IProductWithCategory, ProductWithCategoryPublicSpec, ProductWithCategorySpec } from './models/product-with-category.model.js';
-import { setBaseApiConfig, config } from '../config/index.js';
-import { entityUtils } from '@loomcore/common/utils';
-import { getTestMetaOrgUserPerson, getTestOrgUser, getTestOrgUserPerson, setTestMetaOrgUserPersonId, setTestOrgUserPersonId } from './test-objects.js';
-import { DbType } from '../databases/db-type.type.js';
-import { TestEmailClient } from './test-email-client.js';
-import { PersonService } from '../services/person.service.js';
-import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../controllers/types.js';
-import { apiUtils } from '../utils/index.js';
+	getTestMetaOrg,
+	getTestOrg,
+	getTestMetaOrgUser,
+	getTestMetaOrgUserContext,
+	getTestOrgUserContext,
+	setTestOrgId,
+	setTestMetaOrgId,
+	setTestMetaOrgUserId,
+	setTestOrgUserId,
+} = testObjectsModule;
+import { entityUtils } from "@loomcore/common/utils";
+import { config, setBaseApiConfig } from "../config/index.js";
+import {
+	PostProcessEntityCustomFunction,
+	PrepareQueryCustomFunction,
+} from "../controllers/types.js";
+import { DbType } from "../databases/db-type.type.js";
+import { PersonService } from "../services/person.service.js";
+import { apiUtils } from "../utils/index.js";
+import { CategorySpec, ICategory } from "./models/category.model.js";
+import { IProduct, ProductSpec } from "./models/product.model.js";
+import {
+	IProductWithCategory,
+	ProductWithCategoryPublicSpec,
+	ProductWithCategorySpec,
+} from "./models/product-with-category.model.js";
+import { TestEmailClient } from "./test-email-client.js";
+import {
+	getTestMetaOrgUserPerson,
+	getTestOrgUser,
+	getTestOrgUserPerson,
+	setTestMetaOrgUserPersonId,
+	setTestOrgUserPersonId,
+} from "./test-objects.js";
 
 let deviceIdCookie: string;
 let authService: AuthService | undefined;
 let organizationService: OrganizationService | undefined;
 let personService: PersonService | undefined;
 
-const JWT_SECRET = 'test-secret';
-const newUser1Email = 'one@test.com';
-const newUser1Password = 'testone';
-const constDeviceIdCookie = crypto.randomBytes(16).toString('hex'); // Generate a consistent device ID for tests
+const JWT_SECRET = "test-secret";
+const newUser1Email = "one@test.com";
+const newUser1Password = "testone";
+const constDeviceIdCookie = crypto.randomBytes(16).toString("hex"); // Generate a consistent device ID for tests
 
 function initialize(database: IDatabase) {
-  authService = new AuthService(database);
-  personService = new PersonService(database);
-  organizationService = new OrganizationService(database);
-  deviceIdCookie = constDeviceIdCookie;
+	authService = new AuthService(database);
+	personService = new PersonService(database);
+	organizationService = new OrganizationService(database);
+	deviceIdCookie = constDeviceIdCookie;
 }
 
 function getRandomId(): string {
-  // This satisfies MongoDB and Postgres shouldn't really care what the id is. 
-  return new ObjectId().toString();
+	// This satisfies MongoDB and Postgres shouldn't really care what the id is.
+	return new ObjectId().toString();
 }
 
 /**
  * Check if the database is MongoDB
  */
 function isMongoDatabase(database: IDatabase): boolean {
-  return database instanceof MongoDBDatabase;
+	return database instanceof MongoDBDatabase;
 }
 
 /**
  * Check if the database is PostgreSQL
  */
 function isPostgresDatabase(database: IDatabase): boolean {
-  return database instanceof PostgresDatabase;
+	return database instanceof PostgresDatabase;
 }
 
 /**
  * Get the expected type for _id based on the database type
  * MongoDB uses string IDs, PostgreSQL uses number IDs
  */
-function getExpectedIdType(database: IDatabase): 'string' | 'number' {
-  return isPostgresDatabase(database) ? 'number' : 'string';
+function getExpectedIdType(database: IDatabase): "string" | "number" {
+	return isPostgresDatabase(database) ? "number" : "string";
 }
 
 async function createMetaOrg() {
-  // Only create meta org if multi-tenant is enabled
-  if (!config.app.isMultiTenant) {
-    return;
-  }
+	// Only create meta org if multi-tenant is enabled
+	if (!config.app.isMultiTenant) {
+		return;
+	}
 
-  if (!organizationService) {
-    throw new Error('OrganizationService not initialized. Call initialize() first.');
-  }
-  try {
-    // Create a meta organization (required for system user context)
-    // Use EmptyUserContext to avoid the org check when querying/creating
-    const existingMetaOrg = await organizationService.getMetaOrg(EmptyUserContext);
-    if (!existingMetaOrg) {
-      // Use EmptyUserContext when creating the meta org (no org check needed for first meta org)
-      const metaOrgInsertResult = await organizationService.create(EmptyUserContext, getTestMetaOrg());
-      if (metaOrgInsertResult) {
-        setTestMetaOrgId(metaOrgInsertResult._id);
-      }
-    } else {
-      // Update test objects with the actual meta org ID from database
-      setTestMetaOrgId(existingMetaOrg._id);
-    }
-  }
-  catch (error: any) {
-    console.log('Error in createMetaOrg:', error);
-    throw error;
-  }
+	if (!organizationService) {
+		throw new Error(
+			"OrganizationService not initialized. Call initialize() first.",
+		);
+	}
+	try {
+		// Create a meta organization (required for system user context)
+		// Use EmptyUserContext to avoid the org check when querying/creating
+		const existingMetaOrg =
+			await organizationService.getMetaOrg(EmptyUserContext);
+		if (!existingMetaOrg) {
+			// Use EmptyUserContext when creating the meta org (no org check needed for first meta org)
+			const metaOrgInsertResult = await organizationService.create(
+				EmptyUserContext,
+				getTestMetaOrg(),
+			);
+			if (metaOrgInsertResult) {
+				setTestMetaOrgId(metaOrgInsertResult._id);
+			}
+		} else {
+			// Update test objects with the actual meta org ID from database
+			setTestMetaOrgId(existingMetaOrg._id);
+		}
+	} catch (error: any) {
+		console.log("Error in createMetaOrg:", error);
+		throw error;
+	}
 }
 
 async function deleteMetaOrg() {
-  if (!organizationService) {
-    return Promise.resolve();
-  }
+	if (!organizationService) {
+		return Promise.resolve();
+	}
 
-  try {
-    await organizationService.deleteMany(getTestMetaOrgUserContext(), { filters: { isMetaOrg: { eq: true } } });
-  }
-  catch (error: any) {
-    console.log('Error deleting meta org:', error);
-    // Don't throw - cleanup should be non-blocking
-  }
+	try {
+		await organizationService.deleteMany(getTestMetaOrgUserContext(), {
+			filters: { isMetaOrg: { eq: true } },
+		});
+	} catch (error: any) {
+		console.log("Error deleting meta org:", error);
+		// Don't throw - cleanup should be non-blocking
+	}
 }
 
-async function setupTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
-  try {
-    // Ensure meta org exists (may have been deleted by clearCollections)
-    await createMetaOrg();
-    // Clean up any existing test data, then create fresh test user
-    await deleteTestUser();
-    return createTestUsers();
-  }
-  catch (error: any) {
-    console.log(error);
-    throw error;
-  }
+async function setupTestUsers(): Promise<{
+	metaOrgUser: IUser;
+	testOrgUser: IUser;
+}> {
+	try {
+		// Ensure meta org exists (may have been deleted by clearCollections)
+		await createMetaOrg();
+		// Clean up any existing test data, then create fresh test user
+		await deleteTestUser();
+		return createTestUsers();
+	} catch (error: any) {
+		console.log(error);
+		throw error;
+	}
 }
 
-async function createTestUsers(): Promise<{ metaOrgUser: IUser, testOrgUser: IUser }> {
-  if (!authService || !organizationService || !personService) {
-    throw new Error('Database not initialized. Call initialize() first.');
-  }
+async function createTestUsers(): Promise<{
+	metaOrgUser: IUser;
+	testOrgUser: IUser;
+}> {
+	if (!authService || !organizationService || !personService) {
+		throw new Error("Database not initialized. Call initialize() first.");
+	}
 
-  try {
-    // Get the actual meta org from the database (should exist from migrations/createMetaOrg)
-    // Use EmptyUserContext to avoid the org check when querying
-    const existingMetaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+	try {
+		// Get the actual meta org from the database (should exist from migrations/createMetaOrg)
+		// Use EmptyUserContext to avoid the org check when querying
+		const existingMetaOrg =
+			await organizationService.getMetaOrg(EmptyUserContext);
 
-    if (!existingMetaOrg) {
-      throw new Error('Meta organization does not exist. Test setup is incorrect - meta org should be created by migrations or createMetaOrg().');
-    }
+		if (!existingMetaOrg) {
+			throw new Error(
+				"Meta organization does not exist. Test setup is incorrect - meta org should be created by migrations or createMetaOrg().",
+			);
+		}
 
-    // Update test objects with the actual meta org ID from database
-    setTestMetaOrgId(existingMetaOrg._id);
+		// Update test objects with the actual meta org ID from database
+		setTestMetaOrgId(existingMetaOrg._id);
 
-    const existingTestOrg = await organizationService.findOne(getTestMetaOrgUserContext(), { filters: { _id: { eq: getTestOrg()._id } } });
+		const existingTestOrg = await organizationService.findOne(
+			getTestMetaOrgUserContext(),
+			{ filters: { _id: { eq: getTestOrg()._id } } },
+		);
 
-    if (!existingTestOrg) {
-      const createdTestOrg = await organizationService.create(getTestMetaOrgUserContext(), getTestOrg());
-      if (!createdTestOrg) {
-        throw new Error('Failed to create test organization');
-      }
-      setTestOrgId(createdTestOrg._id);
-    } else {
-      setTestOrgId(existingTestOrg._id);
-    }
+		if (!existingTestOrg) {
+			const createdTestOrg = await organizationService.create(
+				getTestMetaOrgUserContext(),
+				getTestOrg(),
+			);
+			if (!createdTestOrg) {
+				throw new Error("Failed to create test organization");
+			}
+			setTestOrgId(createdTestOrg._id);
+		} else {
+			setTestOrgId(existingTestOrg._id);
+		}
 
-    const createdTestOrgUserPerson = await personService.create(getTestOrgUserContext(), getTestOrgUserPerson());
-    if (!createdTestOrgUserPerson) {
-      throw new Error('Failed to create test organization user person');
-    }
-    setTestOrgUserPersonId(createdTestOrgUserPerson._id);
+		const createdTestOrgUserPerson = await personService.create(
+			getTestOrgUserContext(),
+			getTestOrgUserPerson(),
+		);
+		if (!createdTestOrgUserPerson) {
+			throw new Error("Failed to create test organization user person");
+		}
+		setTestOrgUserPersonId(createdTestOrgUserPerson._id);
 
-    const createdMetaOrgUserPerson = await personService.create(getTestMetaOrgUserContext(), getTestMetaOrgUserPerson());
-    if (!createdMetaOrgUserPerson) {
-      throw new Error('Failed to create meta organization user person');
-    }
-    setTestMetaOrgUserPersonId(createdMetaOrgUserPerson._id);
+		const createdMetaOrgUserPerson = await personService.create(
+			getTestMetaOrgUserContext(),
+			getTestMetaOrgUserPerson(),
+		);
+		if (!createdMetaOrgUserPerson) {
+			throw new Error("Failed to create meta organization user person");
+		}
+		setTestMetaOrgUserPersonId(createdMetaOrgUserPerson._id);
 
-    const createdTestOrgUser = await authService.createUser(getTestOrgUserContext(), getTestOrgUser());
-    const createdMetaOrgUser = await authService.createUser(getTestMetaOrgUserContext(), getTestMetaOrgUser());
+		const createdTestOrgUser = await authService.createUser(
+			getTestOrgUserContext(),
+			getTestOrgUser(),
+		);
+		const createdMetaOrgUser = await authService.createUser(
+			getTestMetaOrgUserContext(),
+			getTestMetaOrgUser(),
+		);
 
-    if (!createdTestOrgUser || !createdMetaOrgUser) {
-      throw new Error('Failed to create test user');
-    }
+		if (!createdTestOrgUser || !createdMetaOrgUser) {
+			throw new Error("Failed to create test user");
+		}
 
-    // Update test objects with the actual created user IDs (correct type for current database)
-    setTestMetaOrgUserId(createdMetaOrgUser._id);
-    setTestOrgUserId(createdTestOrgUser._id);
+		// Update test objects with the actual created user IDs (correct type for current database)
+		setTestMetaOrgUserId(createdMetaOrgUser._id);
+		setTestOrgUserId(createdTestOrgUser._id);
 
-    return { metaOrgUser: createdMetaOrgUser, testOrgUser: createdTestOrgUser };
-  }
-  catch (error: any) {
-    console.log('Error in createTestUser:', error);
-    throw error;
-  }
+		return { metaOrgUser: createdMetaOrgUser, testOrgUser: createdTestOrgUser };
+	} catch (error: any) {
+		console.log("Error in createTestUser:", error);
+		throw error;
+	}
 }
 
 async function deleteTestUser() {
-  // Only delete if services are initialized
-  if (!authService || !organizationService) {
-    return;
-  }
+	// Only delete if services are initialized
+	if (!authService || !organizationService) {
+		return;
+	}
 
-  // Delete test user
-  await authService.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id).catch((error: any) => {
-    // Ignore errors during cleanup - entity may not exist
-    return null;
-  });
+	// Delete test user
+	await authService
+		.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id)
+		.catch((error: any) => {
+			// Ignore errors during cleanup - entity may not exist
+			return null;
+		});
 
-  // Delete test organization (regular org only, not meta)
-  await organizationService.deleteById(getTestMetaOrgUserContext(), getTestOrg()._id).catch((error: any) => {
-    // Ignore errors during cleanup - entity may not exist
-    return null;
-  });
+	// Delete test organization (regular org only, not meta)
+	await organizationService
+		.deleteById(getTestMetaOrgUserContext(), getTestOrg()._id)
+		.catch((error: any) => {
+			// Ignore errors during cleanup - entity may not exist
+			return null;
+		});
 }
 
 /**
@@ -227,43 +284,43 @@ async function deleteTestUser() {
  * @returns Authorization header value with Bearer token
  */
 async function simulateloginWithTestUser() {
-  // Create a simple mock request with cookies
-  const req: any = {
-    cookies: {}
-  };
+	// Create a simple mock request with cookies
+	const req: any = {
+		cookies: {},
+	};
 
-  // Use existing deviceId cookie if available
-  if (deviceIdCookie) {
-    req.cookies['deviceId'] = deviceIdCookie;
-  }
+	// Use existing deviceId cookie if available
+	if (deviceIdCookie) {
+		req.cookies["deviceId"] = deviceIdCookie;
+	}
 
-  // Create a simple mock response that captures cookies
-  const res: any = {
-    cookie: function (name: string, value: string) {
-      if (name === 'deviceId') {
-        deviceIdCookie = value;
-      }
-      return res;
-    }
-  };
+	// Create a simple mock response that captures cookies
+	const res: any = {
+		cookie: function (name: string, value: string) {
+			if (name === "deviceId") {
+				deviceIdCookie = value;
+			}
+			return res;
+		},
+	};
 
-  // Call authService.attemptLogin directly
-  if (!authService) {
-    throw new Error('AuthService not initialized. Call initialize() first.');
-  }
-  const loginResponse = await authService.attemptLogin(
-    req as Request,
-    res as Response,
-    getTestMetaOrgUser().email,
-    testObjectsModule.TEST_META_ORG_USER_PASSWORD
-  );
+	// Call authService.attemptLogin directly
+	if (!authService) {
+		throw new Error("AuthService not initialized. Call initialize() first.");
+	}
+	const loginResponse = await authService.attemptLogin(
+		req as Request,
+		res as Response,
+		getTestMetaOrgUser().email,
+		testObjectsModule.TEST_META_ORG_USER_PASSWORD,
+	);
 
-  // Make sure we got a valid response
-  if (!loginResponse?.tokens?.accessToken) {
-    throw new Error('Failed to login with test user');
-  }
+	// Make sure we got a valid response
+	if (!loginResponse?.tokens?.accessToken) {
+		throw new Error("Failed to login with test user");
+	}
 
-  return `Bearer ${loginResponse.tokens.accessToken}`;
+	return `Bearer ${loginResponse.tokens.accessToken}`;
 }
 
 /**
@@ -272,16 +329,12 @@ async function simulateloginWithTestUser() {
  * @returns JWT token string in Bearer format
  */
 function getAuthToken(): string {
-  const userContext = getTestMetaOrgUserContext();
+	const userContext = getTestMetaOrgUserContext();
 
-  // Use JwtService to sign the token - this is what the real app uses
-  const token = JwtService.sign(
-    userContext,
-    JWT_SECRET,
-    { expiresIn: 3600 }
-  );
+	// Use JwtService to sign the token - this is what the real app uses
+	const token = JwtService.sign(userContext, JWT_SECRET, { expiresIn: 3600 });
 
-  return `Bearer ${token}`;
+	return `Bearer ${token}`;
 }
 
 /**
@@ -290,214 +343,257 @@ function getAuthToken(): string {
  * @returns Decoded payload
  */
 function verifyToken(token: string): any {
-  return JwtService.verify(token, JWT_SECRET);
+	return JwtService.verify(token, JWT_SECRET);
 }
 
 // Service that does NOT use aggregation
 export class CategoryService extends GenericApiService<ICategory> {
-  constructor(database: IDatabase) {
-    super(database, 'categories', 'category', CategorySpec);
-  }
+	constructor(database: IDatabase) {
+		super(database, "categories", "category", CategorySpec);
+	}
 }
 
 // Controller for the service that does NOT use aggregation
 export class CategoryController extends ApiController<ICategory> {
-  constructor(app: Application, database: IDatabase) {
-    const categoryService = new CategoryService(database);
-    super('categories', app, categoryService, 'category', CategorySpec);
-  }
+	constructor(app: Application, database: IDatabase) {
+		const categoryService = new CategoryService(database);
+		super("categories", app, categoryService, "category", CategorySpec);
+	}
 }
 
 // todo: alter to accept the app property values add provide in each specific test (isMultiTenant, dbType)
 export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
-  setBaseApiConfig({
-    app: {
-      isMultiTenant: isMultiTenant,
-      isAuthEnabled: true,
-      name: 'test-app',
-      dbType: dbType,
-    },
-    auth: {
-      clientSecret: 'test-secret',
-      saltWorkFactor: 10,
-      jwtExpirationInSeconds: 3600,
-      refreshTokenExpirationInDays: 7,
-      deviceIdCookieMaxAgeInDays: 730,
-      passwordResetTokenExpirationInMinutes: 20
-    },
-    database: {
-      name: 'test-db',
-      host: 'localhost',
-      password: 'test-password',
-      port: 27017,
-      username: 'test-user'
-    },
-    env: 'test',
-    email: {
-      fromAddress: 'test@test.com',
-      systemEmailAddress: 'system@test.com'
-    },
-    thirdPartyClients: {
-      emailClient: new TestEmailClient()
-    },
-    network: {
-      hostName: 'localhost',
-      internalPort: 8083,
-      externalPort: 4000,
-      corsAllowedOrigins: ['*']
-    },
-  });
+	setBaseApiConfig({
+		app: {
+			isMultiTenant: isMultiTenant,
+			isAuthEnabled: true,
+			name: "test-app",
+			dbType: dbType,
+		},
+		auth: {
+			clientSecret: "test-secret",
+			saltWorkFactor: 10,
+			jwtExpirationInSeconds: 3600,
+			refreshTokenExpirationInDays: 7,
+			deviceIdCookieMaxAgeInDays: 730,
+			passwordResetTokenExpirationInMinutes: 20,
+		},
+		database: {
+			name: "test-db",
+			host: "localhost",
+			password: "test-password",
+			port: 27017,
+			username: "test-user",
+		},
+		env: "test",
+		email: {
+			fromAddress: "test@test.com",
+			systemEmailAddress: "system@test.com",
+		},
+		thirdPartyClients: {
+			emailClient: new TestEmailClient(),
+		},
+		network: {
+			hostName: "localhost",
+			internalPort: 8083,
+			externalPort: 4000,
+			corsAllowedOrigins: ["*"],
+		},
+	});
 }
 
-const prepareQueryCustom: PrepareQueryCustomFunction =
-  (userContext: IUserContext | undefined,
-    queryObject: IQueryOptions,
-    operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } => {
-    return {
-      queryObject: queryObject,
-      operations: [
-        ...operations,
-        new LeftJoin('categories', 'category_id', '_id', 'category')
-      ]
-    };
-  };
+const prepareQueryCustom: PrepareQueryCustomFunction = (
+	userContext: IUserContext | undefined,
+	queryObject: IQueryOptions,
+	operations: Operation[],
+): { queryObject: IQueryOptions; operations: Operation[] } => {
+	return {
+		queryObject: queryObject,
+		operations: [
+			...operations,
+			new LeftJoin("categories", "category_id", "_id", "category"),
+		],
+	};
+};
 
-const postProcessEntityCustom: PostProcessEntityCustomFunction<IProduct, IProductWithCategory> =
-  (userContext: IUserContext, entity: IProduct): IProductWithCategory => {
-    return {
-      ...entity,
-      category: entity._joinData?.category as ICategory
-    };
-  };
+const postProcessEntityCustom: PostProcessEntityCustomFunction<
+	IProduct,
+	IProductWithCategory
+> = (userContext: IUserContext, entity: IProduct): IProductWithCategory => {
+	return {
+		...entity,
+		category: entity._joinData?.category as ICategory,
+	};
+};
 
 export class ProductService extends GenericApiService<IProductWithCategory> {
-  constructor(database: IDatabase) {
-    super(database, 'products', 'product', ProductSpec);
-  }
+	constructor(database: IDatabase) {
+		super(database, "products", "product", ProductSpec);
+	}
 }
 
 export class ProductsController extends ApiController<IProduct> {
-  constructor(app: Application, database: IDatabase) {
-    const productService = new ProductService(database);
-    super('products', app, productService, 'product', ProductSpec);
-  }
+	constructor(app: Application, database: IDatabase) {
+		const productService = new ProductService(database);
+		super("products", app, productService, "product", ProductSpec);
+	}
 
-  override async get(req: Request, res: Response, next: NextFunction) {
-    res.set('Content-Type', 'application/json');
+	override async get(req: Request, res: Response, next: NextFunction) {
+		res.set("Content-Type", "application/json");
 
-    const userContext = req.userContext;
-    if (!userContext) {
-      throw new Error('User context not found');
-    }
+		const userContext = req.userContext;
+		if (!userContext) {
+			throw new Error("User context not found");
+		}
 
-    // Extract query options from request
-    const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
+		// Extract query options from request
+		const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
 
-    // Get paged result from service using custom prepareQuery and postProcess functions
-    const pagedResult = await this.service.get<IProductWithCategory>(
-      userContext,
-      queryOptions,
-      prepareQueryCustom,
-      postProcessEntityCustom);
+		// Get paged result from service using custom prepareQuery and postProcess functions
+		const pagedResult = await this.service.get<IProductWithCategory>(
+			userContext,
+			queryOptions,
+			prepareQueryCustom,
+			postProcessEntityCustom,
+		);
 
-    // Prepare API response
-    apiUtils.apiResponse<IPagedResult<IProductWithCategory>>(res, 200, { data: pagedResult }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
-  }
+		// Prepare API response
+		apiUtils.apiResponse<IPagedResult<IProductWithCategory>>(
+			res,
+			200,
+			{ data: pagedResult },
+			ProductWithCategorySpec,
+			ProductWithCategoryPublicSpec,
+		);
+	}
 
-  override async getAll(req: Request, res: Response, next: NextFunction) {
-    res.set('Content-Type', 'application/json');
+	override async getAll(req: Request, res: Response, next: NextFunction) {
+		res.set("Content-Type", "application/json");
 
-    const userContext = req.userContext;
-    if (!userContext) {
-      throw new Error('User context not found');
-    }
+		const userContext = req.userContext;
+		if (!userContext) {
+			throw new Error("User context not found");
+		}
 
-    // Get all entities from service using custom prepareQuery and postProcess functions
-    const entities = await this.service.getAll<IProductWithCategory>(
-      userContext,
-      prepareQueryCustom,
-      postProcessEntityCustom);
+		// Get all entities from service using custom prepareQuery and postProcess functions
+		const entities = await this.service.getAll<IProductWithCategory>(
+			userContext,
+			prepareQueryCustom,
+			postProcessEntityCustom,
+		);
 
-    // Prepare API response
-    apiUtils.apiResponse<IProductWithCategory[]>(res, 200, { data: entities }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
-  }
+		// Prepare API response
+		apiUtils.apiResponse<IProductWithCategory[]>(
+			res,
+			200,
+			{ data: entities },
+			ProductWithCategorySpec,
+			ProductWithCategoryPublicSpec,
+		);
+	}
 
-  override async getById(req: Request, res: Response, next: NextFunction) {
-    res.set('Content-Type', 'application/json');
+	override async getById(req: Request, res: Response, next: NextFunction) {
+		res.set("Content-Type", "application/json");
 
-    const userContext = req.userContext;
-    if (!userContext) {
-      throw new Error('User context not found');
-    }
+		const userContext = req.userContext;
+		if (!userContext) {
+			throw new Error("User context not found");
+		}
 
-    // Convert HTTP string to AppIdType using TypeBox
-    const idParam = req.params?.id;
-    if (!idParam) {
-      throw new Error('ID parameter is required');
-    }
+		// Convert HTTP string to AppIdType using TypeBox
+		const idParam = req.params?.id;
+		if (!idParam) {
+			throw new Error("ID parameter is required");
+		}
 
-    try {
-      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
+		try {
+			const id = Value.Convert(this.idSchema, idParam) as AppIdType;
 
-      // Get entity by ID from service using custom prepareQuery and postProcess functions
-      const entity = await this.service.getById<IProductWithCategory>(
-        userContext,
-        id,
-        prepareQueryCustom,
-        postProcessEntityCustom);
+			// Get entity by ID from service using custom prepareQuery and postProcess functions
+			const entity = await this.service.getById<IProductWithCategory>(
+				userContext,
+				id,
+				prepareQueryCustom,
+				postProcessEntityCustom,
+			);
 
-      // Prepare API response
-      apiUtils.apiResponse<IProductWithCategory>(res, 200, { data: entity }, ProductWithCategorySpec, ProductWithCategoryPublicSpec);
-    } catch (error: any) {
-      throw new Error(`Invalid ID format: ${error.message || error}`);
-    }
-  }
+			// Prepare API response
+			apiUtils.apiResponse<IProductWithCategory>(
+				res,
+				200,
+				{ data: entity },
+				ProductWithCategorySpec,
+				ProductWithCategoryPublicSpec,
+			);
+		} catch (error: any) {
+			throw new Error(`Invalid ID format: ${error.message || error}`);
+		}
+	}
 }
 
 // Service that uses MultiTenantApiService
 export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
-  private db: IDatabase;
-  constructor(database: IDatabase) {
-    super(database, 'products', 'product', ProductSpec);
-    this.db = database;
-  }
+	private db: IDatabase;
+	constructor(database: IDatabase) {
+		super(database, "products", "product", ProductSpec);
+		this.db = database;
+	}
 
-  override prepareQuery(userContext: IUserContext, queryObject: IQueryOptions, operations: Operation[]): { queryObject: IQueryOptions, operations: Operation[] } {
-    const newOperations = [
-      ...operations,
-      new LeftJoin('categories', 'categoryId', '_id', 'category')
-    ];
+	override prepareQuery(
+		userContext: IUserContext,
+		queryObject: IQueryOptions,
+		operations: Operation[],
+	): { queryObject: IQueryOptions; operations: Operation[] } {
+		const newOperations = [
+			...operations,
+			new LeftJoin("categories", "categoryId", "_id", "category"),
+		];
 
-    return super.prepareQuery(userContext, queryObject, newOperations);
-  }
+		return super.prepareQuery(userContext, queryObject, newOperations);
+	}
 
-  override postProcessEntity(userContext: IUserContext, single: any): any {
-    if (single && single.category) {
-      const categoryService = new CategoryService(this.db);
-      single.category = categoryService.postProcessEntity(userContext, single.category);
-    }
-    return super.postProcessEntity(userContext, single);
-  }
+	override postProcessEntity(userContext: IUserContext, single: any): any {
+		if (single && single.category) {
+			const categoryService = new CategoryService(this.db);
+			single.category = categoryService.postProcessEntity(
+				userContext,
+				single.category,
+			);
+		}
+		return super.postProcessEntity(userContext, single);
+	}
 }
 
 // Controller that uses the multi-tenant service
 export class MultiTenantProductsController extends ApiController<IProduct> {
-  constructor(app: Application, database: IDatabase) {
-    const productService = new MultiTenantProductService(database);
+	constructor(app: Application, database: IDatabase) {
+		const productService = new MultiTenantProductService(database);
 
-    const AggregatedProductSchema = Type.Intersect([
-      ProductSpec.fullSchema,
-      Type.Partial(Type.Object({
-        category: CategorySpec.fullSchema
-      }))
-    ]);
+		const AggregatedProductSchema = Type.Intersect([
+			ProductSpec.fullSchema,
+			Type.Partial(
+				Type.Object({
+					category: CategorySpec.fullSchema,
+				}),
+			),
+		]);
 
-    const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, ['internalNumber']);
+		const PublicAggregatedProductSchema = Type.Omit(AggregatedProductSchema, [
+			"internalNumber",
+		]);
 
-
-    const PublicAggregatedProductSpec = entityUtils.getModelSpec(PublicAggregatedProductSchema);
-    super('multi-tenant-products', app, productService, 'product', ProductSpec, PublicAggregatedProductSpec);
-  }
+		const PublicAggregatedProductSpec = entityUtils.getModelSpec(
+			PublicAggregatedProductSchema,
+		);
+		super(
+			"multi-tenant-products",
+			app,
+			productService,
+			"product",
+			ProductSpec,
+			PublicAggregatedProductSpec,
+		);
+	}
 }
 
 /**
@@ -505,70 +601,71 @@ export class MultiTenantProductsController extends ApiController<IProduct> {
  * This should be called before tests that use authentication
  */
 function configureJwtSecret(): void {
-  // Configure the application to use our test secret
-  // This should be done in a setup function before tests
-  const originalJwtVerify = jwt.verify;
+	// Configure the application to use our test secret
+	// This should be done in a setup function before tests
+	const originalJwtVerify = jwt.verify;
 
-  // Patch jwt.verify to use our test secret
-  (jwt.verify as any) = function (token: string, secret: string, options?: jwt.VerifyOptions): any {
-    return originalJwtVerify(token, JWT_SECRET, options);
-  };
+	// Patch jwt.verify to use our test secret
+	(jwt.verify as any) = function (
+		token: string,
+		secret: string,
+		options?: jwt.VerifyOptions,
+	): any {
+		return originalJwtVerify(token, JWT_SECRET, options);
+	};
 }
 
 // actually login with the test user, using controller, etc
 async function loginWithTestUser(agent: any) {
-  // Set deviceId cookie first
-  agent.set('Cookie', [`deviceId=${deviceIdCookie}`]);
+	// Set deviceId cookie first
+	agent.set("Cookie", [`deviceId=${deviceIdCookie}`]);
 
-  const testUser = getTestMetaOrgUser();
+	const testUser = getTestMetaOrgUser();
 
-  const response = await agent
-    .post('/api/auth/login')
-    .send({
-      email: testUser.email,
-      password: testUser.password,
-    });
+	const response = await agent.post("/api/auth/login").send({
+		email: testUser.email,
+		password: testUser.password,
+	});
 
-  // Make sure we got a valid response
-  if (!response.body?.data?.tokens?.accessToken) {
-    console.error('Login failed:', response.body);
-    throw new Error('Failed to login with test user');
-  }
+	// Make sure we got a valid response
+	if (!response.body?.data?.tokens?.accessToken) {
+		console.error("Login failed:", response.body);
+		throw new Error("Failed to login with test user");
+	}
 
-  const authorizationHeaderValue = `Bearer ${response.body?.data?.tokens?.accessToken}`;
-  return authorizationHeaderValue;
+	const authorizationHeaderValue = `Bearer ${response.body?.data?.tokens?.accessToken}`;
+	return authorizationHeaderValue;
 }
 
 async function cleanup() {
-  try {
-    await deleteTestUser();
-    await deleteMetaOrg();
-  }
-  catch (error: any) {
-    console.log('Error during cleanup:', error);
-    // Don't throw - cleanup should be non-blocking
-  }
+	try {
+		await deleteTestUser();
+		await deleteMetaOrg();
+	} catch (error: any) {
+		console.log("Error during cleanup:", error);
+		// Don't throw - cleanup should be non-blocking
+	}
 }
 
 const testUtils = {
-  getRandomId,
-  cleanup,
-  configureJwtSecret,
-  constDeviceIdCookie,
-  createMetaOrg,
-  deleteMetaOrg,
-  deleteTestUser,
-  getAuthToken,
-  initialize,
-  SetupTestConfig: setupTestConfig,
-  loginWithTestUser,
-  newUser1Email,
-  newUser1Password,
-  setupTestUsers,
-  simulateloginWithTestUser,
-  verifyToken,
-  isMongoDatabase,
-  isPostgresDatabase,
-  getExpectedIdType
+	getRandomId,
+	cleanup,
+	configureJwtSecret,
+	constDeviceIdCookie,
+	createMetaOrg,
+	deleteMetaOrg,
+	deleteTestUser,
+	getAuthToken,
+	initialize,
+	SetupTestConfig: setupTestConfig,
+	loginWithTestUser,
+	newUser1Email,
+	newUser1Password,
+	setupTestUsers,
+	simulateloginWithTestUser,
+	verifyToken,
+	isMongoDatabase,
+	isPostgresDatabase,
+	getExpectedIdType,
 };
 export default testUtils;

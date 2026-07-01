@@ -1,39 +1,64 @@
-import { IOrganization, IUserContext, OrganizationSpec } from '@loomcore/common/models';
-import { IDatabase } from '../databases/models/database.interface.js';
-import { BadRequestError } from '../errors/index.js';
-import { GenericApiService } from './generic-api-service/generic-api.service.js';
-import { AppIdType } from '@loomcore/common/types';
+import {
+	type IOrganization,
+	type IUserContext,
+	OrganizationSpec,
+} from "@loomcore/common/models";
+import type { AppIdType } from "@loomcore/common/types";
+import type { IDatabase } from "../databases/models/index.js";
+import { BadRequestError } from "../errors/index.js";
+import { GenericApiService } from "./generic-api-service/generic-api.service.js";
 
 export class OrganizationService extends GenericApiService<IOrganization> {
 	constructor(database: IDatabase) {
-		super(database, 'organizations', 'organization', OrganizationSpec);
+		super(database, "organizations", "organization", OrganizationSpec);
 	}
 
-	override async preProcessEntity(userContext: IUserContext, entity: Partial<IOrganization>, isCreate: boolean, allowId: boolean = true): Promise<Partial<IOrganization>> {
+	override async preProcessEntity(
+		userContext: IUserContext,
+		entity: Partial<IOrganization>,
+		isCreate: boolean,
+		allowId: boolean = true,
+	): Promise<Partial<IOrganization>> {
 		if (isCreate) {
 			const metaOrg = await this.getMetaOrg(userContext);
 			if (metaOrg && entity.isMetaOrg) {
-				throw new BadRequestError('Meta organization already exists');
+				throw new BadRequestError("Meta organization already exists");
 			}
 			if (metaOrg && userContext.organization?._id !== metaOrg._id) {
-				throw new BadRequestError('User is not authorized to create an organization');
+				throw new BadRequestError(
+					"User is not authorized to create an organization",
+				);
 			}
 		}
-		const result = await super.preProcessEntity(userContext, entity, isCreate, allowId);
+		const result = await super.preProcessEntity(
+			userContext,
+			entity,
+			isCreate,
+			allowId,
+		);
 		return result;
 	}
 
 	// TODO: override prepareQuery to add check for isMetaOrg.
 	// If user is not meta org, throw error.
-	async getAuthTokenByRepoCode(userContext: IUserContext, orgId: AppIdType): Promise<string | null> {
+	async getAuthTokenByRepoCode(
+		userContext: IUserContext,
+		orgId: AppIdType,
+	): Promise<string | null> {
 		// until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
 		const org = await this.getById(userContext, orgId);
 		return org?.authToken ?? null;
 	}
 
-	async validateRepoAuthToken(userContext: IUserContext, orgCode: string, authToken: string): Promise<AppIdType | null> {
+	async validateRepoAuthToken(
+		userContext: IUserContext,
+		orgCode: string,
+		authToken: string,
+	): Promise<AppIdType | null> {
 		// this is used to auth content-api calls - the orgCode is used in the api call hostname
-		const org = await this.findOne(userContext, { filters: { code: { eq: orgCode } } });
+		const org = await this.findOne(userContext, {
+			filters: { code: { eq: orgCode } },
+		});
 
 		if (!org) {
 			return null;
@@ -45,7 +70,9 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 	}
 
 	async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
-		const org = await this.findOne(userContext, { filters: { isMetaOrg: { eq: true } } });
+		const org = await this.findOne(userContext, {
+			filters: { isMetaOrg: { eq: true } },
+		});
 		return org;
 	}
 }
