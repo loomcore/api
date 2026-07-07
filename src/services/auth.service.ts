@@ -13,6 +13,7 @@ import type { AppIdType } from "@loomcore/common/types";
 import { entityUtils } from "@loomcore/common/utils";
 import type { Request, Response } from "express";
 import moment from "moment";
+import { signJwt } from "../utils/jwt.utils.js";
 import { config } from "../config/index.js";
 import type { IDatabase } from "../databases/models/index.js";
 import type { UpdateResult } from "../databases/models/update-result.js";
@@ -23,7 +24,7 @@ import {
 	refreshTokenModelSpec,
 } from "../models/refresh-token.model.js";
 import { passwordUtils } from "../utils/index.js";
-import { EmailService, JwtService } from "./index.js";
+import { EmailService } from "./index.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
 import { OrganizationService } from "./organization.service.js";
 import { PasswordResetTokenService } from "./password-reset-token.service.js";
@@ -407,16 +408,12 @@ export class AuthService extends MultiTenantApiService<IUser> {
 		const jwtExpiryConfig = this.authConfig.jwtExpirationInSeconds;
 		const jwtExpirationInSeconds =
 			typeof jwtExpiryConfig === "string"
-				? parseInt(jwtExpiryConfig)
+				? Number.parseInt(jwtExpiryConfig, 10)
 				: jwtExpiryConfig;
 
-		const accessToken = JwtService.sign(
-			userContext,
-			this.authConfig.clientSecret,
-			{
-				expiresIn: jwtExpirationInSeconds,
-			},
-		);
+		const accessToken = signJwt(userContext, this.authConfig.clientSecret, {
+			expiresIn: jwtExpirationInSeconds,
+		});
 		return accessToken;
 	}
 

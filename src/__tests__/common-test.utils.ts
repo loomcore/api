@@ -1,29 +1,27 @@
+import crypto from "node:crypto";
 import {
-	DefaultQueryOptions,
 	EmptyUserContext,
-	IEntity,
-	IPagedResult,
-	IQueryOptions,
-	IUser,
-	IUserContext,
+	type IPagedResult,
+	type IQueryOptions,
+	type IUser,
+	type IUserContext,
 } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import crypto from "crypto";
-import { Application, NextFunction, Request, Response } from "express";
+import type { Application, NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { ApiController } from "../controllers/api.controller.js";
-import { IDatabase } from "../databases/models/index.js";
+import type { IDatabase } from "../databases/models/index.js";
 import { MongoDBDatabase } from "../databases/mongo-db/mongo-db.database.js";
 import { LeftJoin } from "../databases/operations/left-join.operation.js";
-import { Operation } from "../databases/operations/operation.js";
+import type { Operation } from "../databases/operations/operation.js";
 import { PostgresDatabase } from "../databases/postgres/postgres.database.js";
 import { AuthService, GenericApiService } from "../services/index.js";
-import { JwtService } from "../services/jwt.service.js";
 import { MultiTenantApiService } from "../services/multi-tenant-api.service.js";
 import { OrganizationService } from "../services/organization.service.js";
+import { signJwt, verifyJwt } from "../utils/jwt.utils.js";
 import * as testObjectsModule from "./test-objects.js";
 
 const {
@@ -265,12 +263,12 @@ async function simulateloginWithTestUser() {
 
 	// Use existing deviceId cookie if available
 	if (deviceIdCookie) {
-		req.cookies["deviceId"] = deviceIdCookie;
+		req.cookies.deviceId = deviceIdCookie;
 	}
 
 	// Create a simple mock response that captures cookies
 	const res: any = {
-		cookie: function (name: string, value: string) {
+		cookie: (name: string, value: string) => {
 			if (name === "deviceId") {
 				deviceIdCookie = value;
 			}
@@ -305,8 +303,8 @@ async function simulateloginWithTestUser() {
 function getAuthToken(): string {
 	const userContext = getTestMetaOrgUserContext();
 
-	// Use JwtService to sign the token - this is what the real app uses
-	const token = JwtService.sign(userContext, JWT_SECRET, { expiresIn: 3600 });
+	// Use jwt.service sign - this is what the real app uses
+	const token = signJwt(userContext, JWT_SECRET, { expiresIn: 3600 });
 
 	return `Bearer ${token}`;
 }
@@ -317,7 +315,7 @@ function getAuthToken(): string {
  * @returns Decoded payload
  */
 function verifyToken(token: string): any {
-	return JwtService.verify(token, JWT_SECRET);
+	return verifyJwt(token, JWT_SECRET);
 }
 
 // Service that does NOT use aggregation
