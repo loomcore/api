@@ -3,7 +3,6 @@ import {
 	EmptyUserContext,
 	getSystemUserContext,
 	type ILoginResponse,
-	type IPersonModel,
 	type ITokenResponse,
 	type IUser,
 	type IUserContext,
@@ -28,7 +27,6 @@ import { EmailService, JwtService } from "./index.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
 import { OrganizationService } from "./organization.service.js";
 import { PasswordResetTokenService } from "./password-reset-token.service.js";
-import { PersonService } from "./person.service.js";
 import { getUserContextAuthorizations } from "./utils/getUserContextAuthorizations.util.js";
 export class AuthService extends MultiTenantApiService<IUser> {
 	private refreshTokenService: MultiTenantApiService<IRefreshToken>;
@@ -36,7 +34,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
 	private emailService: EmailService;
 	private organizationService: OrganizationService;
 	private authConfig: IAuthConfig;
-	private personService: PersonService;
 
 	constructor(database: IDatabase) {
 		super(database, "users", "user", UserSpec);
@@ -49,7 +46,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
 		this.passwordResetTokenService = new PasswordResetTokenService(database);
 		this.emailService = new EmailService();
 		this.organizationService = new OrganizationService(database);
-		this.personService = new PersonService(database);
 		if (!config.auth) {
 			throw new ServerError("Auth configuration is not set");
 		}
@@ -69,28 +65,23 @@ export class AuthService extends MultiTenantApiService<IUser> {
 			{ filters: { _id: { eq: user?._orgId } } },
 		);
 
-		// Basic validation to prevent errors with undefined user
 		if (!user) {
 			throw new BadRequestError("Invalid Credentials");
 		}
 
 		const passwordsMatch = await passwordUtils.comparePasswords(
-			user.password!,
+			user.password,
 			password,
 		);
 		if (!passwordsMatch) {
 			throw new BadRequestError("Invalid Credentials");
 		}
-		const person = await this.personService.findOne(getSystemUserContext(), {
-			filters: { _id: { eq: user.personId } },
-		});
 		const authorizations = await getUserContextAuthorizations(
 			this.database,
 			user,
 		);
 		const userContext = {
 			user: user,
-			person: person ?? undefined,
 			organization: organization ?? undefined,
 			authorizations: authorizations,
 		};
@@ -122,7 +113,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
 			};
 
 			// Update lastLoggedIn in a non-blocking way
-			this.updateLastLoggedIn(userContext.user._id!).catch((err) =>
+			this.updateLastLoggedIn(userContext.user._id).catch((err) =>
 				console.log(`Error updating lastLoggedIn: ${err}`),
 			);
 
@@ -148,7 +139,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
 	async createUser(
 		userContext: IUserContext,
 		user: Partial<IUser>,
-		person?: Partial<IPersonModel>,
 	): Promise<IUser | null> {
 		// prepareEntity handles hashing the password, lowercasing the email, and other entity transformations before any create or update.
 
@@ -184,24 +174,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
 			}
 		}
 
-		let personId = user.personId;
-
-		if (personId && person) {
-			await this.personService.partialUpdateById(userContext, personId, person);
-		}
-
-		if (!personId && person) {
-			const newPerson = await this.personService.create(userContext, person);
-			if (newPerson) {
-				personId = newPerson._id;
-			} else {
-				throw new ServerError(
-					"authService.createUser: Failed to create person",
-				);
-			}
-		}
-		user.personId = personId;
-
 		return await this.create(userContext, user);
 	}
 
@@ -220,9 +192,6 @@ export class AuthService extends MultiTenantApiService<IUser> {
 				systemUserContext,
 				activeRefreshToken.userId,
 			);
-			const person = await this.personService.findOne(systemUserContext, {
-				filters: { _id: { eq: user?.personId } },
-			});
 			const organization = await this.organizationService.findOne(
 				EmptyUserContext,
 				{ filters: { _id: { eq: user?._orgId } } },
@@ -231,21 +200,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
 				this.database,
 				user,
 			);
-			let userContext: IUserContext = {
+			const userContext: IUserContext = {
 				user: user,
-				person: person ?? undefined,
 				organization: organization ?? undefined,
 				authorizations: authorizations,
 			};
-			if (user.personId) {
-				const person = await this.personService.getById(
-					systemUserContext,
-					user.personId,
-				);
-				if (person) {
-					userContext.person = person;
-				}
-			}
 			tokens = await this.createNewTokens(userContext, activeRefreshToken);
 		}
 		return tokens;
@@ -344,7 +303,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
 		// delete all other refreshTokens with the same deviceId
 		//  todo: At some point, we will need to have a scheduled service go through and delete all expired refreshTokens because
 		//   many will probably just expire without ever having anyone re-login on that device.
-		const deleteResult = await this.deleteRefreshTokensForDevice(deviceId);
+		await this.deleteRefreshTokensForDevice(deviceId);
 		const insertResult = await this.refreshTokenService.create(
 			getSystemUserContext(),
 			newRefreshToken,
@@ -500,7 +459,7 @@ export class AuthService extends MultiTenantApiService<IUser> {
 	}
 
 	getDeviceIdFromCookie(req: Request) {
-		return req.cookies["deviceId"];
+		return req.cookies.deviceId;
 	}
 
 	getExpiresOnFromSeconds(expiresInSeconds: number) {
@@ -526,11 +485,11 @@ export class AuthService extends MultiTenantApiService<IUser> {
 	): Promise<Partial<IUser>> {
 		if (entity.email) {
 			// lowercase the email
-			entity.email = entity.email!.toLowerCase();
+			entity.email = entity.email?.toLowerCase();
 		}
 
 		if (entity.password) {
-			const hash = await passwordUtils.hashPassword(entity.password!);
+			const hash = await passwordUtils.hashPassword(entity.password);
 			entity.password = hash;
 		}
 
@@ -555,6 +514,8 @@ export class AuthService extends MultiTenantApiService<IUser> {
 			};
 			const systemUserContext = getSystemUserContext();
 			await this.partialUpdateById(systemUserContext, userId, updates);
-		} catch (error) {}
+		} catch (error) {
+			console.error(`Error updating lastLoggedIn: ${error}`);
+		}
 	}
 }

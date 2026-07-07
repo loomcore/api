@@ -37,35 +37,28 @@ const {
 	setTestMetaOrgUserId,
 	setTestOrgUserId,
 } = testObjectsModule;
+
 import { entityUtils } from "@loomcore/common/utils";
 import { config, setBaseApiConfig } from "../config/index.js";
-import {
+import type {
 	PostProcessEntityCustomFunction,
 	PrepareQueryCustomFunction,
 } from "../controllers/types.js";
-import { DbType } from "../databases/db-type.type.js";
-import { PersonService } from "../services/person.service.js";
+import type { DbType } from "../databases/db-type.type.js";
 import { apiUtils } from "../utils/index.js";
-import { CategorySpec, ICategory } from "./models/category.model.js";
-import { IProduct, ProductSpec } from "./models/product.model.js";
+import { CategorySpec, type ICategory } from "./models/category.model.js";
+import { type IProduct, ProductSpec } from "./models/product.model.js";
 import {
-	IProductWithCategory,
+	type IProductWithCategory,
 	ProductWithCategoryPublicSpec,
 	ProductWithCategorySpec,
 } from "./models/product-with-category.model.js";
 import { TestEmailClient } from "./test-email-client.js";
-import {
-	getTestMetaOrgUserPerson,
-	getTestOrgUser,
-	getTestOrgUserPerson,
-	setTestMetaOrgUserPersonId,
-	setTestOrgUserPersonId,
-} from "./test-objects.js";
+import { getTestOrgUser } from "./test-objects.js";
 
 let deviceIdCookie: string;
 let authService: AuthService | undefined;
 let organizationService: OrganizationService | undefined;
-let personService: PersonService | undefined;
 
 const JWT_SECRET = "test-secret";
 const newUser1Email = "one@test.com";
@@ -74,7 +67,6 @@ const constDeviceIdCookie = crypto.randomBytes(16).toString("hex"); // Generate 
 
 function initialize(database: IDatabase) {
 	authService = new AuthService(database);
-	personService = new PersonService(database);
 	organizationService = new OrganizationService(database);
 	deviceIdCookie = constDeviceIdCookie;
 }
@@ -176,7 +168,7 @@ async function createTestUsers(): Promise<{
 	metaOrgUser: IUser;
 	testOrgUser: IUser;
 }> {
-	if (!authService || !organizationService || !personService) {
+	if (!authService || !organizationService) {
 		throw new Error("Database not initialized. Call initialize() first.");
 	}
 
@@ -212,24 +204,6 @@ async function createTestUsers(): Promise<{
 		} else {
 			setTestOrgId(existingTestOrg._id);
 		}
-
-		const createdTestOrgUserPerson = await personService.create(
-			getTestOrgUserContext(),
-			getTestOrgUserPerson(),
-		);
-		if (!createdTestOrgUserPerson) {
-			throw new Error("Failed to create test organization user person");
-		}
-		setTestOrgUserPersonId(createdTestOrgUserPerson._id);
-
-		const createdMetaOrgUserPerson = await personService.create(
-			getTestMetaOrgUserContext(),
-			getTestMetaOrgUserPerson(),
-		);
-		if (!createdMetaOrgUserPerson) {
-			throw new Error("Failed to create meta organization user person");
-		}
-		setTestMetaOrgUserPersonId(createdMetaOrgUserPerson._id);
 
 		const createdTestOrgUser = await authService.createUser(
 			getTestOrgUserContext(),
