@@ -1,4 +1,3 @@
-export * from "./auth.service.js";
 export * from "./email.service.js";
 export * from "./generic-api-service/generic-api.service.js";
 export * from "./generic-api-service/generic-api-service.interface.js";
@@ -7,5 +6,6 @@ export * from "./generic-query-service/generic-query-service.interface.js";
 export * from "./multi-tenant-api.service.js";
 export * from "./organization.service.js";
 export * from "./password-reset-token.service.js";
+export * from "./refresh-token.service.js";
 export * from "./tenant-query-decorator.js";
 export * from "./user.service.js";

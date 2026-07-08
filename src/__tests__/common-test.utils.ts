@@ -18,10 +18,9 @@ import { MongoDBDatabase } from "../databases/mongo-db/mongo-db.database.js";
 import { LeftJoin } from "../databases/operations/left-join.operation.js";
 import type { Operation } from "../databases/operations/operation.js";
 import { PostgresDatabase } from "../databases/postgres/postgres.database.js";
-import { AuthService, GenericApiService } from "../services/index.js";
+import { GenericApiService, UserService } from "../services/index.js";
 import { MultiTenantApiService } from "../services/multi-tenant-api.service.js";
 import { OrganizationService } from "../services/organization.service.js";
-import { signJwt, verifyJwt } from "../utils/jwt.utils.js";
 import * as testObjectsModule from "./test-objects.js";
 
 const {
@@ -43,6 +42,7 @@ import type {
 	PrepareQueryCustomFunction,
 } from "../controllers/types.js";
 import type { DbType } from "../databases/db-type.type.js";
+import { attemptLogin } from "../utils/auth/index.js";
 import { apiUtils } from "../utils/index.js";
 import { CategorySpec, type ICategory } from "./models/category.model.js";
 import { type IProduct, ProductSpec } from "./models/product.model.js";
@@ -55,17 +55,19 @@ import { TestEmailClient } from "./test-email-client.js";
 import { getTestOrgUser } from "./test-objects.js";
 
 let deviceIdCookie: string;
-let authService: AuthService | undefined;
+let database: IDatabase | undefined;
 let organizationService: OrganizationService | undefined;
+let userService: UserService | undefined;
 
 const JWT_SECRET = "test-secret";
 const newUser1Email = "one@test.com";
 const newUser1Password = "testone";
 const constDeviceIdCookie = crypto.randomBytes(16).toString("hex"); // Generate a consistent device ID for tests
 
-function initialize(database: IDatabase) {
-	authService = new AuthService(database);
-	organizationService = new OrganizationService(database);
+function initialize(db: IDatabase) {
+	database = db;
+	organizationService = new OrganizationService(db);
+	userService = new UserService(db);
 	deviceIdCookie = constDeviceIdCookie;
 }
 
@@ -166,7 +168,7 @@ async function createTestUsers(): Promise<{
 	metaOrgUser: IUser;
 	testOrgUser: IUser;
 }> {
-	if (!authService || !organizationService) {
+	if (!organizationService || !userService) {
 		throw new Error("Database not initialized. Call initialize() first.");
 	}
 
@@ -203,11 +205,11 @@ async function createTestUsers(): Promise<{
 			setTestOrgId(existingTestOrg._id);
 		}
 
-		const createdTestOrgUser = await authService.createUser(
+		const createdTestOrgUser = await userService.create(
 			getTestOrgUserContext(),
 			getTestOrgUser(),
 		);
-		const createdMetaOrgUser = await authService.createUser(
+		const createdMetaOrgUser = await userService.create(
 			getTestMetaOrgUserContext(),
 			getTestMetaOrgUser(),
 		);
@@ -229,16 +231,16 @@ async function createTestUsers(): Promise<{
 
 async function deleteTestUser() {
 	// Only delete if services are initialized
-	if (!authService || !organizationService) {
+	if (!organizationService || !userService) {
 		return;
 	}
 
 	// Delete test user
-	await authService
+	await userService
 		.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id)
 		.catch((error: any) => {
 			// Ignore errors during cleanup - entity may not exist
-			return null;
+			console.log("Error deleting test user:", error);
 		});
 
 	// Delete test organization (regular org only, not meta)
@@ -246,7 +248,7 @@ async function deleteTestUser() {
 		.deleteById(getTestMetaOrgUserContext(), getTestOrg()._id)
 		.catch((error: any) => {
 			// Ignore errors during cleanup - entity may not exist
-			return null;
+			console.log("Error deleting test organization:", error);
 		});
 }
 
@@ -276,15 +278,16 @@ async function simulateloginWithTestUser() {
 		},
 	};
 
-	// Call authService.attemptLogin directly
-	if (!authService) {
-		throw new Error("AuthService not initialized. Call initialize() first.");
+	// Call attemptLogin directly
+	if (!database) {
+		throw new Error("Database not initialized. Call initialize() first.");
 	}
-	const loginResponse = await authService.attemptLogin(
-		req as Request,
-		res as Response,
+	const loginResponse = await attemptLogin(
+		database,
 		getTestMetaOrgUser().email,
 		testObjectsModule.TEST_META_ORG_USER_PASSWORD,
+		deviceIdCookie,
+		getTestMetaOrg()._id,
 	);
 
 	// Make sure we got a valid response
@@ -304,7 +307,7 @@ function getAuthToken(): string {
 	const userContext = getTestMetaOrgUserContext();
 
 	// Use jwt.service sign - this is what the real app uses
-	const token = signJwt(userContext, JWT_SECRET, { expiresIn: 3600 });
+	const token = jwt.sign(userContext, JWT_SECRET, { expiresIn: 3600 });
 
 	return `Bearer ${token}`;
 }
@@ -315,7 +318,7 @@ function getAuthToken(): string {
  * @returns Decoded payload
  */
 function verifyToken(token: string): any {
-	return verifyJwt(token, JWT_SECRET);
+	return jwt.verify(token, JWT_SECRET);
 }
 
 // Service that does NOT use aggregation
@@ -597,6 +600,7 @@ async function loginWithTestUser(agent: any) {
 	const response = await agent.post("/api/auth/login").send({
 		email: testUser.email,
 		password: testUser.password,
+		organizationId: testUser._orgId,
 	});
 
 	// Make sure we got a valid response

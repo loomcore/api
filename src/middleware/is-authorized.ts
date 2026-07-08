@@ -1,17 +1,17 @@
 import { type IUserContext, UserContextSpec } from "@loomcore/common/models";
 import type { NextFunction, Request, Response } from "express";
-import { config } from "../config/index.js";
+import jwt from "jsonwebtoken";
 import { UnauthenticatedError, UnauthorizedError } from "../errors/index.js";
-import { verifyJwt } from "../utils/jwt.utils.js";
+import { getAuthConfig } from "../utils/auth/get-auth-config.util.js";
 
 // Shared middleware implementation
 const isAuthorized = (allowedFeatures?: string[]) => {
-	return (req: Request, res: Response, next: NextFunction) => {
+	return (req: Request, _res: Response, next: NextFunction) => {
 		let token = null;
 
 		// check Authorization Header
 		if (req.headers?.authorization) {
-			let authHeader = req.headers.authorization;
+			const authHeader = req.headers.authorization;
 			const authHeaderArray = authHeader.split("Bearer ");
 			if (authHeaderArray?.length > 1) {
 				token = authHeaderArray[1];
@@ -22,9 +22,11 @@ const isAuthorized = (allowedFeatures?: string[]) => {
 			throw new UnauthenticatedError();
 		}
 
+		const authConfig = getAuthConfig();
+
 		try {
 			// Get raw JWT payload first
-			const rawPayload = verifyJwt(token, config.auth?.clientSecret || "");
+			const rawPayload = jwt.verify(token, authConfig.clientSecret);
 
 			// Use TypeBox to decode the payload properly, which will convert string dates to Date objects
 			const userContext = UserContextSpec.decode(rawPayload) as IUserContext;
@@ -40,7 +42,7 @@ const isAuthorized = (allowedFeatures?: string[]) => {
 			} else if (allowedFeatures?.length) {
 				if (
 					!userContext.authorizations.some((authorization) =>
-						allowedFeatures?.includes(authorization.feature),
+						allowedFeatures.includes(authorization.feature),
 					)
 				) {
 					throw new UnauthorizedError();
@@ -50,6 +52,7 @@ const isAuthorized = (allowedFeatures?: string[]) => {
 				next();
 			}
 		} catch (err) {
+			console.error(err);
 			throw new UnauthenticatedError();
 		}
 	};

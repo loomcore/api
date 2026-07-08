@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import {
-	getSystemUserContext,
 	type IPasswordResetToken,
+	type IUserContext,
 	PasswordResetTokenSpec,
 } from "@loomcore/common/models";
 import type { IDatabase } from "../databases/models/index.js";
@@ -18,11 +18,12 @@ export class PasswordResetTokenService extends MultiTenantApiService<IPasswordRe
 	}
 
 	async createPasswordResetToken(
+		userContext: IUserContext,
 		email: string,
 		expiresOn: number,
 	): Promise<IPasswordResetToken | null> {
 		const lowerCaseEmail = email.toLowerCase();
-		await this.deleteMany(getSystemUserContext(), {
+		await this.deleteMany(userContext, {
 			filters: { email: { eq: lowerCaseEmail } },
 		});
 
@@ -32,12 +33,6 @@ export class PasswordResetTokenService extends MultiTenantApiService<IPasswordRe
 			expiresOn: expiresOn,
 		};
 
-		return super.create(getSystemUserContext(), passwordResetToken);
-	}
-
-	async getByEmail(email: string): Promise<IPasswordResetToken | null> {
-		return await super.findOne(getSystemUserContext(), {
-			filters: { email: { eq: email.toLowerCase() } },
-		});
+		return super.create(userContext, passwordResetToken);
 	}
 }

@@ -8,6 +8,7 @@ import { config } from "../config/base-api-config.js";
 import type { IDatabase } from "../databases/models/index.js";
 import type { Operation } from "../databases/operations/operation.js";
 import { BadRequestError } from "../errors/bad-request.error.js";
+import { ServerError } from "../errors/index.js";
 import { GenericApiService } from "./generic-api-service/generic-api.service.js";
 import { TenantQueryDecorator } from "./tenant-query-decorator.js";
 
@@ -44,14 +45,20 @@ export class MultiTenantApiService<
 		if (!config?.app?.isMultiTenant || userContext?.user?._id === "system") {
 			return super.prepareQuery(userContext, queryOptions, operations);
 		}
-		if (!userContext || !userContext.organization?._id) {
+		if (!userContext?.organization?._id) {
 			throw new BadRequestError(
 				"A valid userContext was not provided to MultiTenantApiService.prepareQuery",
 			);
 		}
 
+		if (!this.tenantDecorator) {
+			throw new ServerError(
+				"A valid tenantDecorator was not provided to MultiTenantApiService.prepareQuery",
+			);
+		}
+
 		// Apply tenant filtering to the query object
-		const queryObject = this.tenantDecorator!.applyTenantToQuery(
+		const queryObject = this.tenantDecorator.applyTenantToQuery(
 			userContext,
 			queryOptions,
 			this.pluralResourceName,
@@ -72,7 +79,7 @@ export class MultiTenantApiService<
 		if (!config?.app?.isMultiTenant) {
 			return super.preProcessEntity(userContext, entity, isCreate, allowId);
 		}
-		if (!userContext || !userContext.organization?._id) {
+		if (!userContext?.organization?._id) {
 			throw new BadRequestError(
 				"A valid userContext was not provided to MultiTenantApiService.prepareEntity",
 			);

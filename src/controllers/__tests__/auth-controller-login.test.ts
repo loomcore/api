@@ -1,180 +1,185 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
-import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import testUtils from '../../__tests__/common-test.utils.js';
-import { AuthController } from '../auth.controller.js';
-import { AuthService } from '../../services/index.js';
-import { getTestMetaOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import request from "supertest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import testUtils from "../../__tests__/common-test.utils.js";
+import { TestExpressApp } from "../../__tests__/test-express-app.js";
+import {
+	getTestMetaOrgUser,
+	getTestMetaOrgUserContext,
+} from "../../__tests__/test-objects.js";
+import { UserService } from "../../services/user.service.js";
+import { AuthController } from "../auth.controller.js";
 
-describe('AuthController', () => {
-  let authService: AuthService;
-  let testAgent: any;
-  let testDb: any;
+describe("AuthController", () => {
+	let userService: UserService;
+	let testAgent: any;
+	let testDb: any;
 
-  beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
-    testAgent = testSetup.agent;
-    testDb = testSetup.database;
+	beforeAll(async () => {
+		const testSetup = await TestExpressApp.init();
+		testAgent = testSetup.agent;
+		testDb = testSetup.database;
 
-    // Initialize the AuthController with the Express app and database
-    new AuthController(testSetup.app, testSetup.database);
-    authService = new AuthService(testSetup.database);
-    // Setup error handling middleware AFTER controller initialization
-    await TestExpressApp.setupErrorHandling();
+		// Initialize the AuthController with the Express app and database
+		new AuthController(testSetup.app, testSetup.database);
+		userService = new UserService(testSetup.database);
+		// Setup error handling middleware AFTER controller initialization
+		await TestExpressApp.setupErrorHandling();
 
-    // Set up test user data
-    await testUtils.setupTestUsers();
-  });
+		// Set up test user data
+		await testUtils.setupTestUsers();
+	});
 
-  afterAll(async () => {
-    await TestExpressApp.cleanup();
-  });
+	afterAll(async () => {
+		await TestExpressApp.cleanup();
+	});
 
-  describe('POST /auth/login', () => {
-    const apiEndpoint = '/api/auth/login';
+	describe("POST /auth/login", () => {
+		const apiEndpoint = "/api/auth/login";
+		const organizationId = () => getTestMetaOrgUser()._orgId;
 
-    it('should return a 200, an accessToken, and a userContext if correct credentials are given', async () => {
-      const user = {
-        email: getTestMetaOrgUser().email,
-        password: getTestMetaOrgUser().password
-      };
+		it("should return a 200, an accessToken, and a userContext if correct credentials are given", async () => {
+			const user = {
+				email: getTestMetaOrgUser().email,
+				password: getTestMetaOrgUser().password,
+				organizationId: organizationId(),
+			};
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send(user)
-        .expect(200);
+			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
 
-      expect(response.body?.data?.tokens?.accessToken).toBeDefined();
-      expect(response.body?.data?.userContext?.user?.email).toEqual(user.email.toLowerCase());
-    });
+			expect(response.body?.data?.tokens?.accessToken).toBeDefined();
+			expect(response.body?.data?.userContext?.user?.email).toEqual(
+				user.email.toLowerCase(),
+			);
+		});
 
-    it('should return a user object with a string _id', async () => {
-      const user = {
-        email: getTestMetaOrgUser().email,
-        password: getTestMetaOrgUser().password
-      };
+		it("should return a user object with a string _id", async () => {
+			const user = {
+				email: getTestMetaOrgUser().email,
+				password: getTestMetaOrgUser().password,
+				organizationId: organizationId(),
+			};
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send(user)
-        .expect(200);
+			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
 
-      expect(typeof response.body?.data?.userContext?.user?._id).toBe(testUtils.getExpectedIdType(testDb));
-    });
+			expect(typeof response.body?.data?.userContext?.user?._id).toBe(
+				testUtils.getExpectedIdType(testDb),
+			);
+		});
 
-    it('should allow email to be case insensitive', async () => {
-      const user = {
-        email: getTestMetaOrgUser().email,
-        password: getTestMetaOrgUser().password
-      };
+		it("should allow email to be case insensitive", async () => {
+			const user = {
+				email: getTestMetaOrgUser().email,
+				password: getTestMetaOrgUser().password,
+				organizationId: organizationId(),
+			};
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send(user)
-        .expect(200);
+			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
 
-      expect(response.body?.data?.tokens?.accessToken).toBeDefined();
-      expect(response.body?.data?.userContext?.user?.email).toEqual(user.email.toLowerCase());
-    });
+			expect(response.body?.data?.tokens?.accessToken).toBeDefined();
+			expect(response.body?.data?.userContext?.user?.email).toEqual(
+				user.email.toLowerCase(),
+			);
+		});
 
-    it('should return a 400 if email does not exist', async () => {
-      const user = {
-        email: 'yourmom97@mom.com',
-        password: 'yourmom'
-      };
+		it("should return a 400 if email does not exist", async () => {
+			const user = {
+				email: "yourmom97@mom.com",
+				password: "yourmom",
+				organizationId: organizationId(),
+			};
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send(user)
-        .expect(400);
-    });
+			const response = await testAgent.post(apiEndpoint).send(user).expect(400);
+		});
 
-    it('should return a 400 if password is incorrect', async () => {
-      const user = {
-        email: getTestMetaOrgUser().email,
-        password: 'yourmom'
-      };
+		it("should return a 400 if password is incorrect", async () => {
+			const user = {
+				email: getTestMetaOrgUser().email,
+				password: "yourmom",
+				organizationId: organizationId(),
+			};
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send(user)
-        .expect(400);
-    });
+			const response = await testAgent.post(apiEndpoint).send(user).expect(400);
+		});
 
-    it('should update the user\'s _lastLoggedIn property in the database after successful login', async () => {
-      const user = getTestMetaOrgUser();
-      const userContext = getTestMetaOrgUserContext();
-      // Get the user before login to check initial state
-      const userBeforeLogin = await authService.findOne(userContext, { filters: { _id: { eq: user._id } } });
+		it("should update the user's _lastLoggedIn property in the database after successful login", async () => {
+			const user = getTestMetaOrgUser();
+			const userContext = getTestMetaOrgUserContext();
+			// Get the user before login to check initial state
+			const userBeforeLogin = await userService.findOne(userContext, {
+				filters: { _id: { eq: user._id } },
+			});
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send({
-          email: user.email,
-          password: user.password
-        })
-        .expect(200);
+			const response = await testAgent
+				.post(apiEndpoint)
+				.send({
+					email: user.email,
+					password: user.password,
+					organizationId: organizationId(),
+				})
+				.expect(200);
 
-      expect(response.body?.data?.tokens?.accessToken).toBeDefined();
+			expect(response.body?.data?.tokens?.accessToken).toBeDefined();
 
-      // Wait a moment for the async _lastLoggedIn update to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+			// Wait a moment for the async _lastLoggedIn update to complete
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await authService.findOne(userContext, { filters: { _id: { eq: user._id } } });
+			// Get the user after login to check if _lastLoggedIn was updated
+			const userAfterLogin = await userService.findOne(userContext, {
+				filters: { _id: { eq: user._id } },
+			});
 
-      // The user should have a _lastLoggedIn property after login
-      expect(userAfterLogin?._lastLoggedIn).toBeDefined();
-      expect(userAfterLogin?._lastLoggedIn).toBeInstanceOf(Date);
+			// The user should have a _lastLoggedIn property after login
+			expect(userAfterLogin?._lastLoggedIn).toBeDefined();
+			expect(userAfterLogin?._lastLoggedIn).toBeInstanceOf(Date);
 
-      // The _lastLoggedIn should be more recent than the user's _created time
-      if (userBeforeLogin?._lastLoggedIn) {
-        expect(userAfterLogin?._lastLoggedIn?.getTime()).toBeGreaterThan(userBeforeLogin._lastLoggedIn.getTime());
-      } else {
-        if (!userAfterLogin?._lastLoggedIn) throw new Error('User _lastLoggedIn is undefined');
-        // If there was no _lastLoggedIn before, it should be set now and be recent
-        const timeDiff = Date.now() - userAfterLogin?._lastLoggedIn.getTime();
-        expect(timeDiff).toBeLessThan(5000); // Should be within 5 seconds
-      }
-    });
+			// The _lastLoggedIn should be more recent than the user's _created time
+			if (userBeforeLogin?._lastLoggedIn) {
+				expect(userAfterLogin?._lastLoggedIn?.getTime()).toBeGreaterThan(
+					userBeforeLogin._lastLoggedIn.getTime(),
+				);
+			} else {
+				if (!userAfterLogin?._lastLoggedIn)
+					throw new Error("User _lastLoggedIn is undefined");
+				// If there was no _lastLoggedIn before, it should be set now and be recent
+				const timeDiff = Date.now() - userAfterLogin?._lastLoggedIn.getTime();
+				expect(timeDiff).toBeLessThan(5000); // Should be within 5 seconds
+			}
+		});
 
-    it('should not return any sensitive information in the usercontext', async () => {
-      const user = {
-        email: getTestMetaOrgUser().email,
-        password: getTestMetaOrgUser().password
-      };
+		it("should not return any sensitive information in the usercontext", async () => {
+			const user = {
+				email: getTestMetaOrgUser().email,
+				password: getTestMetaOrgUser().password,
+				organizationId: organizationId(),
+			};
 
-      // Set a device ID cookie before making the request
-      testAgent.set('Cookie', [`deviceId=${testUtils.constDeviceIdCookie}`]);
+			// Set a device ID cookie before making the request
+			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-      const response = await testAgent
-        .post(apiEndpoint)
-        .send(user)
-        .expect(200);
+			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
 
-      expect(response.body?.data?.userContext?.user?.password).toBeUndefined();
-    });
-  });
+			expect(response.body?.data?.userContext?.user?.password).toBeUndefined();
+		});
+	});
 });
-
 
 // it("should return unauthenticated for an authenticated route without a valid token", () => {
 //   return request
@@ -207,5 +212,3 @@ describe('AuthController', () => {
 //     }
 //     return response;
 //   });
-
-

@@ -6,6 +6,7 @@ import {
 import type { AppIdType } from "@loomcore/common/types";
 import type { IDatabase } from "../databases/models/index.js";
 import { ServerError } from "../errors/index.js";
+import { passwordUtils } from "../utils/password.utils.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
 
 export class UserService extends MultiTenantApiService<IUser> {
@@ -13,15 +14,13 @@ export class UserService extends MultiTenantApiService<IUser> {
 		super(database, "users", "user", UserSpec);
 	}
 
-	// Can't full update a User. You can create, partial update, or explicitly change the password.
+	// Don't full update a User. You can create, partial update, or delete a user.
 	override async fullUpdateById(
 		_userContext: IUserContext,
 		_id: AppIdType,
 		_entity: IUser,
 	): Promise<IUser> {
-		throw new ServerError(
-			"Cannot full update a user. Either use PATCH or /auth/change-password to update password.",
-		);
+		throw new ServerError("User full update is not allowed.");
 	}
 
 	override async preProcessEntity(
@@ -41,13 +40,10 @@ export class UserService extends MultiTenantApiService<IUser> {
 			preparedEntity.email = preparedEntity.email.toLowerCase();
 		}
 
-		// Only clean the User object during updates, not during creation. If we want to actually update the password, we need to use
-		//  a specific, explicit endpoint - /auth/change-password
-		if (!isCreate) {
-			// For partial updates, explicitly remove password field instead of using Value.Clean
-			// Value.Clean doesn't work well with partial objects as it removes properties that don't match the full schema
-			const { password, ...cleanedEntity } = preparedEntity;
-			return cleanedEntity as Partial<IUser>;
+		if (preparedEntity.password) {
+			preparedEntity.password = await passwordUtils.hashPassword(
+				preparedEntity.password,
+			);
 		}
 
 		return preparedEntity;

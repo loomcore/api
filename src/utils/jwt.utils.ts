@@ -1,13 +1,16 @@
+import type { IUserContext } from "@loomcore/common/models";
 import jwt from "jsonwebtoken";
+import { getAuthConfig } from "./auth/get-auth-config.util.js";
 
-export function signJwt(payload: any, secret: string, options: any): string {
-	return jwt.sign(payload, secret, options);
-}
+export function generateJwt(userContext: IUserContext) {
+	const authConfig = getAuthConfig();
+	const jwtExpiryConfig = authConfig.jwtExpirationInSeconds;
+	const jwtExpirationInSeconds =
+		typeof jwtExpiryConfig === "string"
+			? Number.parseInt(jwtExpiryConfig, 10)
+			: jwtExpiryConfig;
 
-export function verifyJwt(token: string, secret: string): any {
-	if (!secret) {
-		throw new Error("JWT secret is required for verification");
-	}
-
-	return jwt.verify(token, secret);
+	return jwt.sign(userContext, authConfig.clientSecret, {
+		expiresIn: jwtExpirationInSeconds,
+	});
 }
