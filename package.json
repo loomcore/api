@@ -12,7 +12,7 @@
     "patch": "npm version patch",
     "push": "git push",
     "publishMe": "npm publish --access public",
-    "pub": "npm-run-all -s add commit patch build push publishMe",
+    "pub": "npm-run-all -s patch build push publishMe",
     "update-lib-versions": "npx --yes npm-check-updates -u -f @loomcore/common",
     "install-updated-libs": "npm i @loomcore/common",
     "update-libs": "npm-run-all -s update-lib-versions install-updated-libs",
