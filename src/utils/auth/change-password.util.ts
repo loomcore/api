@@ -18,6 +18,7 @@ export async function changePassword(
 		userContext,
 		userContext.user._id,
 		updates as Partial<IUser>,
+		true,
 	);
 
 	return {
