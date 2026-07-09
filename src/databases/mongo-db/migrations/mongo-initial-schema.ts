@@ -50,35 +50,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 2. PERSONS
+	// 2. USERS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000002_schema-persons",
-			up: async ({ context: db }) => {
-				await db.createCollection("persons");
-				if (isMultiTenant) {
-					await db.collection("persons").createIndex({ _orgId: 1 });
-					await db
-						.collection("persons")
-						.createIndex(
-							{ _orgId: 1, externalId: 1 },
-							{ unique: true, sparse: true },
-						);
-				} else {
-					await db
-						.collection("persons")
-						.createIndex({ externalId: 1 }, { unique: true, sparse: true });
-				}
-			},
-			down: async ({ context: db }) => {
-				await db.collection("persons").drop();
-			},
-		});
-
-	// 3. USERS
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000003_schema-users",
+			name: "00000000000002_schema-users",
 			up: async ({ context: db }) => {
 				await db.createCollection("users");
 
@@ -101,10 +76,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 4. REFRESH TOKENS
+	// 3. REFRESH TOKENS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000004_schema-refresh-tokens",
+			name: "00000000000003_schema-refresh-tokens",
 			up: async ({ context: db }) => {
 				await db.createCollection("refresh_tokens");
 				await db
@@ -121,10 +96,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 5. PASSWORD RESET TOKENS
+	// 4. PASSWORD RESET TOKENS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000005_schema-password-reset-tokens",
+			name: "00000000000004_schema-password-reset-tokens",
 			up: async ({ context: db }) => {
 				await db.createCollection("password_reset_tokens");
 				if (isMultiTenant) {
@@ -145,10 +120,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 6. ROLES
+	// 5. ROLES
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000006_schema-roles",
+			name: "00000000000005_schema-roles",
 			up: async ({ context: db }) => {
 				await db.createCollection("roles");
 				if (isMultiTenant) {
@@ -167,10 +142,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 7. USER ROLES
+	// 6. USER ROLES
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000007_schema-user-roles",
+			name: "00000000000006_schema-user-roles",
 			up: async ({ context: db }) => {
 				await db.createCollection("user_roles");
 				if (isMultiTenant) {
@@ -191,10 +166,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 8. FEATURES
+	// 7. FEATURES
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000008_schema-features",
+			name: "00000000000007_schema-features",
 			up: async ({ context: db }) => {
 				await db.createCollection("features");
 				if (isMultiTenant) {
@@ -213,10 +188,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 9. AUTHORIZATIONS
+	// 8. AUTHORIZATIONS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000009_schema-authorizations",
+			name: "00000000000008_schema-authorizations",
 			up: async ({ context: db }) => {
 				await db.createCollection("authorizations");
 				if (isMultiTenant) {
@@ -240,10 +215,10 @@ export const getMongoInitialSchema = (
 			},
 		});
 
-	// 10. META ORG (only for multi-tenant)
+	// 9. META ORG (only for multi-tenant)
 	if (isMultiTenant) {
 		migrations.push({
-			name: "00000000000010_data-meta-org",
+			name: "00000000000009_data-meta-org",
 			up: async ({ context: db }) => {
 				const metaOrgDoc = {
 					name: dbConfig.multiTenant!.metaOrgName,
@@ -280,17 +255,17 @@ export const getMongoInitialSchema = (
 		});
 	}
 
-	// 11. ADMIN USER (only if adminUser config is provided)
+	// 10. ADMIN USER (only if adminUser config is provided)
 	if (isAuthEnabled && dbConfig.adminUser) {
 		migrations.push({
-			name: "00000000000011_data-admin-user",
+			name: "00000000000010_data-admin-user",
 			up: async ({ context: db }) => {
 				// SystemUserContext MUST be initialized before this migration runs
 				// For multi-tenant: meta-org migration should have initialized it
 				// For non-multi-tenant: should be initialized before migrations run (bug if not)
 				if (!isSystemUserContextInitialized()) {
 					const errorMessage = isMultiTenant
-						? "SystemUserContext has not been initialized. The meta-org migration (00000000000010_data-meta-org) should have run before this migration. " +
+						? "SystemUserContext has not been initialized. The meta-org migration (00000000000009_data-meta-org) should have run before this migration. " +
 							"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
 						: "BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.";
 
@@ -308,27 +283,12 @@ export const getMongoInitialSchema = (
 				);
 				const email = dbConfig.adminUser.email.toLowerCase();
 
-				const personResult = await db.collection("persons").insertOne({
-					...orgDoc,
-					externalId: "admin-user-person-external-id",
-					firstName: "Admin",
-					lastName: "User",
-					isAgent: false,
-					isClient: false,
-					isEmployee: false,
-					_created: new Date(),
-					_createdBy: "system",
-					_updated: new Date(),
-					_updatedBy: "system" as any,
-				} as any);
-
 				await db.collection("users").insertOne({
 					...orgDoc,
 					externalId: "admin-user-external-id",
 					email,
 					password: hashedPassword,
 					displayName: "Admin User",
-					personId: personResult.insertedId,
 					_created: new Date(),
 					_createdBy: "system",
 					_updated: new Date(),
@@ -344,10 +304,10 @@ export const getMongoInitialSchema = (
 		});
 	}
 
-	// 12. ADMIN AUTHORIZATION
+	// 11. ADMIN AUTHORIZATION
 	if (isAuthEnabled && dbConfig.adminUser) {
 		migrations.push({
-			name: "00000000000012_data-admin-authorizations",
+			name: "00000000000011_data-admin-authorizations",
 			up: async ({ context: db }) => {
 				const database = new MongoDBDatabase(db);
 				const organizationService = new OrganizationService(database);

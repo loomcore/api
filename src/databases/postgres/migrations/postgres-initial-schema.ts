@@ -84,74 +84,23 @@ export const getPostgresInitialSchema = (
 		});
 	}
 
-	// 3. PERSONS
+	// 3. USERS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000003_schema-persons",
+			name: "00000000000003_schema-users",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
-				const personsUniqueConstraints = isMultiTenant
-					? `CONSTRAINT "uk_persons_org_external_id" UNIQUE ("_orgId", "external_id"),
-            CONSTRAINT "uk_persons_org_ssn" UNIQUE ("_orgId", "ssn")`
-					: `CONSTRAINT "uk_persons_external_id" UNIQUE ("external_id"),
-            CONSTRAINT "uk_persons_ssn" UNIQUE ("ssn")`;
-
-				await pool.query(`
-          CREATE TABLE IF NOT EXISTS "persons" (
-            "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-            ${orgColumnDef}
-            "external_id" VARCHAR(255),
-            "first_name" VARCHAR(255) NOT NULL,
-            "middle_name" VARCHAR(255),
-            "last_name" VARCHAR(255) NOT NULL,
-            "date_of_birth" DATE,
-            "ssn" VARCHAR(255),
-            "is_agent" BOOLEAN NOT NULL DEFAULT FALSE,
-            "is_client" BOOLEAN NOT NULL DEFAULT FALSE,
-            "is_employee" BOOLEAN NOT NULL DEFAULT FALSE,
-            "extended_types" INTEGER,
-            "_created" TIMESTAMPTZ NOT NULL,
-            "_createdBy" INTEGER NOT NULL,
-            "_updated" TIMESTAMPTZ,
-            "_updatedBy" INTEGER,
-            "_deleted" TIMESTAMPTZ,
-            "_deletedBy" INTEGER,
-            ${personsUniqueConstraints}
-          )`);
-				await pool.query(
-					`CREATE INDEX IF NOT EXISTS "idx_persons_external_id" ON "persons" ("external_id")`,
-				);
-				await pool.query(
-					`CREATE INDEX IF NOT EXISTS "idx_persons_ssn" ON "persons" ("ssn")`,
-				);
-			},
-			down: async ({ context: pool }) => {
-				await pool.query(`DROP INDEX IF EXISTS "idx_persons_external_id"`);
-				await pool.query(`DROP INDEX IF EXISTS "idx_persons_ssn"`);
-				await pool.query(`DROP TABLE IF EXISTS "persons"`);
-			},
-		});
-
-	// 4. USERS
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000004_schema-users",
-			up: async ({ context: pool }) => {
-				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
-				let uniqueConstraint = isMultiTenant
+				const uniqueConstraint = isMultiTenant
 					? 'CONSTRAINT "uk_users_email" UNIQUE ("_orgId", "email")'
 					: 'CONSTRAINT "uk_users_email" UNIQUE ("email")';
-				uniqueConstraint += `,
-          CONSTRAINT "fk_users_person_id" FOREIGN KEY("person_id") REFERENCES "persons"("_id") ON DELETE CASCADE`;
 				await pool.query(`
         CREATE TABLE IF NOT EXISTS "users"(
             "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             ${orgColumnDef}
-          "external_id" VARCHAR(255) UNIQUE,
+          	"external_id" VARCHAR(255) UNIQUE,
             "email" VARCHAR(255) NOT NULL,
             "display_name" VARCHAR(255),
             "password" VARCHAR(255) NOT NULL,
-            "person_id" INTEGER UNIQUE,
             "_lastLoggedIn" TIMESTAMPTZ,
             "_lastPasswordChange" TIMESTAMPTZ,
             "_created" TIMESTAMPTZ NOT NULL,
@@ -168,22 +117,18 @@ export const getPostgresInitialSchema = (
 				await pool.query(
 					`CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users"("email")`,
 				);
-				await pool.query(
-					`CREATE INDEX IF NOT EXISTS "idx_users_person_id" ON "users"("person_id")`,
-				);
 			},
 			down: async ({ context: pool }) => {
 				await pool.query(`DROP INDEX IF EXISTS "idx_users_external_id"`);
 				await pool.query(`DROP INDEX IF EXISTS "idx_users_email"`);
-				await pool.query(`DROP INDEX IF EXISTS "idx_users_person_id"`);
 				await pool.query(`DROP TABLE IF EXISTS "users"`);
 			},
 		});
 
-	// 5. REFRESH TOKENS
+	// 4. REFRESH TOKENS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000005_schema-refresh-tokens",
+			name: "00000000000004_schema-refresh-tokens",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
 
@@ -206,10 +151,10 @@ export const getPostgresInitialSchema = (
 			},
 		});
 
-	// 6. PASSWORD RESET TOKENS
+	// 5. PASSWORD RESET TOKENS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000006_schema-password-reset-tokens",
+			name: "00000000000005_schema-password-reset-tokens",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
 				const uniqueConstraint = isMultiTenant
@@ -238,10 +183,10 @@ export const getPostgresInitialSchema = (
 			},
 		});
 
-	// 7. ROLES
+	// 6. ROLES
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000007_schema-roles",
+			name: "00000000000006_schema-roles",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
 				const uniqueConstraint = isMultiTenant
@@ -263,10 +208,10 @@ export const getPostgresInitialSchema = (
 			},
 		});
 
-	// 8. USER ROLES
+	// 7. USER ROLES
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000008_schema-user-roles",
+			name: "00000000000007_schema-user-roles",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
 				const uniqueConstraint = isMultiTenant
@@ -296,10 +241,10 @@ export const getPostgresInitialSchema = (
 			},
 		});
 
-	// 9. FEATURES
+	// 8. FEATURES
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000009_schema-features",
+			name: "00000000000008_schema-features",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
 				const uniqueConstraint = isMultiTenant
@@ -321,10 +266,10 @@ export const getPostgresInitialSchema = (
 			},
 		});
 
-	// 10. AUTHORIZATIONS
+	// 9. AUTHORIZATIONS
 	if (isAuthEnabled)
 		migrations.push({
-			name: "00000000000010_schema-authorizations",
+			name: "00000000000009_schema-authorizations",
 			up: async ({ context: pool }) => {
 				const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER NOT NULL,' : "";
 				const uniqueConstraint = isMultiTenant
@@ -357,10 +302,10 @@ export const getPostgresInitialSchema = (
 			},
 		});
 
-	// 11. META ORG (only for multi-tenant)
+	// 10. META ORG (only for multi-tenant)
 	if (isMultiTenant) {
 		migrations.push({
-			name: "00000000000011_data-meta-org",
+			name: "00000000000010_data-meta-org",
 			up: async ({ context: pool }) => {
 				const result = await pool.query(
 					`
@@ -393,17 +338,17 @@ export const getPostgresInitialSchema = (
 		});
 	}
 
-	// 12. ADMIN USER
+	// 11. ADMIN USER
 	if (isAuthEnabled && dbConfig.adminUser) {
 		migrations.push({
-			name: "00000000000012_data-admin-user",
+			name: "00000000000011_data-admin-user",
 			up: async ({ context: pool }) => {
 				// SystemUserContext MUST be initialized before this migration runs
 				// For multi-tenant: meta-org migration should have initialized it
 				// For non-multi-tenant: should be initialized before migrations run (bug if not)
 				if (!isSystemUserContextInitialized()) {
 					const errorMessage = isMultiTenant
-						? "SystemUserContext has not been initialized. The meta-org migration (00000000000011_data-meta-org) should have run before this migration. " +
+						? "SystemUserContext has not been initialized. The meta-org migration (00000000000010_data-meta-org) should have run before this migration. " +
 							"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
 						: "BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.";
 
@@ -422,35 +367,17 @@ export const getPostgresInitialSchema = (
 
 				const client = await pool.connect();
 				try {
-					// 1) Insert person
-					const personResult =
-						isMultiTenant && orgId
-							? await client.query(
-									`INSERT INTO "persons"("_orgId", "first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy")
-        VALUES($1, 'Admin', 'User', false, false, false, NOW(), 0)
-                 RETURNING "_id"`,
-									[orgId],
-								)
-							: await client.query(
-									`INSERT INTO "persons"("first_name", "last_name", "is_agent", "is_client", "is_employee", "_created", "_createdBy")
-        VALUES('Admin', 'User', false, false, false, NOW(), 0)
-                 RETURNING "_id"`,
-								);
-
-					const personId = personResult.rows[0]._id;
-
-					// 2) Insert user
-					if (isMultiTenant && orgId) {
+					if (isMultiTenant) {
 						await client.query(
-							`INSERT INTO "users"("_orgId", "email", "display_name", "password", "person_id", "_created", "_createdBy")
-        VALUES($1, $2, 'Admin User', $3, $4, NOW(), 0)`,
-							[orgId, email, hashedPassword, personId],
+							`INSERT INTO "users"("_orgId", "email", "display_name", "password", "_created", "_createdBy")
+        				VALUES($1, $2, 'Admin User', $3, NOW(), 0)`,
+							[orgId, email, hashedPassword],
 						);
 					} else {
 						await client.query(
-							`INSERT INTO "users"("email", "display_name", "password", "person_id", "_created", "_createdBy")
-        VALUES($1, 'Admin User', $2, $3, NOW(), 0)`,
-							[email, hashedPassword, personId],
+							`INSERT INTO "users"("email", "display_name", "password", "_created", "_createdBy")
+        				VALUES($1, 'Admin User', $2, NOW(), 0)`,
+							[email, hashedPassword],
 						);
 					}
 				} finally {
@@ -467,10 +394,10 @@ export const getPostgresInitialSchema = (
 		});
 	}
 
-	// 13. ADMIN AUTHORIZATION
+	// 12. ADMIN AUTHORIZATION
 	if (isAuthEnabled && dbConfig.adminUser) {
 		migrations.push({
-			name: "00000000000013_data-admin-authorizations",
+			name: "00000000000012_data-admin-authorizations",
 			up: async ({ context: pool }) => {
 				const client = await pool.connect();
 				try {
