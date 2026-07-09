@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {
 	EmptyUserContext,
+	getSystemUserContext,
 	type IPagedResult,
 	type IQueryOptions,
 	type IUser,
@@ -25,9 +26,11 @@ import * as testObjectsModule from "./test-objects.js";
 
 const {
 	getTestMetaOrg,
+	getTestMetaOrgRefererUrl,
 	getTestOrg,
 	getTestMetaOrgUser,
 	getTestMetaOrgUserContext,
+	getTestOrgUser,
 	getTestOrgUserContext,
 	setTestOrgId,
 	setTestMetaOrgId,
@@ -52,7 +55,6 @@ import {
 	ProductWithCategorySpec,
 } from "./models/product-with-category.model.js";
 import { TestEmailClient } from "./test-email-client.js";
-import { getTestOrgUser } from "./test-objects.js";
 
 let deviceIdCookie: string;
 let database: IDatabase | undefined;
@@ -61,7 +63,7 @@ let userService: UserService | undefined;
 
 const JWT_SECRET = "test-secret";
 const newUser1Email = "one@test.com";
-const newUser1Password = "testone";
+const newUser1Password = "testone1";
 const constDeviceIdCookie = crypto.randomBytes(16).toString("hex"); // Generate a consistent device ID for tests
 
 function initialize(db: IDatabase) {
@@ -230,26 +232,44 @@ async function createTestUsers(): Promise<{
 }
 
 async function deleteTestUser() {
-	// Only delete if services are initialized
 	if (!organizationService || !userService) {
 		return;
 	}
 
-	// Delete test user
-	await userService
-		.deleteById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id)
-		.catch((error: any) => {
-			// Ignore errors during cleanup - entity may not exist
-			console.log("Error deleting test user:", error);
-		});
+	const systemUserContext = getSystemUserContext();
 
-	// Delete test organization (regular org only, not meta)
-	await organizationService
-		.deleteById(getTestMetaOrgUserContext(), getTestOrg()._id)
-		.catch((error: any) => {
-			// Ignore errors during cleanup - entity may not exist
-			console.log("Error deleting test organization:", error);
-		});
+	const metaOrgUser = await userService
+		.findOne(systemUserContext, {
+			filters: { email: { eq: getTestMetaOrgUser().email.toLowerCase() } },
+		})
+		.catch(() => null);
+	if (metaOrgUser) {
+		await userService
+			.deleteById(systemUserContext, metaOrgUser._id)
+			.catch(() => {});
+	}
+
+	const testOrgUser = await userService
+		.findOne(systemUserContext, {
+			filters: { email: { eq: getTestOrgUser().email.toLowerCase() } },
+		})
+		.catch(() => null);
+	if (testOrgUser) {
+		await userService
+			.deleteById(systemUserContext, testOrgUser._id)
+			.catch(() => {});
+	}
+
+	const testOrg = await organizationService
+		.findOne(EmptyUserContext, {
+			filters: { code: { eq: getTestOrg().code } },
+		})
+		.catch(() => null);
+	if (testOrg) {
+		await organizationService
+			.deleteById(getTestMetaOrgUserContext(), testOrg._id)
+			.catch(() => {});
+	}
 }
 
 /**
@@ -287,7 +307,7 @@ async function simulateloginWithTestUser() {
 		getTestMetaOrgUser().email,
 		testObjectsModule.TEST_META_ORG_USER_PASSWORD,
 		deviceIdCookie,
-		getTestMetaOrg()._id,
+		getTestMetaOrg(),
 	);
 
 	// Make sure we got a valid response
@@ -581,13 +601,11 @@ function configureJwtSecret(): void {
 	const originalJwtVerify = jwt.verify;
 
 	// Patch jwt.verify to use our test secret
-	(jwt.verify as any) = function (
+	(jwt.verify as any) = (
 		token: string,
-		secret: string,
+		_secret: string,
 		options?: jwt.VerifyOptions,
-	): any {
-		return originalJwtVerify(token, JWT_SECRET, options);
-	};
+	): any => originalJwtVerify(token, JWT_SECRET, options);
 }
 
 // actually login with the test user, using controller, etc
@@ -597,11 +615,13 @@ async function loginWithTestUser(agent: any) {
 
 	const testUser = getTestMetaOrgUser();
 
-	const response = await agent.post("/api/auth/login").send({
-		email: testUser.email,
-		password: testUser.password,
-		organizationId: testUser._orgId,
-	});
+	const response = await agent
+		.post("/api/auth/login")
+		.set("Referer", getTestMetaOrgRefererUrl())
+		.send({
+			email: testUser.email,
+			password: testUser.password,
+		});
 
 	// Make sure we got a valid response
 	if (!response.body?.data?.tokens?.accessToken) {
@@ -632,8 +652,9 @@ const testUtils = {
 	deleteMetaOrg,
 	deleteTestUser,
 	getAuthToken,
+	getTestMetaOrgRefererUrl,
 	initialize,
-	SetupTestConfig: setupTestConfig,
+	setupTestConfig,
 	loginWithTestUser,
 	newUser1Email,
 	newUser1Password,

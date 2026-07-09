@@ -1,9 +1,12 @@
-import { IUser } from "@loomcore/common/models";
+import type { IUser } from "@loomcore/common/models";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import testUtils from "../../__tests__/common-test.utils.js";
 import { TestExpressApp } from "../../__tests__/test-express-app.js";
-import { getTestMetaOrgUser } from "../../__tests__/test-objects.js";
-import { IDatabase } from "../../databases/models/index.js";
+import {
+	getTestMetaOrgRefererUrl,
+	getTestMetaOrgUser,
+} from "../../__tests__/test-objects.js";
+import type { IDatabase } from "../../databases/models/index.js";
 import { passwordUtils } from "../../utils/password.utils.js";
 import { AuthController } from "../auth.controller.js";
 
@@ -67,11 +70,13 @@ describe("AuthController.changePassword", () => {
 		expect(isPasswordCorrect).toBe(true);
 
 		// 6. Attempt to login with the new password to confirm
-		const loginResponse = await testAgent.post("/api/auth/login").send({
-			email: getTestMetaOrgUser().email,
-			password: newPassword,
-			organizationId: getTestMetaOrgUser()._orgId,
-		});
+		const loginResponse = await testAgent
+			.post("/api/auth/login")
+			.set("Referer", getTestMetaOrgRefererUrl())
+			.send({
+				email: getTestMetaOrgUser().email,
+				password: newPassword,
+			});
 
 		expect(loginResponse.status).toBe(200);
 		expect(loginResponse.body.data.tokens.accessToken).toBeDefined();

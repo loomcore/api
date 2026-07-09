@@ -63,7 +63,8 @@ export const getPostgresInitialSchema = (
           CREATE TABLE IF NOT EXISTS "organizations" (
             "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             "name" VARCHAR(255) NOT NULL UNIQUE,
-            "code" VARCHAR(255) NOT NULL UNIQUE,
+            "code" VARCHAR(255) UNIQUE,
+			"domain" VARCHAR(255) UNIQUE,
             "description" TEXT,
             "status" INTEGER NOT NULL,
             "is_meta_org" BOOLEAN NOT NULL,
@@ -363,13 +364,14 @@ export const getPostgresInitialSchema = (
 			up: async ({ context: pool }) => {
 				const result = await pool.query(
 					`
-          INSERT INTO "organizations"("name", "code", "status", "is_meta_org", "_created", "_createdBy")
-        VALUES($1, $2, 1, true, NOW(), 0)
-          RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy"
-          `,
+					INSERT INTO "organizations"("name", "code", "domain", "status", "is_meta_org", "_created", "_createdBy")
+					VALUES($1, $2, $3, 1, true, NOW(), 0)
+					RETURNING "_id", "name", "code", "domain", "status", "is_meta_org", "_created", "_createdBy"
+					`,
 					[
 						dbConfig.multiTenant?.metaOrgName,
 						dbConfig.multiTenant?.metaOrgCode,
+						dbConfig.multiTenant?.metaOrgDomain,
 					],
 				);
 

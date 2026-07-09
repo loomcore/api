@@ -1,27 +1,21 @@
 import {
 	EmptyUserContext,
 	type ILoginResponse,
+	type IOrganization,
 	type ITokenResponse,
-	type IUser,
 	type IUserContext,
 	LoginResponseSpec,
 	PublicUserContextSpec,
-	PublicUserSpec,
 	passwordValidator,
 	TokenResponseSpec,
 	UserSpec,
 } from "@loomcore/common/models";
-import type { AppIdType } from "@loomcore/common/types";
 import { entityUtils } from "@loomcore/common/utils";
 import type { Application, Request, Response } from "express";
 import { config } from "../config/base-api-config.js";
 import type { IDatabase } from "../databases/models/index.js";
 import type { UpdateResult } from "../databases/models/update-result.js";
-import {
-	BadRequestError,
-	ServerError,
-	UnauthenticatedError,
-} from "../errors/index.js";
+import { BadRequestError, UnauthenticatedError } from "../errors/index.js";
 import { isAuthorized } from "../middleware/index.js";
 import { OrganizationService, UserService } from "../services/index.js";
 import {
@@ -52,11 +46,6 @@ export class AuthController {
 			this.login.bind(this),
 			this.afterAuth.bind(this),
 		);
-		app.post(
-			`/api/auth/register`,
-			isAuthorized(),
-			this.registerUser.bind(this),
-		);
 		app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
 		app.get(
 			`/api/auth/get-user-context`,
@@ -73,10 +62,9 @@ export class AuthController {
 	}
 
 	async login(req: Request, res: Response) {
-		const { email, password, organizationId } = req.body as {
+		const { email, password } = req.body as {
 			email: string;
 			password: string;
-			organizationId?: AppIdType;
 		};
 		if (!email || typeof email !== "string") {
 			throw new BadRequestError("Missing required fields: email is required.");
@@ -87,10 +75,22 @@ export class AuthController {
 			);
 		}
 
-		if (config.app.isMultiTenant && !organizationId) {
-			throw new BadRequestError(
-				"Missing required fields: organizationId is required.",
-			);
+		let organization: IOrganization | null = null;
+		if (config.app.isMultiTenant) {
+			const referer = req.get("referer") || req.headers.referer;
+			if (!referer) {
+				throw new BadRequestError(
+					"Missing required fields: referer is required.",
+				);
+			}
+			organization = await this.organizationService.findOne(EmptyUserContext, {
+				filters: { domain: { eq: referer.split("/")[2] } },
+			});
+			if (!organization) {
+				throw new BadRequestError(
+					"Missing required fields: organization is required.",
+				);
+			}
 		}
 		res.set("Content-Type", "application/json");
 		const deviceId = getAndSetDeviceIdCookie(req, res);
@@ -100,7 +100,7 @@ export class AuthController {
 			email,
 			password,
 			deviceId,
-			organizationId,
+			organization,
 		);
 
 		apiUtils.apiResponse<ILoginResponse | null>(
@@ -108,38 +108,6 @@ export class AuthController {
 			200,
 			{ data: loginResponse },
 			LoginResponseSpec,
-		);
-	}
-
-	async registerUser(req: Request, res: Response) {
-		const userContext = req.userContext;
-		if (!userContext) {
-			throw new BadRequestError(
-				"Missing required fields: userContext is required.",
-			);
-		}
-
-		const body = req.body;
-
-		// Validate the incoming JSON
-		const validationErrors = this.userService.validate(body.user);
-		entityUtils.handleValidationResult(
-			validationErrors,
-			"AuthController.registerUser",
-		);
-
-		const user = await this.userService.create(userContext, body.user);
-
-		if (!user) {
-			throw new ServerError("Failed to create user");
-		}
-
-		apiUtils.apiResponse<IUser>(
-			res,
-			201,
-			{ data: user },
-			UserSpec,
-			PublicUserSpec,
 		);
 	}
 
@@ -222,17 +190,9 @@ export class AuthController {
 
 	async forgotPassword(req: Request, res: Response) {
 		const email: string = req.body?.email;
-		const organizationId: AppIdType | undefined = req.body?.organizationId;
 		if (!email || typeof email !== "string") {
 			throw new BadRequestError("Missing required fields: email is required.");
 		}
-
-		if (config.app.isMultiTenant && !organizationId) {
-			throw new BadRequestError(
-				"Missing required fields: organizationId is required.",
-			);
-		}
-
 		let referer: string | undefined = req.get("referer") || req.headers.referer;
 		if (!referer) {
 			throw new BadRequestError(
@@ -240,12 +200,17 @@ export class AuthController {
 			);
 		}
 		referer = referer.replace(/\/$/, "");
-
-		const organization = organizationId
-			? await this.organizationService.findOne(EmptyUserContext, {
-					filters: { _id: { eq: organizationId } },
-				})
-			: null;
+		let organization: IOrganization | null = null;
+		if (config.app.isMultiTenant) {
+			organization = await this.organizationService.findOne(EmptyUserContext, {
+				filters: { domain: { eq: referer.split("/")[2] } },
+			});
+			if (!organization) {
+				throw new BadRequestError(
+					"Missing required fields: organization is required.",
+				);
+			}
+		}
 		const userContext: IUserContext = {
 			...EmptyUserContext,
 			organization: organization || undefined,
@@ -263,17 +228,11 @@ export class AuthController {
 	}
 
 	async resetPassword(req: Request, res: Response) {
-		const {
-			email,
-			token,
-			password,
-			organizationId,
-		}: {
+		const { email, token, password } = req.body as {
 			email: string;
 			token: string;
 			password: string;
-			organizationId?: AppIdType;
-		} = req.body;
+		};
 
 		if (!email || !token || !password) {
 			throw new BadRequestError(
@@ -281,10 +240,23 @@ export class AuthController {
 			);
 		}
 
-		if (config.app.isMultiTenant && !organizationId) {
-			throw new BadRequestError(
-				"Missing required fields: organizationId is required.",
-			);
+		let organization: IOrganization | null = null;
+		if (config.app.isMultiTenant) {
+			const referer = req.get("referer") || req.headers.referer;
+			if (!referer) {
+				throw new BadRequestError(
+					"Missing required fields: referer is required.",
+				);
+			}
+			organization = await this.organizationService.findOne(EmptyUserContext, {
+				filters: { domain: { eq: referer.split("/")[2] } },
+			});
+
+			if (!organization) {
+				throw new BadRequestError(
+					"Missing required fields: organization is required.",
+				);
+			}
 		}
 
 		const response = await resetPassword(
@@ -292,7 +264,7 @@ export class AuthController {
 			email,
 			token,
 			password,
-			organizationId,
+			organization,
 		);
 		apiUtils.apiResponse<UpdateResult>(res, 200, { data: response });
 	}

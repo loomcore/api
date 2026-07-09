@@ -1,16 +1,14 @@
 import {
 	EmptyUserContext,
+	type IOrganization,
 	type IUserContext,
 	passwordValidator,
 	UserSpec,
 } from "@loomcore/common/models";
-import type { AppIdType } from "@loomcore/common/types";
 import { entityUtils } from "@loomcore/common/utils";
-import { config } from "../../config/base-api-config.js";
 import type { IDatabase } from "../../databases/models/index.js";
 import type { UpdateResult } from "../../databases/models/update-result.js";
 import { BadRequestError, ServerError } from "../../errors/index.js";
-import { OrganizationService } from "../../services/organization.service.js";
 import { PasswordResetTokenService } from "../../services/password-reset-token.service.js";
 import { UserService } from "../../services/user.service.js";
 import { changePassword } from "./change-password.util.js";
@@ -20,7 +18,7 @@ export async function resetPassword(
 	email: string,
 	passwordResetToken: string,
 	password: string,
-	organizationId?: AppIdType,
+	organization: IOrganization | null,
 ): Promise<UpdateResult> {
 	const validationErrors = entityUtils.validate(
 		UserSpec,
@@ -33,22 +31,9 @@ export async function resetPassword(
 		"AuthService.resetPassword",
 	);
 
-	if (config.app.isMultiTenant && !organizationId) {
-		throw new BadRequestError(
-			"Missing required fields: organizationId is required.",
-		);
-	}
-
 	const lowerCaseEmail = email.toLowerCase();
-	const organizationService = new OrganizationService(database);
 	const passwordResetTokenService = new PasswordResetTokenService(database);
 	const userService = new UserService(database);
-
-	const organization = organizationId
-		? await organizationService.findOne(EmptyUserContext, {
-				filters: { _id: { eq: organizationId } },
-			})
-		: null;
 	const userContext: IUserContext = {
 		...EmptyUserContext,
 		organization: organization ?? undefined,

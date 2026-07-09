@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { Umzug } from 'umzug';
+import { TEST_META_ORG_DOMAIN } from '../../../../__tests__/test-objects.js';
 import { IBaseApiConfig } from '../../../../models/base-api-config.interface.js';
 import { IInitialDbMigrationConfig } from '../../../../models/initial-database-config.interface.js';
 import { getPostgresInitialSchema } from '../postgres-initial-schema.js';
@@ -15,7 +16,7 @@ export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiCon
     app: config.app,
     database: config.database,
     adminUser: (config as any).adminUser ?? { email: 'admin@test.com', password: 'admin-password' },
-    multiTenant: (config as any).multiTenant ?? (config.app.isMultiTenant ? { metaOrgName: 'Test Meta Organization', metaOrgCode: 'TEST_META_ORG' } : { metaOrgName: '', metaOrgCode: '' }),
+    multiTenant: (config as any).multiTenant ?? (config.app.isMultiTenant ? { metaOrgName: 'Test Meta Organization', metaOrgCode: 'TEST_META_ORG', metaOrgDomain: TEST_META_ORG_DOMAIN } : { metaOrgName: '', metaOrgCode: '', metaOrgDomain: '' }),
     email: config.email,
   };
   const initialSchema = getPostgresInitialSchema(migrationConfig);

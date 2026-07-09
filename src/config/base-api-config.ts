@@ -1,9 +1,10 @@
 import {
 	EmptyUserContext,
+	type IOrganization,
 	initializeSystemUserContext,
 } from "@loomcore/common/models";
-import { IDatabase } from "../databases/models/index.js";
-import { IBaseApiConfig } from "../models/index.js";
+import type { IDatabase } from "../databases/models/index.js";
+import type { IBaseApiConfig } from "../models/index.js";
 
 export let config: IBaseApiConfig;
 let isConfigSet = false;
@@ -56,7 +57,7 @@ export async function initSystemUserContext(database: IDatabase) {
 		// Handle computed/configured properties
 		const systemEmail =
 			config.email?.systemEmailAddress || "system@example.com";
-		let metaOrg = undefined;
+		let metaOrg: IOrganization | null = null;
 
 		if (config.app.isMultiTenant) {
 			// Import OrganizationService only when needed to avoid circular dependencies
@@ -75,7 +76,7 @@ export async function initSystemUserContext(database: IDatabase) {
 		}
 
 		// Initialize the SystemUserContext
-		initializeSystemUserContext(systemEmail, metaOrg);
+		initializeSystemUserContext(systemEmail, metaOrg ?? undefined);
 		isSystemUserContextSet = true;
 	} else if (config.env !== "test") {
 		console.warn(

@@ -16,6 +16,23 @@ export function setTestMetaOrgUserId(userId: string | number) {
 }
 
 export const TEST_META_ORG_USER_PASSWORD = "test-meta-org-user-password";
+export const TEST_META_ORG_DOMAIN = "test-meta-org.example.com";
+export const TEST_ORG_DOMAIN = "test-org.example.com";
+
+export function getRefererUrlForOrg(org: Pick<IOrganization, "domain">): string {
+	if (!org.domain) {
+		throw new Error("Organization domain is required for auth referer URL");
+	}
+	return `https://${org.domain}`;
+}
+
+export function getTestMetaOrgRefererUrl(): string {
+	return getRefererUrlForOrg(getTestMetaOrg());
+}
+
+export function getTestOrgRefererUrl(): string {
+	return getRefererUrlForOrg(getTestOrg());
+}
 
 export function getTestMetaOrg(): IOrganization {
 	// NOTE: The hardcoded 'system' values for _createdBy and _updatedBy are intentionally incorrect.
@@ -29,6 +46,7 @@ export function getTestMetaOrg(): IOrganization {
 		_id: TEST_META_ORG_ID,
 		name: "Test Meta Organization",
 		code: "test-meta-org",
+		domain: TEST_META_ORG_DOMAIN,
 		status: 1,
 		isMetaOrg: true,
 		_created: new Date(),
@@ -96,6 +114,7 @@ export function getTestOrg(): IOrganization {
 		_id: TEST_ORG_ID,
 		name: "Test Organization",
 		code: "test-org",
+		domain: TEST_ORG_DOMAIN,
 		status: 1,
 		isMetaOrg: false,
 		_created: new Date(),

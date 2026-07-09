@@ -5,6 +5,7 @@ import { TestExpressApp } from "../../__tests__/test-express-app.js";
 import {
 	getTestMetaOrgUser,
 	getTestMetaOrgUserContext,
+	getTestMetaOrgRefererUrl,
 } from "../../__tests__/test-objects.js";
 import { UserService } from "../../services/user.service.js";
 import { AuthController } from "../auth.controller.js";
@@ -35,19 +36,22 @@ describe("AuthController", () => {
 
 	describe("POST /auth/login", () => {
 		const apiEndpoint = "/api/auth/login";
-		const organizationId = () => getTestMetaOrgUser()._orgId;
+		const postLogin = (user: { email: string; password: string }) =>
+			testAgent
+				.post(apiEndpoint)
+				.set("Referer", getTestMetaOrgRefererUrl())
+				.send(user);
 
 		it("should return a 200, an accessToken, and a userContext if correct credentials are given", async () => {
 			const user = {
 				email: getTestMetaOrgUser().email,
 				password: getTestMetaOrgUser().password,
-				organizationId: organizationId(),
 			};
 
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
+			const response = await postLogin(user).expect(200);
 
 			expect(response.body?.data?.tokens?.accessToken).toBeDefined();
 			expect(response.body?.data?.userContext?.user?.email).toEqual(
@@ -59,13 +63,12 @@ describe("AuthController", () => {
 			const user = {
 				email: getTestMetaOrgUser().email,
 				password: getTestMetaOrgUser().password,
-				organizationId: organizationId(),
 			};
 
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
+			const response = await postLogin(user).expect(200);
 
 			expect(typeof response.body?.data?.userContext?.user?._id).toBe(
 				testUtils.getExpectedIdType(testDb),
@@ -76,13 +79,12 @@ describe("AuthController", () => {
 			const user = {
 				email: getTestMetaOrgUser().email,
 				password: getTestMetaOrgUser().password,
-				organizationId: organizationId(),
 			};
 
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
+			const response = await postLogin(user).expect(200);
 
 			expect(response.body?.data?.tokens?.accessToken).toBeDefined();
 			expect(response.body?.data?.userContext?.user?.email).toEqual(
@@ -94,26 +96,24 @@ describe("AuthController", () => {
 			const user = {
 				email: "yourmom97@mom.com",
 				password: "yourmom",
-				organizationId: organizationId(),
 			};
 
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent.post(apiEndpoint).send(user).expect(400);
+			const response = await postLogin(user).expect(400);
 		});
 
 		it("should return a 400 if password is incorrect", async () => {
 			const user = {
 				email: getTestMetaOrgUser().email,
 				password: "yourmom",
-				organizationId: organizationId(),
 			};
 
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent.post(apiEndpoint).send(user).expect(400);
+			const response = await postLogin(user).expect(400);
 		});
 
 		it("should update the user's _lastLoggedIn property in the database after successful login", async () => {
@@ -127,14 +127,10 @@ describe("AuthController", () => {
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent
-				.post(apiEndpoint)
-				.send({
-					email: user.email,
-					password: user.password,
-					organizationId: organizationId(),
-				})
-				.expect(200);
+			const response = await postLogin({
+				email: user.email,
+				password: user.password,
+			}).expect(200);
 
 			expect(response.body?.data?.tokens?.accessToken).toBeDefined();
 
@@ -168,13 +164,12 @@ describe("AuthController", () => {
 			const user = {
 				email: getTestMetaOrgUser().email,
 				password: getTestMetaOrgUser().password,
-				organizationId: organizationId(),
 			};
 
 			// Set a device ID cookie before making the request
 			testAgent.set("Cookie", [`deviceId=${testUtils.constDeviceIdCookie}`]);
 
-			const response = await testAgent.post(apiEndpoint).send(user).expect(200);
+			const response = await postLogin(user).expect(200);
 
 			expect(response.body?.data?.userContext?.user?.password).toBeUndefined();
 		});
