@@ -64,7 +64,6 @@ export const getPostgresInitialSchema = (
             "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             "name" VARCHAR(255) NOT NULL UNIQUE,
             "code" VARCHAR(255) UNIQUE,
-			"domain" VARCHAR(255) UNIQUE,
             "description" TEXT,
             "status" INTEGER NOT NULL,
             "is_meta_org" BOOLEAN NOT NULL,
@@ -80,6 +79,36 @@ export const getPostgresInitialSchema = (
 			},
 			down: async ({ context: pool }) => {
 				await pool.query('DROP TABLE IF EXISTS "organizations"');
+			},
+		});
+
+		migrations.push({
+			name: "00000000000002_schema-organization-domains",
+			up: async ({ context: pool }) => {
+				await pool.query(`
+				CREATE TABLE IF NOT EXISTS "organization_domains" (
+					"_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+					"organization_id" INTEGER NOT NULL,
+					"domain" VARCHAR(255) NOT NULL UNIQUE,
+					"_created" TIMESTAMPTZ NOT NULL,
+					"_createdBy" INTEGER NOT NULL,
+					"_updated" TIMESTAMPTZ,
+					"_updatedBy" INTEGER,
+					"_deleted" TIMESTAMPTZ,
+					"_deletedBy" INTEGER,
+					CONSTRAINT "fk_organization_domains_organization"
+					FOREIGN KEY("organization_id") REFERENCES "organizations"("_id") ON DELETE CASCADE
+				)
+				`);
+				await pool.query(
+					`CREATE INDEX IF NOT EXISTS "idx_organization_domains_organization_id" ON "organization_domains"("organization_id")`,
+				);
+			},
+			down: async ({ context: pool }) => {
+				await pool.query(
+					`DROP INDEX IF EXISTS "idx_organization_domains_organization_id"`,
+				);
+				await pool.query('DROP TABLE IF EXISTS "organization_domains"');
 			},
 		});
 	}
@@ -309,14 +338,13 @@ export const getPostgresInitialSchema = (
 			up: async ({ context: pool }) => {
 				const result = await pool.query(
 					`
-					INSERT INTO "organizations"("name", "code", "domain", "status", "is_meta_org", "_created", "_createdBy")
-					VALUES($1, $2, $3, 1, true, NOW(), 0)
-					RETURNING "_id", "name", "code", "domain", "status", "is_meta_org", "_created", "_createdBy"
+					INSERT INTO "organizations"("name", "code", "status", "is_meta_org", "_created", "_createdBy")
+					VALUES($1, $2, 1, true, NOW(), 0)
+					RETURNING "_id", "name", "code", "status", "is_meta_org", "_created", "_createdBy"
 					`,
 					[
 						dbConfig.multiTenant?.metaOrgName,
 						dbConfig.multiTenant?.metaOrgCode,
-						dbConfig.multiTenant?.metaOrgDomain,
 					],
 				);
 
@@ -324,10 +352,23 @@ export const getPostgresInitialSchema = (
 					throw new Error("Failed to create meta organization");
 				}
 
+				const metaOrg = result.rows[0] as IOrganization;
+
+				const metaOrgDomains = dbConfig.multiTenant?.metaOrgDomains ?? [];
+				for (const domain of metaOrgDomains) {
+					await pool.query(
+						`
+						INSERT INTO "organization_domains"("organization_id", "domain", "_created", "_createdBy")
+						VALUES($1, $2, NOW(), 0)
+						`,
+						[metaOrg._id, domain],
+					);
+				}
+
 				// Initialize system user context with the meta org
 				initializeSystemUserContext(
 					dbConfig.email?.systemEmailAddress || "system@example.com",
-					result.rows[0] as IOrganization,
+					metaOrg,
 				);
 			},
 			down: async ({ context: pool }) => {

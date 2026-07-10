@@ -22,12 +22,15 @@ import { PostgresDatabase } from "../databases/postgres/postgres.database.js";
 import { GenericApiService, UserService } from "../services/index.js";
 import { MultiTenantApiService } from "../services/multi-tenant-api.service.js";
 import { OrganizationService } from "../services/organization.service.js";
+import { OrganizationDomainService } from "../services/organization-domain.service.js";
 import * as testObjectsModule from "./test-objects.js";
 
 const {
 	getTestMetaOrg,
+	getTestMetaOrgDomain,
 	getTestMetaOrgRefererUrl,
 	getTestOrg,
+	getTestOrgDomain,
 	getTestMetaOrgUser,
 	getTestMetaOrgUserContext,
 	getTestOrgUser,
@@ -36,6 +39,8 @@ const {
 	setTestMetaOrgId,
 	setTestMetaOrgUserId,
 	setTestOrgUserId,
+	TEST_META_ORG_DOMAIN,
+	TEST_ORG_DOMAIN,
 } = testObjectsModule;
 
 import { entityUtils } from "@loomcore/common/utils";
@@ -59,6 +64,7 @@ import { TestEmailClient } from "./test-email-client.js";
 let deviceIdCookie: string;
 let database: IDatabase | undefined;
 let organizationService: OrganizationService | undefined;
+let organizationDomainService: OrganizationDomainService | undefined;
 let userService: UserService | undefined;
 
 const JWT_SECRET = "test-secret";
@@ -69,6 +75,7 @@ const constDeviceIdCookie = crypto.randomBytes(16).toString("hex"); // Generate 
 function initialize(db: IDatabase) {
 	database = db;
 	organizationService = new OrganizationService(db);
+	organizationDomainService = new OrganizationDomainService(db);
 	userService = new UserService(db);
 	deviceIdCookie = constDeviceIdCookie;
 }
@@ -106,7 +113,7 @@ async function createMetaOrg() {
 		return;
 	}
 
-	if (!organizationService) {
+	if (!organizationService || !organizationDomainService) {
 		throw new Error(
 			"OrganizationService not initialized. Call initialize() first.",
 		);
@@ -124,10 +131,24 @@ async function createMetaOrg() {
 			);
 			if (metaOrgInsertResult) {
 				setTestMetaOrgId(metaOrgInsertResult._id);
+				await organizationDomainService.create(
+					EmptyUserContext,
+					getTestMetaOrgDomain(metaOrgInsertResult._id),
+				);
 			}
 		} else {
 			// Update test objects with the actual meta org ID from database
 			setTestMetaOrgId(existingMetaOrg._id);
+			const existingDomain = await organizationDomainService.findOne(
+				EmptyUserContext,
+				{ filters: { domain: { eq: TEST_META_ORG_DOMAIN } } },
+			);
+			if (!existingDomain) {
+				await organizationDomainService.create(
+					EmptyUserContext,
+					getTestMetaOrgDomain(existingMetaOrg._id),
+				);
+			}
 		}
 	} catch (error: any) {
 		console.log("Error in createMetaOrg:", error);
@@ -170,7 +191,7 @@ async function createTestUsers(): Promise<{
 	metaOrgUser: IUser;
 	testOrgUser: IUser;
 }> {
-	if (!organizationService || !userService) {
+	if (!organizationService || !organizationDomainService || !userService) {
 		throw new Error("Database not initialized. Call initialize() first.");
 	}
 
@@ -203,8 +224,22 @@ async function createTestUsers(): Promise<{
 				throw new Error("Failed to create test organization");
 			}
 			setTestOrgId(createdTestOrg._id);
+			await organizationDomainService.create(
+				EmptyUserContext,
+				getTestOrgDomain(createdTestOrg._id),
+			);
 		} else {
 			setTestOrgId(existingTestOrg._id);
+			const existingDomain = await organizationDomainService.findOne(
+				EmptyUserContext,
+				{ filters: { domain: { eq: TEST_ORG_DOMAIN } } },
+			);
+			if (!existingDomain) {
+				await organizationDomainService.create(
+					EmptyUserContext,
+					getTestOrgDomain(existingTestOrg._id),
+				);
+			}
 		}
 
 		const createdTestOrgUser = await userService.create(

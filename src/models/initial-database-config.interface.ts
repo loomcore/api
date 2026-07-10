@@ -13,7 +13,7 @@ export interface IInitialDbMigrationConfig {
 	multiTenant: {
 		metaOrgName: string;
 		metaOrgCode: string;
-		metaOrgDomain: string;
+		metaOrgDomains: string[];
 	};
 	email?: IEmailConfig;
 }

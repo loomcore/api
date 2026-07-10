@@ -16,7 +16,7 @@ export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiCon
     app: config.app,
     database: config.database,
     adminUser: (config as any).adminUser ?? { email: 'admin@test.com', password: 'admin-password' },
-    multiTenant: (config as any).multiTenant ?? (config.app.isMultiTenant ? { metaOrgName: 'Test Meta Organization', metaOrgCode: 'TEST_META_ORG', metaOrgDomain: TEST_META_ORG_DOMAIN } : { metaOrgName: '', metaOrgCode: '', metaOrgDomain: '' }),
+    multiTenant: (config as any).multiTenant ?? (config.app.isMultiTenant ? { metaOrgName: 'Test Meta Organization', metaOrgCode: 'TEST_META_ORG', metaOrgDomains: [TEST_META_ORG_DOMAIN] } : { metaOrgName: '', metaOrgCode: '', metaOrgDomains: [] }),
     email: config.email,
   };
   const initialSchema = getPostgresInitialSchema(migrationConfig);

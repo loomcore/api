@@ -32,7 +32,7 @@ export const getMongoInitialSchema = (
 	const isAuthEnabled = dbConfig.app.isAuthEnabled;
 
 	// 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
-	if (isMultiTenant)
+	if (isMultiTenant) {
 		migrations.push({
 			name: "00000000000001_schema-organizations",
 			up: async ({ context: db }) => {
@@ -49,6 +49,23 @@ export const getMongoInitialSchema = (
 				await db.collection("organizations").drop();
 			},
 		});
+
+		migrations.push({
+			name: "00000000000001_schema-organization-domains",
+			up: async ({ context: db }) => {
+				await db.createCollection("organization_domains");
+				await db
+					.collection("organization_domains")
+					.createIndex({ domain: 1 }, { unique: true });
+				await db
+					.collection("organization_domains")
+					.createIndex({ organizationId: 1 });
+			},
+			down: async ({ context: db }) => {
+				await db.collection("organization_domains").drop();
+			},
+		});
+	}
 
 	// 2. USERS
 	if (isAuthEnabled)
@@ -243,6 +260,20 @@ export const getMongoInitialSchema = (
 					_id: result.insertedId,
 				} as unknown as IOrganization;
 
+				const metaOrgDomains = dbConfig.multiTenant!.metaOrgDomains ?? [];
+				if (metaOrgDomains.length > 0) {
+					await db.collection("organization_domains").insertMany(
+						metaOrgDomains.map((domain) => ({
+							organizationId: metaOrg._id,
+							domain,
+							_created: new Date(),
+							_createdBy: "system",
+							_updated: new Date(),
+							_updatedBy: "system",
+						})),
+					);
+				}
+
 				// Initialize system user context with the meta org
 				initializeSystemUserContext(
 					dbConfig.email?.systemEmailAddress || "system@example.com",
@@ -250,6 +281,7 @@ export const getMongoInitialSchema = (
 				);
 			},
 			down: async ({ context: db }) => {
+				await db.collection("organization_domains").deleteMany({});
 				await db.collection("organizations").deleteMany({ isMetaOrg: true });
 			},
 		});

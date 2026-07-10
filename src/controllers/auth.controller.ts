@@ -83,9 +83,10 @@ export class AuthController {
 					"Missing required fields: referer is required.",
 				);
 			}
-			organization = await this.organizationService.findOne(EmptyUserContext, {
-				filters: { domain: { eq: referer.split("/")[2] } },
-			});
+			organization = await this.organizationService.findByDomain(
+				EmptyUserContext,
+				referer.split("/")[2],
+			);
 			if (!organization) {
 				throw new BadRequestError(
 					"Missing required fields: organization is required.",
@@ -202,9 +203,10 @@ export class AuthController {
 		referer = referer.replace(/\/$/, "");
 		let organization: IOrganization | null = null;
 		if (config.app.isMultiTenant) {
-			organization = await this.organizationService.findOne(EmptyUserContext, {
-				filters: { domain: { eq: referer.split("/")[2] } },
-			});
+			organization = await this.organizationService.findByDomain(
+				EmptyUserContext,
+				referer.split("/")[2],
+			);
 			if (!organization) {
 				throw new BadRequestError(
 					"Missing required fields: organization is required.",
@@ -248,9 +250,10 @@ export class AuthController {
 					"Missing required fields: referer is required.",
 				);
 			}
-			organization = await this.organizationService.findOne(EmptyUserContext, {
-				filters: { domain: { eq: referer.split("/")[2] } },
-			});
+			organization = await this.organizationService.findByDomain(
+				EmptyUserContext,
+				referer.split("/")[2],
+			);
 
 			if (!organization) {
 				throw new BadRequestError(

@@ -1,5 +1,6 @@
 import type {
 	IOrganization,
+	IOrganizationDomain,
 	IUser,
 	IUserContext,
 } from "@loomcore/common/models";
@@ -19,19 +20,19 @@ export const TEST_META_ORG_USER_PASSWORD = "test-meta-org-user-password";
 export const TEST_META_ORG_DOMAIN = "test-meta-org.example.com";
 export const TEST_ORG_DOMAIN = "test-org.example.com";
 
-export function getRefererUrlForOrg(org: Pick<IOrganization, "domain">): string {
-	if (!org.domain) {
+export function getRefererUrlForOrg(domain: string): string {
+	if (!domain) {
 		throw new Error("Organization domain is required for auth referer URL");
 	}
-	return `https://${org.domain}`;
+	return `https://${domain}`;
 }
 
 export function getTestMetaOrgRefererUrl(): string {
-	return getRefererUrlForOrg(getTestMetaOrg());
+	return getRefererUrlForOrg(TEST_META_ORG_DOMAIN);
 }
 
 export function getTestOrgRefererUrl(): string {
-	return getRefererUrlForOrg(getTestOrg());
+	return getRefererUrlForOrg(TEST_ORG_DOMAIN);
 }
 
 export function getTestMetaOrg(): IOrganization {
@@ -46,11 +47,19 @@ export function getTestMetaOrg(): IOrganization {
 		_id: TEST_META_ORG_ID,
 		name: "Test Meta Organization",
 		code: "test-meta-org",
-		domain: TEST_META_ORG_DOMAIN,
 		status: 1,
 		isMetaOrg: true,
 		_created: new Date(),
 		_createdBy: "system",
+	};
+}
+
+export function getTestMetaOrgDomain(
+	organizationId: string | number = TEST_META_ORG_ID,
+): Partial<IOrganizationDomain> {
+	return {
+		organizationId,
+		domain: TEST_META_ORG_DOMAIN,
 	};
 }
 
@@ -114,13 +123,22 @@ export function getTestOrg(): IOrganization {
 		_id: TEST_ORG_ID,
 		name: "Test Organization",
 		code: "test-org",
-		domain: TEST_ORG_DOMAIN,
 		status: 1,
 		isMetaOrg: false,
 		_created: new Date(),
 		_createdBy: "system",
 	};
 }
+
+export function getTestOrgDomain(
+	organizationId: string | number = TEST_ORG_ID,
+): Partial<IOrganizationDomain> {
+	return {
+		organizationId,
+		domain: TEST_ORG_DOMAIN,
+	};
+}
+
 export const TEST_ORG_USER_PASSWORD = "test-org-user-password";
 
 export function getTestOrgUser(): IUser {

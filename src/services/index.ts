@@ -5,6 +5,7 @@ export * from "./generic-query-service/generic-query.service.js";
 export * from "./generic-query-service/generic-query-service.interface.js";
 export * from "./multi-tenant-api.service.js";
 export * from "./organization.service.js";
+export * from "./organization-domain.service.js";
 export * from "./password-reset-token.service.js";
 export * from "./refresh-token.service.js";
 export * from "./tenant-query-decorator.js";
