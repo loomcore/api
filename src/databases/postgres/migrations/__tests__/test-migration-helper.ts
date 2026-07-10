@@ -23,6 +23,7 @@ export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiCon
 
   const umzug = new Umzug({
     migrations: async () => {
+      // Match MigrationRunner: sort by name so ordering bugs surface in tests
       return initialSchema.map(m => ({
         name: m.name,
         up: async () => {
@@ -31,7 +32,7 @@ export async function runInitialSchemaMigrations(pool: Pool, config: IBaseApiCon
         down: async () => {
           await m.down({ context: pool });
         }
-      }));
+      })).sort((a, b) => a.name.localeCompare(b.name));
     },
     context: pool,
     storage: {
@@ -70,7 +71,7 @@ export async function runTestSchemaMigrations(pool: Pool, config: IBaseApiConfig
         down: async () => {
           await m.down({ context: pool });
         }
-      }));
+      })).sort((a, b) => a.name.localeCompare(b.name));
     },
     context: pool,
     storage: {

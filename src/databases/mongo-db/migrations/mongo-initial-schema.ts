@@ -51,7 +51,9 @@ export const getMongoInitialSchema = (
 		});
 
 		migrations.push({
-			name: "00000000000001_schema-organization-domains",
+			// Must sort after schema-organizations (MigrationRunner sorts by name).
+			// "organization-domains" sorts before "organizations" because "-" < "s".
+			name: "00000000000001_schema-organizations-domains",
 			up: async ({ context: db }) => {
 				await db.createCollection("organization_domains");
 				await db

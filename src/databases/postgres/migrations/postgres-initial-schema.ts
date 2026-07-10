@@ -83,7 +83,9 @@ export const getPostgresInitialSchema = (
 		});
 
 		migrations.push({
-			name: "00000000000002_schema-organization-domains",
+			// Must sort after schema-organizations (MigrationRunner sorts by name).
+			// "organization-domains" sorts before "organizations" because "-" < "s".
+			name: "00000000000002_schema-organizations-domains",
 			up: async ({ context: pool }) => {
 				await pool.query(`
 				CREATE TABLE IF NOT EXISTS "organization_domains" (
@@ -100,14 +102,8 @@ export const getPostgresInitialSchema = (
 					FOREIGN KEY("organization_id") REFERENCES "organizations"("_id") ON DELETE CASCADE
 				)
 				`);
-				await pool.query(
-					`CREATE INDEX IF NOT EXISTS "idx_organization_domains_organization_id" ON "organization_domains"("organization_id")`,
-				);
 			},
 			down: async ({ context: pool }) => {
-				await pool.query(
-					`DROP INDEX IF EXISTS "idx_organization_domains_organization_id"`,
-				);
 				await pool.query('DROP TABLE IF EXISTS "organization_domains"');
 			},
 		});

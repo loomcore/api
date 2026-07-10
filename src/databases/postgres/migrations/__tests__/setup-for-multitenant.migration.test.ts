@@ -75,7 +75,7 @@ describe.skipIf(!isPostgres)("setupDatabaseForMultitenant", () => {
 		expect(migrationNames).toContain("00000000000001_system-configurations");
 		expect(migrationNames).toContain("00000000000002_schema-organizations");
 		expect(migrationNames).toContain(
-			"00000000000002_schema-organization-domains",
+			"00000000000002_schema-organizations-domains",
 		);
 		expect(migrationNames).toContain("00000000000003_schema-users");
 		expect(migrationNames).toContain("00000000000004_schema-refresh-tokens");
