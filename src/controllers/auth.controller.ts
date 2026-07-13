@@ -223,7 +223,7 @@ export class AuthController {
 		});
 
 		if (user) {
-			await sendResetPasswordEmail(this.database, email, referer);
+			await sendResetPasswordEmail(this.database, email, referer, organization || undefined);
 		}
 
 		apiUtils.apiResponse(res, 200);
