@@ -13,7 +13,7 @@
     "push": "git push",
     "publishMe": "npm publish --access public",
     "pub": "npm-run-all -s patch build push publishMe",
-    "update-lib-versions": "npx --yes npm-check-updates -u -f @loomcore/common",
+    "update-lib-versions": "npx --yes npm-check-updates -u -f @loomcore/common --dep peer",
     "install-updated-libs": "npm i @loomcore/common",
     "update-libs": "npm-run-all -s update-lib-versions install-updated-libs",
     "typecheck": "tsc",
@@ -58,7 +58,7 @@
     "qs": "^6.15.2"
   },
   "peerDependencies": {
-    "@loomcore/common": "^0.0.77",
+    "@loomcore/common": "^0.0.78",
     "@sinclair/typebox": "0.34.33",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
