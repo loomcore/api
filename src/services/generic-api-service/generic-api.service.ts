@@ -50,6 +50,10 @@ export class GenericApiService<T extends IEntity>
 		this.database = database;
 	}
 
+	getModelSpec(): IModelSpec {
+		return this.modelSpec;
+	}
+
 	async getAll(userContext: IUserContext): Promise<T[]>;
 
 	async getAll<TCustom extends IEntity>(

@@ -14,28 +14,32 @@ import {
 	setAuthUserContextSpec,
 } from "../auth-user-specs.util.js";
 
+function buildExtendedUserSpecs() {
+	const ExtendedUserSchema = Type.Intersect([
+		UserSpec.schema,
+		Type.Object({
+			employeeId: Type.Optional(Type.String()),
+		}),
+	]);
+	const ExtendedUserSpec = entityUtils.getModelSpec(ExtendedUserSchema, {
+		isAuditable: true,
+	});
+	const ExtendedPublicUserSchema = Type.Omit(ExtendedUserSchema, ["password"]);
+	const ExtendedPublicUserSpec = entityUtils.getModelSpec(
+		ExtendedPublicUserSchema,
+		{ isAuditable: true },
+	);
+	return { ExtendedUserSpec, ExtendedPublicUserSpec };
+}
+
 describe("auth-user-specs", () => {
 	afterEach(() => {
 		resetAuthUserContextSpec();
 	});
 
 	it("preserves extended user fields when encoding/decoding with a custom user context spec", () => {
-		const ExtendedUserSchema = Type.Intersect([
-			UserSpec.schema,
-			Type.Object({
-				employeeId: Type.Optional(Type.String()),
-			}),
-		]);
-		const ExtendedUserSpec = entityUtils.getModelSpec(ExtendedUserSchema, {
-			isAuditable: true,
-		});
-		const ExtendedPublicUserSchema = Type.Omit(ExtendedUserSchema, [
-			"password",
-		]);
-		const ExtendedPublicUserSpec = entityUtils.getModelSpec(
-			ExtendedPublicUserSchema,
-			{ isAuditable: true },
-		);
+		const { ExtendedUserSpec, ExtendedPublicUserSpec } =
+			buildExtendedUserSpecs();
 
 		const publicUserContextSpec = createUserContextSpec(
 			ExtendedPublicUserSpec,
@@ -97,5 +101,35 @@ describe("auth-user-specs", () => {
 
 		resetAuthUserContextSpec();
 		expect(getAuthUserContextSpec()).toBe(UserContextSpec);
+	});
+
+	it("preserves extended fields when JWT decode is registered from publicUserSpec alone", () => {
+		const { ExtendedPublicUserSpec } = buildExtendedUserSpecs();
+		setAuthUserContextSpec(createUserContextSpec(ExtendedPublicUserSpec));
+
+		const payload = {
+			user: {
+				_id: "507f1f77bcf86cd799439011",
+				email: "test@example.com",
+				password: "hashed",
+				employeeId: "E-123",
+				_created: "2024-01-01T00:00:00.000Z",
+				_createdBy: "507f1f77bcf86cd799439011",
+			},
+			authorizations: [],
+			organization: {
+				_id: "507f1f77bcf86cd799439012",
+				name: "Test Org",
+				code: "test",
+				_created: "2024-01-01T00:00:00.000Z",
+				_createdBy: "507f1f77bcf86cd799439011",
+			},
+		};
+
+		const decoded = getAuthUserContextSpec().decode(payload) as {
+			user: { employeeId?: string; password?: string };
+		};
+		expect(decoded.user.employeeId).toBe("E-123");
+		expect(decoded.user.password).toBeUndefined();
 	});
 });

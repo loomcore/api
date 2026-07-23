@@ -7,6 +7,7 @@ import {
 	type IUserContext,
 	passwordValidator,
 	TokenResponseSpec,
+	UserSpec,
 } from "@loomcore/common/models";
 import { entityUtils } from "@loomcore/common/utils";
 import type { Application, Request, Response } from "express";
@@ -33,9 +34,16 @@ import { apiUtils } from "../utils/index.js";
 export interface AuthControllerOptions {
 	/** Custom user service (e.g. built with an extended UserSpec). */
 	userService?: UserService;
-	/** Full user model spec including password (used for validation + JWT decode). */
+	/**
+	 * Full user model spec including password (validation + JWT decode).
+	 * If omitted, inherited from `userService.getModelSpec()` when that service
+	 * uses a non-default UserSpec.
+	 */
 	userSpec?: IModelSpec;
-	/** Public user model spec without password (used for login / get-user-context responses). */
+	/**
+	 * Public user model spec without password (login / get-user-context responses).
+	 * Also used as a JWT decode fallback when no full userSpec is available.
+	 */
 	publicUserSpec?: IModelSpec;
 }
 
@@ -55,8 +63,15 @@ export class AuthController {
 	) {
 		this.database = database;
 
+		// Prefer an explicit userSpec; otherwise inherit from an injected userService
+		// so hosts don't have to pass the same spec twice.
+		const userSpecFromService = options.userService?.getModelSpec();
+		const inheritedUserSpec =
+			userSpecFromService && userSpecFromService !== UserSpec
+				? userSpecFromService
+				: undefined;
 		const resolved = resolveAuthUserSpecs({
-			userSpec: options.userSpec,
+			userSpec: options.userSpec ?? inheritedUserSpec,
 			publicUserSpec: options.publicUserSpec,
 		});
 		this.userSpec = resolved.userSpec;
@@ -68,10 +83,13 @@ export class AuthController {
 			options.userService ?? new UserService(database, this.userSpec);
 		this.organizationService = new OrganizationService(database);
 
-		// JWT decode must use the full (password-inclusive) user schema so extended
-		// fields survive isAuthorized → req.userContext.
-		if (options.userSpec) {
-			setAuthUserContextSpec(createUserContextSpec(this.userSpec));
+		// JWT decode must use the host user schema so extended fields survive
+		// isAuthorized → req.userContext. Prefer the full userSpec; fall back to
+		// publicUserSpec when that is the only extended schema the host provided.
+		const jwtUserModelSpec =
+			options.userSpec ?? inheritedUserSpec ?? options.publicUserSpec;
+		if (jwtUserModelSpec) {
+			setAuthUserContextSpec(createUserContextSpec(jwtUserModelSpec));
 		}
 
 		this.mapRoutes(app);

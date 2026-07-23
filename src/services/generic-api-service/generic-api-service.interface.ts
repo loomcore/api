@@ -1,5 +1,6 @@
 import type {
 	IEntity,
+	IModelSpec,
 	IPagedResult,
 	IQueryOptions,
 	IUserContext,
@@ -14,6 +15,7 @@ import type { DeleteResult } from "../../databases/models/delete-result.js";
 import type { Operation } from "../../databases/operations/operation.js";
 
 export interface IGenericApiService<T extends IEntity> {
+	getModelSpec(): IModelSpec;
 	validate(doc: any, isPartial?: boolean): ValueError[] | null;
 	validateMany(docs: any[], isPartial?: boolean): ValueError[] | null;
 
