@@ -1,5 +1,6 @@
 import {
 	EmptyUserContext,
+	type IModelSpec,
 	type IOrganization,
 	type IUserContext,
 	passwordValidator,
@@ -19,9 +20,11 @@ export async function resetPassword(
 	passwordResetToken: string,
 	password: string,
 	organization: IOrganization | null,
+	userService: UserService = new UserService(database),
+	userSpec: IModelSpec = UserSpec,
 ): Promise<UpdateResult> {
 	const validationErrors = entityUtils.validate(
-		UserSpec,
+		userSpec,
 		{ password: password },
 		true,
 		passwordValidator,
@@ -33,7 +36,6 @@ export async function resetPassword(
 
 	const lowerCaseEmail = email.toLowerCase();
 	const passwordResetTokenService = new PasswordResetTokenService(database);
-	const userService = new UserService(database);
 	const userContext: IUserContext = {
 		...EmptyUserContext,
 		organization: organization ?? undefined,
@@ -71,7 +73,12 @@ export async function resetPassword(
 
 	userContext.user = user;
 
-	const result = await changePassword(database, userContext, password);
+	const result = await changePassword(
+		database,
+		userContext,
+		password,
+		userService,
+	);
 	console.log(
 		`password changed using forgot-password for email: ${lowerCaseEmail}`,
 	);

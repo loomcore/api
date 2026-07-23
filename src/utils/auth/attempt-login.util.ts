@@ -17,13 +17,13 @@ export async function attemptLogin(
 	password: string,
 	deviceId: string,
 	organization: IOrganization | null,
+	userService: UserService = new UserService(database),
 ): Promise<ILoginResponse | null> {
 	const lowerCaseEmail = email.toLowerCase();
 	const userContext: IUserContext = {
 		...EmptyUserContext,
 		organization: organization ?? undefined,
 	};
-	const userService = new UserService(database);
 	const user = await userService.findOne(userContext, {
 		filters: {
 			email: { eq: lowerCaseEmail },
@@ -47,7 +47,12 @@ export async function attemptLogin(
 		organization: organization ?? undefined,
 		authorizations: authorizations,
 	};
-	const tokens = await logUserIn(database, authenticatedUserContext, deviceId);
+	const tokens = await logUserIn(
+		database,
+		authenticatedUserContext,
+		deviceId,
+		userService,
+	);
 	return {
 		tokens,
 		userContext: authenticatedUserContext,

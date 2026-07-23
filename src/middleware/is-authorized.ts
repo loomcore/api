@@ -1,7 +1,8 @@
-import { type IUserContext, UserContextSpec } from "@loomcore/common/models";
+import type { IUserContext } from "@loomcore/common/models";
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { UnauthenticatedError, UnauthorizedError } from "../errors/index.js";
+import { getAuthUserContextSpec } from "../utils/auth/auth-user-specs.util.js";
 import { getAuthConfig } from "../utils/auth/get-auth-config.util.js";
 
 // Shared middleware implementation
@@ -29,7 +30,9 @@ const isAuthorized = (allowedFeatures?: string[]) => {
 			const rawPayload = jwt.verify(token, authConfig.clientSecret);
 
 			// Use TypeBox to decode the payload properly, which will convert string dates to Date objects
-			const userContext = UserContextSpec.decode(rawPayload) as IUserContext;
+			const userContext = getAuthUserContextSpec().decode(
+				rawPayload,
+			) as IUserContext;
 
 			req.userContext = userContext;
 

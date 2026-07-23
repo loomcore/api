@@ -1,4 +1,5 @@
 import {
+	type IModelSpec,
 	type IQueryOptions,
 	type IUser,
 	type IUserContext,
@@ -11,8 +12,8 @@ import { passwordUtils } from "../utils/password.utils.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
 
 export class UserService extends MultiTenantApiService<IUser> {
-	constructor(database: IDatabase) {
-		super(database, "users", "user", UserSpec);
+	constructor(database: IDatabase, modelSpec: IModelSpec = UserSpec) {
+		super(database, "users", "user", modelSpec);
 	}
 
 	// Don't full update a User. You can create, partial update, or delete a user.

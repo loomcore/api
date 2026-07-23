@@ -8,8 +8,8 @@ export async function changePassword(
 	database: IDatabase,
 	userContext: IUserContext,
 	password: string,
+	userService: UserService = new UserService(database),
 ): Promise<UpdateResult> {
-	const userService = new UserService(database);
 	const updates = {
 		password: password,
 		_lastPasswordChange: moment().utc().toDate(),

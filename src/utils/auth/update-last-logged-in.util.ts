@@ -7,12 +7,12 @@ import { UserService } from "../../services/user.service.js";
 export async function updateLastLoggedIn(
 	database: IDatabase,
 	userId: AppIdType,
+	userService: UserService = new UserService(database),
 ): Promise<void> {
 	try {
 		const updates: Partial<IUser> = {
 			_lastLoggedIn: moment().utc().toDate(),
 		};
-		const userService = new UserService(database);
 		await userService.update(
 			getSystemUserContext(),
 			{ filters: { _id: { eq: userId } } },

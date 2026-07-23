@@ -1,5 +1,6 @@
 import type { ITokenResponse, IUserContext } from "@loomcore/common/models";
 import type { IDatabase } from "../../databases/models/index.js";
+import type { UserService } from "../../services/user.service.js";
 import { generateJwt } from "../jwt.utils.js";
 import { createNewRefreshToken } from "./create-new-refresh-token.util.js";
 import { getAuthConfig } from "./get-auth-config.util.js";
@@ -10,6 +11,7 @@ export async function logUserIn(
 	database: IDatabase,
 	userContext: IUserContext,
 	deviceId: string,
+	userService?: UserService,
 ): Promise<ITokenResponse> {
 	const authConfig = getAuthConfig();
 	const accessToken = generateJwt(userContext);
@@ -30,8 +32,8 @@ export async function logUserIn(
 		expiresOn: accessTokenExpiresOn,
 	};
 
-	updateLastLoggedIn(database, userContext.user._id).catch((err) =>
-		console.log(`Error updating lastLoggedIn: ${err}`),
+	updateLastLoggedIn(database, userContext.user._id, userService).catch(
+		(err) => console.log(`Error updating lastLoggedIn: ${err}`),
 	);
 
 	return tokenResponse;

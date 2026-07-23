@@ -1,14 +1,12 @@
 import {
 	EmptyUserContext,
 	type ILoginResponse,
+	type IModelSpec,
 	type IOrganization,
 	type ITokenResponse,
 	type IUserContext,
-	LoginResponseSpec,
-	PublicUserContextSpec,
 	passwordValidator,
 	TokenResponseSpec,
-	UserSpec,
 } from "@loomcore/common/models";
 import { entityUtils } from "@loomcore/common/utils";
 import type { Application, Request, Response } from "express";
@@ -21,22 +19,61 @@ import { OrganizationService, UserService } from "../services/index.js";
 import {
 	attemptLogin,
 	changePassword,
+	createUserContextSpec,
 	getAndSetDeviceIdCookie,
 	getDeviceIdFromCookie,
 	requestTokenUsingRefreshToken,
 	resetPassword,
+	resolveAuthUserSpecs,
 	sendResetPasswordEmail,
+	setAuthUserContextSpec,
 } from "../utils/auth/index.js";
 import { apiUtils } from "../utils/index.js";
+
+export interface AuthControllerOptions {
+	/** Custom user service (e.g. built with an extended UserSpec). */
+	userService?: UserService;
+	/** Full user model spec including password (used for validation + JWT decode). */
+	userSpec?: IModelSpec;
+	/** Public user model spec without password (used for login / get-user-context responses). */
+	publicUserSpec?: IModelSpec;
+}
 
 export class AuthController {
 	database: IDatabase;
 	userService: UserService;
 	organizationService: OrganizationService;
-	constructor(app: Application, database: IDatabase) {
+	userSpec: IModelSpec;
+	publicUserSpec: IModelSpec;
+	publicUserContextSpec: IModelSpec;
+	loginResponseSpec: IModelSpec;
+
+	constructor(
+		app: Application,
+		database: IDatabase,
+		options: AuthControllerOptions = {},
+	) {
 		this.database = database;
-		this.userService = new UserService(database);
+
+		const resolved = resolveAuthUserSpecs({
+			userSpec: options.userSpec,
+			publicUserSpec: options.publicUserSpec,
+		});
+		this.userSpec = resolved.userSpec;
+		this.publicUserSpec = resolved.publicUserSpec;
+		this.publicUserContextSpec = resolved.publicUserContextSpec;
+		this.loginResponseSpec = resolved.loginResponseSpec;
+
+		this.userService =
+			options.userService ?? new UserService(database, this.userSpec);
 		this.organizationService = new OrganizationService(database);
+
+		// JWT decode must use the full (password-inclusive) user schema so extended
+		// fields survive isAuthorized → req.userContext.
+		if (options.userSpec) {
+			setAuthUserContextSpec(createUserContextSpec(this.userSpec));
+		}
+
 		this.mapRoutes(app);
 	}
 
@@ -102,13 +139,14 @@ export class AuthController {
 			password,
 			deviceId,
 			organization,
+			this.userService,
 		);
 
 		apiUtils.apiResponse<ILoginResponse | null>(
 			res,
 			200,
 			{ data: loginResponse },
-			LoginResponseSpec,
+			this.loginResponseSpec,
 		);
 	}
 
@@ -152,7 +190,7 @@ export class AuthController {
 			res,
 			200,
 			{ data: userContext },
-			PublicUserContextSpec,
+			this.publicUserContextSpec,
 		);
 	}
 
@@ -171,7 +209,7 @@ export class AuthController {
 
 		// Validate password in controller using the correct passwordValidator
 		const validationErrors = entityUtils.validate(
-			UserSpec,
+			this.userSpec,
 			{ password: password },
 			true,
 			passwordValidator,
@@ -185,6 +223,7 @@ export class AuthController {
 			this.database,
 			userContext,
 			password,
+			this.userService,
 		);
 		apiUtils.apiResponse<UpdateResult>(res, 200, { data: updateResult });
 	}
@@ -223,7 +262,12 @@ export class AuthController {
 		});
 
 		if (user) {
-			await sendResetPasswordEmail(this.database, email, referer, organization || undefined);
+			await sendResetPasswordEmail(
+				this.database,
+				email,
+				referer,
+				organization || undefined,
+			);
 		}
 
 		apiUtils.apiResponse(res, 200);
@@ -268,6 +312,8 @@ export class AuthController {
 			token,
 			password,
 			organization,
+			this.userService,
+			this.userSpec,
 		);
 		apiUtils.apiResponse<UpdateResult>(res, 200, { data: response });
 	}

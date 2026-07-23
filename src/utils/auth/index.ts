@@ -1,4 +1,5 @@
 export * from "./attempt-login.util.js";
+export * from "./auth-user-specs.util.js";
 export * from "./change-password.util.js";
 export * from "./create-new-refresh-token.util.js";
 export * from "./create-new-tokens.util.js";
