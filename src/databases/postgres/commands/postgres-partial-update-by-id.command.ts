@@ -1,7 +1,11 @@
 import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from "../../operations/operation.js";
+import { LeftJoin } from "../../operations/left-join.operation.js";
+import { InnerJoin } from "../../operations/inner-join.operation.js";
+import { LeftJoinMany } from "../../operations/left-join-many.operation.js";
 import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
+import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
@@ -42,10 +46,20 @@ export async function partialUpdateById<T extends IEntity>(
         }
 
         // Retrieve updated entity with operations applied
-        const joinClauses = buildJoinClauses(operations, pluralResourceName);
+        const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+        const joinClauses = hasJoins
+            ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
+            : buildJoinClauses(operations, pluralResourceName);
+
+        const selectClause = hasJoins
+            ? await buildSelectClause(client, pluralResourceName, operations)
+            : '*';
+
+        // Qualify _id when joins are present to avoid ambiguous column references
+        const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
         const selectQuery = `
-            SELECT * FROM "${pluralResourceName}" ${joinClauses}
-            WHERE "_id" = $1 LIMIT 1
+            SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
+            WHERE ${idColumn} = $1 LIMIT 1
         `;
 
         const selectResult = await client.query(selectQuery, [id]);
@@ -54,7 +68,9 @@ export async function partialUpdateById<T extends IEntity>(
             throw new IdNotFoundError();
         }
 
-        return selectResult.rows[0] as T;
+        return hasJoins
+            ? (selectResult.rows[0] as { entity: T }).entity
+            : (selectResult.rows[0] as T);
     }
     catch (err: any) {
         // Re-throw IdNotFoundError as-is
@@ -69,4 +85,3 @@ export async function partialUpdateById<T extends IEntity>(
         throw new BadRequestError(`Error updating ${pluralResourceName}: ${err.message}`);
     }
 }
-

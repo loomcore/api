@@ -1,10 +1,14 @@
 import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions } from "@loomcore/common/models";
 import { Operation } from "../../operations/operation.js";
+import { LeftJoin } from "../../operations/left-join.operation.js";
+import { InnerJoin } from "../../operations/inner-join.operation.js";
+import { LeftJoinMany } from "../../operations/left-join-many.operation.js";
 import { BadRequestError, NotFoundError } from "../../../errors/index.js";
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildOrderByClause } from '../utils/build-order-by-clause.js';
+import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
 
@@ -16,7 +20,7 @@ export async function update<T extends IEntity>(
     pluralResourceName: string
 ): Promise<T[]> {
     try {
-        // Build WHERE clause from queryObject
+        // Build WHERE clause from queryObject (unqualified — UPDATE targets a single table)
         const { whereClause, values: whereValues } = buildWhereClause(queryObject);
 
         // Extract columns and values from the entity (only the fields to update)
@@ -54,19 +58,37 @@ export async function update<T extends IEntity>(
         }
 
         // Retrieve updated entities with operations applied
-        const joinClauses = buildJoinClauses(operations, pluralResourceName);
-        const orderByClause = buildOrderByClause(queryObject);
+        const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+        const joinClauses = hasJoins
+            ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
+            : buildJoinClauses(operations, pluralResourceName);
+        const orderByClause = buildOrderByClause(
+            queryObject,
+            hasJoins ? { tablePrefix: pluralResourceName } : undefined,
+        );
 
-        // Build SELECT query to retrieve updated entities
-        // Use the same WHERE clause and operations as the update query
+        // When there are joins, qualify column names with table prefix to avoid ambiguity
+        const tablePrefix = hasJoins ? pluralResourceName : undefined;
+        const { whereClause: selectWhereClause, values: selectWhereValues } = buildWhereClause(
+            queryObject,
+            [],
+            tablePrefix,
+        );
+
+        const selectClause = hasJoins
+            ? await buildSelectClause(client, pluralResourceName, operations)
+            : '*';
+
         const selectQuery = `
-            SELECT * FROM "${pluralResourceName}" ${joinClauses}
-            ${whereClause} ${orderByClause}
+            SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
+            ${selectWhereClause} ${orderByClause}
         `.trim();
 
-        const selectResult = await client.query(selectQuery, whereValues);
+        const selectResult = await client.query(selectQuery, selectWhereValues);
 
-        return selectResult.rows as T[];
+        return hasJoins
+            ? (selectResult.rows as { entity: T }[]).map(r => r.entity)
+            : (selectResult.rows as T[]);
     }
     catch (err: any) {
         // Re-throw NotFoundError as-is
@@ -81,4 +103,3 @@ export async function update<T extends IEntity>(
         throw new BadRequestError(`Error updating ${pluralResourceName}: ${err.message}`);
     }
 }
-
