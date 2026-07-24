@@ -18,6 +18,7 @@ import { ITestAgentModel } from './models/test-agent.model.js';
 import { ITestPolicyModel } from './models/test-policy.model.js';
 import { ITestPremiumModel } from './models/test-premium.model.js';
 import { ApiController } from '../../../controllers/api.controller.js';
+import { authenticated } from '../../../middleware/index.js';
 import { GenericApiService } from '../../../services/generic-api-service/generic-api.service.js';
 import { AppIdType } from '@loomcore/common/types';
 import { apiUtils } from '../../../utils/index.js';
@@ -213,7 +214,7 @@ class TestClientReportsService extends GenericApiService<ITestClientReportsApiMo
 class TestClientReportsController extends ApiController<ITestClientReportsApiModel> {
     constructor(app: Application, database: any) {
         const service = new TestClientReportsService(database);
-        super('clients', app, service, 'client', testClientReportsModelSpec);
+        super('clients', app, service, authenticated, 'client', testClientReportsModelSpec);
     }
 
     override async get(req: Request, res: Response) {

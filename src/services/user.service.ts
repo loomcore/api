@@ -7,13 +7,43 @@ import {
 } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import type { IDatabase } from "../databases/models/index.js";
-import { BadRequestError, ServerError } from "../errors/index.js";
+import {
+	BadRequestError,
+	ServerError,
+	UnauthorizedError,
+} from "../errors/index.js";
 import { passwordUtils } from "../utils/password.utils.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
 
 export class UserService extends MultiTenantApiService<IUser> {
 	constructor(database: IDatabase, modelSpec: IModelSpec = UserSpec) {
 		super(database, "users", "user", modelSpec);
+	}
+
+	private isAdmin(userContext: IUserContext): boolean {
+		return userContext.authorizations.some(
+			(authorization) =>
+				authorization.feature === "admin" ||
+				authorization.feature === "system",
+		);
+	}
+
+	private assertAdmin(userContext: IUserContext): void {
+		if (!this.isAdmin(userContext)) {
+			throw new UnauthorizedError();
+		}
+	}
+
+	private assertSelfOrAdmin(
+		userContext: IUserContext,
+		id: AppIdType,
+	): void {
+		if (this.isAdmin(userContext)) {
+			return;
+		}
+		if (userContext.user._id !== id) {
+			throw new UnauthorizedError();
+		}
 	}
 
 	// Don't full update a User. You can create, partial update, or delete a user.
@@ -30,6 +60,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		queryObject: IQueryOptions,
 		entity: Partial<IUser>,
 	): Promise<IUser[]> {
+		this.assertAdmin(userContext);
 		this.assertPasswordUpdateAllowed(userContext, null, entity, false);
 		return super.update(userContext, queryObject, entity);
 	}
@@ -38,6 +69,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		userContext: IUserContext,
 		entities: Partial<IUser>[],
 	): Promise<IUser[]> {
+		this.assertAdmin(userContext);
 		for (const entity of entities) {
 			this.assertPasswordUpdateAllowed(userContext, null, entity, false);
 		}
@@ -50,6 +82,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		entity: Partial<IUser>,
 		allowPasswordUpdate: boolean = false,
 	): Promise<IUser> {
+		this.assertSelfOrAdmin(userContext, id);
 		this.assertPasswordUpdateAllowed(
 			userContext,
 			id,

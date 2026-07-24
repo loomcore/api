@@ -5,11 +5,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import testUtils from "../../__tests__/common-test.utils.js";
 import { TestExpressApp } from "../../__tests__/test-express-app.js";
 import {
+	getTestMetaOrgAdminUserContext,
 	getTestMetaOrgUser,
 	getTestMetaOrgUserContext,
 	getTestOrgUser,
 } from "../../__tests__/test-objects.js";
-import { BadRequestError, ServerError } from "../../errors/index.js";
+import { BadRequestError, ServerError, UnauthorizedError } from "../../errors/index.js";
 import { passwordUtils } from "../../utils/password.utils.js";
 import { UserService } from "../user.service.js";
 
@@ -42,31 +43,43 @@ describe("UserService - password change blocking", () => {
 	});
 
 	describe("update", () => {
-		it("should reject updates that include a password", async () => {
+		it("should reject updates from non-admin users", async () => {
 			const queryObject: IQueryOptions = {
 				filters: { _id: { eq: getTestMetaOrgUser()._id } },
 			};
 
 			await expect(
 				service.update(getTestMetaOrgUserContext(), queryObject, {
+					displayName: "Updated Display Name",
+				}),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should reject admin updates that include a password", async () => {
+			const queryObject: IQueryOptions = {
+				filters: { _id: { eq: getTestMetaOrgUser()._id } },
+			};
+
+			await expect(
+				service.update(getTestMetaOrgAdminUserContext(), queryObject, {
 					password: "new-password",
 				}),
 			).rejects.toThrow(ServerError);
 
 			await expect(
-				service.update(getTestMetaOrgUserContext(), queryObject, {
+				service.update(getTestMetaOrgAdminUserContext(), queryObject, {
 					password: "new-password",
 				}),
 			).rejects.toThrow(AUTH_CHANGE_PASSWORD_MESSAGE);
 		});
 
-		it("should allow updates that do not include a password", async () => {
+		it("should allow admin updates that do not include a password", async () => {
 			const queryObject: IQueryOptions = {
 				filters: { _id: { eq: getTestMetaOrgUser()._id } },
 			};
 
 			const updatedUsers = await service.update(
-				getTestMetaOrgUserContext(),
+				getTestMetaOrgAdminUserContext(),
 				queryObject,
 				{ displayName: "Updated Display Name" },
 			);
@@ -77,9 +90,20 @@ describe("UserService - password change blocking", () => {
 	});
 
 	describe("batchUpdate", () => {
-		it("should reject batch updates when any entity includes a password", async () => {
+		it("should reject batch updates from non-admin users", async () => {
 			await expect(
 				service.batchUpdate(getTestMetaOrgUserContext(), [
+					{
+						_id: getTestMetaOrgUser()._id,
+						displayName: "Updated Meta Org User",
+					},
+				]),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should reject batch updates when any entity includes a password", async () => {
+			await expect(
+				service.batchUpdate(getTestMetaOrgAdminUserContext(), [
 					{
 						_id: getTestMetaOrgUser()._id,
 						password: "new-password",
@@ -88,7 +112,7 @@ describe("UserService - password change blocking", () => {
 			).rejects.toThrow(ServerError);
 
 			await expect(
-				service.batchUpdate(getTestMetaOrgUserContext(), [
+				service.batchUpdate(getTestMetaOrgAdminUserContext(), [
 					{
 						_id: getTestMetaOrgUser()._id,
 						password: "new-password",
@@ -99,7 +123,7 @@ describe("UserService - password change blocking", () => {
 
 		it("should reject batch updates when only one entity in the batch includes a password", async () => {
 			await expect(
-				service.batchUpdate(getTestMetaOrgUserContext(), [
+				service.batchUpdate(getTestMetaOrgAdminUserContext(), [
 					{
 						_id: getTestMetaOrgUser()._id,
 						displayName: "Updated Meta Org User",
@@ -112,7 +136,7 @@ describe("UserService - password change blocking", () => {
 			).rejects.toThrow(ServerError);
 
 			await expect(
-				service.batchUpdate(getTestMetaOrgUserContext(), [
+				service.batchUpdate(getTestMetaOrgAdminUserContext(), [
 					{
 						_id: getTestMetaOrgUser()._id,
 						displayName: "Updated Meta Org User",
@@ -127,7 +151,7 @@ describe("UserService - password change blocking", () => {
 
 		it("should allow batch updates when no entities include a password", async () => {
 			const updatedUsers = await service.batchUpdate(
-				getTestMetaOrgUserContext(),
+				getTestMetaOrgAdminUserContext(),
 				[
 					{
 						_id: getTestMetaOrgUser()._id,
@@ -168,16 +192,7 @@ describe("UserService - password change blocking", () => {
 					{ password: "new-password" },
 					true,
 				),
-			).rejects.toThrow(ServerError);
-
-			await expect(
-				service.partialUpdateById(
-					getTestMetaOrgUserContext(),
-					getTestOrgUser()._id,
-					{ password: "new-password" },
-					true,
-				),
-			).rejects.toThrow(OWN_PASSWORD_ONLY_MESSAGE);
+			).rejects.toThrow(UnauthorizedError);
 		});
 
 		it("should reject empty string passwords when allowPasswordUpdate is true", async () => {
@@ -228,6 +243,26 @@ describe("UserService - password change blocking", () => {
 			);
 
 			expect(updatedUser.displayName).toBe("Updated Display Name");
+		});
+
+		it("should reject partial updates of another user for non-admins", async () => {
+			await expect(
+				service.partialUpdateById(
+					getTestMetaOrgUserContext(),
+					getTestOrgUser()._id,
+					{ displayName: "Hijacked" },
+				),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should allow admins to partial update another user", async () => {
+			const updatedUser = await service.partialUpdateById(
+				getTestMetaOrgAdminUserContext(),
+				getTestOrgUser()._id,
+				{ displayName: "Admin Updated" },
+			);
+
+			expect(updatedUser.displayName).toBe("Admin Updated");
 		});
 	});
 });

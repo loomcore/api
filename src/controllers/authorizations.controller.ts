@@ -1,5 +1,6 @@
 import type { Application } from "express";
 import type { IDatabase } from "../databases/models/index.js";
+import { adminWrites } from "../middleware/index.js";
 import {
 	AuthorizationModelSpec,
 	type IAuthorization,
@@ -19,6 +20,7 @@ export class AuthorizationsController extends ApiController<IAuthorization> {
 			"authorizations",
 			app,
 			authorizationService,
+			adminWrites,
 			"authorization",
 			AuthorizationModelSpec,
 		);

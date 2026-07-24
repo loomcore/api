@@ -1,16 +1,73 @@
 import type { IUserContext } from "@loomcore/common/models";
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { UnauthenticatedError, UnauthorizedError } from "../errors/index.js";
+import {
+	UnauthenticatedError,
+	UnauthorizedError,
+} from "../errors/index.js";
+import type {
+	FeatureRequirement,
+	MethodAuth,
+} from "./method-auth.model.js";
 import { getAuthUserContextSpec } from "../utils/auth/auth-user-specs.util.js";
 import { getAuthConfig } from "../utils/auth/get-auth-config.util.js";
 
-// Shared middleware implementation
-const isAuthorized = (allowedFeatures?: string[]) => {
-	return (req: Request, _res: Response, next: NextFunction) => {
-		let token = null;
+type AuthMethod = keyof MethodAuth;
 
-		// check Authorization Header
+function resolveAuthMethod(req: Request): AuthMethod | null {
+	switch (req.method.toUpperCase()) {
+		case "GET":
+		case "HEAD":
+			return "read";
+		case "POST":
+			return "create";
+		case "PUT":
+		case "PATCH":
+			return "update";
+		case "DELETE":
+			return "delete";
+		default:
+			return null;
+	}
+}
+
+function userHasFeature(
+	userContext: IUserContext,
+	feature: string,
+): boolean {
+	return userContext.authorizations.some(
+		(authorization) => authorization.feature === feature,
+	);
+}
+
+function isAdmin(userContext: IUserContext): boolean {
+	return (
+		userHasFeature(userContext, "admin") ||
+		userHasFeature(userContext, "system")
+	);
+}
+
+function assertFeatureRequirement(
+	userContext: IUserContext,
+	requirement: FeatureRequirement | undefined,
+): void {
+	if (requirement === undefined) {
+		throw new UnauthorizedError();
+	}
+	if (requirement === true) {
+		return;
+	}
+	if (
+		!requirement.some((feature) => userHasFeature(userContext, feature))
+	) {
+		throw new UnauthorizedError();
+	}
+}
+
+const isAuthorized = (config: MethodAuth) => {
+	return (req: Request, _res: Response, next: NextFunction) => {
+		let token: string | null = null;
+
 		if (req.headers?.authorization) {
 			const authHeader = req.headers.authorization;
 			const authHeaderArray = authHeader.split("Bearer ");
@@ -26,35 +83,32 @@ const isAuthorized = (allowedFeatures?: string[]) => {
 		const authConfig = getAuthConfig();
 
 		try {
-			// Get raw JWT payload first
 			const rawPayload = jwt.verify(token, authConfig.clientSecret);
-
-			// Use TypeBox to decode the payload properly, which will convert string dates to Date objects
 			const userContext = getAuthUserContextSpec().decode(
 				rawPayload,
 			) as IUserContext;
 
 			req.userContext = userContext;
 
-			if (
-				userContext.authorizations.some(
-					(authorization) => authorization.feature === "admin",
-				)
-			) {
+			if (isAdmin(userContext)) {
 				next();
-			} else if (allowedFeatures?.length) {
-				if (
-					!userContext.authorizations.some((authorization) =>
-						allowedFeatures.includes(authorization.feature),
-					)
-				) {
-					throw new UnauthorizedError();
-				}
-				next();
-			} else {
-				next();
+				return;
 			}
+
+			const method = resolveAuthMethod(req);
+			if (!method) {
+				throw new UnauthorizedError();
+			}
+
+			assertFeatureRequirement(userContext, config[method]);
+			next();
 		} catch (err) {
+			if (
+				err instanceof UnauthorizedError ||
+				err instanceof UnauthenticatedError
+			) {
+				throw err;
+			}
 			console.error(err);
 			throw new UnauthenticatedError();
 		}

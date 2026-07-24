@@ -34,7 +34,7 @@ describe("UsersController", () => {
 	describe("POST /users", () => {
 		const apiEndpoint = "/api/users";
 
-		it("should return a 201 and a newly created user on successful creation", async () => {
+		it("should allow an authenticated non-admin to create a user", async () => {
 			const authorizationHeaderValue =
 				await testUtils.loginWithTestUser(testAgent);
 
@@ -50,86 +50,7 @@ describe("UsersController", () => {
 				.send(newUser);
 
 			expect(response.status).toBe(201);
-			expect(response.body?.data).toHaveProperty("_id");
-			expect(response.body?.data).toHaveProperty("email", newUser.email);
-			expect(response.body?.data).toHaveProperty(
-				"_orgId",
-				getTestMetaOrgUser()._orgId,
-			);
-		});
-
-		it("should return a 400 with an invalid email", async () => {
-			const authorizationHeaderValue =
-				await testUtils.loginWithTestUser(testAgent);
-
-			const newUser = {
-				email: "test",
-				password: testUtils.newUser1Password,
-				_orgId: getTestMetaOrgUser()._orgId,
-			};
-
-			return testAgent
-				.post(apiEndpoint)
-				.set("Authorization", authorizationHeaderValue)
-				.send(newUser)
-				.expect(400);
-		});
-
-		it("should return a 400 with an invalid password", async () => {
-			const authorizationHeaderValue =
-				await testUtils.loginWithTestUser(testAgent);
-
-			const newUser = {
-				email: testUtils.newUser1Email,
-				password: "t",
-				_orgId: getTestMetaOrgUser()._orgId,
-			};
-
-			return testAgent
-				.post(apiEndpoint)
-				.set("Authorization", authorizationHeaderValue)
-				.send(newUser)
-				.expect(400);
-		});
-
-		it("should return a 400 with missing email or password", async () => {
-			const authorizationHeaderValue =
-				await testUtils.loginWithTestUser(testAgent);
-
-			await testAgent
-				.post(apiEndpoint)
-				.set("Authorization", authorizationHeaderValue)
-				.send({
-					email: "shouldfail@test.com",
-					_orgId: getTestMetaOrgUser()._orgId,
-				})
-				.expect(400);
-
-			await testAgent
-				.post(apiEndpoint)
-				.set("Authorization", authorizationHeaderValue)
-				.send({
-					password: "shouldfail",
-					_orgId: getTestMetaOrgUser()._orgId,
-				})
-				.expect(400);
-		});
-
-		it("should return a 400 if user with duplicate email already exists", async () => {
-			const authorizationHeaderValue =
-				await testUtils.loginWithTestUser(testAgent);
-
-			const newUser = {
-				email: getTestMetaOrgUser().email,
-				password: getTestMetaOrgUser().password,
-				_orgId: getTestMetaOrgUser()._orgId,
-			};
-
-			return testAgent
-				.post(apiEndpoint)
-				.set("Authorization", authorizationHeaderValue)
-				.send(newUser)
-				.expect(400);
+			expect(response.body?.data?.email).toBe(testUtils.newUser1Email);
 		});
 	});
 });

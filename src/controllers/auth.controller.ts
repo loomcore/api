@@ -104,12 +104,12 @@ export class AuthController {
 		app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
 		app.get(
 			`/api/auth/get-user-context`,
-			isAuthorized(),
+			isAuthorized({ read: true }),
 			this.getUserContext.bind(this),
 		);
 		app.patch(
 			`/api/auth/change-password`,
-			isAuthorized(),
+			isAuthorized({ update: true }),
 			this.changePassword.bind(this),
 		);
 		app.post(`/api/auth/forgot-password`, this.forgotPassword.bind(this));

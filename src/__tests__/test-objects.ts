@@ -101,6 +101,23 @@ export function getTestMetaOrgUserContext(): IUserContext {
 	};
 }
 
+/** Same user as meta org test user, but with the admin feature for permission tests. */
+export function getTestMetaOrgAdminUserContext(): IUserContext {
+	return {
+		user: getTestMetaOrgUser(),
+		organization: getTestMetaOrg(),
+		authorizations: [
+			{
+				_id: "6939c54e57a1c6576a40c590",
+				_orgId: getTestMetaOrg()._id,
+				role: "admin",
+				feature: "admin",
+				config: {},
+			},
+		],
+	};
+}
+
 let TEST_ORG_ID: string | number = "6926167d06c0073a778a124f";
 let TEST_ORG_USER_ID: string | number = "6926167d06c0073a778a1250";
 export function setTestOrgId(orgId: string | number) {

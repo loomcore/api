@@ -14,6 +14,7 @@ import type { Application, NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { ApiController } from "../controllers/api.controller.js";
+import { authenticated } from "../middleware/index.js";
 import type { IDatabase } from "../databases/models/index.js";
 import { MongoDBDatabase } from "../databases/mongo-db/mongo-db.database.js";
 import { LeftJoin } from "../databases/operations/left-join.operation.js";
@@ -387,7 +388,7 @@ export class CategoryService extends GenericApiService<ICategory> {
 export class CategoryController extends ApiController<ICategory> {
 	constructor(app: Application, database: IDatabase) {
 		const categoryService = new CategoryService(database);
-		super("categories", app, categoryService, "category", CategorySpec);
+		super("categories", app, categoryService, authenticated, "category", CategorySpec);
 	}
 }
 
@@ -465,7 +466,7 @@ export class ProductService extends GenericApiService<IProductWithCategory> {
 export class ProductsController extends ApiController<IProduct> {
 	constructor(app: Application, database: IDatabase) {
 		const productService = new ProductService(database);
-		super("products", app, productService, "product", ProductSpec);
+		super("products", app, productService, authenticated, "product", ProductSpec);
 	}
 
 	override async get(req: Request, res: Response, next: NextFunction) {
@@ -619,6 +620,7 @@ export class MultiTenantProductsController extends ApiController<IProduct> {
 			"multi-tenant-products",
 			app,
 			productService,
+			authenticated,
 			"product",
 			ProductSpec,
 			PublicAggregatedProductSpec,

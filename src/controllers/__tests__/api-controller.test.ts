@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
 
 import { ApiController } from '../api.controller.js';
+import { authenticated } from '../../middleware/index.js';
 
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
@@ -26,7 +27,7 @@ class TestItemController extends ApiController<ITestItem> {
 
   constructor(app: Application, database: IDatabase) {
     const testItemService = new TestItemService(database);
-    super('test-items', app, testItemService, 'testItem', TestItemSpec);
+    super('test-items', app, testItemService, authenticated, 'testItem', TestItemSpec);
 
     this.testItemService = testItemService;
   }
