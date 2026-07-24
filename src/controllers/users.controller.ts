@@ -10,7 +10,11 @@ import type { MethodAuth } from "../middleware/index.js";
 import { UserService } from "../services/index.js";
 import { ApiController } from "./api.controller.js";
 
-/** Authenticated reads/creates/updates; delete requires admin. Ownership enforced in UserService. */
+/**
+ * Authenticated reads/creates/updates; delete requires admin.
+ * UserService further restricts reads: getById is self-or-admin;
+ * get/getAll/getCount are admin/system only. Updates are self-or-admin.
+ */
 export const usersRouteAuth: MethodAuth = {
 	read: true,
 	create: true,
@@ -22,6 +26,7 @@ export interface UsersControllerOptions {
 	userService?: UserService;
 	userSpec?: IModelSpec;
 	publicUserSpec?: IModelSpec;
+	routeAuth?: MethodAuth;
 }
 
 export class UsersController extends ApiController<IUser> {
@@ -40,7 +45,7 @@ export class UsersController extends ApiController<IUser> {
 			"users",
 			app,
 			userService,
-			usersRouteAuth,
+			options.routeAuth ?? usersRouteAuth,
 			"user",
 			userSpec,
 			publicUserSpec,

@@ -23,7 +23,7 @@ beforeAll(() => {
 	initializeTypeBox();
 });
 
-describe("UserService - password change blocking", () => {
+describe("UserService", () => {
 	let service: UserService;
 
 	beforeAll(async () => {
@@ -40,6 +40,79 @@ describe("UserService - password change blocking", () => {
 	beforeEach(async () => {
 		await TestExpressApp.clearCollections();
 		await testUtils.setupTestUsers();
+	});
+
+	describe("getById", () => {
+		it("should allow a user to get themselves", async () => {
+			const user = await service.getById(
+				getTestMetaOrgUserContext(),
+				getTestMetaOrgUser()._id,
+			);
+
+			expect(user._id).toEqual(getTestMetaOrgUser()._id);
+		});
+
+		it("should reject getting another user for non-admins", async () => {
+			await expect(
+				service.getById(
+					getTestMetaOrgUserContext(),
+					getTestOrgUser()._id,
+				),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should allow admins to get another user", async () => {
+			const created = await service.create(
+				getTestMetaOrgAdminUserContext(),
+				{
+					email: "another-meta-user@example.com",
+					displayName: "Another Meta User",
+					password: "password123!",
+					externalId: "another-meta-user",
+				},
+			);
+			expect(created).toBeTruthy();
+
+			const user = await service.getById(
+				getTestMetaOrgAdminUserContext(),
+				created!._id,
+			);
+
+			expect(user._id).toEqual(created!._id);
+		});
+	});
+
+	describe("get / getAll / getCount", () => {
+		it("should reject get from non-admin users", async () => {
+			await expect(
+				service.get(getTestMetaOrgUserContext()),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should reject getAll from non-admin users", async () => {
+			await expect(
+				service.getAll(getTestMetaOrgUserContext()),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should reject getCount from non-admin users", async () => {
+			await expect(
+				service.getCount(getTestMetaOrgUserContext()),
+			).rejects.toThrow(UnauthorizedError);
+		});
+
+		it("should allow admins to get, getAll, and getCount", async () => {
+			const adminContext = getTestMetaOrgAdminUserContext();
+
+			const paged = await service.get(adminContext);
+			expect(paged.entities.length).toBeGreaterThan(0);
+
+			const all = await service.getAll(adminContext);
+			expect(all.length).toBeGreaterThan(0);
+
+			const count = await service.getCount(adminContext);
+			expect(count).toBeGreaterThan(0);
+		});
 	});
 
 	describe("update", () => {

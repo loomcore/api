@@ -1,5 +1,6 @@
 import {
 	type IModelSpec,
+	type IPagedResult,
 	type IQueryOptions,
 	type IUser,
 	type IUserContext,
@@ -44,6 +45,32 @@ export class UserService extends MultiTenantApiService<IUser> {
 		if (userContext.user._id !== id) {
 			throw new UnauthorizedError();
 		}
+	}
+
+	override async getById(
+		userContext: IUserContext,
+		id: AppIdType,
+	): Promise<IUser> {
+		this.assertSelfOrAdmin(userContext, id);
+		return super.getById(userContext, id);
+	}
+
+	override async get(
+		userContext: IUserContext,
+		queryOptions?: IQueryOptions,
+	): Promise<IPagedResult<IUser>> {
+		this.assertAdmin(userContext);
+		return super.get(userContext, queryOptions);
+	}
+
+	override async getAll(userContext: IUserContext): Promise<IUser[]> {
+		this.assertAdmin(userContext);
+		return super.getAll(userContext);
+	}
+
+	override async getCount(userContext: IUserContext): Promise<number> {
+		this.assertAdmin(userContext);
+		return super.getCount(userContext);
 	}
 
 	// Don't full update a User. You can create, partial update, or delete a user.
