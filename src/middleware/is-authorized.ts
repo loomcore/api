@@ -82,36 +82,25 @@ const isAuthorized = (config: MethodAuth) => {
 
 		const authConfig = getAuthConfig();
 
-		try {
-			const rawPayload = jwt.verify(token, authConfig.clientSecret);
-			const userContext = getAuthUserContextSpec().decode(
-				rawPayload,
-			) as IUserContext;
+		const rawPayload = jwt.verify(token, authConfig.clientSecret);
+		const userContext = getAuthUserContextSpec().decode(
+			rawPayload,
+		) as IUserContext;
 
-			req.userContext = userContext;
+		req.userContext = userContext;
 
-			if (isAdmin(userContext)) {
-				next();
-				return;
-			}
-
-			const method = resolveAuthMethod(req);
-			if (!method) {
-				throw new UnauthorizedError();
-			}
-
-			assertFeatureRequirement(userContext, config[method]);
+		if (isAdmin(userContext)) {
 			next();
-		} catch (err) {
-			if (
-				err instanceof UnauthorizedError ||
-				err instanceof UnauthenticatedError
-			) {
-				throw err;
-			}
-			console.error(err);
-			throw new UnauthenticatedError();
+			return;
 		}
+
+		const method = resolveAuthMethod(req);
+		if (!method) {
+			throw new UnauthorizedError();
+		}
+
+		assertFeatureRequirement(userContext, config[method]);
+		next();
 	};
 };
 

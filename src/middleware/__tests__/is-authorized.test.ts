@@ -94,6 +94,16 @@ describe("isAuthorized", () => {
 		expect(next).not.toHaveBeenCalled();
 	});
 
+	it("denies delete when delete requires admin", () => {
+		const middleware = isAuthorized(adminWrites);
+		const req = makeReq("DELETE", makeUserContext(["agent"]));
+
+		expect(() => middleware(req, {} as Response, next)).toThrow(
+			UnauthorizedError,
+		);
+		expect(next).not.toHaveBeenCalled();
+	});
+
 	it("denies when the method bucket is missing", () => {
 		const config: MethodAuth = { read: true };
 		const middleware = isAuthorized(config);
