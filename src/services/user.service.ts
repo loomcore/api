@@ -8,11 +8,11 @@ import {
 } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import type { IDatabase } from "../databases/models/index.js";
+import { BadRequestError, ServerError } from "../errors/index.js";
 import {
-	BadRequestError,
-	ServerError,
-	UnauthorizedError,
-} from "../errors/index.js";
+	assertAdmin,
+	assertSelfOrAdmin,
+} from "../utils/auth/index.js";
 import { passwordUtils } from "../utils/password.utils.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
 
@@ -21,37 +21,11 @@ export class UserService extends MultiTenantApiService<IUser> {
 		super(database, "users", "user", modelSpec);
 	}
 
-	private isAdmin(userContext: IUserContext): boolean {
-		return userContext.authorizations.some(
-			(authorization) =>
-				authorization.feature === "admin" ||
-				authorization.feature === "system",
-		);
-	}
-
-	private assertAdmin(userContext: IUserContext): void {
-		if (!this.isAdmin(userContext)) {
-			throw new UnauthorizedError();
-		}
-	}
-
-	private assertSelfOrAdmin(
-		userContext: IUserContext,
-		id: AppIdType,
-	): void {
-		if (this.isAdmin(userContext)) {
-			return;
-		}
-		if (userContext.user._id !== id) {
-			throw new UnauthorizedError();
-		}
-	}
-
 	override async getById(
 		userContext: IUserContext,
 		id: AppIdType,
 	): Promise<IUser> {
-		this.assertSelfOrAdmin(userContext, id);
+		assertSelfOrAdmin(userContext, id);
 		return super.getById(userContext, id);
 	}
 
@@ -59,17 +33,17 @@ export class UserService extends MultiTenantApiService<IUser> {
 		userContext: IUserContext,
 		queryOptions?: IQueryOptions,
 	): Promise<IPagedResult<IUser>> {
-		this.assertAdmin(userContext);
+		assertAdmin(userContext);
 		return super.get(userContext, queryOptions);
 	}
 
 	override async getAll(userContext: IUserContext): Promise<IUser[]> {
-		this.assertAdmin(userContext);
+		assertAdmin(userContext);
 		return super.getAll(userContext);
 	}
 
 	override async getCount(userContext: IUserContext): Promise<number> {
-		this.assertAdmin(userContext);
+		assertAdmin(userContext);
 		return super.getCount(userContext);
 	}
 
@@ -87,7 +61,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		queryObject: IQueryOptions,
 		entity: Partial<IUser>,
 	): Promise<IUser[]> {
-		this.assertAdmin(userContext);
+		assertAdmin(userContext);
 		this.assertPasswordUpdateAllowed(userContext, null, entity, false);
 		return super.update(userContext, queryObject, entity);
 	}
@@ -96,7 +70,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		userContext: IUserContext,
 		entities: Partial<IUser>[],
 	): Promise<IUser[]> {
-		this.assertAdmin(userContext);
+		assertAdmin(userContext);
 		for (const entity of entities) {
 			this.assertPasswordUpdateAllowed(userContext, null, entity, false);
 		}
@@ -109,7 +83,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		entity: Partial<IUser>,
 		allowPasswordUpdate: boolean = false,
 	): Promise<IUser> {
-		this.assertSelfOrAdmin(userContext, id);
+		assertSelfOrAdmin(userContext, id);
 		this.assertPasswordUpdateAllowed(
 			userContext,
 			id,

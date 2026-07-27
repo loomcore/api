@@ -6,6 +6,8 @@ import {
 	type ITokenResponse,
 	type IUserContext,
 	passwordValidator,
+	PublicUserContextSpec,
+	PublicUserSpec,
 	TokenResponseSpec,
 	UserSpec,
 } from "@loomcore/common/models";
@@ -20,31 +22,21 @@ import { OrganizationService, UserService } from "../services/index.js";
 import {
 	attemptLogin,
 	changePassword,
-	createUserContextSpec,
+	createLoginResponseSpec,
 	getAndSetDeviceIdCookie,
 	getDeviceIdFromCookie,
 	requestTokenUsingRefreshToken,
 	resetPassword,
-	resolveAuthUserSpecs,
 	sendResetPasswordEmail,
 	setAuthUserContextSpec,
 } from "../utils/auth/index.js";
 import { apiUtils } from "../utils/index.js";
 
 export interface AuthControllerOptions {
-	/** Custom user service (e.g. built with an extended UserSpec). */
-	userService?: UserService;
-	/**
-	 * Full user model spec including password (validation + JWT decode).
-	 * If omitted, inherited from `userService.getModelSpec()` when that service
-	 * uses a non-default UserSpec.
-	 */
-	userSpec?: IModelSpec;
-	/**
-	 * Public user model spec without password (login / get-user-context responses).
-	 * Also used as a JWT decode fallback when no full userSpec is available.
-	 */
-	publicUserSpec?: IModelSpec;
+	userService: UserService;
+	userSpec: IModelSpec;
+	publicUserSpec: IModelSpec;
+	publicUserContextSpec: IModelSpec;
 }
 
 export class AuthController {
@@ -53,45 +45,27 @@ export class AuthController {
 	organizationService: OrganizationService;
 	userSpec: IModelSpec;
 	publicUserSpec: IModelSpec;
-	publicUserContextSpec: IModelSpec;
+	userContextSpec: IModelSpec;
 	loginResponseSpec: IModelSpec;
 
 	constructor(
 		app: Application,
 		database: IDatabase,
-		options: AuthControllerOptions = {},
+		options: AuthControllerOptions = {
+			userService: new UserService(database),
+			userSpec: UserSpec,
+			publicUserSpec: PublicUserSpec,
+			publicUserContextSpec: PublicUserContextSpec,
+		},
 	) {
 		this.database = database;
-
-		// Prefer an explicit userSpec; otherwise inherit from an injected userService
-		// so hosts don't have to pass the same spec twice.
-		const userSpecFromService = options.userService?.getModelSpec();
-		const inheritedUserSpec =
-			userSpecFromService && userSpecFromService !== UserSpec
-				? userSpecFromService
-				: undefined;
-		const resolved = resolveAuthUserSpecs({
-			userSpec: options.userSpec ?? inheritedUserSpec,
-			publicUserSpec: options.publicUserSpec,
-		});
-		this.userSpec = resolved.userSpec;
-		this.publicUserSpec = resolved.publicUserSpec;
-		this.publicUserContextSpec = resolved.publicUserContextSpec;
-		this.loginResponseSpec = resolved.loginResponseSpec;
-
-		this.userService =
-			options.userService ?? new UserService(database, this.userSpec);
+		this.userSpec = options.userSpec;
+		this.publicUserSpec = options.publicUserSpec;
+		this.userContextSpec = options.publicUserContextSpec;
+		setAuthUserContextSpec(this.userContextSpec);
+		this.loginResponseSpec = createLoginResponseSpec(this.userContextSpec);
+		this.userService = options.userService;
 		this.organizationService = new OrganizationService(database);
-
-		// JWT decode must use the host user schema so extended fields survive
-		// isAuthorized → req.userContext. Prefer the full userSpec; fall back to
-		// publicUserSpec when that is the only extended schema the host provided.
-		const jwtUserModelSpec =
-			options.userSpec ?? inheritedUserSpec ?? options.publicUserSpec;
-		if (jwtUserModelSpec) {
-			setAuthUserContextSpec(createUserContextSpec(jwtUserModelSpec));
-		}
-
 		this.mapRoutes(app);
 	}
 
@@ -208,7 +182,7 @@ export class AuthController {
 			res,
 			200,
 			{ data: userContext },
-			this.publicUserContextSpec,
+			this.userContextSpec,
 		);
 	}
 

@@ -8,12 +8,12 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUser, getTestOrgUser } from '../../__tests__/test-objects.js';
+import { getTestOrgUser } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { UserService, OrganizationService } from '../../services/index.js';
 import { UsersController } from '../users.controller.js';
 import { AuthController } from '../auth.controller.js';
-import { IPersonModel, IUser } from '@loomcore/common/models';
+import { IUser } from '@loomcore/common/models';
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {

@@ -1,3 +1,6 @@
+export * from "./assert-admin.util.js";
+export * from "./assert-owner-or-admin.util.js";
+export * from "./assert-self-or-admin.util.js";
 export * from "./attempt-login.util.js";
 export * from "./auth-user-specs.util.js";
 export * from "./change-password.util.js";
@@ -12,6 +15,7 @@ export * from "./get-device-id-from-cookie.util.js";
 export * from "./get-expires-on-from-days.util.js";
 export * from "./get-expires-on-from-minutes.util.js";
 export * from "./get-expires-on-from-seconds.util.js";
+export * from "./is-admin.util.js";
 export * from "./log-user-in.util.js";
 export * from "./request-token-using-refresh-token.util.js";
 export * from "./reset-password.util.js";

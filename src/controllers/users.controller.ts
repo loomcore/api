@@ -6,27 +6,15 @@ import {
 } from "@loomcore/common/models";
 import type { Application } from "express";
 import type { IDatabase } from "../databases/models/index.js";
-import type { MethodAuth } from "../middleware/index.js";
+import { authenticated, type MethodAuth } from "../middleware/index.js";
 import { UserService } from "../services/index.js";
 import { ApiController } from "./api.controller.js";
 
-/**
- * Authenticated reads/creates/updates; delete requires admin.
- * UserService further restricts reads: getById is self-or-admin;
- * get/getAll/getCount are admin/system only. Updates are self-or-admin.
- */
-export const usersRouteAuth: MethodAuth = {
-	read: true,
-	create: true,
-	update: true,
-	delete: ["admin"],
-};
-
 export interface UsersControllerOptions {
-	userService?: UserService;
-	userSpec?: IModelSpec;
-	publicUserSpec?: IModelSpec;
-	routeAuth?: MethodAuth;
+	userService: UserService;
+	userSpec: IModelSpec;
+	publicUserSpec: IModelSpec;
+	methodAuth: MethodAuth;
 }
 
 export class UsersController extends ApiController<IUser> {
@@ -35,21 +23,22 @@ export class UsersController extends ApiController<IUser> {
 	constructor(
 		app: Application,
 		database: IDatabase,
-		options: UsersControllerOptions = {},
+		options: UsersControllerOptions = {
+			userService: new UserService(database),
+			userSpec: UserSpec,
+			publicUserSpec: PublicUserSpec,
+			methodAuth: authenticated,
+		},
 	) {
-		const userSpec = options.userSpec ?? UserSpec;
-		const publicUserSpec = options.publicUserSpec ?? PublicUserSpec;
-		const userService =
-			options.userService ?? new UserService(database, userSpec);
 		super(
 			"users",
 			app,
-			userService,
-			options.routeAuth ?? usersRouteAuth,
+			options.userService,
+			options.methodAuth,
 			"user",
-			userSpec,
-			publicUserSpec,
+			options.userSpec,
+			options.publicUserSpec,
 		);
-		this.userService = userService;
+		this.userService = options.userService;
 	}
 }

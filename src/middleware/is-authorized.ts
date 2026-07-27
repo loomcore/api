@@ -2,15 +2,17 @@ import type { IUserContext } from "@loomcore/common/models";
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import {
+	BadRequestError,
 	UnauthenticatedError,
 	UnauthorizedError,
 } from "../errors/index.js";
 import type {
 	FeatureRequirement,
 	MethodAuth,
-} from "./method-auth.model.js";
+} from "../models/method-auth.model.js";
 import { getAuthUserContextSpec } from "../utils/auth/auth-user-specs.util.js";
 import { getAuthConfig } from "../utils/auth/get-auth-config.util.js";
+import { isAdmin } from "../utils/auth/is-admin.util.js";
 
 type AuthMethod = keyof MethodAuth;
 
@@ -31,25 +33,9 @@ function resolveAuthMethod(req: Request): AuthMethod | null {
 	}
 }
 
-function userHasFeature(
-	userContext: IUserContext,
-	feature: string,
-): boolean {
-	return userContext.authorizations.some(
-		(authorization) => authorization.feature === feature,
-	);
-}
-
-function isAdmin(userContext: IUserContext): boolean {
-	return (
-		userHasFeature(userContext, "admin") ||
-		userHasFeature(userContext, "system")
-	);
-}
-
 function assertFeatureRequirement(
 	userContext: IUserContext,
-	requirement: FeatureRequirement | undefined,
+	requirement?: FeatureRequirement,
 ): void {
 	if (requirement === undefined) {
 		throw new UnauthorizedError();
@@ -58,7 +44,9 @@ function assertFeatureRequirement(
 		return;
 	}
 	if (
-		!requirement.some((feature) => userHasFeature(userContext, feature))
+		!requirement.some((feature) => userContext.authorizations.some(
+			(authorization) => authorization.feature === feature,
+		))
 	) {
 		throw new UnauthorizedError();
 	}
@@ -96,7 +84,7 @@ const isAuthorized = (config: MethodAuth) => {
 
 		const method = resolveAuthMethod(req);
 		if (!method) {
-			throw new UnauthorizedError();
+			throw new BadRequestError("Invalid HTTP method");
 		}
 
 		assertFeatureRequirement(userContext, config[method]);
