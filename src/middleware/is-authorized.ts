@@ -77,11 +77,6 @@ const isAuthorized = (config: MethodAuth) => {
 
 		req.userContext = userContext;
 
-		if (isAdmin(userContext)) {
-			next();
-			return;
-		}
-
 		const method = resolveAuthMethod(req);
 		if (!method) {
 			throw new BadRequestError("Invalid HTTP method");
