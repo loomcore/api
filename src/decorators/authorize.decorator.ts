@@ -22,16 +22,17 @@ export interface AuthRequirement {
  *     createReport(req, res) { ... }
  *   }
  *
- * By default all listed features are required (AND). Pass { any: true } for OR semantics.
+ * By default listed features are treated with OR logic (if any are present, the user is authorized).
+ *  Pass { all: true } for AND semantics (all features must be present).
  * A method-level @Authorize OVERRIDES a class-level one for that method.
  */
 export function Authorize(
   features: string | string[],
-  options: { any?: boolean } = {}
+  options: { all?: boolean } = {}
 ) {
   const requirement: AuthRequirement = {
     features: Array.isArray(features) ? features : [features],
-    mode: options.any ? 'any' : 'all',
+    mode: options.all ? 'all' : 'any',
   };
 
   return function (
