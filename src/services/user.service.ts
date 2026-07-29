@@ -11,7 +11,7 @@ import type { IDatabase } from "../databases/models/index.js";
 import { BadRequestError, ServerError } from "../errors/index.js";
 import {
 	assertAdmin,
-	assertSelfOrAdmin,
+	assertUserOrAdmin,
 } from "../utils/auth/index.js";
 import { passwordUtils } from "../utils/password.utils.js";
 import { MultiTenantApiService } from "./multi-tenant-api.service.js";
@@ -25,7 +25,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		userContext: IUserContext,
 		id: AppIdType,
 	): Promise<IUser> {
-		assertSelfOrAdmin(userContext, id);
+		assertUserOrAdmin(userContext, id);
 		return super.getById(userContext, id);
 	}
 
@@ -83,7 +83,7 @@ export class UserService extends MultiTenantApiService<IUser> {
 		entity: Partial<IUser>,
 		allowPasswordUpdate: boolean = false,
 	): Promise<IUser> {
-		assertSelfOrAdmin(userContext, id);
+		assertUserOrAdmin(userContext, id);
 		this.assertPasswordUpdateAllowed(
 			userContext,
 			id,

@@ -1,6 +1,5 @@
-import type { IUserContext } from "@loomcore/common/models";
+import type { IRefreshToken, IUserContext } from "@loomcore/common/models";
 import type { IDatabase } from "../../databases/models/index.js";
-import type { IRefreshToken } from "../../models/refresh-token.model.js";
 import { RefreshTokenService } from "../../services/refresh-token.service.js";
 
 export async function getActiveRefreshToken(

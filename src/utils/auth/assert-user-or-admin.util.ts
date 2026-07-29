@@ -3,7 +3,7 @@ import type { AppIdType } from "@loomcore/common/types";
 import { UnauthorizedError } from "../../errors/index.js";
 import { isAdmin } from "./is-admin.util.js";
 
-export function assertSelfOrAdmin(
+export function assertUserOrAdmin(
 	userContext: IUserContext,
 	userId: AppIdType,
 ): void {

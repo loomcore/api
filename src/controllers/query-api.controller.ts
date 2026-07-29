@@ -2,26 +2,18 @@ import { Application, NextFunction, Request, Response } from 'express';
 import { IEntity, IPagedResult, IModelSpec } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { BadRequestError } from '../errors/index.js';
-import { entityUtils } from '@loomcore/common/utils';
 import { Value } from '@sinclair/typebox/value';
 import { getIdSchema } from '@loomcore/common/validation';
 import type { TSchema } from '@sinclair/typebox';
 
-import { IGenericApiService, IGenericQueryService } from '../services/index.js';
-import { apiUtils } from '../utils/index.js';
-import { DeleteResult } from '../databases/models/delete-result.js';
-import {
-  authenticated,
-  isAuthorized,
-  type MethodAuth,
-} from '../middleware/index.js';
+import { IGenericQueryService } from '../services/index.js';
+import { apiUtils, authorizeMethod } from '../utils/index.js';
 
 export abstract class QueryApiController<T extends IEntity> {
   protected app: Application;
   protected service: IGenericQueryService<T>;
   protected slug: string;
   protected apiResourceName: string;
-  protected routeAuth: MethodAuth;
   protected modelSpec?: IModelSpec;
   protected publicSpec?: IModelSpec;
   protected idSchema: TSchema;
@@ -36,7 +28,6 @@ export abstract class QueryApiController<T extends IEntity> {
    * @param slug - The URL path segment for this resource (e.g., 'users' for '/api/users')
    * @param app - The Express application instance to register routes with
    * @param service - The service implementing business logic for this entity type (must implement IGenericQueryService<T>))
-   * @param routeAuth - Method-level authorization requirements for query routes (defaults to authenticated)
    * @param resourceName - The singular name of the resource (used in error messages)
    * @param modelSpec - The TypeBox model specification containing schema and validation details
    * @param publicSpec - Optional model spec to filter sensitive fields from API responses (e.g., remove passwords)
@@ -47,7 +38,7 @@ export abstract class QueryApiController<T extends IEntity> {
    * class UsersController extends QueryApiController<IUser> {
    *   constructor(app: Application, db: Db) {
    *     const userService = new UserService(db);
-   *     super('users', app, userService, authenticated, 'user', UserSpec, PublicUserSchema);
+   *     super('users', app, userService, 'user', UserSpec, PublicUserSchema);
    *   }
    * }
    * ```
@@ -56,7 +47,6 @@ export abstract class QueryApiController<T extends IEntity> {
     slug: string,
     app: Application,
     service: IGenericQueryService<T>,
-    routeAuth: MethodAuth = authenticated,
     resourceName: string = '',
     modelSpec?: IModelSpec,
     publicSpec?: IModelSpec
@@ -64,7 +54,6 @@ export abstract class QueryApiController<T extends IEntity> {
     this.slug = slug;
     this.app = app;
     this.service = service;
-    this.routeAuth = routeAuth;
     this.apiResourceName = resourceName;
     this.modelSpec = modelSpec;
     this.publicSpec = publicSpec;
@@ -76,11 +65,11 @@ export abstract class QueryApiController<T extends IEntity> {
   mapRoutes(app: Application) {
     // Map routes
     // have to bind "this" because when express calls the function we tell it to here, it won't have any context and "this" will be undefined in our functions
-    const auth = isAuthorized(this.routeAuth);
-    app.get(`/api/${this.slug}`, auth, this.get.bind(this));
-    app.get(`/api/${this.slug}/all`, auth, this.getAll.bind(this));
-    app.get(`/api/${this.slug}/count`, auth, this.getCount.bind(this));
-    app.get(`/api/${this.slug}/:id`, auth, this.getById.bind(this));
+    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
+    app.get(`/api/${this.slug}`, authorize('get'), this.get.bind(this));
+    app.get(`/api/${this.slug}/all`, authorize('getAll'), this.getAll.bind(this));
+    app.get(`/api/${this.slug}/count`, authorize('getCount'), this.getCount.bind(this));
+    app.get(`/api/${this.slug}/:id`, authorize('getById'), this.getById.bind(this));
   }
 
 
@@ -111,13 +100,15 @@ export abstract class QueryApiController<T extends IEntity> {
       throw new BadRequestError('ID parameter is required');
     }
 
+    let id: AppIdType;
     try {
-      const id = Value.Convert(this.idSchema, idParam) as AppIdType;
-      const entity = await this.service.getById(req.userContext!, id);
-      apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
+      id = Value.Convert(this.idSchema, idParam) as AppIdType;
     } catch (error: any) {
       throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
     }
+
+    const entity = await this.service.getById(req.userContext!, id);
+    apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
   }
 
   async getCount(req: Request, res: Response, next: NextFunction) {

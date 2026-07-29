@@ -9,6 +9,7 @@ import { Type } from "@sinclair/typebox";
 export function createLoginResponseSpec(
 	userContextSpec: IModelSpec,
 ): IModelSpec {
+	authUserContextSpec = userContextSpec;
 	return entityUtils.getModelSpec(
 		Type.Object({
 			tokens: TokenResponseSchema,
@@ -19,10 +20,6 @@ export function createLoginResponseSpec(
 }
 
 let authUserContextSpec: IModelSpec = UserContextSpec;
-
-export function setAuthUserContextSpec(spec: IModelSpec): void {
-	authUserContextSpec = spec;
-}
 
 export function getAuthUserContextSpec(): IModelSpec {
 	return authUserContextSpec;

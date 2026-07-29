@@ -7,9 +7,9 @@ import {
 import type { IDatabase } from "../../databases/models/index.js";
 import { BadRequestError } from "../../errors/index.js";
 import { UserService } from "../../services/user.service.js";
-import { getUserContextAuthorizations } from "../../services/utils/getUserContextAuthorizations.util.js";
 import { passwordUtils } from "../password.utils.js";
 import { logUserIn } from "./log-user-in.util.js";
+import { getUserContextFeatures } from "../../services/utils/getUserContextAuthorizations.util.js";
 
 export async function attemptLogin(
 	database: IDatabase,
@@ -41,11 +41,11 @@ export async function attemptLogin(
 		throw new BadRequestError("Invalid Credentials");
 	}
 
-	const authorizations = await getUserContextAuthorizations(database, user);
+	const features = await getUserContextFeatures(database, user);
 	const authenticatedUserContext: IUserContext = {
 		user: user,
 		organization: organization ?? undefined,
-		authorizations: authorizations,
+		features: features,
 	};
 	const tokens = await logUserIn(
 		database,

@@ -5,14 +5,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
 	createLoginResponseSpec,
 	getAuthUserContextSpec,
-	setAuthUserContextSpec,
 } from "../auth-user-specs.util.js";
 
 describe("auth-user-specs", () => {
-	afterEach(() => {
-		setAuthUserContextSpec(UserContextSpec);
-	});
-
 	it("creates a login response spec from a user context spec", () => {
 		const loginResponseSpec = createLoginResponseSpec(UserContextSpec);
 		const loginEncoded = loginResponseSpec.encode({
@@ -29,7 +24,7 @@ describe("auth-user-specs", () => {
 					_created: new Date("2024-01-01T00:00:00.000Z"),
 					_createdBy: "507f1f77bcf86cd799439011",
 				},
-				authorizations: [],
+				features: [],
 				organization: {
 					_id: "507f1f77bcf86cd799439012",
 					name: "Test Org",
@@ -44,13 +39,13 @@ describe("auth-user-specs", () => {
 		expect(loginEncoded.userContext.user.email).toBe("test@example.com");
 	});
 
-	it("registers the JWT user context spec used by isAuthorized", () => {
+	it("registers the JWT user context spec used by auth middleware", () => {
 		expect(getAuthUserContextSpec()).toBe(UserContextSpec);
 
 		const custom = entityUtils.getModelSpec(Type.Object({}), {
 			isEntity: false,
 		});
-		setAuthUserContextSpec(custom);
+		createLoginResponseSpec(custom);
 		expect(getAuthUserContextSpec()).toBe(custom);
 	});
 });

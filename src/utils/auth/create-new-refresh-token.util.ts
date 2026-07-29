@@ -1,9 +1,8 @@
-import { getSystemUserContext } from "@loomcore/common/models";
+import { getSystemUserContext, type IRefreshToken } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import moment from "moment";
 import type { IDatabase } from "../../databases/models/index.js";
 import { ServerError } from "../../errors/index.js";
-import type { IRefreshToken } from "../../models/refresh-token.model.js";
 import { RefreshTokenService } from "../../services/refresh-token.service.js";
 import { generateRefreshToken } from "./generate-refresh-token.util.js";
 import { getAuthConfig } from "./get-auth-config.util.js";

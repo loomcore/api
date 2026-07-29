@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import { resolveAuthRequirement } from '../../decorators/authorize.decorator.js';
-import { buildAuthGuard } from '../../middleware/authorize.middleware.js';
+import { buildAuthGuard } from '../../middleware/authorize/authorize.middleware.js';
 
 /**
  * Resolves the effective @Authorize requirement for a single method (method-level,

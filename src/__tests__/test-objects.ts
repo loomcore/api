@@ -89,15 +89,7 @@ export function getTestMetaOrgUserContext(): IUserContext {
 	return {
 		user: getTestMetaOrgUser(),
 		organization: getTestMetaOrg(),
-		authorizations: [
-			{
-				_id: "6939c54e57a1c6576a40c590",
-				_orgId: getTestMetaOrg()._id,
-				role: "metaorgUser",
-				feature: "metaorgUser",
-				config: {},
-			},
-		],
+		features: ["metaorgUser"],
 	};
 }
 
@@ -106,15 +98,7 @@ export function getTestMetaOrgAdminUserContext(): IUserContext {
 	return {
 		user: getTestMetaOrgUser(),
 		organization: getTestMetaOrg(),
-		authorizations: [
-			{
-				_id: "6939c54e57a1c6576a40c590",
-				_orgId: getTestMetaOrg()._id,
-				role: "admin",
-				feature: "admin",
-				config: {},
-			},
-		],
+		features: ["admin"],
 	};
 }
 
@@ -184,14 +168,6 @@ export function getTestOrgUserContext(): IUserContext {
 	return {
 		user: getTestOrgUser(),
 		organization: getTestOrg(),
-		authorizations: [
-			{
-				_id: "6939c54e57a1c6576a40c591",
-				_orgId: getTestOrg()._id,
-				role: "testOrgUser",
-				feature: "testOrgUser",
-				config: {},
-			},
-		],
+		features: ["testOrgUser"],
 	};
 }

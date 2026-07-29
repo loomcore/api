@@ -14,7 +14,6 @@ import { TestExpressApp } from "../../__tests__/test-express-app.js";
 import { getTestMetaOrgUser } from "../../__tests__/test-objects.js";
 import { IDatabase } from "../../databases/models/index.js";
 import { MultiTenantApiService } from "../../services/multi-tenant-api.service.js";
-import { authenticated } from "../../middleware/index.js";
 import { ApiController } from "../api.controller.js";
 
 // Create a test service that uses MultiTenantApiService
@@ -30,7 +29,7 @@ class TestItemController extends ApiController<ITestItem> {
 
 	constructor(app: Application, database: IDatabase) {
 		const testItemService = new TestItemService(database);
-		super("test-items", app, testItemService, authenticated, "testItem", TestItemSpec);
+		super("test-items", app, testItemService, "testItem", TestItemSpec);
 
 		this.testItemService = testItemService;
 	}

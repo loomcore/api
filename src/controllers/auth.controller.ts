@@ -17,10 +17,10 @@ import { config } from "../config/base-api-config.js";
 import type { IDatabase } from "../databases/models/index.js";
 import type { UpdateResult } from "../databases/models/update-result.js";
 import { BadRequestError, UnauthenticatedError } from "../errors/index.js";
-import { isAuthorized } from "../middleware/index.js";
 import { OrganizationService, UserService } from "../services/index.js";
 import {
 	attemptLogin,
+	authorizeMethod,
 	changePassword,
 	createLoginResponseSpec,
 	getAndSetDeviceIdCookie,
@@ -28,9 +28,9 @@ import {
 	requestTokenUsingRefreshToken,
 	resetPassword,
 	sendResetPasswordEmail,
-	setAuthUserContextSpec,
 } from "../utils/auth/index.js";
 import { apiUtils } from "../utils/index.js";
+import { AllowAnonymous, Authorize } from "../decorators/authorize.decorator.js";
 
 export interface AuthControllerOptions {
 	userService: UserService;
@@ -38,7 +38,6 @@ export interface AuthControllerOptions {
 	publicUserSpec: IModelSpec;
 	publicUserContextSpec: IModelSpec;
 }
-
 export class AuthController {
 	database: IDatabase;
 	userService: UserService;
@@ -62,7 +61,6 @@ export class AuthController {
 		this.userSpec = options.userSpec;
 		this.publicUserSpec = options.publicUserSpec;
 		this.userContextSpec = options.publicUserContextSpec;
-		setAuthUserContextSpec(this.userContextSpec);
 		this.loginResponseSpec = createLoginResponseSpec(this.userContextSpec);
 		this.userService = options.userService;
 		this.organizationService = new OrganizationService(database);
@@ -70,6 +68,7 @@ export class AuthController {
 	}
 
 	mapRoutes(app: Application) {
+		const authorize = (method: keyof this) => authorizeMethod(this, method as any);
 		app.post(
 			`/api/auth/login`,
 			this.login.bind(this),
@@ -78,12 +77,12 @@ export class AuthController {
 		app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
 		app.get(
 			`/api/auth/get-user-context`,
-			isAuthorized({ read: true }),
+			authorize('getUserContext'),
 			this.getUserContext.bind(this),
 		);
 		app.patch(
 			`/api/auth/change-password`,
-			isAuthorized({ update: true }),
+			authorize('changePassword'),
 			this.changePassword.bind(this),
 		);
 		app.post(`/api/auth/forgot-password`, this.forgotPassword.bind(this));
@@ -175,7 +174,7 @@ export class AuthController {
 			TokenResponseSpec,
 		);
 	}
-
+	@Authorize()
 	async getUserContext(req: Request, res: Response) {
 		const userContext = req.userContext;
 		apiUtils.apiResponse<IUserContext>(
@@ -190,6 +189,7 @@ export class AuthController {
 		console.log("in afterAuth");
 	}
 
+	@Authorize()
 	async changePassword(req: Request, res: Response) {
 		const userContext = req.userContext;
 		if (!userContext) {

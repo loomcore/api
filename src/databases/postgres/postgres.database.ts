@@ -3,7 +3,6 @@ import {
 	IModelSpec,
 	IPagedResult,
 	IQueryOptions,
-	IUserContextAuthorization,
 } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import { TSchema } from "@sinclair/typebox";
@@ -179,14 +178,14 @@ export class PostgresDatabase implements IDatabase {
 	}
 
 	/**
-	 * Fetches current authorizations for one or more users.
-	 * Returns a map of userId -> IAuthorization[] where authorizations are current
+	 * Fetches current features for one or more users.
+	 * Returns a map of userId -> string[] where features are current
 	 * (after startDate and before endDate if present).
 	 */
-	async getUserAuthorizations(
+	async getUserFeatures(
 		userId: AppIdType,
 		orgId?: AppIdType,
-	): Promise<IUserContextAuthorization[]> {
+	): Promise<string[]> {
 		const now = new Date();
 		let query = `
             SELECT DISTINCT
@@ -214,18 +213,6 @@ export class PostgresDatabase implements IDatabase {
 		}
 
 		const result = await this.connection.query(query, values);
-
-		const authorizations: IUserContextAuthorization[] = [];
-
-		for (const row of result.rows) {
-			authorizations.push({
-				_id: row._id,
-				_orgId: row._orgId,
-				role: row.role,
-				feature: row.feature,
-				config: row.config || undefined,
-			});
-		}
-		return authorizations;
+		return result.rows.map((row) => row.feature);
 	}
 }

@@ -18,7 +18,6 @@ import { ITestAgentModel } from './models/test-agent.model.js';
 import { ITestPolicyModel } from './models/test-policy.model.js';
 import { ITestPremiumModel } from './models/test-premium.model.js';
 import { ApiController } from '../../../controllers/api.controller.js';
-import { authenticated } from '../../../middleware/index.js';
 import { GenericApiService } from '../../../services/generic-api-service/generic-api.service.js';
 import { AppIdType } from '@loomcore/common/types';
 import { apiUtils } from '../../../utils/index.js';
@@ -214,7 +213,7 @@ class TestClientReportsService extends GenericApiService<ITestClientReportsApiMo
 class TestClientReportsController extends ApiController<ITestClientReportsApiModel> {
     constructor(app: Application, database: any) {
         const service = new TestClientReportsService(database);
-        super('clients', app, service, authenticated, 'client', testClientReportsModelSpec);
+        super('clients', app, service, 'client', testClientReportsModelSpec);
     }
 
     override async get(req: Request, res: Response) {
@@ -253,18 +252,20 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
         if (!idParam) {
             throw new Error('ID parameter is required');
         }
+        let id: AppIdType;
         try {
-            const id = Value.Convert(this.idSchema, idParam) as AppIdType;
-            const entity = await this.service.getById<ITestClientReportsApiModel>(
-                req.userContext!,
-                id,
-                prepareQueryCustom,
-                postProcessEntityCustom
-            );
-            apiUtils.apiResponse<ITestClientReportsApiModel>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
+            id = Value.Convert(this.idSchema, idParam) as AppIdType;
         } catch (error: any) {
             throw new Error(`Invalid ID format: ${error.message || error}`);
         }
+
+        const entity = await this.service.getById<ITestClientReportsApiModel>(
+            req.userContext!,
+            id,
+            prepareQueryCustom,
+            postProcessEntityCustom
+        );
+        apiUtils.apiResponse<ITestClientReportsApiModel>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
     }
 }
 
