@@ -21,3 +21,4 @@ export * from "./request-token-using-refresh-token.util.js";
 export * from "./reset-password.util.js";
 export * from "./send-reset-password-email.util.js";
 export * from "./update-last-logged-in.util.js";
+export * from "./authorize-method.util.js";

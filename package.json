@@ -55,10 +55,11 @@
   "dependencies": {
     "jsonwebtoken": "^9.0.2",
     "node-mailjet": "^6.0.8",
-    "qs": "^6.15.2"
+    "qs": "^6.15.2",
+    "reflect-metadata": "^0.2.2"
   },
   "peerDependencies": {
-    "@loomcore/common": "^0.0.78",
+    "@loomcore/common": "^0.0.79",
     "@sinclair/typebox": "0.34.33",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

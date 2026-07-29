@@ -8,7 +8,7 @@ import { getIdSchema } from '@loomcore/common/validation';
 import type { TSchema } from '@sinclair/typebox';
 
 import { IGenericApiService } from '../services/index.js';
-import { apiUtils } from '../utils/index.js';
+import { apiUtils, authorizeMethod } from '../utils/index.js';
 import { DeleteResult } from '../databases/models/delete-result.js';
 import {
   authenticated,
@@ -76,16 +76,17 @@ export abstract class ApiController<T extends IEntity> {
   mapRoutes(app: Application) {
     // Map routes
     // have to bind "this" because when express calls the function we tell it to here, it won't have any context and "this" will be undefined in our functions
-    const auth = isAuthorized(this.routeAuth);
-    app.get(`/api/${this.slug}`, auth, this.get.bind(this));
-    app.get(`/api/${this.slug}/all`, auth, this.getAll.bind(this));
-    app.get(`/api/${this.slug}/count`, auth, this.getCount.bind(this));
-    app.get(`/api/${this.slug}/:id`, auth, this.getById.bind(this));
-    app.post(`/api/${this.slug}`, auth, this.create.bind(this));
-    app.patch(`/api/${this.slug}/batch`, auth, this.batchUpdate.bind(this));
-    app.put(`/api/${this.slug}/:id`, auth, this.fullUpdateById.bind(this));
-    app.patch(`/api/${this.slug}/:id`, auth, this.partialUpdateById.bind(this));
-    app.delete(`/api/${this.slug}/:id`, auth, this.deleteById.bind(this));
+    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
+    
+    app.get(`/api/${this.slug}`, authorize('get'), this.get.bind(this));
+    app.get(`/api/${this.slug}/all`, authorize('getAll'), this.getAll.bind(this));
+    app.get(`/api/${this.slug}/count`, authorize('getCount'), this.getCount.bind(this));
+    app.get(`/api/${this.slug}/:id`, authorize('getById'), this.getById.bind(this));
+    app.post(`/api/${this.slug}`, authorize('create'), this.create.bind(this));
+    app.patch(`/api/${this.slug}/batch`, authorize('batchUpdate'), this.batchUpdate.bind(this));
+    app.put(`/api/${this.slug}/:id`, authorize('fullUpdateById'), this.fullUpdateById.bind(this));
+    app.patch(`/api/${this.slug}/:id`, authorize('partialUpdateById'), this.partialUpdateById.bind(this));
+    app.delete(`/api/${this.slug}/:id`, authorize('deleteById'), this.deleteById.bind(this));
   }
 
   /**
