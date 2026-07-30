@@ -1,4 +1,5 @@
 export * from "./assert-admin.util.js";
+export * from "./assert-admin-or-feature.util.js";
 export * from "./assert-owner-or-admin.util.js";
 export * from "./assert-user-or-admin.util.js";
 export * from "./attempt-login.util.js";
