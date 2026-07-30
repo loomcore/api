@@ -18,7 +18,7 @@ export async function attemptLogin(
 	deviceId: string,
 	organization: IOrganization | null,
 	userService: UserService = new UserService(database),
-): Promise<ILoginResponse | null> {
+): Promise<ILoginResponse> {
 	const lowerCaseEmail = email.toLowerCase();
 	const userContext: IUserContext = {
 		...EmptyUserContext,

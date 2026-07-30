@@ -69,11 +69,7 @@ export class AuthController {
 
 	mapRoutes(app: Application) {
 		const authorize = (method: keyof this) => authorizeMethod(this, method as any);
-		app.post(
-			`/api/auth/login`,
-			this.login.bind(this),
-			this.afterAuth.bind(this),
-		);
+		app.post(`/api/auth/login`, this.login.bind(this));
 		app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
 		app.get(
 			`/api/auth/get-user-context`,
@@ -133,7 +129,9 @@ export class AuthController {
 			this.userService,
 		);
 
-		apiUtils.apiResponse<ILoginResponse | null>(
+		await this.afterAuth(req, res, loginResponse);
+
+		apiUtils.apiResponse<ILoginResponse>(
 			res,
 			200,
 			{ data: loginResponse },
@@ -185,9 +183,11 @@ export class AuthController {
 		);
 	}
 
-	afterAuth(_req: Request, _res: Response, _loginResponse: any) {
-		console.log("in afterAuth");
-	}
+	async afterAuth(
+		_req: Request,
+		_res: Response,
+		_loginResponse: ILoginResponse,
+	): Promise<void> { }
 
 	@Authorize()
 	async changePassword(req: Request, res: Response) {
