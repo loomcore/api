@@ -5,6 +5,7 @@ import { TSchema } from "@sinclair/typebox";
 import { Operation } from "../operations/operation.js";
 
 export interface IDatabase {
+  close(): Promise<void>;
   preProcessEntity<T extends IEntity>(entity: Partial<T>, modelSpec: TSchema): Partial<T>;
   postProcessEntity<T extends IEntity>(entity: T, modelSpec: TSchema): T;
   getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]>;

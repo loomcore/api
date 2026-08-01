@@ -1,4 +1,4 @@
-import { Db } from "mongodb";
+import { Db, MongoClient } from "mongodb";
 import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from "@loomcore/common/models";
 import type { AppIdType } from "@loomcore/common/types";
 import { Operation } from "../operations/operation.js";
@@ -13,11 +13,27 @@ import { BadRequestError } from "../../errors/bad-request.error.js";
 
 export class MongoDBDatabase implements IDatabase {
     private db: Db;
+    private mongoClient?: MongoClient;
 
+    /**
+     * @param db — Database handle used for queries/commands.
+     * @param mongoClient — Optional. Pass when this instance should own shutdown via {@link close}.
+     */
     constructor(
         db: Db,
+        mongoClient?: MongoClient,
     ) {
         this.db = db;
+        this.mongoClient = mongoClient;
+    }
+
+    /**
+     * Closes the MongoClient when one was provided to the constructor; otherwise no-op.
+     */
+    async close(): Promise<void> {
+        if (this.mongoClient) {
+            await this.mongoClient.close();
+        }
     }
 
     preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {

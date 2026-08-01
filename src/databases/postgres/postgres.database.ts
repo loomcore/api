@@ -34,10 +34,32 @@ export class PostgresDatabase implements IDatabase {
 
 	/**
 	 * @param connection — Prefer a `pg` Pool in production; a single Client is supported for tests (e.g. pg-mem).
+	 * A PoolClient is supported for short-lived paths; {@link close} is a no-op for those.
 	 */
 	constructor(connection: PostgresConnection) {
 		this.connection = connection;
 	}
+
+	/**
+	 * Ends the underlying Pool or Client when this instance owns it.
+	 * No-op for a borrowed PoolClient (has `release`) — callers must `release()` that themselves.
+	 */
+	async close(): Promise<void> {
+		const connection = this.connection as PostgresConnection & {
+			release?: (err?: Error | boolean) => void;
+			end?: () => Promise<void>;
+		};
+
+		// PoolClient from pool.connect() — do not end(); the borrower releases it.
+		if (typeof connection.release === "function") {
+			return;
+		}
+
+		if (typeof connection.end === "function") {
+			await connection.end();
+		}
+	}
+
 	preProcessEntity<T extends IEntity>(
 		entity: Partial<T>,
 		modelSpec: TSchema,
