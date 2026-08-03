@@ -15,7 +15,7 @@ export interface IBaseApiConfig {
 	env: string;
 	network: {
 		corsAllowedOrigins: string[];
-		externalPort?: number;
+		externalPort: number;
 		hostName: string;
 		internalPort?: number;
 	};
