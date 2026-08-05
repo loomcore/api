@@ -84,7 +84,7 @@ export class AuthorizationsService extends MultiTenantApiService<IAuthorization>
                     )
                     .map((authorization) => authorization.featureId),
             ),
-        ] as string[] | number[];
+        ];
         if (featureIds.length === 0) {
             return [];
         }
