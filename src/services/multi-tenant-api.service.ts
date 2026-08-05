@@ -4,6 +4,7 @@ import type {
 	IQueryOptions,
 	IUserContext,
 } from "@loomcore/common/models";
+import { getSystemUserId } from "@loomcore/common/validation";
 import { config } from "../config/base-api-config.js";
 import type { IDatabase } from "../databases/models/index.js";
 import type { Operation } from "../databases/operations/operation.js";
@@ -42,7 +43,10 @@ export class MultiTenantApiService<
 		queryOptions: IQueryOptions,
 		operations: Operation[],
 	): { queryObject: IQueryOptions; operations: Operation[] } {
-		if (!config?.app?.isMultiTenant || userContext?.user?._id === "system") {
+		if (
+			!config?.app?.isMultiTenant ||
+			userContext?.user?._id === getSystemUserId()
+		) {
 			return super.prepareQuery(userContext, queryOptions, operations);
 		}
 		if (!userContext?.organization?._id) {
@@ -94,7 +98,7 @@ export class MultiTenantApiService<
 		);
 
 		// Any new item should be created in the user's organization unless it's a system-initiated action
-		if (isCreate && userContext.user._id !== "system") {
+		if (isCreate && userContext.user._id !== getSystemUserId()) {
 			preparedEntity._orgId = userContext.organization?._id;
 		}
 

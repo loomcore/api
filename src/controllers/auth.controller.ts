@@ -140,12 +140,6 @@ export class AuthController {
 	}
 
 	async requestTokenUsingRefreshToken(req: Request, res: Response) {
-		const userContext = req.userContext;
-		if (!userContext) {
-			throw new BadRequestError(
-				"Missing required fields: userContext is required.",
-			);
-		}
 		const refreshToken = req.query.refreshToken;
 
 		if (!refreshToken || typeof refreshToken !== "string") {
@@ -157,7 +151,6 @@ export class AuthController {
 
 		const tokens = await requestTokenUsingRefreshToken(
 			this.database,
-			userContext,
 			refreshToken,
 			deviceId,
 		);

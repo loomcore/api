@@ -6,10 +6,10 @@ import {
 } from "@loomcore/common/models";
 import type { IDatabase } from "../../databases/models/index.js";
 import { BadRequestError } from "../../errors/index.js";
+import { AuthorizationsService } from "../../services/authorizations.service.js";
 import { UserService } from "../../services/user.service.js";
 import { passwordUtils } from "../password.utils.js";
 import { logUserIn } from "./log-user-in.util.js";
-import { getUserContextFeatures } from "../../services/utils/getUserContextAuthorizations.util.js";
 
 export async function attemptLogin(
 	database: IDatabase,
@@ -18,6 +18,9 @@ export async function attemptLogin(
 	deviceId: string,
 	organization: IOrganization | null,
 	userService: UserService = new UserService(database),
+	authorizationsService: AuthorizationsService = new AuthorizationsService(
+		database,
+	),
 ): Promise<ILoginResponse> {
 	const lowerCaseEmail = email.toLowerCase();
 	const userContext: IUserContext = {
@@ -41,7 +44,7 @@ export async function attemptLogin(
 		throw new BadRequestError("Invalid Credentials");
 	}
 
-	const features = await getUserContextFeatures(database, user);
+	const features = await authorizationsService.getUserContextFeatures(user);
 	const authenticatedUserContext: IUserContext = {
 		user: user,
 		organization: organization ?? undefined,
