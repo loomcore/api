@@ -33,7 +33,7 @@ export class AuthorizationsService extends MultiTenantApiService<IAuthorization>
     }
 
     /**
-     * Resolves the current feature names for a user via user_roles → authorizations → features.
+     * Resolves the current feature names for a user via userRoles → authorizations → features.
      * Uses the system user context so this works during login/refresh (no authenticated context yet).
      */
     async getUserContextFeatures(user: IUser): Promise<string[]> {

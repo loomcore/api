@@ -40,7 +40,7 @@ describe.skipIf(!isPostgres)('setupDatabaseForAuth', () => {
         }
     });
 
-    it('should create schema migrations for users, refresh_tokens, reset_password_tokens, roles, user_roles, features, and authorizations', async () => {
+    it('should create schema migrations for users, refresh_tokens, password_reset_tokens, roles, user_roles, features, and authorizations', async () => {
         // Act 
         // Query migrations table to verify migration names exist
         const migrationsResult = await client.query(`

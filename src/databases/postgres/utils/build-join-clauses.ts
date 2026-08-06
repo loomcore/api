@@ -2,6 +2,7 @@ import { Operation } from "../../operations/operation.js";
 import { LeftJoin } from "../../operations/left-join.operation.js";
 import { InnerJoin } from "../../operations/inner-join.operation.js";
 import { LeftJoinMany } from "../../operations/left-join-many.operation.js";
+import { toPostgresStoreName } from "./convert-keys.util.js";
 
 export interface BuildJoinClausesOptions {
     /** When true, only LeftJoin and InnerJoin are included whose parent is in scope (main table or another one-to-one in FROM). Excludes LeftJoinMany and one-to-one joins that reference a many (e.g. policy_agents_through referencing client_policies). Use with JSON select. */
@@ -64,7 +65,8 @@ export function buildJoinClauses(
             } else {
                 leftSide = mainTableName ? `"${mainTableName}"."${operation.localField}"` : `"${operation.localField}"`;
             }
-            joinClauses.push(`${joinType} "${operation.from}" AS "${operation.as}" ON ${leftSide} = "${operation.as}"."${operation.foreignField}"`);
+            const fromTable = toPostgresStoreName(operation.from);
+            joinClauses.push(`${joinType} "${fromTable}" AS "${operation.as}" ON ${leftSide} = "${operation.as}"."${operation.foreignField}"`);
         }
     }
     return joinClauses.join(' ');

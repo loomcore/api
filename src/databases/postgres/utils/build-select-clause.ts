@@ -3,6 +3,7 @@ import { Operation } from '../../operations/operation.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
+import { toPostgresStoreName } from './convert-keys.util.js';
 
 const PK = '_id';
 
@@ -10,6 +11,7 @@ const PK = '_id';
  * Gets column names for a table from PostgreSQL information_schema
  */
 export async function getTableColumns(client: PostgresConnection, tableName: string): Promise<string[]> {
+    const storeName = toPostgresStoreName(tableName);
     const result = await client.query<{ column_name: string }>(
         `
             SELECT column_name
@@ -18,7 +20,7 @@ export async function getTableColumns(client: PostgresConnection, tableName: str
               AND table_name = $1
             ORDER BY ordinal_position
         `,
-        [tableName]
+        [storeName]
     );
     return result.rows.map(row => row.column_name);
 }
@@ -152,11 +154,13 @@ async function buildManyValue(
     if (throughJoin) {
         const throughAlias = throughJoin.as;
         const linkColumn = op.localField.split('.')[1];
-        fromClause = `"${throughJoin.from}" AS "${throughAlias}" INNER JOIN "${op.from}" AS "${alias}" ON "${throughAlias}"."${linkColumn}" = "${alias}"."${op.foreignField}"`;
+        const throughFrom = toPostgresStoreName(throughJoin.from);
+        const opFrom = toPostgresStoreName(op.from);
+        fromClause = `"${throughFrom}" AS "${throughAlias}" INNER JOIN "${opFrom}" AS "${alias}" ON "${throughAlias}"."${linkColumn}" = "${alias}"."${op.foreignField}"`;
         const throughParentRef = buildParentRef(throughJoin.localField, mainTableName);
         whereClause = `"${throughAlias}"."${throughJoin.foreignField}" = ${throughParentRef}`;
     } else {
-        fromClause = `"${op.from}" AS "${alias}"`;
+        fromClause = `"${toPostgresStoreName(op.from)}" AS "${alias}"`;
         whereClause = `"${alias}"."${op.foreignField}" = ${parentRef}`;
     }
 
@@ -164,7 +168,7 @@ async function buildManyValue(
     const oneToOneChildren = childOps.filter(c => c instanceof LeftJoin || c instanceof InnerJoin);
     for (const child of oneToOneChildren) {
         const leftCol = child.localField.includes('.') ? child.localField.split('.')[1] : child.localField;
-        fromClause += ` LEFT JOIN "${child.from}" AS "${child.as}" ON "${alias}"."${leftCol}" = "${child.as}"."${child.foreignField}"`;
+        fromClause += ` LEFT JOIN "${toPostgresStoreName(child.from)}" AS "${child.as}" ON "${alias}"."${leftCol}" = "${child.as}"."${child.foreignField}"`;
     }
 
     // Build the aggregated item: jsonb_build_object(columns, nested one-to-one, nested many)

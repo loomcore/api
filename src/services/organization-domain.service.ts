@@ -9,8 +9,8 @@ export class OrganizationDomainService extends GenericApiService<IOrganizationDo
 	constructor(database: IDatabase) {
 		super(
 			database,
-			"organization_domains",
-			"organization_domain",
+			"organizationDomains",
+			"organizationDomain",
 			OrganizationDomainSpec,
 		);
 	}

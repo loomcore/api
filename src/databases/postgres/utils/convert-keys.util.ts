@@ -21,6 +21,15 @@ export function toSnakeCase(str: string): string {
 }
 
 /**
+ * Logical resource names are camelCase (shared with Mongo collection names).
+ * Postgres physical table names are snake_case. Convert at the Postgres store boundary.
+ * Identity for already-snake or single-word names (e.g. user_roles → user_roles, users → users).
+ */
+export function toPostgresStoreName(logicalResourceName: string): string {
+	return toSnakeCase(logicalResourceName);
+}
+
+/**
  * Converts a snake_case string to camelCase
  * @param str The string to convert
  * @returns The camelCase version of the string

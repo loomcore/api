@@ -55,16 +55,16 @@ export const getMongoInitialSchema = (
 			// "organization-domains" sorts before "organizations" because "-" < "s".
 			name: "00000000000001_schema-organizations-domains",
 			up: async ({ context: db }) => {
-				await db.createCollection("organization_domains");
+				await db.createCollection("organizationDomains");
 				await db
-					.collection("organization_domains")
+					.collection("organizationDomains")
 					.createIndex({ domain: 1 }, { unique: true });
 				await db
-					.collection("organization_domains")
+					.collection("organizationDomains")
 					.createIndex({ organizationId: 1 });
 			},
 			down: async ({ context: db }) => {
-				await db.collection("organization_domains").drop();
+				await db.collection("organizationDomains").drop();
 			},
 		});
 	}
@@ -104,18 +104,18 @@ export const getMongoInitialSchema = (
 		migrations.push({
 			name: "00000000000003_schema-refresh-tokens",
 			up: async ({ context: db }) => {
-				await db.createCollection("refresh_tokens");
+				await db.createCollection("refreshTokens");
 				await db
-					.collection("refresh_tokens")
+					.collection("refreshTokens")
 					.createIndex({ token: 1 }, { unique: true });
-				await db.collection("refresh_tokens").createIndex({ userId: 1 });
-				await db.collection("refresh_tokens").createIndex({ deviceId: 1 });
+				await db.collection("refreshTokens").createIndex({ userId: 1 });
+				await db.collection("refreshTokens").createIndex({ deviceId: 1 });
 				if (isMultiTenant) {
-					await db.collection("refresh_tokens").createIndex({ _orgId: 1 });
+					await db.collection("refreshTokens").createIndex({ _orgId: 1 });
 				}
 			},
 			down: async ({ context: db }) => {
-				await db.collection("refresh_tokens").drop();
+				await db.collection("refreshTokens").drop();
 			},
 		});
 
@@ -124,22 +124,22 @@ export const getMongoInitialSchema = (
 		migrations.push({
 			name: "00000000000004_schema-password-reset-tokens",
 			up: async ({ context: db }) => {
-				await db.createCollection("password_reset_tokens");
+				await db.createCollection("passwordResetTokens");
 				if (isMultiTenant) {
 					await db
-						.collection("password_reset_tokens")
+						.collection("passwordResetTokens")
 						.createIndex({ _orgId: 1, email: 1 }, { unique: true });
 					await db
-						.collection("password_reset_tokens")
+						.collection("passwordResetTokens")
 						.createIndex({ _orgId: 1 });
 				} else {
 					await db
-						.collection("password_reset_tokens")
+						.collection("passwordResetTokens")
 						.createIndex({ email: 1 }, { unique: true });
 				}
 			},
 			down: async ({ context: db }) => {
-				await db.collection("password_reset_tokens").drop();
+				await db.collection("passwordResetTokens").drop();
 			},
 		});
 
@@ -170,22 +170,22 @@ export const getMongoInitialSchema = (
 		migrations.push({
 			name: "00000000000006_schema-user-roles",
 			up: async ({ context: db }) => {
-				await db.createCollection("user_roles");
+				await db.createCollection("userRoles");
 				if (isMultiTenant) {
 					await db
-						.collection("user_roles")
+						.collection("userRoles")
 						.createIndex({ _orgId: 1, userId: 1, roleId: 1 }, { unique: true });
-					await db.collection("user_roles").createIndex({ _orgId: 1 });
+					await db.collection("userRoles").createIndex({ _orgId: 1 });
 				} else {
 					await db
-						.collection("user_roles")
+						.collection("userRoles")
 						.createIndex({ userId: 1, roleId: 1 }, { unique: true });
 				}
-				await db.collection("user_roles").createIndex({ userId: 1 });
-				await db.collection("user_roles").createIndex({ roleId: 1 });
+				await db.collection("userRoles").createIndex({ userId: 1 });
+				await db.collection("userRoles").createIndex({ roleId: 1 });
 			},
 			down: async ({ context: db }) => {
-				await db.collection("user_roles").drop();
+				await db.collection("userRoles").drop();
 			},
 		});
 
@@ -268,7 +268,7 @@ export const getMongoInitialSchema = (
 
 				const metaOrgDomains = dbConfig.multiTenant!.metaOrgDomains ?? [];
 				if (metaOrgDomains.length > 0) {
-					await db.collection("organization_domains").insertMany(
+					await db.collection("organizationDomains").insertMany(
 						metaOrgDomains.map((domain) => ({
 							organizationId: metaOrg._id,
 							domain,
@@ -287,7 +287,7 @@ export const getMongoInitialSchema = (
 				);
 			},
 			down: async ({ context: db }) => {
-				await db.collection("organization_domains").deleteMany({});
+				await db.collection("organizationDomains").deleteMany({});
 				await db.collection("organizations").deleteMany({ isMetaOrg: true });
 			},
 		});
@@ -377,7 +377,7 @@ export const getMongoInitialSchema = (
 				} as any);
 
 				// 2) Add user role mapping
-				await db.collection("user_roles").insertOne({
+				await db.collection("userRoles").insertOne({
 					...orgDoc,
 					userId: adminUser._id,
 					roleId: roleResult.insertedId,
@@ -448,7 +448,7 @@ export const getMongoInitialSchema = (
 
 				// Remove user role mapping
 				if (adminRole) {
-					await db.collection("user_roles").deleteMany({
+					await db.collection("userRoles").deleteMany({
 						...orgFilter,
 						roleId: adminRole._id,
 					});

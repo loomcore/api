@@ -6,7 +6,7 @@ import { assertUserHasFeature } from "../utils/index.js";
 
 export class UserRolesService extends MultiTenantApiService<IUserRole> {
     constructor(database: IDatabase) {
-        super(database, "user_roles", "user_role", UserRoleModelSpec);
+        super(database, "userRoles", "userRole", UserRoleModelSpec);
     }
 
     override async preProcessEntity(userContext: IUserContext, entity: Partial<IUserRole>, isCreate: boolean, allowId: boolean = true): Promise<Partial<IUserRole>> {

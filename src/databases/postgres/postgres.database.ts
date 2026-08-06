@@ -26,6 +26,7 @@ import { getCount as getCountQuery } from "./queries/postgres-get-count.query.js
 import {
 	convertKeysToCamelCase,
 	convertKeysToSnakeCase,
+	toPostgresStoreName,
 } from "./utils/convert-keys.util.js";
 import { convertNullToUndefined } from "./utils/convert-null-to-undefined.util.js";
 
@@ -74,7 +75,11 @@ export class PostgresDatabase implements IDatabase {
 		operations: Operation[],
 		pluralResourceName: string,
 	): Promise<T[]> {
-		return getAllQuery(this.connection, operations, pluralResourceName);
+		return getAllQuery(
+			this.connection,
+			operations,
+			toPostgresStoreName(pluralResourceName),
+		);
 	}
 	async get<T extends IEntity>(
 		operations: Operation[],
@@ -86,7 +91,7 @@ export class PostgresDatabase implements IDatabase {
 			this.connection,
 			operations,
 			queryOptions,
-			pluralResourceName,
+			toPostgresStoreName(pluralResourceName),
 		);
 	}
 	async getById<T extends IEntity>(
@@ -100,23 +105,34 @@ export class PostgresDatabase implements IDatabase {
 			operations,
 			queryObject,
 			id,
-			pluralResourceName,
+			toPostgresStoreName(pluralResourceName),
 		);
 	}
 	async getCount(pluralResourceName: string): Promise<number> {
-		return getCountQuery(this.connection, pluralResourceName);
+		return getCountQuery(
+			this.connection,
+			toPostgresStoreName(pluralResourceName),
+		);
 	}
 	async create<T extends IEntity>(
 		entity: Partial<T>,
 		pluralResourceName: string,
 	): Promise<{ insertedId: AppIdType; entity: T }> {
-		return createCommand(this.connection, pluralResourceName, entity);
+		return createCommand(
+			this.connection,
+			toPostgresStoreName(pluralResourceName),
+			entity,
+		);
 	}
 	async createMany<T extends IEntity>(
 		entities: Partial<T>[],
 		pluralResourceName: string,
 	): Promise<{ insertedIds: AppIdType[]; entities: T[] }> {
-		return createManyCommand(this.connection, pluralResourceName, entities);
+		return createManyCommand(
+			this.connection,
+			toPostgresStoreName(pluralResourceName),
+			entities,
+		);
 	}
 	async batchUpdate<T extends IEntity>(
 		entities: Partial<T>[],
@@ -129,7 +145,7 @@ export class PostgresDatabase implements IDatabase {
 			entities,
 			operations,
 			queryObject,
-			pluralResourceName,
+			toPostgresStoreName(pluralResourceName),
 		);
 	}
 	async fullUpdateById<T extends IEntity>(
@@ -143,7 +159,7 @@ export class PostgresDatabase implements IDatabase {
 			operations,
 			id,
 			entity,
-			pluralResourceName,
+			toPostgresStoreName(pluralResourceName),
 		);
 	}
 	async partialUpdateById<T extends IEntity>(
@@ -157,7 +173,7 @@ export class PostgresDatabase implements IDatabase {
 			operations,
 			id,
 			entity,
-			pluralResourceName,
+			toPostgresStoreName(pluralResourceName),
 		);
 	}
 	async update<T extends IEntity>(
@@ -171,31 +187,47 @@ export class PostgresDatabase implements IDatabase {
 			queryObject,
 			entity,
 			operations,
-			pluralResourceName,
+			toPostgresStoreName(pluralResourceName),
 		);
 	}
 	async deleteById(
 		id: AppIdType,
 		pluralResourceName: string,
 	): Promise<DeleteResult> {
-		return deleteByIdCommand(this.connection, id, pluralResourceName);
+		return deleteByIdCommand(
+			this.connection,
+			id,
+			toPostgresStoreName(pluralResourceName),
+		);
 	}
 	async deleteMany(
 		queryObject: IQueryOptions,
 		pluralResourceName: string,
 	): Promise<DeleteResult> {
-		return deleteManyCommand(this.connection, queryObject, pluralResourceName);
+		return deleteManyCommand(
+			this.connection,
+			queryObject,
+			toPostgresStoreName(pluralResourceName),
+		);
 	}
 	async find<T extends IEntity>(
 		queryObject: IQueryOptions,
 		pluralResourceName: string,
 	): Promise<T[]> {
-		return findQuery<T>(this.connection, queryObject, pluralResourceName);
+		return findQuery<T>(
+			this.connection,
+			queryObject,
+			toPostgresStoreName(pluralResourceName),
+		);
 	}
 	async findOne<T extends IEntity>(
 		queryObject: IQueryOptions,
 		pluralResourceName: string,
 	): Promise<T | null> {
-		return findOneQuery(this.connection, queryObject, pluralResourceName);
+		return findOneQuery(
+			this.connection,
+			queryObject,
+			toPostgresStoreName(pluralResourceName),
+		);
 	}
 }

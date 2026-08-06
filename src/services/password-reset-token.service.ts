@@ -11,8 +11,8 @@ export class PasswordResetTokenService extends MultiTenantApiService<IPasswordRe
 	constructor(database: IDatabase) {
 		super(
 			database,
-			"password_reset_tokens",
-			"password_reset_token",
+			"passwordResetTokens",
+			"passwordResetToken",
 			PasswordResetTokenSpec,
 		);
 	}
