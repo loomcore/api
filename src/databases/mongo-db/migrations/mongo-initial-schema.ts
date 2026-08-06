@@ -89,6 +89,10 @@ export const getMongoInitialSchema = (
 						.collection("users")
 						.createIndex({ email: 1 }, { unique: true });
 				}
+				// Sparse so multiple users without externalId are allowed (matches Postgres UNIQUE NULL)
+				await db
+					.collection("users")
+					.createIndex({ externalId: 1 }, { unique: true, sparse: true });
 			},
 			down: async ({ context: db }) => {
 				await db.collection("users").drop();
@@ -319,7 +323,6 @@ export const getMongoInitialSchema = (
 
 				await db.collection("users").insertOne({
 					...orgDoc,
-					externalId: "admin-user-external-id",
 					email,
 					password: hashedPassword,
 					displayName: "Admin User",

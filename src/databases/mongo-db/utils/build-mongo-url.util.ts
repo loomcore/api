@@ -34,5 +34,7 @@ export function buildMongoUrl(config: { database: IDatabaseConfig }): string {
     );
   }
 
-  return `mongodb://${encodedUsername}:${encodedPassword}@${host}:${port}/${name}`;
+  // authSource=admin matches Atlas URLs above. Migration credentials (admin/root)
+  // live in the admin database, not in the app DB that migrations create/use.
+  return `mongodb://${encodedUsername}:${encodedPassword}@${host}:${port}/${name}?authSource=admin`;
 }
