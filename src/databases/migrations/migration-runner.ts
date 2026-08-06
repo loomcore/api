@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'node:url';
 import { buildMongoUrl } from '../mongo-db/utils/build-mongo-url.util.js';
 import { buildPostgresUrl } from '../postgres/utils/build-postgres-url.util.js';
 import { getPostgresInitialSchema } from '../postgres/migrations/postgres-initial-schema.js';
@@ -188,16 +189,17 @@ export class MigrationRunner {
             }
           };
         } else {
-          // For Mongo/TS, we might need a dynamic import helper or compilation step 
-          // If running via tsx, dynamic import works:
+          // For Mongo/TS: dynamic import via tsx. On Windows, Node ESM requires file:// URLs
+          // (import('C:\\...') throws ERR_UNSUPPORTED_ESM_URL_SCHEME).
+          const importUrl = pathToFileURL(fullPath).href;
           return {
             name: f,
             up: async () => {
-              const mod = await import(fullPath);
+              const mod = await import(importUrl);
               await mod.up({ context });
             },
             down: async () => {
-              const mod = await import(fullPath);
+              const mod = await import(importUrl);
               await mod.down({ context });
             }
           };
