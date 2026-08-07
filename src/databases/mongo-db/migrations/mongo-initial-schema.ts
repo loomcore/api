@@ -261,16 +261,19 @@ export const getMongoInitialSchema = (
 				const result = await db
 					.collection("organizations")
 					.insertOne(metaOrgDoc as any);
+				// _id / _orgId are always strings in the API layer; keep the native
+				// ObjectId only for Mongo foreign keys that are true ObjectId fields (e.g. organizationId).
+				const metaOrgObjectId = result.insertedId;
 				const metaOrg = {
 					...metaOrgDoc,
-					_id: result.insertedId,
+					_id: metaOrgObjectId.toString(),
 				} as unknown as IOrganization;
 
 				const metaOrgDomains = dbConfig.multiTenant!.metaOrgDomains ?? [];
 				if (metaOrgDomains.length > 0) {
 					await db.collection("organizationDomains").insertMany(
 						metaOrgDomains.map((domain) => ({
-							organizationId: metaOrg._id,
+							organizationId: metaOrgObjectId,
 							domain,
 							_created: new Date(),
 							_createdBy: "system",
@@ -312,9 +315,10 @@ export const getMongoInitialSchema = (
 				}
 
 				const systemUserContext = getSystemUserContext();
+				// _orgId must always be a string — never a Mongo ObjectId
 				const orgDoc =
 					isMultiTenant && systemUserContext.organization?._id
-						? { _orgId: systemUserContext.organization._id }
+						? { _orgId: String(systemUserContext.organization._id) }
 						: {};
 				const hashedPassword = await passwordUtils.hashPassword(
 					dbConfig.adminUser.password,
@@ -368,7 +372,11 @@ export const getMongoInitialSchema = (
 				}
 
 				// Build org-scoped document base (only for multi-tenant)
-				const orgDoc = isMultiTenant && metaOrg ? { _orgId: metaOrg._id } : {};
+				// _orgId must always be a string — never a Mongo ObjectId
+				const orgDoc =
+					isMultiTenant && metaOrg?._id
+						? { _orgId: String(metaOrg._id) }
+						: {};
 
 				// 1) Add 'admin' role
 				const roleResult = await db.collection("roles").insertOne({
@@ -421,8 +429,11 @@ export const getMongoInitialSchema = (
 				if (isMultiTenant && !metaOrg) return;
 
 				// Build query filter (use _orgId only for multi-tenant)
+				// _orgId must always be a string — never a Mongo ObjectId
 				const orgFilter =
-					isMultiTenant && metaOrg ? { _orgId: metaOrg._id } : {};
+					isMultiTenant && metaOrg?._id
+						? { _orgId: String(metaOrg._id) }
+						: {};
 
 				// Find admin role and feature
 				const adminRole = await db
