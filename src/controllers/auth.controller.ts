@@ -107,13 +107,14 @@ export class AuthController {
 					"Missing required fields: referer is required.",
 				);
 			}
+			const domain = referer.split("/")[2];
 			organization = await this.organizationService.findByDomain(
 				EmptyUserContext,
-				referer.split("/")[2],
+				domain,
 			);
 			if (!organization) {
 				throw new BadRequestError(
-					"Missing required fields: organization is required.",
+					`No organization found for domain: ${domain}`,
 				);
 			}
 		}
