@@ -20,7 +20,7 @@ export async function logUserIn(
 		database,
 		userContext.user._id,
 		deviceId,
-		userContext.organization?._id,
+		userContext.user._orgId,
 	);
 	const accessTokenExpiresOn = getExpiresOnFromSeconds(
 		authConfig.jwtExpirationInSeconds,

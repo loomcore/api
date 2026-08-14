@@ -18,7 +18,7 @@ export const getPostgresTestSchema = (
 			const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : "";
 
 			await pool.query(`
-        CREATE TABLE IF NOT EXISTS "testEntities" (
+        CREATE TABLE IF NOT EXISTS "test_entities" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
@@ -36,7 +36,7 @@ export const getPostgresTestSchema = (
       `);
 		},
 		down: async ({ context: pool }) => {
-			await pool.query('DROP TABLE IF EXISTS "testEntities"');
+			await pool.query('DROP TABLE IF EXISTS "test_entities"');
 		},
 	});
 
@@ -95,7 +95,7 @@ export const getPostgresTestSchema = (
 			const orgColumnDef = isMultiTenant ? '"_orgId" INTEGER,' : "";
 
 			await pool.query(`
-        CREATE TABLE IF NOT EXISTS "testItems" (
+        CREATE TABLE IF NOT EXISTS "test_items" (
           "_id" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
           ${orgColumnDef}
           "name" VARCHAR(255) NOT NULL,
@@ -111,7 +111,7 @@ export const getPostgresTestSchema = (
       `);
 		},
 		down: async ({ context: pool }) => {
-			await pool.query('DROP TABLE IF EXISTS "testItems"');
+			await pool.query('DROP TABLE IF EXISTS "test_items"');
 		},
 	});
 

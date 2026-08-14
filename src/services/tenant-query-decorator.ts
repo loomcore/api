@@ -52,7 +52,7 @@ export class TenantQueryDecorator {
 
 		const shouldApplyTenantFilter =
 			!this.options.excludedCollections?.includes(collectionName) &&
-			userContext?.organization?._id;
+			userContext?.user._orgId;
 
 		if (shouldApplyTenantFilter) {
 			// Create a new query object that includes the tenant filter
@@ -61,10 +61,10 @@ export class TenantQueryDecorator {
 				...queryObject,
 				filters: {
 					...queryObject.filters,
-					[orgIdField]: { eq: userContext.organization?._id },
+					[orgIdField]: { eq: userContext.user._orgId },
 				},
 			};
-		} else if (!userContext?.organization?._id) {
+		} else if (!userContext?.user._orgId) {
 			// Don't throw for excluded collections
 			if (!this.options.excludedCollections?.includes(collectionName)) {
 				throw new ServerError("No _orgId found in userContext");
@@ -92,7 +92,7 @@ export class TenantQueryDecorator {
 			!this.options.excludedCollections?.includes(collectionName);
 
 		if (shouldApplyTenantFilter) {
-			if (!userContext?.organization?._id) {
+			if (!userContext?.user._orgId) {
 				throw new ServerError(
 					"userContext must have an _orgId property to apply tenant filtering",
 				);
@@ -105,7 +105,7 @@ export class TenantQueryDecorator {
 
 			// Add or replace the orgId filter
 			const orgIdField = this.getOrgIdField();
-			result.filters[orgIdField] = { eq: userContext.organization?._id };
+			result.filters[orgIdField] = { eq: userContext.user._orgId };
 		}
 
 		return result;
@@ -127,7 +127,7 @@ export class TenantQueryDecorator {
 
 		const shouldApplyTenantFilter =
 			!this.options.excludedCollections?.includes(collectionName) &&
-			userContext?.organization?._id;
+			userContext?.user._orgId;
 
 		if (shouldApplyTenantFilter) {
 			const orgIdField = this.options.orgIdField || "_orgId";
@@ -135,9 +135,9 @@ export class TenantQueryDecorator {
 			// Create a new entity with the orgId property
 			result = {
 				...entity,
-				[orgIdField]: userContext.organization?._id,
+				[orgIdField]: userContext.user._orgId,
 			};
-		} else if (!userContext?.organization?._id) {
+		} else if (!userContext?.user._orgId) {
 			// Don't throw for excluded collections
 			if (!this.options.excludedCollections?.includes(collectionName)) {
 				throw new ServerError("No _orgId found in userContext");

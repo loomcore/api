@@ -28,7 +28,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 			if (metaOrg && entity.isMetaOrg) {
 				throw new BadRequestError("Meta organization already exists");
 			}
-			if (metaOrg && userContext.organization?._id !== metaOrg._id) {
+			if (metaOrg && userContext.user._orgId !== metaOrg._id) {
 				throw new BadRequestError(
 					"User is not authorized to create an organization",
 				);

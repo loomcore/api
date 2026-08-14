@@ -2868,6 +2868,7 @@ describe('GenericApiService - Integration Tests', () => {
         const updaterUserContext: IUserContext = {
           user: {
             _id: testUtils.getRandomId(),
+            _orgId: getTestMetaOrg()._id,
             email: 'updater@example.com',
             displayName: 'Updater User',
             password: 'password',
@@ -2877,14 +2878,7 @@ describe('GenericApiService - Integration Tests', () => {
             _updated: new Date(),
             _updatedBy: 'system'
           },
-          organization: getTestMetaOrg(),
-          authorizations: [{
-            _id: testUtils.getRandomId(),
-            _orgId: getTestMetaOrg()._id,
-            role: 'updateUser',
-            feature: 'updateUser',
-            config: {},
-          }],
+          features: ['updateUser'],
         };
 
         // Act

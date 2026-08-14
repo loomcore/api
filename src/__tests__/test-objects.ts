@@ -88,7 +88,6 @@ export function getTestMetaOrgUser(): IUser {
 export function getTestMetaOrgUserContext(): IUserContext {
 	return {
 		user: getTestMetaOrgUser(),
-		organization: getTestMetaOrg(),
 		features: ["metaorgUser"],
 	};
 }
@@ -97,7 +96,6 @@ export function getTestMetaOrgUserContext(): IUserContext {
 export function getTestMetaOrgAdminUserContext(): IUserContext {
 	return {
 		user: getTestMetaOrgUser(),
-		organization: getTestMetaOrg(),
 		features: ["admin"],
 	};
 }
@@ -167,7 +165,6 @@ export function getTestOrgUser(): IUser {
 export function getTestOrgUserContext(): IUserContext {
 	return {
 		user: getTestOrgUser(),
-		organization: getTestOrg(),
 		features: ["testOrgUser"],
 	};
 }

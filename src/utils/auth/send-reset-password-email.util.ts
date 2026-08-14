@@ -1,8 +1,4 @@
-import {
-	EmptyUserContext,
-	type IOrganization,
-	type IUserContext,
-} from "@loomcore/common/models";
+import { type IUserContext } from "@loomcore/common/models";
 import type { IDatabase } from "../../databases/models/index.js";
 import { ServerError } from "../../errors/index.js";
 import { EmailService } from "../../services/email.service.js";
@@ -11,19 +7,14 @@ import { getAuthConfig } from "./get-auth-config.util.js";
 import { getExpiresOnFromMinutes } from "./get-expires-on-from-minutes.util.js";
 
 export async function sendResetPasswordEmail(
+	userContext: IUserContext,
 	database: IDatabase,
 	emailAddress: string,
 	clientBaseUrl: string,
-	organization?: IOrganization,
 ) {
 	const authConfig = getAuthConfig();
 	const passwordResetTokenService = new PasswordResetTokenService(database);
 	const emailService = new EmailService();
-
-	const userContext: IUserContext = {
-		...EmptyUserContext,
-		organization: organization ?? undefined,
-	};
 
 	const expiresOn = getExpiresOnFromMinutes(
 		authConfig.passwordResetTokenExpirationInMinutes,

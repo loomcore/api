@@ -386,7 +386,7 @@ export const getPostgresInitialSchema = (
 				if (!isSystemUserContextInitialized()) {
 					const errorMessage = isMultiTenant
 						? "SystemUserContext has not been initialized. The meta-org migration (00000000000010_data-meta-org) should have run before this migration. " +
-							"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
+						"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
 						: "BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.";
 
 					console.error("❌ Migration Error:", errorMessage);
@@ -395,7 +395,7 @@ export const getPostgresInitialSchema = (
 
 				const systemUserContext = getSystemUserContext();
 				const orgId = isMultiTenant
-					? systemUserContext.organization?._id
+					? systemUserContext.user._orgId
 					: undefined;
 				const hashedPassword = await passwordUtils.hashPassword(
 					dbConfig.adminUser.password,
@@ -470,13 +470,13 @@ export const getPostgresInitialSchema = (
 						// 1) Add 'admin' role
 						const roleResult = isMultiTenant
 							? await client.query(
-									`
+								`
                   INSERT INTO "roles"("_orgId", "name")
         VALUES($1, 'admin')
                   RETURNING "_id"
           `,
-									[metaOrg!._id],
-								)
+								[metaOrg!._id],
+							)
 							: await client.query(`
                   INSERT INTO "roles"("name")
         VALUES('admin')
@@ -491,19 +491,19 @@ export const getPostgresInitialSchema = (
 						// 2) Add user role mapping
 						const userRoleResult = isMultiTenant
 							? await client.query(
-									`
+								`
                   INSERT INTO "user_roles"("_orgId", "user_id", "role_id", "_created", "_createdBy")
         VALUES($1, $2, $3, NOW(), 0)
           `,
-									[metaOrg!._id, adminUserId, roleId],
-								)
+								[metaOrg!._id, adminUserId, roleId],
+							)
 							: await client.query(
-									`
+								`
                   INSERT INTO "user_roles"("user_id", "role_id", "_created", "_createdBy")
         VALUES($1, $2, NOW(), 0)
           `,
-									[adminUserId, roleId],
-								);
+								[adminUserId, roleId],
+							);
 
 						if (userRoleResult.rowCount === 0) {
 							throw new Error("Failed to create user role");
@@ -512,13 +512,13 @@ export const getPostgresInitialSchema = (
 						// 3) Add admin feature
 						const featureResult = isMultiTenant
 							? await client.query(
-									`
+								`
                   INSERT INTO "features"("_orgId", "name")
         VALUES($1, 'admin')
                   RETURNING "_id"
           `,
-									[metaOrg!._id],
-								)
+								[metaOrg!._id],
+							)
 							: await client.query(`
                   INSERT INTO "features"("name")
         VALUES('admin')
@@ -533,25 +533,25 @@ export const getPostgresInitialSchema = (
 						// 4) Add authorization
 						const authorizationResult = isMultiTenant
 							? await client.query(
-									`
+								`
                   INSERT INTO "authorizations"(
             "_orgId", "role_id", "feature_id",
             "_created", "_createdBy"
           )
         VALUES($1, $2, $3, NOW(), 0)
           `,
-									[metaOrg!._id, roleId, featureId],
-								)
+								[metaOrg!._id, roleId, featureId],
+							)
 							: await client.query(
-									`
+								`
                   INSERT INTO "authorizations"(
             "role_id", "feature_id",
             "_created", "_createdBy"
           )
         VALUES($1, $2, NOW(), 0)
           `,
-									[roleId, featureId],
-								);
+								[roleId, featureId],
+							);
 
 						if (authorizationResult.rowCount === 0) {
 							throw new Error("Failed to create admin authorization");

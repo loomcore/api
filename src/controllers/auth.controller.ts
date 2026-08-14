@@ -238,9 +238,13 @@ export class AuthController {
 				);
 			}
 		}
+
 		const userContext: IUserContext = {
 			...EmptyUserContext,
-			organization: organization || undefined,
+			user: {
+				...EmptyUserContext.user,
+				_orgId: organization?._id,
+			},
 		};
 
 		const user = await this.userService.findOne(userContext, {
@@ -249,10 +253,10 @@ export class AuthController {
 
 		if (user) {
 			await sendResetPasswordEmail(
+				userContext,
 				this.database,
 				email,
 				referer,
-				organization || undefined,
 			);
 		}
 

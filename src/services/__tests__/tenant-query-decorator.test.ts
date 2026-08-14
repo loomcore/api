@@ -22,28 +22,13 @@ describe('TenantQueryDecorator', () => {
       _id: testUtils.getRandomId(),
       email: 'test@example.com',
       password: '',
-      _created: new Date(),
-      _createdBy: 'system',
-      _updated: new Date(),
-      _updatedBy: 'system'
-    },
-    organization: {
-      _id: orgId,
-      name: 'Test Organization',
-      code: 'test-org',
-      status: 1,
-      isMetaOrg: false,
-      _created: new Date(),
-      _createdBy: 'system',
-      _updated: new Date(),
-      _updatedBy: 'system'
-    },
-    authorizations: [{
-      _id: testUtils.getRandomId(),
       _orgId: orgId,
-      role: 'testUser',
-      feature: 'testUser',
-    }],
+      _created: new Date(),
+      _createdBy: 'system',
+      _updated: new Date(),
+      _updatedBy: 'system'
+    },
+    features: ['testUser'],
   });
 
   const createUserContextWithoutOrg = () => ({
@@ -56,12 +41,7 @@ describe('TenantQueryDecorator', () => {
       _updated: new Date(),
       _updatedBy: 'system'
     },
-    authorizations: [{
-      _id: testUtils.getRandomId(),
-      _orgId: orgId,
-      role: 'testUser',
-      feature: 'testUser',
-    }],
+    features: ['testUser'],
   });
 
   const collectionName = 'testCollection';

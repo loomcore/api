@@ -8,7 +8,7 @@ import { getIdSchema } from '@loomcore/common/validation';
 import type { TSchema } from '@sinclair/typebox';
 
 import { IGenericApiService } from '../services/index.js';
-import { apiUtils, authorizeMethod } from '../utils/index.js';
+import { apiUtils, authorizeMethod, createPublicSpec } from '../utils/index.js';
 import { DeleteResult } from '../databases/models/delete-result.js';
 
 export abstract class ApiController<T extends IEntity> {
@@ -58,10 +58,15 @@ export abstract class ApiController<T extends IEntity> {
     this.service = service;
     this.apiResourceName = resourceName;
     this.modelSpec = modelSpec;
-    this.publicSpec = publicSpec;
     this.idSchema = getIdSchema();
 
     this.mapRoutes(app);
+
+    if (modelSpec && !publicSpec) {
+      this.publicSpec = createPublicSpec(modelSpec);
+    } else {
+      this.publicSpec = publicSpec;
+    }
   }
 
   mapRoutes(app: Application) {

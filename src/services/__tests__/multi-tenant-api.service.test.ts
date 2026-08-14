@@ -135,7 +135,7 @@ describe("MultiTenantApiService", () => {
 			);
 
 			// Assert
-			// The consumer-supplied _orgId should be completely overwritten by userContext.organization?_orgId
+			// The consumer-supplied _orgId should be completely overwritten by userContext.user._orgId
 			expect(result.queryObject.filters!["_orgId"]).toEqual({
 				eq: getTestMetaOrg()._id,
 			});
@@ -161,7 +161,7 @@ describe("MultiTenantApiService", () => {
 			expect(result.queryObject.filters).toBeDefined();
 			expect(result.queryObject.filters!["name"]).toEqual({ eq: "Test" });
 			expect(result.queryObject.filters!["_orgId"]).toEqual({
-				eq: userContext.organization ? userContext.organization._id : undefined,
+				eq: userContext.user ? userContext.user._orgId : undefined,
 			});
 		});
 
@@ -196,9 +196,9 @@ describe("MultiTenantApiService", () => {
 			// Assert
 			expect(result.queryObject.filters).toBeDefined();
 			expect(result.queryObject.filters!["name"]).toEqual({ eq: "Test" });
-			// The consumer-supplied _orgId should be completely overwritten by userContext.organization?_orgId
+			// The consumer-supplied _orgId should be completely overwritten by userContext.user._orgId
 			expect(result.queryObject.filters!["_orgId"]).toEqual({
-				eq: userContext.organization ? userContext.organization._id : undefined,
+				eq: userContext.user ? userContext.user._orgId : undefined,
 			});
 			expect(result.queryObject.filters!["_orgId"]).not.toEqual({
 				eq: otherOrgId,
@@ -239,12 +239,11 @@ describe("MultiTenantApiService", () => {
 			).rejects.toThrow(BadRequestError);
 		});
 
-		it("should throw BadRequestError if userContext has no organization", async () => {
+		it("should throw BadRequestError if userContext has no _orgId", async () => {
 			// Arrange
 			const userContextWithoutOrg: IUserContext = {
 				user: {
 					_id: getTestMetaOrgUser()._id,
-					_orgId: getTestMetaOrg()._id,
 					externalId: "test-external-id",
 					email: "test@example.com",
 					password: "",
@@ -253,14 +252,7 @@ describe("MultiTenantApiService", () => {
 					_updated: new Date(),
 					_updatedBy: "system",
 				},
-				authorizations: [
-					{
-						_id: testUtils.getRandomId(),
-						_orgId: getTestMetaOrgUser()._orgId,
-						role: "testUser",
-						feature: "testUser",
-					},
-				],
+				features: ["testUser"],
 			};
 			const entity: Partial<TestEntity> = {
 				name: "Test Entity",

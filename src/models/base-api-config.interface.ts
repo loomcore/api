@@ -3,6 +3,7 @@ import type { IAuthConfig } from "./auth-config.interface.js";
 import type { IDatabaseConfig } from "./database-config.interface.js";
 import type { IEmailClient } from "./email-client.interface.js";
 import type { IEmailConfig } from "./email-config.interface.js";
+import { LogLevel } from "./index.js";
 
 export interface IBaseApiConfig {
 	app: IAppConfig;
@@ -10,6 +11,8 @@ export interface IBaseApiConfig {
 	database: IDatabaseConfig;
 	debug?: {
 		showErrors?: boolean;
+		logLevel: LogLevel;
+		showAuditFields: boolean;
 	};
 	email?: IEmailConfig;
 	env: string;

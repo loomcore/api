@@ -128,7 +128,7 @@ export class TestPostgresDatabase implements ITestDatabase {
 			// Run initial schema migrations (includes all schema and data migrations based on config)
 			await runInitialSchemaMigrations(pool, config);
 
-			// Run test schema migrations (test-specific tables like testEntities, categories, products, testItems)
+			// Run test schema migrations (test-specific tables like test_entities, categories, products, test_items)
 			await runTestSchemaMigrations(pool, config);
 
 			// Initialize test utilities with the database

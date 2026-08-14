@@ -307,7 +307,7 @@ export const getMongoInitialSchema = (
 				if (!isSystemUserContextInitialized()) {
 					const errorMessage = isMultiTenant
 						? "SystemUserContext has not been initialized. The meta-org migration (00000000000009_data-meta-org) should have run before this migration. " +
-							"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
+						"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
 						: "BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.";
 
 					console.error("❌ Migration Error:", errorMessage);
@@ -317,8 +317,8 @@ export const getMongoInitialSchema = (
 				const systemUserContext = getSystemUserContext();
 				// _orgId must always be a string — never a Mongo ObjectId
 				const orgDoc =
-					isMultiTenant && systemUserContext.organization?._id
-						? { _orgId: String(systemUserContext.organization._id) }
+					isMultiTenant && systemUserContext.user._orgId
+						? { _orgId: String(systemUserContext.user._orgId) }
 						: {};
 				const hashedPassword = await passwordUtils.hashPassword(
 					dbConfig.adminUser.password,

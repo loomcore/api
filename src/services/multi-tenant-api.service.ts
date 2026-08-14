@@ -49,7 +49,7 @@ export class MultiTenantApiService<
 		) {
 			return super.prepareQuery(userContext, queryOptions, operations);
 		}
-		if (!userContext?.organization?._id) {
+		if (!userContext?.user?._orgId) {
 			throw new BadRequestError(
 				"A valid userContext was not provided to MultiTenantApiService.prepareQuery",
 			);
@@ -83,7 +83,7 @@ export class MultiTenantApiService<
 		if (!config?.app?.isMultiTenant) {
 			return super.preProcessEntity(userContext, entity, isCreate, allowId);
 		}
-		if (!userContext?.organization?._id) {
+		if (!userContext?.user?._orgId) {
 			throw new BadRequestError(
 				"A valid userContext was not provided to MultiTenantApiService.prepareEntity",
 			);
@@ -99,7 +99,7 @@ export class MultiTenantApiService<
 
 		// Any new item should be created in the user's organization unless it's a system-initiated action
 		if (isCreate && userContext.user._id !== getSystemUserId()) {
-			preparedEntity._orgId = userContext.organization?._id;
+			preparedEntity._orgId = userContext.user._orgId;
 		}
 
 		return preparedEntity;

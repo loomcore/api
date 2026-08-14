@@ -25,7 +25,10 @@ export async function attemptLogin(
 	const lowerCaseEmail = email.toLowerCase();
 	const userContext: IUserContext = {
 		...EmptyUserContext,
-		organization: organization ?? undefined,
+		user: {
+			...EmptyUserContext.user,
+			_orgId: organization?._id,
+		},
 	};
 	const user = await userService.findOne(userContext, {
 		filters: {
@@ -47,7 +50,6 @@ export async function attemptLogin(
 	const features = await authorizationsService.getUserContextFeatures(user);
 	const authenticatedUserContext: IUserContext = {
 		user: user,
-		organization: organization ?? undefined,
 		features: features,
 	};
 	const tokens = await logUserIn(

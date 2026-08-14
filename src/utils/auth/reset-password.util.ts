@@ -38,7 +38,10 @@ export async function resetPassword(
 	const passwordResetTokenService = new PasswordResetTokenService(database);
 	const userContext: IUserContext = {
 		...EmptyUserContext,
-		organization: organization ?? undefined,
+		user: {
+			...EmptyUserContext.user,
+			_orgId: organization?._id,
+		},
 	};
 
 	const retrievedPasswordResetToken = await passwordResetTokenService.findOne(
