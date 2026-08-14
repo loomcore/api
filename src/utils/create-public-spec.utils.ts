@@ -6,7 +6,7 @@ export function createPublicSpec(spec: IModelSpec): IModelSpec {
     if (config.debug?.showAuditFields) {
         return spec;
     }
-    const publicSpec = entityUtils.getModelSpec(spec.fullSchema, {
+    const publicSpec = entityUtils.getModelSpec(spec.schema, {
         isAuditable: spec.isAuditable,
         isEntity: spec.isEntity,
         addAuditableSchema: false,
