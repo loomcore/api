@@ -8,7 +8,7 @@ const LOG_LEVEL_PRIORITIES: Record<LogLevel, number> = {
 	error: 3,
 };
 
-const getCurrentLogLevel = (): LogLevel => {
+export const getCurrentLogLevel = (): LogLevel => {
 	const envLogLevel = config.debug?.logLevel?.toLowerCase() as LogLevel;
 	if (
 		envLogLevel === "debug" ||
@@ -29,7 +29,7 @@ const shouldLog = (messageLevel: LogLevel): boolean => {
 	);
 };
 
-const logger = {
+export const logger = {
 	debug: (...args: unknown[]) => {
 		if (shouldLog("debug")) {
 			console.debug(...args);
@@ -51,5 +51,3 @@ const logger = {
 		}
 	},
 };
-
-export default logger;
