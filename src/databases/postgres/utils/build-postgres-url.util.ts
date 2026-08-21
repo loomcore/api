@@ -1,17 +1,17 @@
-import { IDatabaseConfig } from "../../../models/database-config.interface.js";
+import { IDatabaseConfig } from '../../../models/database-config.interface.js';
 
 export function buildPostgresUrl(config: { database: IDatabaseConfig }): string {
   const { database } = config;
 
   if (!database) {
-    throw new Error("Database configuration is required to build the PostgreSQL URL.");
+    throw new Error('Database configuration is required to build the PostgreSQL URL.');
   }
 
   const { username, password, host, port, name } = database;
 
   if (!username || !password || !host || !port || !name) {
     throw new Error(
-      "Database configuration must include user, password, host, port, and name to build the PostgreSQL URL."
+      'Database configuration must include user, password, host, port, and name to build the PostgreSQL URL.'
     );
   }
 

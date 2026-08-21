@@ -69,7 +69,7 @@ export class TestMongoDatabase implements ITestDatabase {
     // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
     //  If we can figure out how to use a single file for both, that would be great.
     await db.command({
-      createIndexes: "users", indexes: [{ key: { email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
+      createIndexes: 'users', indexes: [{ key: { email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
     });
   }
 

@@ -6,69 +6,69 @@ import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
 import { getPropertySchema } from '../../utils/get-property-schema.util.js';
 
 export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): Document {
-	const filters = queryOptions.filters || {};
-	const schema = modelSpec?.fullSchema;
-	let match: any = {};
-	for (const [key, value] of Object.entries(filters)) {
-		if (value) {
-			const propSchema = schema ? getPropertySchema(key, schema) : undefined;
+  const filters = queryOptions.filters || {};
+  const schema = modelSpec?.fullSchema;
+  let match: any = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) {
+      const propSchema = schema ? getPropertySchema(key, schema) : undefined;
 
-			if (value.eq !== undefined) {
-				const isObjectIdField = propSchema?.format === 'objectid';
-				const valueToCompare = value.eq;
+      if (value.eq !== undefined) {
+        const isObjectIdField = propSchema?.format === 'objectid';
+        const valueToCompare = value.eq;
 
-				// Use schema to check for ObjectId, otherwise fall back to name-based check
-				// Special case for _id: always treat as ObjectId if it's a valid ObjectId string
-				if ((key === '_id' || isObjectIdField || (!schema && key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)))
-					&& typeof valueToCompare === 'string' && entityUtils.isValidObjectId(valueToCompare)) {
-					match[key] = new ObjectId(valueToCompare);
-				}
+        // Use schema to check for ObjectId, otherwise fall back to name-based check
+        // Special case for _id: always treat as ObjectId if it's a valid ObjectId string
+        if ((key === '_id' || isObjectIdField || (!schema && key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)))
+          && typeof valueToCompare === 'string' && entityUtils.isValidObjectId(valueToCompare)) {
+          match[key] = new ObjectId(valueToCompare);
+        }
 
-				// Convert numeric strings to numbers
-				else if (typeof valueToCompare === 'string' && !isNaN(Number(valueToCompare))) {
-					match[key] = Number(valueToCompare);
-				}
-				else {
-					match[key] = valueToCompare;
-				}
-			}
-			if (value.in !== undefined && Array.isArray(value.in)) {
-				const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
+        // Convert numeric strings to numbers
+        else if (typeof valueToCompare === 'string' && !isNaN(Number(valueToCompare))) {
+          match[key] = Number(valueToCompare);
+        }
+        else {
+          match[key] = valueToCompare;
+        }
+      }
+      if (value.in !== undefined && Array.isArray(value.in)) {
+        const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
 
-				// Use schema to check for ObjectId array, otherwise fall back to name-based check
-				// Special case for _id: always treat as ObjectId array if values are valid ObjectId strings
-				if (key === '_id' || isObjectIdArray || (!schema && (key.endsWith('Id') || key.endsWith('Ids')) && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) {
-					// Convert string values to ObjectIds
-					const objectIds = value.in
-						.filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))
-						.map(val => new ObjectId(val as string));
-					if (objectIds.length > 0) {
-						match[key] = { $in: objectIds };
-					}
-				} else {
-					// Convert numeric strings to numbers in arrays
-					const convertedValues = value.in.map(val => typeof val === 'string' && !isNaN(Number(val)) ? Number(val) : val
-					);
-					match[key] = { $in: convertedValues };
-				}
-			}
-			if (value.gte !== undefined) {
-				match[key] = { $gte: value.gte };
-			}
-			if (value.lte !== undefined) {
-				match[key] = { $lte: value.lte };
-			}
-			if (value.gt !== undefined) {
-				match[key] = { $gt: value.gt };
-			}
-			if (value.lt !== undefined) {
-				match[key] = { $lt: value.lt };
-			}
-			if (value.contains !== undefined) {
-				match[key] = { $regex: value.contains, $options: 'i' };
-			}
-		}
-	}
+        // Use schema to check for ObjectId array, otherwise fall back to name-based check
+        // Special case for _id: always treat as ObjectId array if values are valid ObjectId strings
+        if (key === '_id' || isObjectIdArray || (!schema && (key.endsWith('Id') || key.endsWith('Ids')) && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) {
+          // Convert string values to ObjectIds
+          const objectIds = value.in
+            .filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))
+            .map(val => new ObjectId(val as string));
+          if (objectIds.length > 0) {
+            match[key] = { $in: objectIds };
+          }
+        } else {
+          // Convert numeric strings to numbers in arrays
+          const convertedValues = value.in.map(val => typeof val === 'string' && !isNaN(Number(val)) ? Number(val) : val
+          );
+          match[key] = { $in: convertedValues };
+        }
+      }
+      if (value.gte !== undefined) {
+        match[key] = { $gte: value.gte };
+      }
+      if (value.lte !== undefined) {
+        match[key] = { $lte: value.lte };
+      }
+      if (value.gt !== undefined) {
+        match[key] = { $gt: value.gt };
+      }
+      if (value.lt !== undefined) {
+        match[key] = { $lt: value.lt };
+      }
+      if (value.contains !== undefined) {
+        match[key] = { $regex: value.contains, $options: 'i' };
+      }
+    }
+  }
 
-	return { $match: match };
+  return { $match: match };
 }

@@ -1,477 +1,477 @@
 import {
-	EmptyUserContext,
-	getSystemUserContext,
-	IOrganization,
-	initializeSystemUserContext,
-	isSystemUserContextInitialized,
-} from "@loomcore/common/models";
-import { Db } from "mongodb";
-import { IInitialDbMigrationConfig } from "../../../models/initial-database-config.interface.js";
-import { OrganizationService } from "../../../services/index.js";
-import { passwordUtils } from "../../../utils/index.js";
-import { MongoDBDatabase } from "../mongo-db.database.js";
+  EmptyUserContext,
+  getSystemUserContext,
+  IOrganization,
+  initializeSystemUserContext,
+  isSystemUserContextInitialized,
+} from '@loomcore/common/models';
+import { Db } from 'mongodb';
+import { IInitialDbMigrationConfig } from '../../../models/initial-database-config.interface.js';
+import { OrganizationService } from '../../../services/index.js';
+import { passwordUtils } from '../../../utils/index.js';
+import { MongoDBDatabase } from '../mongo-db.database.js';
 
 export interface ISyntheticMigration {
-	name: string;
-	up: (context: { context: Db }) => Promise<void>;
-	down: (context: { context: Db }) => Promise<void>;
+  name: string;
+  up: (context: { context: Db }) => Promise<void>;
+  down: (context: { context: Db }) => Promise<void>;
 }
 
 export const getMongoInitialSchema = (
-	dbConfig: IInitialDbMigrationConfig,
+  dbConfig: IInitialDbMigrationConfig,
 ): ISyntheticMigration[] => {
-	const migrations: ISyntheticMigration[] = [];
+  const migrations: ISyntheticMigration[] = [];
 
-	const isMultiTenant = dbConfig.app.isMultiTenant;
-	if (isMultiTenant && !dbConfig.multiTenant) {
-		throw new Error(
-			"Multi-tenant configuration is enabled but multi-tenant configuration is not provided",
-		);
-	}
+  const isMultiTenant = dbConfig.app.isMultiTenant;
+  if (isMultiTenant && !dbConfig.multiTenant) {
+    throw new Error(
+      'Multi-tenant configuration is enabled but multi-tenant configuration is not provided',
+    );
+  }
 
-	const isAuthEnabled = dbConfig.app.isAuthEnabled;
+  const isAuthEnabled = dbConfig.app.isAuthEnabled;
 
-	// 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
-	if (isMultiTenant) {
-		migrations.push({
-			name: "00000000000001_schema-organizations",
-			up: async ({ context: db }) => {
-				await db.createCollection("organizations");
-				await db
-					.collection("organizations")
-					.createIndex({ name: 1 }, { unique: true });
-				await db
-					.collection("organizations")
-					.createIndex({ code: 1 }, { unique: true });
-				await db.collection("organizations").createIndex({ isMetaOrg: 1 });
-			},
-			down: async ({ context: db }) => {
-				await db.collection("organizations").drop();
-			},
-		});
+  // 1. ORGANIZATIONS (Conditionally Added - only for multi-tenant)
+  if (isMultiTenant) {
+    migrations.push({
+      name: '00000000000001_schema-organizations',
+      up: async ({ context: db }) => {
+        await db.createCollection('organizations');
+        await db
+          .collection('organizations')
+          .createIndex({ name: 1 }, { unique: true });
+        await db
+          .collection('organizations')
+          .createIndex({ code: 1 }, { unique: true });
+        await db.collection('organizations').createIndex({ isMetaOrg: 1 });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('organizations').drop();
+      },
+    });
 
-		migrations.push({
-			// Must sort after schema-organizations (MigrationRunner sorts by name).
-			// "organization-domains" sorts before "organizations" because "-" < "s".
-			name: "00000000000001_schema-organizations-domains",
-			up: async ({ context: db }) => {
-				await db.createCollection("organizationDomains");
-				await db
-					.collection("organizationDomains")
-					.createIndex({ domain: 1 }, { unique: true });
-				await db
-					.collection("organizationDomains")
-					.createIndex({ organizationId: 1 });
-			},
-			down: async ({ context: db }) => {
-				await db.collection("organizationDomains").drop();
-			},
-		});
-	}
+    migrations.push({
+      // Must sort after schema-organizations (MigrationRunner sorts by name).
+      // "organization-domains" sorts before "organizations" because "-" < "s".
+      name: '00000000000001_schema-organizations-domains',
+      up: async ({ context: db }) => {
+        await db.createCollection('organizationDomains');
+        await db
+          .collection('organizationDomains')
+          .createIndex({ domain: 1 }, { unique: true });
+        await db
+          .collection('organizationDomains')
+          .createIndex({ organizationId: 1 });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('organizationDomains').drop();
+      },
+    });
+  }
 
-	// 2. USERS
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000002_schema-users",
-			up: async ({ context: db }) => {
-				await db.createCollection("users");
+  // 2. USERS
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000002_schema-users',
+      up: async ({ context: db }) => {
+        await db.createCollection('users');
 
-				// Create indexes
-				if (dbConfig.app.isMultiTenant) {
-					// Multi-tenant: unique email per organization
-					await db
-						.collection("users")
-						.createIndex({ _orgId: 1, email: 1 }, { unique: true });
-					await db.collection("users").createIndex({ _orgId: 1 });
-				} else {
-					// Single-tenant: unique email globally
-					await db
-						.collection("users")
-						.createIndex({ email: 1 }, { unique: true });
-				}
-				// Sparse so multiple users without externalId are allowed (matches Postgres UNIQUE NULL)
-				await db
-					.collection("users")
-					.createIndex({ externalId: 1 }, { unique: true, sparse: true });
-			},
-			down: async ({ context: db }) => {
-				await db.collection("users").drop();
-			},
-		});
+        // Create indexes
+        if (dbConfig.app.isMultiTenant) {
+          // Multi-tenant: unique email per organization
+          await db
+            .collection('users')
+            .createIndex({ _orgId: 1, email: 1 }, { unique: true });
+          await db.collection('users').createIndex({ _orgId: 1 });
+        } else {
+          // Single-tenant: unique email globally
+          await db
+            .collection('users')
+            .createIndex({ email: 1 }, { unique: true });
+        }
+        // Sparse so multiple users without externalId are allowed (matches Postgres UNIQUE NULL)
+        await db
+          .collection('users')
+          .createIndex({ externalId: 1 }, { unique: true, sparse: true });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('users').drop();
+      },
+    });
 
-	// 3. REFRESH TOKENS
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000003_schema-refresh-tokens",
-			up: async ({ context: db }) => {
-				await db.createCollection("refreshTokens");
-				await db
-					.collection("refreshTokens")
-					.createIndex({ token: 1 }, { unique: true });
-				await db.collection("refreshTokens").createIndex({ userId: 1 });
-				await db.collection("refreshTokens").createIndex({ deviceId: 1 });
-				if (isMultiTenant) {
-					await db.collection("refreshTokens").createIndex({ _orgId: 1 });
-				}
-			},
-			down: async ({ context: db }) => {
-				await db.collection("refreshTokens").drop();
-			},
-		});
+  // 3. REFRESH TOKENS
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000003_schema-refresh-tokens',
+      up: async ({ context: db }) => {
+        await db.createCollection('refreshTokens');
+        await db
+          .collection('refreshTokens')
+          .createIndex({ token: 1 }, { unique: true });
+        await db.collection('refreshTokens').createIndex({ userId: 1 });
+        await db.collection('refreshTokens').createIndex({ deviceId: 1 });
+        if (isMultiTenant) {
+          await db.collection('refreshTokens').createIndex({ _orgId: 1 });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('refreshTokens').drop();
+      },
+    });
 
-	// 4. PASSWORD RESET TOKENS
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000004_schema-password-reset-tokens",
-			up: async ({ context: db }) => {
-				await db.createCollection("passwordResetTokens");
-				if (isMultiTenant) {
-					await db
-						.collection("passwordResetTokens")
-						.createIndex({ _orgId: 1, email: 1 }, { unique: true });
-					await db
-						.collection("passwordResetTokens")
-						.createIndex({ _orgId: 1 });
-				} else {
-					await db
-						.collection("passwordResetTokens")
-						.createIndex({ email: 1 }, { unique: true });
-				}
-			},
-			down: async ({ context: db }) => {
-				await db.collection("passwordResetTokens").drop();
-			},
-		});
+  // 4. PASSWORD RESET TOKENS
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000004_schema-password-reset-tokens',
+      up: async ({ context: db }) => {
+        await db.createCollection('passwordResetTokens');
+        if (isMultiTenant) {
+          await db
+            .collection('passwordResetTokens')
+            .createIndex({ _orgId: 1, email: 1 }, { unique: true });
+          await db
+            .collection('passwordResetTokens')
+            .createIndex({ _orgId: 1 });
+        } else {
+          await db
+            .collection('passwordResetTokens')
+            .createIndex({ email: 1 }, { unique: true });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('passwordResetTokens').drop();
+      },
+    });
 
-	// 5. ROLES
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000005_schema-roles",
-			up: async ({ context: db }) => {
-				await db.createCollection("roles");
-				if (isMultiTenant) {
-					await db
-						.collection("roles")
-						.createIndex({ _orgId: 1, name: 1 }, { unique: true });
-					await db.collection("roles").createIndex({ _orgId: 1 });
-				} else {
-					await db
-						.collection("roles")
-						.createIndex({ name: 1 }, { unique: true });
-				}
-			},
-			down: async ({ context: db }) => {
-				await db.collection("roles").drop();
-			},
-		});
+  // 5. ROLES
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000005_schema-roles',
+      up: async ({ context: db }) => {
+        await db.createCollection('roles');
+        if (isMultiTenant) {
+          await db
+            .collection('roles')
+            .createIndex({ _orgId: 1, name: 1 }, { unique: true });
+          await db.collection('roles').createIndex({ _orgId: 1 });
+        } else {
+          await db
+            .collection('roles')
+            .createIndex({ name: 1 }, { unique: true });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('roles').drop();
+      },
+    });
 
-	// 6. USER ROLES
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000006_schema-user-roles",
-			up: async ({ context: db }) => {
-				await db.createCollection("userRoles");
-				if (isMultiTenant) {
-					await db
-						.collection("userRoles")
-						.createIndex({ _orgId: 1, userId: 1, roleId: 1 }, { unique: true });
-					await db.collection("userRoles").createIndex({ _orgId: 1 });
-				} else {
-					await db
-						.collection("userRoles")
-						.createIndex({ userId: 1, roleId: 1 }, { unique: true });
-				}
-				await db.collection("userRoles").createIndex({ userId: 1 });
-				await db.collection("userRoles").createIndex({ roleId: 1 });
-			},
-			down: async ({ context: db }) => {
-				await db.collection("userRoles").drop();
-			},
-		});
+  // 6. USER ROLES
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000006_schema-user-roles',
+      up: async ({ context: db }) => {
+        await db.createCollection('userRoles');
+        if (isMultiTenant) {
+          await db
+            .collection('userRoles')
+            .createIndex({ _orgId: 1, userId: 1, roleId: 1 }, { unique: true });
+          await db.collection('userRoles').createIndex({ _orgId: 1 });
+        } else {
+          await db
+            .collection('userRoles')
+            .createIndex({ userId: 1, roleId: 1 }, { unique: true });
+        }
+        await db.collection('userRoles').createIndex({ userId: 1 });
+        await db.collection('userRoles').createIndex({ roleId: 1 });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('userRoles').drop();
+      },
+    });
 
-	// 7. FEATURES
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000007_schema-features",
-			up: async ({ context: db }) => {
-				await db.createCollection("features");
-				if (isMultiTenant) {
-					await db
-						.collection("features")
-						.createIndex({ _orgId: 1, name: 1 }, { unique: true });
-					await db.collection("features").createIndex({ _orgId: 1 });
-				} else {
-					await db
-						.collection("features")
-						.createIndex({ name: 1 }, { unique: true });
-				}
-			},
-			down: async ({ context: db }) => {
-				await db.collection("features").drop();
-			},
-		});
+  // 7. FEATURES
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000007_schema-features',
+      up: async ({ context: db }) => {
+        await db.createCollection('features');
+        if (isMultiTenant) {
+          await db
+            .collection('features')
+            .createIndex({ _orgId: 1, name: 1 }, { unique: true });
+          await db.collection('features').createIndex({ _orgId: 1 });
+        } else {
+          await db
+            .collection('features')
+            .createIndex({ name: 1 }, { unique: true });
+        }
+      },
+      down: async ({ context: db }) => {
+        await db.collection('features').drop();
+      },
+    });
 
-	// 8. AUTHORIZATIONS
-	if (isAuthEnabled)
-		migrations.push({
-			name: "00000000000008_schema-authorizations",
-			up: async ({ context: db }) => {
-				await db.createCollection("authorizations");
-				if (isMultiTenant) {
-					await db
-						.collection("authorizations")
-						.createIndex(
-							{ _orgId: 1, roleId: 1, featureId: 1 },
-							{ unique: true },
-						);
-					await db.collection("authorizations").createIndex({ _orgId: 1 });
-				} else {
-					await db
-						.collection("authorizations")
-						.createIndex({ roleId: 1, featureId: 1 }, { unique: true });
-				}
-				await db.collection("authorizations").createIndex({ roleId: 1 });
-				await db.collection("authorizations").createIndex({ featureId: 1 });
-			},
-			down: async ({ context: db }) => {
-				await db.collection("authorizations").drop();
-			},
-		});
+  // 8. AUTHORIZATIONS
+  if (isAuthEnabled)
+    migrations.push({
+      name: '00000000000008_schema-authorizations',
+      up: async ({ context: db }) => {
+        await db.createCollection('authorizations');
+        if (isMultiTenant) {
+          await db
+            .collection('authorizations')
+            .createIndex(
+              { _orgId: 1, roleId: 1, featureId: 1 },
+              { unique: true },
+            );
+          await db.collection('authorizations').createIndex({ _orgId: 1 });
+        } else {
+          await db
+            .collection('authorizations')
+            .createIndex({ roleId: 1, featureId: 1 }, { unique: true });
+        }
+        await db.collection('authorizations').createIndex({ roleId: 1 });
+        await db.collection('authorizations').createIndex({ featureId: 1 });
+      },
+      down: async ({ context: db }) => {
+        await db.collection('authorizations').drop();
+      },
+    });
 
-	// 9. META ORG (only for multi-tenant)
-	if (isMultiTenant) {
-		migrations.push({
-			name: "00000000000009_data-meta-org",
-			up: async ({ context: db }) => {
-				const metaOrgDoc = {
-					name: dbConfig.multiTenant!.metaOrgName,
-					code: dbConfig.multiTenant!.metaOrgCode,
-					description: undefined,
-					status: 1,
-					isMetaOrg: true,
-					authToken: undefined,
-					_created: new Date(),
-					_createdBy: "system",
-					_updated: new Date(),
-					_updatedBy: "system",
-					_deleted: undefined,
-					_deletedBy: undefined,
-				};
+  // 9. META ORG (only for multi-tenant)
+  if (isMultiTenant) {
+    migrations.push({
+      name: '00000000000009_data-meta-org',
+      up: async ({ context: db }) => {
+        const metaOrgDoc = {
+          name: dbConfig.multiTenant!.metaOrgName,
+          code: dbConfig.multiTenant!.metaOrgCode,
+          description: undefined,
+          status: 1,
+          isMetaOrg: true,
+          authToken: undefined,
+          _created: new Date(),
+          _createdBy: 'system',
+          _updated: new Date(),
+          _updatedBy: 'system',
+          _deleted: undefined,
+          _deletedBy: undefined,
+        };
 
-				const result = await db
-					.collection("organizations")
-					.insertOne(metaOrgDoc as any);
-				// _id / _orgId are always strings in the API layer; keep the native
-				// ObjectId only for Mongo foreign keys that are true ObjectId fields (e.g. organizationId).
-				const metaOrgObjectId = result.insertedId;
-				const metaOrg = {
-					...metaOrgDoc,
-					_id: metaOrgObjectId.toString(),
-				} as unknown as IOrganization;
+        const result = await db
+          .collection('organizations')
+          .insertOne(metaOrgDoc as any);
+        // _id / _orgId are always strings in the API layer; keep the native
+        // ObjectId only for Mongo foreign keys that are true ObjectId fields (e.g. organizationId).
+        const metaOrgObjectId = result.insertedId;
+        const metaOrg = {
+          ...metaOrgDoc,
+          _id: metaOrgObjectId.toString(),
+        } as unknown as IOrganization;
 
-				const metaOrgDomains = dbConfig.multiTenant!.metaOrgDomains ?? [];
-				if (metaOrgDomains.length > 0) {
-					await db.collection("organizationDomains").insertMany(
-						metaOrgDomains.map((domain) => ({
-							organizationId: metaOrgObjectId,
-							domain,
-							_created: new Date(),
-							_createdBy: "system",
-							_updated: new Date(),
-							_updatedBy: "system",
-						})),
-					);
-				}
+        const metaOrgDomains = dbConfig.multiTenant!.metaOrgDomains ?? [];
+        if (metaOrgDomains.length > 0) {
+          await db.collection('organizationDomains').insertMany(
+            metaOrgDomains.map((domain) => ({
+              organizationId: metaOrgObjectId,
+              domain,
+              _created: new Date(),
+              _createdBy: 'system',
+              _updated: new Date(),
+              _updatedBy: 'system',
+            })),
+          );
+        }
 
-				// Initialize system user context with the meta org
-				initializeSystemUserContext(
-					dbConfig.email?.systemEmailAddress || "system@example.com",
-					metaOrg,
-				);
-			},
-			down: async ({ context: db }) => {
-				await db.collection("organizationDomains").deleteMany({});
-				await db.collection("organizations").deleteMany({ isMetaOrg: true });
-			},
-		});
-	}
+        // Initialize system user context with the meta org
+        initializeSystemUserContext(
+          dbConfig.email?.systemEmailAddress || 'system@example.com',
+          metaOrg,
+        );
+      },
+      down: async ({ context: db }) => {
+        await db.collection('organizationDomains').deleteMany({});
+        await db.collection('organizations').deleteMany({ isMetaOrg: true });
+      },
+    });
+  }
 
-	// 10. ADMIN USER (only if adminUser config is provided)
-	if (isAuthEnabled && dbConfig.adminUser) {
-		migrations.push({
-			name: "00000000000010_data-admin-user",
-			up: async ({ context: db }) => {
-				// SystemUserContext MUST be initialized before this migration runs
-				// For multi-tenant: meta-org migration should have initialized it
-				// For non-multi-tenant: should be initialized before migrations run (bug if not)
-				if (!isSystemUserContextInitialized()) {
-					const errorMessage = isMultiTenant
-						? "SystemUserContext has not been initialized. The meta-org migration (00000000000009_data-meta-org) should have run before this migration. " +
-						"Please ensure metaOrgName and metaOrgCode are provided in your dbConfig."
-						: "BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.";
+  // 10. ADMIN USER (only if adminUser config is provided)
+  if (isAuthEnabled && dbConfig.adminUser) {
+    migrations.push({
+      name: '00000000000010_data-admin-user',
+      up: async ({ context: db }) => {
+        // SystemUserContext MUST be initialized before this migration runs
+        // For multi-tenant: meta-org migration should have initialized it
+        // For non-multi-tenant: should be initialized before migrations run (bug if not)
+        if (!isSystemUserContextInitialized()) {
+          const errorMessage = isMultiTenant
+            ? 'SystemUserContext has not been initialized. The meta-org migration (00000000000009_data-meta-org) should have run before this migration. ' +
+            'Please ensure metaOrgName and metaOrgCode are provided in your dbConfig.'
+            : 'BUG: SystemUserContext has not been initialized. For non-multi-tenant setups, SystemUserContext should be initialized before migrations run.';
 
-					console.error("❌ Migration Error:", errorMessage);
-					throw new Error(errorMessage);
-				}
+          console.error('❌ Migration Error:', errorMessage);
+          throw new Error(errorMessage);
+        }
 
-				const systemUserContext = getSystemUserContext();
-				// _orgId must always be a string — never a Mongo ObjectId
-				const orgDoc =
-					isMultiTenant && systemUserContext.user._orgId
-						? { _orgId: String(systemUserContext.user._orgId) }
-						: {};
-				const hashedPassword = await passwordUtils.hashPassword(
-					dbConfig.adminUser.password,
-				);
-				const email = dbConfig.adminUser.email.toLowerCase();
+        const systemUserContext = getSystemUserContext();
+        // _orgId must always be a string — never a Mongo ObjectId
+        const orgDoc =
+          isMultiTenant && systemUserContext.user._orgId
+            ? { _orgId: String(systemUserContext.user._orgId) }
+            : {};
+        const hashedPassword = await passwordUtils.hashPassword(
+          dbConfig.adminUser.password,
+        );
+        const email = dbConfig.adminUser.email.toLowerCase();
 
-				await db.collection("users").insertOne({
-					...orgDoc,
-					email,
-					password: hashedPassword,
-					displayName: "Admin User",
-					_created: new Date(),
-					_createdBy: "system",
-					_updated: new Date(),
-					_updatedBy: "system" as any,
-				} as any);
-			},
-			down: async ({ context: db }) => {
-				if (!dbConfig?.adminUser?.email) return;
-				await db
-					.collection("users")
-					.deleteOne({ email: dbConfig.adminUser.email.toLowerCase() });
-			},
-		});
-	}
+        await db.collection('users').insertOne({
+          ...orgDoc,
+          email,
+          password: hashedPassword,
+          displayName: 'Admin User',
+          _created: new Date(),
+          _createdBy: 'system',
+          _updated: new Date(),
+          _updatedBy: 'system' as any,
+        } as any);
+      },
+      down: async ({ context: db }) => {
+        if (!dbConfig?.adminUser?.email) return;
+        await db
+          .collection('users')
+          .deleteOne({ email: dbConfig.adminUser.email.toLowerCase() });
+      },
+    });
+  }
 
-	// 11. ADMIN AUTHORIZATION
-	if (isAuthEnabled && dbConfig.adminUser) {
-		migrations.push({
-			name: "00000000000011_data-admin-authorizations",
-			up: async ({ context: db }) => {
-				const database = new MongoDBDatabase(db);
-				const organizationService = new OrganizationService(database);
+  // 11. ADMIN AUTHORIZATION
+  if (isAuthEnabled && dbConfig.adminUser) {
+    migrations.push({
+      name: '00000000000011_data-admin-authorizations',
+      up: async ({ context: db }) => {
+        const database = new MongoDBDatabase(db);
+        const organizationService = new OrganizationService(database);
 
-				// Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
-				const metaOrg = isMultiTenant
-					? await organizationService.getMetaOrg(EmptyUserContext)
-					: undefined;
-				if (isMultiTenant && !metaOrg) {
-					throw new Error(
-						"Meta organization not found. Ensure meta-org migration ran successfully.",
-					);
-				}
+        // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
+        const metaOrg = isMultiTenant
+          ? await organizationService.getMetaOrg(EmptyUserContext)
+          : undefined;
+        if (isMultiTenant && !metaOrg) {
+          throw new Error(
+            'Meta organization not found. Ensure meta-org migration ran successfully.',
+          );
+        }
 
-				const email = dbConfig.adminUser.email.toLowerCase();
-				const adminUser = await db.collection("users").findOne({ email });
-				if (!adminUser) {
-					throw new Error(
-						"Admin user not found. Ensure admin-user migration ran successfully.",
-					);
-				}
+        const email = dbConfig.adminUser.email.toLowerCase();
+        const adminUser = await db.collection('users').findOne({ email });
+        if (!adminUser) {
+          throw new Error(
+            'Admin user not found. Ensure admin-user migration ran successfully.',
+          );
+        }
 
-				// Build org-scoped document base (only for multi-tenant)
-				// _orgId must always be a string — never a Mongo ObjectId
-				const orgDoc =
-					isMultiTenant && metaOrg?._id
-						? { _orgId: String(metaOrg._id) }
-						: {};
+        // Build org-scoped document base (only for multi-tenant)
+        // _orgId must always be a string — never a Mongo ObjectId
+        const orgDoc =
+          isMultiTenant && metaOrg?._id
+            ? { _orgId: String(metaOrg._id) }
+            : {};
 
-				// 1) Add 'admin' role
-				const roleResult = await db.collection("roles").insertOne({
-					...orgDoc,
-					name: "admin",
-				} as any);
+        // 1) Add 'admin' role
+        const roleResult = await db.collection('roles').insertOne({
+          ...orgDoc,
+          name: 'admin',
+        } as any);
 
-				// 2) Add user role mapping
-				await db.collection("userRoles").insertOne({
-					...orgDoc,
-					userId: adminUser._id,
-					roleId: roleResult.insertedId,
-					_created: new Date(),
-					_createdBy: "system",
-					_updated: new Date(),
-					_updatedBy: "system",
-					_deleted: undefined,
-					_deletedBy: undefined,
-				} as any);
+        // 2) Add user role mapping
+        await db.collection('userRoles').insertOne({
+          ...orgDoc,
+          userId: adminUser._id,
+          roleId: roleResult.insertedId,
+          _created: new Date(),
+          _createdBy: 'system',
+          _updated: new Date(),
+          _updatedBy: 'system',
+          _deleted: undefined,
+          _deletedBy: undefined,
+        } as any);
 
-				// 3) Add admin feature
-				const featureResult = await db.collection("features").insertOne({
-					...orgDoc,
-					name: "admin",
-				} as any);
+        // 3) Add admin feature
+        const featureResult = await db.collection('features').insertOne({
+          ...orgDoc,
+          name: 'admin',
+        } as any);
 
-				// 4) Add authorization
-				await db.collection("authorizations").insertOne({
-					...orgDoc,
-					roleId: roleResult.insertedId,
-					featureId: featureResult.insertedId,
-					startDate: undefined,
-					endDate: undefined,
-					config: undefined,
-					_created: new Date(),
-					_createdBy: "system",
-					_updated: new Date(),
-					_updatedBy: "system",
-					_deleted: undefined,
-					_deletedBy: undefined,
-				} as any);
-			},
-			down: async ({ context: db }) => {
-				const database = new MongoDBDatabase(db);
-				const organizationService = new OrganizationService(database);
-				const metaOrg = isMultiTenant
-					? await organizationService.getMetaOrg(EmptyUserContext)
-					: undefined;
+        // 4) Add authorization
+        await db.collection('authorizations').insertOne({
+          ...orgDoc,
+          roleId: roleResult.insertedId,
+          featureId: featureResult.insertedId,
+          startDate: undefined,
+          endDate: undefined,
+          config: undefined,
+          _created: new Date(),
+          _createdBy: 'system',
+          _updated: new Date(),
+          _updatedBy: 'system',
+          _deleted: undefined,
+          _deletedBy: undefined,
+        } as any);
+      },
+      down: async ({ context: db }) => {
+        const database = new MongoDBDatabase(db);
+        const organizationService = new OrganizationService(database);
+        const metaOrg = isMultiTenant
+          ? await organizationService.getMetaOrg(EmptyUserContext)
+          : undefined;
 
-				if (isMultiTenant && !metaOrg) return;
+        if (isMultiTenant && !metaOrg) return;
 
-				// Build query filter (use _orgId only for multi-tenant)
-				// _orgId must always be a string — never a Mongo ObjectId
-				const orgFilter =
-					isMultiTenant && metaOrg?._id
-						? { _orgId: String(metaOrg._id) }
-						: {};
+        // Build query filter (use _orgId only for multi-tenant)
+        // _orgId must always be a string — never a Mongo ObjectId
+        const orgFilter =
+          isMultiTenant && metaOrg?._id
+            ? { _orgId: String(metaOrg._id) }
+            : {};
 
-				// Find admin role and feature
-				const adminRole = await db
-					.collection("roles")
-					.findOne({ ...orgFilter, name: "admin" });
-				const adminFeature = await db
-					.collection("features")
-					.findOne({ ...orgFilter, name: "admin" });
+        // Find admin role and feature
+        const adminRole = await db
+          .collection('roles')
+          .findOne({ ...orgFilter, name: 'admin' });
+        const adminFeature = await db
+          .collection('features')
+          .findOne({ ...orgFilter, name: 'admin' });
 
-				if (adminRole && adminFeature) {
-					// Remove authorization
-					await db.collection("authorizations").deleteMany({
-						...orgFilter,
-						roleId: adminRole._id,
-						featureId: adminFeature._id,
-					});
-				}
+        if (adminRole && adminFeature) {
+          // Remove authorization
+          await db.collection('authorizations').deleteMany({
+            ...orgFilter,
+            roleId: adminRole._id,
+            featureId: adminFeature._id,
+          });
+        }
 
-				// Remove feature
-				await db
-					.collection("features")
-					.deleteMany({ ...orgFilter, name: "admin" });
+        // Remove feature
+        await db
+          .collection('features')
+          .deleteMany({ ...orgFilter, name: 'admin' });
 
-				// Remove user role mapping
-				if (adminRole) {
-					await db.collection("userRoles").deleteMany({
-						...orgFilter,
-						roleId: adminRole._id,
-					});
-				}
+        // Remove user role mapping
+        if (adminRole) {
+          await db.collection('userRoles').deleteMany({
+            ...orgFilter,
+            roleId: adminRole._id,
+          });
+        }
 
-				// Remove role
-				await db
-					.collection("roles")
-					.deleteMany({ ...orgFilter, name: "admin" });
-			},
-		});
-	}
+        // Remove role
+        await db
+          .collection('roles')
+          .deleteMany({ ...orgFilter, name: 'admin' });
+      },
+    });
+  }
 
-	return migrations;
+  return migrations;
 };

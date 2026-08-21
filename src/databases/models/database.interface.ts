@@ -1,8 +1,8 @@
-import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from "@loomcore/common/models";
-import type { AppIdType } from "@loomcore/common/types";
-import { DeleteResult } from "./delete-result.js";
-import { TSchema } from "@sinclair/typebox";
-import { Operation } from "../operations/operation.js";
+import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from '@loomcore/common/models';
+import type { AppIdType } from '@loomcore/common/types';
+import { DeleteResult } from './delete-result.js';
+import { TSchema } from '@sinclair/typebox';
+import { Operation } from '../operations/operation.js';
 
 export interface IDatabase {
   close(): Promise<void>;

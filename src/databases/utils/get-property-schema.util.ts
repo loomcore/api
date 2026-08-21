@@ -8,20 +8,20 @@ import { TSchema } from '@sinclair/typebox';
  */
 
 export function getPropertySchema(key: string, schema: TSchema): TSchema | undefined {
-	if (!schema || typeof schema !== 'object') return undefined;
+  if (!schema || typeof schema !== 'object') return undefined;
 
-	// Handle 'allOf' for schema compositions (e.g., Type.Intersect)
-	if (schema.allOf && Array.isArray(schema.allOf)) {
-		for (const nestedSchema of schema.allOf) {
-			const propSchema = getPropertySchema(key, nestedSchema);
-			if (propSchema) return propSchema;
-		}
-	}
+  // Handle 'allOf' for schema compositions (e.g., Type.Intersect)
+  if (schema.allOf && Array.isArray(schema.allOf)) {
+    for (const nestedSchema of schema.allOf) {
+      const propSchema = getPropertySchema(key, nestedSchema);
+      if (propSchema) return propSchema;
+    }
+  }
 
-	// Check for property in the current schema level
-	if (schema.type === 'object' && schema.properties) {
-		return schema.properties[key] as TSchema | undefined;
-	}
+  // Check for property in the current schema level
+  if (schema.type === 'object' && schema.properties) {
+    return schema.properties[key] as TSchema | undefined;
+  }
 
-	return undefined;
+  return undefined;
 }

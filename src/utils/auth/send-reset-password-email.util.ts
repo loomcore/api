@@ -1,39 +1,39 @@
-import { type IUserContext } from "@loomcore/common/models";
-import type { IDatabase } from "../../databases/models/index.js";
-import { ServerError } from "../../errors/index.js";
-import { EmailService } from "../../services/email.service.js";
-import { PasswordResetTokenService } from "../../services/password-reset-token.service.js";
-import { getAuthConfig } from "./get-auth-config.util.js";
-import { getExpiresOnFromMinutes } from "./get-expires-on-from-minutes.util.js";
+import { type IUserContext } from '@loomcore/common/models';
+import type { IDatabase } from '../../databases/models/index.js';
+import { ServerError } from '../../errors/index.js';
+import { EmailService } from '../../services/email.service.js';
+import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
+import { getAuthConfig } from './get-auth-config.util.js';
+import { getExpiresOnFromMinutes } from './get-expires-on-from-minutes.util.js';
 
 export async function sendResetPasswordEmail(
-	userContext: IUserContext,
-	database: IDatabase,
-	emailAddress: string,
-	clientBaseUrl: string,
+  userContext: IUserContext,
+  database: IDatabase,
+  emailAddress: string,
+  clientBaseUrl: string,
 ) {
-	const authConfig = getAuthConfig();
-	const passwordResetTokenService = new PasswordResetTokenService(database);
-	const emailService = new EmailService();
+  const authConfig = getAuthConfig();
+  const passwordResetTokenService = new PasswordResetTokenService(database);
+  const emailService = new EmailService();
 
-	const expiresOn = getExpiresOnFromMinutes(
-		authConfig.passwordResetTokenExpirationInMinutes,
-	);
-	const passwordResetToken =
-		await passwordResetTokenService.createPasswordResetToken(
-			userContext,
-			emailAddress,
-			expiresOn,
-		);
+  const expiresOn = getExpiresOnFromMinutes(
+    authConfig.passwordResetTokenExpirationInMinutes,
+  );
+  const passwordResetToken =
+    await passwordResetTokenService.createPasswordResetToken(
+      userContext,
+      emailAddress,
+      expiresOn,
+    );
 
-	if (!passwordResetToken) {
-		throw new ServerError(
-			`Failed to create password reset token for email: ${emailAddress}`,
-		);
-	}
+  if (!passwordResetToken) {
+    throw new ServerError(
+      `Failed to create password reset token for email: ${emailAddress}`,
+    );
+  }
 
-	const urlEncodedEmail = encodeURIComponent(emailAddress);
-	const resetPasswordLink = `${clientBaseUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
+  const urlEncodedEmail = encodeURIComponent(emailAddress);
+  const resetPasswordLink = `${clientBaseUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
-	await emailService.sendResetPasswordEmail(emailAddress, resetPasswordLink);
+  await emailService.sendResetPasswordEmail(emailAddress, resetPasswordLink);
 }

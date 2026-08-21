@@ -1,7 +1,7 @@
-import { IAuditable, IEntity } from "@loomcore/common/models";
-import { entityUtils } from "@loomcore/common/utils";
-import { TypeboxIsoDate } from "@loomcore/common/validation";
-import { Type } from "@sinclair/typebox";
+import { IAuditable, IEntity } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
+import { TypeboxIsoDate } from '@loomcore/common/validation';
+import { Type } from '@sinclair/typebox';
 
 // Mock model for testing
 export interface ITestItem extends IEntity, IAuditable {

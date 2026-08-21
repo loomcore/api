@@ -1,5 +1,5 @@
-import type { Request } from "express";
+import type { Request } from 'express';
 
 export function getDeviceIdFromCookie(req: Request) {
-	return req.cookies.deviceId;
+  return req.cookies.deviceId;
 }

@@ -1,4 +1,4 @@
 export interface IEmailConfig {
-    fromAddress: string;
-    systemEmailAddress: string;
+  fromAddress: string;
+  systemEmailAddress: string;
 }

@@ -8,52 +8,52 @@ import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 import { IUser } from '@loomcore/common/models';
 
 describe('UsersController', () => {
-	let testAgent: any;
-	let authController: AuthController;
-	let usersController: UsersController;
+  let testAgent: any;
+  let authController: AuthController;
+  let usersController: UsersController;
 
-	beforeAll(async () => {
-		const testSetup = await TestExpressApp.init();
-		testAgent = testSetup.agent;
+  beforeAll(async () => {
+    const testSetup = await TestExpressApp.init();
+    testAgent = testSetup.agent;
 
-		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
-		authController = new AuthController(testSetup.app, testSetup.database);
-		usersController = new UsersController(testSetup.app, testSetup.database);
+    // Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
+    authController = new AuthController(testSetup.app, testSetup.database);
+    usersController = new UsersController(testSetup.app, testSetup.database);
 
-		// Setup error handling middleware AFTER controller initialization
-		await TestExpressApp.setupErrorHandling();
+    // Setup error handling middleware AFTER controller initialization
+    await TestExpressApp.setupErrorHandling();
 
-		// Set up test user data
-		await testUtils.setupTestUsers();
-	});
+    // Set up test user data
+    await testUtils.setupTestUsers();
+  });
 
-	afterAll(async () => {
-		await testUtils.deleteTestUser()
-		await TestExpressApp.cleanup();
-	});
+  afterAll(async () => {
+    await testUtils.deleteTestUser()
+    await TestExpressApp.cleanup();
+  });
 
-	describe('PATCH /users', () => {
-		const apiEndpoint = '/api/users';
+  describe('PATCH /users', () => {
+    const apiEndpoint = '/api/users';
 
-		it("should return a 200 and only update provided properties", async () => {
-			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
+    it('should return a 200 and only update provided properties', async () => {
+      const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
 
-			const userId = getTestMetaOrgUser()._id;
-			const path = `${apiEndpoint}/${userId}`;
-			const updatedUser: Partial<IUser> = {
-				displayName: 'Updated Display Name'
-			};
+      const userId = getTestMetaOrgUser()._id;
+      const path = `${apiEndpoint}/${userId}`;
+      const updatedUser: Partial<IUser> = {
+        displayName: 'Updated Display Name'
+      };
 
-			const response = await testAgent
-				.patch(path)
-				.set('Authorization', authorizationHeaderValue)
-				.send(updatedUser);
+      const response = await testAgent
+        .patch(path)
+        .set('Authorization', authorizationHeaderValue)
+        .send(updatedUser);
 
-			expect(response.status).toBe(200);
-			expect(response.body?.data?.displayName).toEqual('Updated Display Name');
-			expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email); // because this is partial update, properties we did not provide should remain the same
-		});
-	});
+      expect(response.status).toBe(200);
+      expect(response.body?.data?.displayName).toEqual('Updated Display Name');
+      expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email); // because this is partial update, properties we did not provide should remain the same
+    });
+  });
 
 });
 

@@ -1,147 +1,147 @@
 import {
-	type IModelSpec,
-	type IPagedResult,
-	type IQueryOptions,
-	type IUser,
-	type IUserContext,
-	UserSpec,
-} from "@loomcore/common/models";
-import type { AppIdType } from "@loomcore/common/types";
-import type { IDatabase } from "../databases/models/index.js";
-import { BadRequestError, ServerError } from "../errors/index.js";
+  type IModelSpec,
+  type IPagedResult,
+  type IQueryOptions,
+  type IUser,
+  type IUserContext,
+  UserSpec,
+} from '@loomcore/common/models';
+import type { AppIdType } from '@loomcore/common/types';
+import type { IDatabase } from '../databases/models/index.js';
+import { BadRequestError, ServerError } from '../errors/index.js';
 import {
-	assertAdmin,
-	assertUserOrAdmin,
-} from "../utils/auth/index.js";
-import { passwordUtils } from "../utils/password.utils.js";
-import { MultiTenantApiService } from "./multi-tenant-api.service.js";
+  assertAdmin,
+  assertUserOrAdmin,
+} from '../utils/auth/index.js';
+import { passwordUtils } from '../utils/password.utils.js';
+import { MultiTenantApiService } from './multi-tenant-api.service.js';
 
 export class UserService extends MultiTenantApiService<IUser> {
-	constructor(database: IDatabase, modelSpec: IModelSpec = UserSpec) {
-		super(database, "users", "user", modelSpec);
-	}
+  constructor(database: IDatabase, modelSpec: IModelSpec = UserSpec) {
+    super(database, 'users', 'user', modelSpec);
+  }
 
-	override async getById(
-		userContext: IUserContext,
-		id: AppIdType,
-	): Promise<IUser> {
-		assertUserOrAdmin(userContext, id);
-		return super.getById(userContext, id);
-	}
+  override async getById(
+    userContext: IUserContext,
+    id: AppIdType,
+  ): Promise<IUser> {
+    assertUserOrAdmin(userContext, id);
+    return super.getById(userContext, id);
+  }
 
-	override async get(
-		userContext: IUserContext,
-		queryOptions?: IQueryOptions,
-	): Promise<IPagedResult<IUser>> {
-		assertAdmin(userContext);
-		return super.get(userContext, queryOptions);
-	}
+  override async get(
+    userContext: IUserContext,
+    queryOptions?: IQueryOptions,
+  ): Promise<IPagedResult<IUser>> {
+    assertAdmin(userContext);
+    return super.get(userContext, queryOptions);
+  }
 
-	override async getAll(userContext: IUserContext): Promise<IUser[]> {
-		assertAdmin(userContext);
-		return super.getAll(userContext);
-	}
+  override async getAll(userContext: IUserContext): Promise<IUser[]> {
+    assertAdmin(userContext);
+    return super.getAll(userContext);
+  }
 
-	override async getCount(userContext: IUserContext): Promise<number> {
-		assertAdmin(userContext);
-		return super.getCount(userContext);
-	}
+  override async getCount(userContext: IUserContext): Promise<number> {
+    assertAdmin(userContext);
+    return super.getCount(userContext);
+  }
 
-	// Don't full update a User. You can create, partial update, or delete a user.
-	override async fullUpdateById(
-		_userContext: IUserContext,
-		_id: AppIdType,
-		_entity: IUser,
-	): Promise<IUser> {
-		throw new ServerError("User full update is not allowed.");
-	}
+  // Don't full update a User. You can create, partial update, or delete a user.
+  override async fullUpdateById(
+    _userContext: IUserContext,
+    _id: AppIdType,
+    _entity: IUser,
+  ): Promise<IUser> {
+    throw new ServerError('User full update is not allowed.');
+  }
 
-	override async update(
-		userContext: IUserContext,
-		queryObject: IQueryOptions,
-		entity: Partial<IUser>,
-	): Promise<IUser[]> {
-		assertAdmin(userContext);
-		this.assertPasswordUpdateAllowed(userContext, null, entity, false);
-		return super.update(userContext, queryObject, entity);
-	}
+  override async update(
+    userContext: IUserContext,
+    queryObject: IQueryOptions,
+    entity: Partial<IUser>,
+  ): Promise<IUser[]> {
+    assertAdmin(userContext);
+    this.assertPasswordUpdateAllowed(userContext, null, entity, false);
+    return super.update(userContext, queryObject, entity);
+  }
 
-	override async batchUpdate(
-		userContext: IUserContext,
-		entities: Partial<IUser>[],
-	): Promise<IUser[]> {
-		assertAdmin(userContext);
-		for (const entity of entities) {
-			this.assertPasswordUpdateAllowed(userContext, null, entity, false);
-		}
-		return super.batchUpdate(userContext, entities);
-	}
+  override async batchUpdate(
+    userContext: IUserContext,
+    entities: Partial<IUser>[],
+  ): Promise<IUser[]> {
+    assertAdmin(userContext);
+    for (const entity of entities) {
+      this.assertPasswordUpdateAllowed(userContext, null, entity, false);
+    }
+    return super.batchUpdate(userContext, entities);
+  }
 
-	override async partialUpdateById(
-		userContext: IUserContext,
-		id: AppIdType,
-		entity: Partial<IUser>,
-		allowPasswordUpdate: boolean = false,
-	): Promise<IUser> {
-		assertUserOrAdmin(userContext, id);
-		this.assertPasswordUpdateAllowed(
-			userContext,
-			id,
-			entity,
-			allowPasswordUpdate,
-		);
-		return super.partialUpdateById(userContext, id, entity);
-	}
+  override async partialUpdateById(
+    userContext: IUserContext,
+    id: AppIdType,
+    entity: Partial<IUser>,
+    allowPasswordUpdate: boolean = false,
+  ): Promise<IUser> {
+    assertUserOrAdmin(userContext, id);
+    this.assertPasswordUpdateAllowed(
+      userContext,
+      id,
+      entity,
+      allowPasswordUpdate,
+    );
+    return super.partialUpdateById(userContext, id, entity);
+  }
 
-	private assertPasswordUpdateAllowed(
-		userContext: IUserContext,
-		id: AppIdType | null,
-		entity: Partial<IUser>,
-		allowPasswordUpdate: boolean,
-	): void {
-		if (!("password" in entity)) {
-			return;
-		}
+  private assertPasswordUpdateAllowed(
+    userContext: IUserContext,
+    id: AppIdType | null,
+    entity: Partial<IUser>,
+    allowPasswordUpdate: boolean,
+  ): void {
+    if (!('password' in entity)) {
+      return;
+    }
 
-		if (!entity.password) {
-			throw new BadRequestError("Password cannot be empty.");
-		}
+    if (!entity.password) {
+      throw new BadRequestError('Password cannot be empty.');
+    }
 
-		if (!allowPasswordUpdate) {
-			throw new ServerError(
-				"Use auth change password endpoint to update password.",
-			);
-		}
+    if (!allowPasswordUpdate) {
+      throw new ServerError(
+        'Use auth change password endpoint to update password.',
+      );
+    }
 
-		if (userContext.user._id !== id) {
-			throw new ServerError("You can only update your own password.");
-		}
-	}
+    if (userContext.user._id !== id) {
+      throw new ServerError('You can only update your own password.');
+    }
+  }
 
-	override async preProcessEntity(
-		userContext: IUserContext,
-		entity: Partial<IUser>,
-		isCreate: boolean,
-		allowId: boolean = false,
-	): Promise<Partial<IUser>> {
-		// First, let the base class do its preparation
-		const preparedEntity = await super.preProcessEntity(
-			userContext,
-			entity,
-			isCreate,
-			allowId,
-		);
+  override async preProcessEntity(
+    userContext: IUserContext,
+    entity: Partial<IUser>,
+    isCreate: boolean,
+    allowId: boolean = false,
+  ): Promise<Partial<IUser>> {
+    // First, let the base class do its preparation
+    const preparedEntity = await super.preProcessEntity(
+      userContext,
+      entity,
+      isCreate,
+      allowId,
+    );
 
-		if (preparedEntity.email) {
-			preparedEntity.email = preparedEntity.email.toLowerCase();
-		}
+    if (preparedEntity.email) {
+      preparedEntity.email = preparedEntity.email.toLowerCase();
+    }
 
-		if (preparedEntity.password) {
-			preparedEntity.password = await passwordUtils.hashPassword(
-				preparedEntity.password,
-			);
-		}
+    if (preparedEntity.password) {
+      preparedEntity.password = await passwordUtils.hashPassword(
+        preparedEntity.password,
+      );
+    }
 
-		return preparedEntity;
-	}
+    return preparedEntity;
+  }
 }

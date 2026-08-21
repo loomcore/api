@@ -6,15 +6,15 @@ import { IAddressModel } from '@loomcore/common/models';
  * @returns True if the value is null, undefined, or contains only whitespace
  */
 function isEmptyValue(value: any): boolean {
-	let result = false;
+  let result = false;
 
-	if (value === null || value === undefined) {
-		result = true;
-	} else if (typeof value === 'string' && value.trim() === '') {
-		result = true;
-	}
+  if (value === null || value === undefined) {
+    result = true;
+  } else if (typeof value === 'string' && value.trim() === '') {
+    result = true;
+  }
 
-	return result;
+  return result;
 }
 
 /**
@@ -24,16 +24,16 @@ function isEmptyValue(value: any): boolean {
  * @returns Standardized field value or null if field is effectively empty
  */
 function standardizeField(field: string | undefined | null): string | null {
-	let result = null;
+  let result = null;
 
-	if (!isEmptyValue(field)) {
-		const standardized = field!.trim().toUpperCase();
-		if (standardized.length > 0) {
-			result = standardized;
-		}
-	}
+  if (!isEmptyValue(field)) {
+    const standardized = field!.trim().toUpperCase();
+    if (standardized.length > 0) {
+      result = standardized;
+    }
+  }
 
-	return result;
+  return result;
 }
 
 /**
@@ -43,43 +43,43 @@ function standardizeField(field: string | undefined | null): string | null {
  * @returns A standardized single line address or null if essential parts are missing
  */
 function getSingleLineAddress(address: IAddressModel): string | null {
-	let result = null;
+  let result = null;
 
-	if (address) {
-		// Standardize all fields
-		const street = standardizeField(address.addressLine1);
-		const address2 = standardizeField(address.addressLine2);
-		const address3 = standardizeField(address.addressLine3);
-		const city = standardizeField(address.city);
-		const state = standardizeField(address.state);
-		const postalCode = standardizeField(address.postalCode);
+  if (address) {
+    // Standardize all fields
+    const street = standardizeField(address.addressLine1);
+    const address2 = standardizeField(address.addressLine2);
+    const address3 = standardizeField(address.addressLine3);
+    const city = standardizeField(address.city);
+    const state = standardizeField(address.state);
+    const postalCode = standardizeField(address.postalCode);
 
-		// If we don't have at least street, city and postalCode, return null
-		if (street && city && postalCode) {
-			// Build address parts without postal code
-			let parts = [street];
+    // If we don't have at least street, city and postalCode, return null
+    if (street && city && postalCode) {
+      // Build address parts without postal code
+      let parts = [street];
 
-			if (address2) {
-				parts.push(address2);
-			}
+      if (address2) {
+        parts.push(address2);
+      }
 
-			if (address3) {
-				parts.push(address3);
-			}
+      if (address3) {
+        parts.push(address3);
+      }
 
-			parts.push(city);
+      parts.push(city);
 
-			// Handle state and postal code with special formatting
-			// State and postal code are separated by space, not comma
-			let statePostalPart = state;
-			statePostalPart += ' ' + postalCode;
-			parts.push(statePostalPart!);
+      // Handle state and postal code with special formatting
+      // State and postal code are separated by space, not comma
+      let statePostalPart = state;
+      statePostalPart += ' ' + postalCode;
+      parts.push(statePostalPart!);
 
-			result = parts.join(', ');
-		}
-	}
+      result = parts.join(', ');
+    }
+  }
 
-	return result;
+  return result;
 }
 
 /**
@@ -88,20 +88,20 @@ function getSingleLineAddress(address: IAddressModel): string | null {
  * @returns The updated address with formattedAddress or the original address if formatting fails
  */
 function addFormattedAddress(address: IAddressModel): IAddressModel {
-	const formattedAddress = getSingleLineAddress(address);
+  const formattedAddress = getSingleLineAddress(address);
 
-	if (formattedAddress) {
-		return {
-			...address,
-			formattedAddress
-		};
-	}
+  if (formattedAddress) {
+    return {
+      ...address,
+      formattedAddress
+    };
+  }
 
-	return address;
+  return address;
 }
 
 export const addressUtils = {
-	getSingleLineAddress,
-	standardizeField,
-	addFormattedAddress
+  getSingleLineAddress,
+  standardizeField,
+  addFormattedAddress
 };

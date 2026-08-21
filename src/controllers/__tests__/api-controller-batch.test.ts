@@ -41,11 +41,11 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     new CategoryController(app, testSetup.database);
     new MultiTenantProductsController(app, testSetup.database);
 
-    productService = new GenericApiService<IProduct>(testSetup.database, "products", "product", ProductSpec);
-    categoryService = new GenericApiService<ICategory>(testSetup.database, "categories", "category", CategorySpec);
+    productService = new GenericApiService<IProduct>(testSetup.database, 'products', 'product', ProductSpec);
+    categoryService = new GenericApiService<ICategory>(testSetup.database, 'categories', 'category', CategorySpec);
 
-    multiTenantProductService = new MultiTenantApiService<IProduct>(testSetup.database, "products", "product", ProductSpec);
-    multiTenantCategoryService = new MultiTenantApiService<ICategory>(testSetup.database, "categories", "category", CategorySpec);
+    multiTenantProductService = new MultiTenantApiService<IProduct>(testSetup.database, 'products', 'product', ProductSpec);
+    multiTenantCategoryService = new MultiTenantApiService<ICategory>(testSetup.database, 'categories', 'category', CategorySpec);
     await TestExpressApp.setupErrorHandling();
   });
 
@@ -58,12 +58,12 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
 
     // 1. Arrange: Create initial products using services
     const categoryResult = await categoryService.create(EmptyUserContext, { name: 'Test Category' });
-    if (!categoryResult) throw new Error("category creation failed");
+    if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
 
     const multiTenantCategoryResult = await multiTenantCategoryService.create(getTestMetaOrgUserContext(), { name: 'Test Category' });
-    if (!multiTenantCategoryResult) throw new Error("multi-tenant category creation failed");
+    if (!multiTenantCategoryResult) throw new Error('multi-tenant category creation failed');
     multiTenantCategoryId = multiTenantCategoryResult._id;
     // Create products using services
     const productA = await productService.create(EmptyUserContext, {
@@ -71,21 +71,21 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
       description: 'Description A',
       categoryId: categoryId
     });
-    if (!productA) throw new Error("product A creation failed");
+    if (!productA) throw new Error('product A creation failed');
 
     const productB = await productService.create(EmptyUserContext, {
       name: 'Product B',
       description: 'Description B',
       categoryId: categoryId
     });
-    if (!productB) throw new Error("product B creation failed");
+    if (!productB) throw new Error('product B creation failed');
 
     const productC = await productService.create(EmptyUserContext, {
       name: 'Product C',
       description: 'Description C',
       categoryId: categoryId
     });
-    if (!productC) throw new Error("product C creation failed");
+    if (!productC) throw new Error('product C creation failed');
 
     productIds = [productA._id, productB._id, productC._id];
 
@@ -94,21 +94,21 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
       _id: undefined,
       _orgId: getTestMetaOrgUserContext().organization?._id
     });
-    if (!multiTenantProductA) throw new Error("multi-tenant product A creation failed");
+    if (!multiTenantProductA) throw new Error('multi-tenant product A creation failed');
 
     const multiTenantProductB = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productB,
       _id: undefined,
       _orgId: getTestMetaOrgUserContext().organization?._id
     });
-    if (!multiTenantProductB) throw new Error("multi-tenant product B creation failed");
+    if (!multiTenantProductB) throw new Error('multi-tenant product B creation failed');
 
     const multiTenantProductC = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productC,
       _id: undefined,
       _orgId: getTestMetaOrgUserContext().organization?._id
     });
-    if (!multiTenantProductC) throw new Error("multi-tenant product C creation failed");
+    if (!multiTenantProductC) throw new Error('multi-tenant product C creation failed');
 
     multiTenantProductIds = [multiTenantProductA._id, multiTenantProductB._id, multiTenantProductC._id];
   });

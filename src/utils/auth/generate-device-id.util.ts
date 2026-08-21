@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
+import crypto from 'node:crypto';
 
 export function generateDeviceId() {
-	return crypto.randomBytes(40).toString("hex");
+  return crypto.randomBytes(40).toString('hex');
 }

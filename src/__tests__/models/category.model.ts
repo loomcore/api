@@ -1,6 +1,6 @@
-import { IEntity } from "@loomcore/common/models";
-import { entityUtils } from "@loomcore/common/utils";
-import { Type } from "@sinclair/typebox";
+import { IEntity } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
+import { Type } from '@sinclair/typebox';
 
 export interface ICategory extends IEntity {
   name: string;

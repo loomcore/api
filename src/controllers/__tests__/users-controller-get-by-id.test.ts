@@ -7,43 +7,43 @@ import { UsersController } from '../users.controller.js';
 import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 
 describe('UsersController', () => {
-	let testAgent: any;
-	let authController: AuthController;
-	let usersController: UsersController;
+  let testAgent: any;
+  let authController: AuthController;
+  let usersController: UsersController;
 
-	beforeAll(async () => {
-		const testSetup = await TestExpressApp.init();
-		testAgent = testSetup.agent;
+  beforeAll(async () => {
+    const testSetup = await TestExpressApp.init();
+    testAgent = testSetup.agent;
 
-		// Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
-		authController = new AuthController(testSetup.app, testSetup.database);
-		usersController = new UsersController(testSetup.app, testSetup.database);
+    // Need to initialize AuthController in order to login with test user - needed for any endpoints that require authentication
+    authController = new AuthController(testSetup.app, testSetup.database);
+    usersController = new UsersController(testSetup.app, testSetup.database);
 
-		// Setup error handling middleware AFTER controller initialization
-		await TestExpressApp.setupErrorHandling();
+    // Setup error handling middleware AFTER controller initialization
+    await TestExpressApp.setupErrorHandling();
 
-		// Set up test user data
-		await testUtils.setupTestUsers();
-	});
+    // Set up test user data
+    await testUtils.setupTestUsers();
+  });
 
-	afterAll(async () => {
-		await testUtils.deleteTestUser()
-		await TestExpressApp.cleanup();
-	});
+  afterAll(async () => {
+    await testUtils.deleteTestUser()
+    await TestExpressApp.cleanup();
+  });
 
-	describe('GET /users', () => {
-		it('should not return any sensitive information for a user', async () => {
-			const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
-			// Use the actual user ID (which is updated by setupTestUsers)
-			const apiEndpoint = `/api/users/${getTestMetaOrgUser()._id}`;
+  describe('GET /users', () => {
+    it('should not return any sensitive information for a user', async () => {
+      const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
+      // Use the actual user ID (which is updated by setupTestUsers)
+      const apiEndpoint = `/api/users/${getTestMetaOrgUser()._id}`;
 
-			const response = await testAgent
-				.get(apiEndpoint)
-				.set('Authorization', authorizationHeaderValue);
+      const response = await testAgent
+        .get(apiEndpoint)
+        .set('Authorization', authorizationHeaderValue);
 
-			expect(response.status).toBe(200);
-			expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email);
-			expect(response.body?.data?.password).toBeUndefined();
-		});
-	});
+      expect(response.status).toBe(200);
+      expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email);
+      expect(response.body?.data?.password).toBeUndefined();
+    });
+  });
 });

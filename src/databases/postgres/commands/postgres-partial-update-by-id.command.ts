@@ -1,9 +1,9 @@
 import type { PostgresConnection } from '../postgres-connection.js';
-import { Operation } from "../../operations/operation.js";
-import { LeftJoin } from "../../operations/left-join.operation.js";
-import { InnerJoin } from "../../operations/inner-join.operation.js";
-import { LeftJoinMany } from "../../operations/left-join-many.operation.js";
-import { BadRequestError, IdNotFoundError } from "../../../errors/index.js";
+import { Operation } from '../../operations/operation.js';
+import { LeftJoin } from '../../operations/left-join.operation.js';
+import { InnerJoin } from '../../operations/inner-join.operation.js';
+import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
+import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
@@ -11,77 +11,77 @@ import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 
 export async function partialUpdateById<T extends IEntity>(
-    client: PostgresConnection,
-    operations: Operation[],
-    id: AppIdType,
-    entity: Partial<T>,
-    pluralResourceName: string
+  client: PostgresConnection,
+  operations: Operation[],
+  id: AppIdType,
+  entity: Partial<T>,
+  pluralResourceName: string
 ): Promise<T> {
-    try {
-        // Extract columns and values from the entity (only the fields to update)
-        const { columns, values } = columnsAndValuesFromEntity(entity);
+  try {
+    // Extract columns and values from the entity (only the fields to update)
+    const { columns, values } = columnsAndValuesFromEntity(entity);
 
-        // Filter out _id from columns for the SET clause (we use it in WHERE)
-        const updateColumns = columns.filter(col => col !== '"_id"');
-        const updateValues = values.filter((_, index) => columns[index] !== '"_id"');
+    // Filter out _id from columns for the SET clause (we use it in WHERE)
+    const updateColumns = columns.filter(col => col !== '"_id"');
+    const updateValues = values.filter((_, index) => columns[index] !== '"_id"');
 
-        if (updateColumns.length === 0) {
-            throw new BadRequestError('Cannot perform partial update with no fields to update');
-        }
-
-        // Build SET clause for UPDATE
-        const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
-
-        // Add id as the last parameter for WHERE clause
-        const query = `
-            UPDATE "${pluralResourceName}"
-            SET ${setClause}
-            WHERE "_id" = $${updateValues.length + 1}
-        `;
-
-        const result = await client.query(query, [...updateValues, id]);
-
-        if (result.rowCount === 0) {
-            throw new IdNotFoundError();
-        }
-
-        // Retrieve updated entity with operations applied
-        const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
-        const joinClauses = hasJoins
-            ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
-            : buildJoinClauses(operations, pluralResourceName);
-
-        const selectClause = hasJoins
-            ? await buildSelectClause(client, pluralResourceName, operations)
-            : '*';
-
-        // Qualify _id when joins are present to avoid ambiguous column references
-        const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
-        const selectQuery = `
-            SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
-            WHERE ${idColumn} = $1 LIMIT 1
-        `;
-
-        const selectResult = await client.query(selectQuery, [id]);
-
-        if (selectResult.rows.length === 0) {
-            throw new IdNotFoundError();
-        }
-
-        return hasJoins
-            ? (selectResult.rows[0] as { entity: T }).entity
-            : (selectResult.rows[0] as T);
+    if (updateColumns.length === 0) {
+      throw new BadRequestError('Cannot perform partial update with no fields to update');
     }
-    catch (err: any) {
-        // Re-throw IdNotFoundError as-is
-        if (err instanceof IdNotFoundError) {
-            throw err;
-        }
 
-        // PostgreSQL error code 23505 is for unique constraint violations
-        if (err.code === '23505') {
-            throw new BadRequestError(`${pluralResourceName} has duplicate key violations`);
-        }
-        throw new BadRequestError(`Error updating ${pluralResourceName}: ${err.message}`);
+    // Build SET clause for UPDATE
+    const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
+
+    // Add id as the last parameter for WHERE clause
+    const query = `
+      UPDATE "${pluralResourceName}"
+      SET ${setClause}
+      WHERE "_id" = $${updateValues.length + 1}
+    `;
+
+    const result = await client.query(query, [...updateValues, id]);
+
+    if (result.rowCount === 0) {
+      throw new IdNotFoundError();
     }
+
+    // Retrieve updated entity with operations applied
+    const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+    const joinClauses = hasJoins
+      ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
+      : buildJoinClauses(operations, pluralResourceName);
+
+    const selectClause = hasJoins
+      ? await buildSelectClause(client, pluralResourceName, operations)
+      : '*';
+
+    // Qualify _id when joins are present to avoid ambiguous column references
+    const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
+    const selectQuery = `
+      SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
+      WHERE ${idColumn} = $1 LIMIT 1
+    `;
+
+    const selectResult = await client.query(selectQuery, [id]);
+
+    if (selectResult.rows.length === 0) {
+      throw new IdNotFoundError();
+    }
+
+    return hasJoins
+      ? (selectResult.rows[0] as { entity: T }).entity
+      : (selectResult.rows[0] as T);
+  }
+  catch (err: any) {
+    // Re-throw IdNotFoundError as-is
+    if (err instanceof IdNotFoundError) {
+      throw err;
+    }
+
+    // PostgreSQL error code 23505 is for unique constraint violations
+    if (err.code === '23505') {
+      throw new BadRequestError(`${pluralResourceName} has duplicate key violations`);
+    }
+    throw new BadRequestError(`Error updating ${pluralResourceName}: ${err.message}`);
+  }
 }

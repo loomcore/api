@@ -11,26 +11,26 @@ import { toCamelCase } from './convert-keys.util.js';
  * @returns True if the property is optional
  */
 function isPropertyOptional(key: string, schema: TSchema): boolean {
-	if (!schema || typeof schema !== 'object') return false;
+  if (!schema || typeof schema !== 'object') return false;
 
-	// Handle 'allOf' for schema compositions (e.g., Type.Intersect)
-	if (schema.allOf && Array.isArray(schema.allOf)) {
-		// A property is required if it's required in ANY of the allOf schemas
-		for (const nestedSchema of schema.allOf) {
-			if (!isPropertyOptional(key, nestedSchema)) {
-				return false; // Required in at least one schema
-			}
-		}
-		return true; // Optional in all schemas
-	}
+  // Handle 'allOf' for schema compositions (e.g., Type.Intersect)
+  if (schema.allOf && Array.isArray(schema.allOf)) {
+    // A property is required if it's required in ANY of the allOf schemas
+    for (const nestedSchema of schema.allOf) {
+      if (!isPropertyOptional(key, nestedSchema)) {
+        return false; // Required in at least one schema
+      }
+    }
+    return true; // Optional in all schemas
+  }
 
-	// Check for property in the current schema level
-	if (schema.type === 'object' && schema.properties && schema.properties[key]) {
-		const required = schema.required || [];
-		return !required.includes(key);
-	}
+  // Check for property in the current schema level
+  if (schema.type === 'object' && schema.properties && schema.properties[key]) {
+    const required = schema.required || [];
+    return !required.includes(key);
+  }
 
-	return false;
+  return false;
 }
 
 /**
@@ -41,82 +41,82 @@ function isPropertyOptional(key: string, schema: TSchema): boolean {
  * @returns The processed data with null values converted to undefined for optional properties
  */
 export function convertNullToUndefined<T>(data: T, schema: TSchema): T {
-	if (!data || !schema) return data;
+  if (!data || !schema) return data;
 
-	// Handle arrays
-	if (Array.isArray(data)) {
-		return data.map(item => convertNullToUndefined(item, schema)) as T;
-	}
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => convertNullToUndefined(item, schema)) as T;
+  }
 
-	// If not an object, return as-is
-	if (typeof data !== 'object' || data === null) {
-		return data;
-	}
+  // If not an object, return as-is
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
 
-	// Create a deep clone to avoid modifying the original
-	const clone = _.cloneDeep(data);
+  // Create a deep clone to avoid modifying the original
+  const clone = _.cloneDeep(data);
 
-	// Process the object recursively
-	const processObject = (obj: any, subSchema: TSchema) => {
-		if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+  // Process the object recursively
+  const processObject = (obj: any, subSchema: TSchema) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
 
-		// Handle 'allOf' schema composition (e.g., Type.Intersect)
-		if (subSchema.allOf && Array.isArray(subSchema.allOf)) {
-			// Process each schema in the allOf array
-			for (const nestedSchema of subSchema.allOf) {
-				processObject(obj, nestedSchema);
-			}
-			return;
-		}
+    // Handle 'allOf' schema composition (e.g., Type.Intersect)
+    if (subSchema.allOf && Array.isArray(subSchema.allOf)) {
+      // Process each schema in the allOf array
+      for (const nestedSchema of subSchema.allOf) {
+        processObject(obj, nestedSchema);
+      }
+      return;
+    }
 
-		// Schema is an object with properties
-		if (subSchema.type === 'object' && subSchema.properties) {
-			// Process all keys in the object (which are in snake_case from the database)
-			for (const [key, value] of Object.entries(obj)) {
-				// Convert snake_case key to camelCase to match schema property names
-				// Keys starting with underscore are left unchanged
-				const schemaKey = key.startsWith('_') ? key : toCamelCase(key);
-				const propSchema = subSchema.properties[schemaKey];
-				
-				if (!propSchema || typeof propSchema !== 'object') continue;
+    // Schema is an object with properties
+    if (subSchema.type === 'object' && subSchema.properties) {
+      // Process all keys in the object (which are in snake_case from the database)
+      for (const [key, value] of Object.entries(obj)) {
+        // Convert snake_case key to camelCase to match schema property names
+        // Keys starting with underscore are left unchanged
+        const schemaKey = key.startsWith('_') ? key : toCamelCase(key);
+        const propSchema = subSchema.properties[schemaKey];
+        
+        if (!propSchema || typeof propSchema !== 'object') continue;
 
-				const typedPropSchema = propSchema as TSchema;
+        const typedPropSchema = propSchema as TSchema;
 
-				// Check if property is optional
-				if (isPropertyOptional(schemaKey, subSchema)) {
-					// If optional and value is null, delete the property
-					if (value === null) {
-						delete obj[key];
-					}
-				}
+        // Check if property is optional
+        if (isPropertyOptional(schemaKey, subSchema)) {
+          // If optional and value is null, delete the property
+          if (value === null) {
+            delete obj[key];
+          }
+        }
 
-				// Process nested object
-				if (typedPropSchema.type === 'object' && value && typeof value === 'object' && !Array.isArray(value)) {
-					processObject(value, typedPropSchema);
-				}
+        // Process nested object
+        if (typedPropSchema.type === 'object' && value && typeof value === 'object' && !Array.isArray(value)) {
+          processObject(value, typedPropSchema);
+        }
 
-				// Process array
-				if (typedPropSchema.type === 'array' && Array.isArray(value)) {
-					const items = typedPropSchema.items as TSchema;
-					if (items) {
-						for (let i = 0; i < value.length; i++) {
-							// If array of objects, process each object recursively
-							if (items.type === 'object' && value[i] && typeof value[i] === 'object' && !Array.isArray(value[i])) {
-								processObject(value[i], items);
-							}
-							// If array of arrays, process recursively
-							else if (items.type === 'array' && Array.isArray(value[i])) {
-								value[i] = convertNullToUndefined(value[i], items);
-							}
-						}
-					}
-				}
-			}
-		}
-	};
+        // Process array
+        if (typedPropSchema.type === 'array' && Array.isArray(value)) {
+          const items = typedPropSchema.items as TSchema;
+          if (items) {
+            for (let i = 0; i < value.length; i++) {
+              // If array of objects, process each object recursively
+              if (items.type === 'object' && value[i] && typeof value[i] === 'object' && !Array.isArray(value[i])) {
+                processObject(value[i], items);
+              }
+              // If array of arrays, process recursively
+              else if (items.type === 'array' && Array.isArray(value[i])) {
+                value[i] = convertNullToUndefined(value[i], items);
+              }
+            }
+          }
+        }
+      }
+    }
+  };
 
-	// Process the data using the schema
-	processObject(clone, schema);
-	return clone;
+  // Process the data using the schema
+  processObject(clone, schema);
+  return clone;
 }
 

@@ -1,6 +1,6 @@
-import { IAuditable, IEntity, IModelSpec } from "@loomcore/common/models";
-import { entityUtils } from "@loomcore/common/utils";
-import { TSchema, Type } from "@sinclair/typebox";
+import { IAuditable, IEntity, IModelSpec } from '@loomcore/common/models';
+import { entityUtils } from '@loomcore/common/utils';
+import { TSchema, Type } from '@sinclair/typebox';
 
 // Create a model spec for validation
 export const TestEntitySchema: TSchema = Type.Object({

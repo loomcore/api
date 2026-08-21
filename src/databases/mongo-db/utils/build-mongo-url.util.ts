@@ -1,21 +1,21 @@
-import { IDatabaseConfig } from "../../../models/database-config.interface.js";
+import { IDatabaseConfig } from '../../../models/database-config.interface.js';
 
 function isAtlasSrvHost(host: string): boolean {
-  return host.toLowerCase().endsWith(".mongodb.net");
+  return host.toLowerCase().endsWith('.mongodb.net');
 }
 
 export function buildMongoUrl(config: { database: IDatabaseConfig }): string {
   const { database } = config;
 
   if (!database) {
-    throw new Error("Database configuration is required to build the MongoDB URL.");
+    throw new Error('Database configuration is required to build the MongoDB URL.');
   }
 
   const { username, password, host, port, name } = database;
 
   if (!username || !password || !host || !name) {
     throw new Error(
-      "Database configuration must include user, password, host, and name to build the MongoDB URL."
+      'Database configuration must include user, password, host, and name to build the MongoDB URL.'
     );
   }
 
@@ -30,7 +30,7 @@ export function buildMongoUrl(config: { database: IDatabaseConfig }): string {
 
   if (!port) {
     throw new Error(
-      "Database configuration must include port to build a non-SRV MongoDB URL."
+      'Database configuration must include port to build a non-SRV MongoDB URL.'
     );
   }
 

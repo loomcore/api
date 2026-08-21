@@ -1,56 +1,56 @@
-import { Document } from "mongodb";
-import { IQueryOptions, IModelSpec } from "@loomcore/common/models";
-import { Operation } from "../../operations/operation.js";
-import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from "../utils/index.js";
-import { INoSqlPipeline } from "./no-sql-pipeline.interface.js";
+import { Document } from 'mongodb';
+import { IQueryOptions, IModelSpec } from '@loomcore/common/models';
+import { Operation } from '../../operations/operation.js';
+import { buildNoSqlMatch, convertOperationsToPipeline, convertQueryOptionsToPipeline } from '../utils/index.js';
+import { INoSqlPipeline } from './no-sql-pipeline.interface.js';
 
 class NoSqlPipeline implements INoSqlPipeline {
-    private pipeline: Document[];
+  private pipeline: Document[];
 
-    constructor(pipeline: Document[] | null = null) {
-        if (pipeline) {
-            this.pipeline = [...pipeline];
-        } else {
-            this.pipeline = [];
-        }
+  constructor(pipeline: Document[] | null = null) {
+    if (pipeline) {
+      this.pipeline = [...pipeline];
+    } else {
+      this.pipeline = [];
     }
+  }
 
-    addStage(stage: Document): NoSqlPipeline {
-        this.pipeline.push(stage);
-        return this;
+  addStage(stage: Document): NoSqlPipeline {
+    this.pipeline.push(stage);
+    return this;
+  }
+
+  addStages(stages: Document[]): NoSqlPipeline {
+    this.pipeline = this.pipeline.concat(stages);
+    return this;
+  }
+
+  addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): NoSqlPipeline {
+    const matchDocument = buildNoSqlMatch(queryOptions, modelSpec);
+    if (matchDocument) {
+      this.pipeline.push(matchDocument);
     }
+    return this;
+  }
 
-    addStages(stages: Document[]): NoSqlPipeline {
-        this.pipeline = this.pipeline.concat(stages);
-        return this;
+  addOperations(operations: Operation[]): NoSqlPipeline {
+    const operationsDocuments = convertOperationsToPipeline(operations);
+    if (operationsDocuments.length > 0) {
+      this.pipeline = this.pipeline.concat(operationsDocuments);
     }
-
-    addMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): NoSqlPipeline {
-        const matchDocument = buildNoSqlMatch(queryOptions, modelSpec);
-        if (matchDocument) {
-            this.pipeline.push(matchDocument);
-        }
-        return this;
-    }
-
-    addOperations(operations: Operation[]): NoSqlPipeline {
-        const operationsDocuments = convertOperationsToPipeline(operations);
-        if (operationsDocuments.length > 0) {
-            this.pipeline = this.pipeline.concat(operationsDocuments);
-        }
-        return this;
-    }
+    return this;
+  }
 
 
-    addQueryOptions(queryOptions: IQueryOptions, pagination: boolean): NoSqlPipeline {
-        const queryOptionsDocuments = convertQueryOptionsToPipeline(queryOptions, pagination);
-        this.pipeline = this.pipeline.concat(queryOptionsDocuments);
-        return this;
-    }
+  addQueryOptions(queryOptions: IQueryOptions, pagination: boolean): NoSqlPipeline {
+    const queryOptionsDocuments = convertQueryOptionsToPipeline(queryOptions, pagination);
+    this.pipeline = this.pipeline.concat(queryOptionsDocuments);
+    return this;
+  }
 
-    build(): Document[] {
-        return this.pipeline;
-    }
+  build(): Document[] {
+    return this.pipeline;
+  }
 }
 
 export default NoSqlPipeline;

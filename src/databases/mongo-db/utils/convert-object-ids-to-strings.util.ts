@@ -12,47 +12,47 @@ import { ObjectId } from 'mongodb';
  * @returns Entity with ObjectIds converted to strings
  */
 export function convertObjectIdsToStrings<T>(entity: T): T {
-	if (!entity) return entity;
+ if (!entity) return entity;
 
-	// Create a deep clone to avoid modifying the original
-	const clone = _.cloneDeep(entity);
+ // Create a deep clone to avoid modifying the original
+ const clone = _.cloneDeep(entity);
 
-	// Traverse entity properties instead of schema properties
-	const processEntity = (obj: any): any => {
-		// Handle null/undefined
-		if (!obj) return obj;
+ // Traverse entity properties instead of schema properties
+ const processEntity = (obj: any): any => {
+  // Handle null/undefined
+  if (!obj) return obj;
 
-		// Handle ObjectId - convert to string immediately
-		if (obj instanceof ObjectId) {
-			return obj.toString();
-		}
+  // Handle ObjectId - convert to string immediately
+  if (obj instanceof ObjectId) {
+   return obj.toString();
+  }
 
-		// Handle Date objects - preserve them
-		if (obj instanceof Date) {
-			return obj;
-		}
+  // Handle Date objects - preserve them
+  if (obj instanceof Date) {
+   return obj;
+  }
 
-		// Handle arrays - iterate through elements
-		if (Array.isArray(obj)) {
-			return obj.map(item => processEntity(item));
-		}
+  // Handle arrays - iterate through elements
+  if (Array.isArray(obj)) {
+   return obj.map(item => processEntity(item));
+  }
 
-		// Handle objects - iterate through properties
-		if (typeof obj === 'object') {
-			const result: any = { ...obj };
-			for (const key of Object.keys(result)) {
-				const value = result[key];
-				if (value !== null && value !== undefined) {
-					result[key] = processEntity(value);
-				}
-			}
-			return result;
-		}
+  // Handle objects - iterate through properties
+  if (typeof obj === 'object') {
+   const result: any = { ...obj };
+   for (const key of Object.keys(result)) {
+    const value = result[key];
+    if (value !== null && value !== undefined) {
+     result[key] = processEntity(value);
+    }
+   }
+   return result;
+  }
 
-		// For primitives, return as is
-		return obj;
-	};
+  // For primitives, return as is
+  return obj;
+ };
 
-	// Process the entity and return result
-	return processEntity(clone);
+ // Process the entity and return result
+ return processEntity(clone);
 }

@@ -37,8 +37,8 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
     new ProductsController(app, testSetup.database);
     new CategoryController(app, testSetup.database);
 
-    productService = new GenericApiService<IProduct>(testSetup.database, "products", "product", ProductSpec);
-    categoryService = new GenericApiService<ICategory>(testSetup.database, "categories", "category", CategorySpec);
+    productService = new GenericApiService<IProduct>(testSetup.database, 'products', 'product', ProductSpec);
+    categoryService = new GenericApiService<ICategory>(testSetup.database, 'categories', 'category', CategorySpec);
 
     await TestExpressApp.setupErrorHandling();
   });
@@ -52,7 +52,7 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
 
     // Insert a category
     const categoryResult = await categoryService.create(EmptyUserContext, { name: 'Test Category' });
-    if (!categoryResult) throw new Error("category creation failed");
+    if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
     // Insert a product with a sensitive internalNumber
@@ -62,7 +62,7 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
       categoryId: categoryId
     });
 
-    if (!productResult) throw new Error("product creation failed");
+    if (!productResult) throw new Error('product creation failed');
     productId = productResult._id;
   });
 
