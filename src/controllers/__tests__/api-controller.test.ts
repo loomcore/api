@@ -388,8 +388,8 @@ describe('ApiController - Integration Tests', () => {
         expect(entity).not.toHaveProperty('password');
 
         // Verify audit properties are present - this is what our test is checking for
-        expect(entity).not.toHaveProperty('_created');
-        expect(entity).not.toHaveProperty('_createdBy', userId);
+        expect(entity).toHaveProperty('_created');
+        expect(entity).toHaveProperty('_createdBy', userId);
         expect(entity).not.toHaveProperty('_updated');
         expect(entity).not.toHaveProperty('_updatedBy');
       } catch (error) {

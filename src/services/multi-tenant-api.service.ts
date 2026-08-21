@@ -1,8 +1,8 @@
 import type {
- IEntity,
- IModelSpec,
- IQueryOptions,
- IUserContext,
+  IEntity,
+  IModelSpec,
+  IQueryOptions,
+  IUserContext,
 } from '@loomcore/common/models';
 import { getSystemUserId } from '@loomcore/common/validation';
 import { config } from '../config/base-api-config.js';
@@ -18,90 +18,88 @@ import { TenantQueryDecorator } from './tenant-query-decorator.js';
  * This implementation extends GenericApiService and overrides the query preparation hooks
  * to transparently add tenant filtering to all database operations.
  */
-export class MultiTenantApiService<
- T extends IEntity,
-> extends GenericApiService<T> {
- private tenantDecorator?: TenantQueryDecorator;
+export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
+  private tenantDecorator?: TenantQueryDecorator;
 
- constructor(
-  database: IDatabase,
-  pluralResourceName: string,
-  singularResourceName: string,
-  modelSpec: IModelSpec,
- ) {
-  super(database, pluralResourceName, singularResourceName, modelSpec);
-  if (config?.app?.isMultiTenant) {
-   this.tenantDecorator = new TenantQueryDecorator();
-  }
- }
-
- /**
-  * Override the query preparation hook to add tenant filtering
-  */
- override prepareQuery(
-  userContext: IUserContext,
-  queryOptions: IQueryOptions,
-  operations: Operation[],
- ): { queryObject: IQueryOptions; operations: Operation[] } {
-  if (
-   !config?.app?.isMultiTenant ||
-   userContext?.user?._id === getSystemUserId()
+  constructor(
+    database: IDatabase,
+    pluralResourceName: string,
+    singularResourceName: string,
+    modelSpec: IModelSpec,
   ) {
-   return super.prepareQuery(userContext, queryOptions, operations);
-  }
-  if (!userContext?.user?._orgId) {
-   throw new BadRequestError(
-    'A valid userContext was not provided to MultiTenantApiService.prepareQuery',
-   );
+    super(database, pluralResourceName, singularResourceName, modelSpec);
+    if (config?.app?.isMultiTenant) {
+      this.tenantDecorator = new TenantQueryDecorator();
+    }
   }
 
-  if (!this.tenantDecorator) {
-   throw new ServerError(
-    'A valid tenantDecorator was not provided to MultiTenantApiService.prepareQuery',
-   );
+  /**
+   * Override the query preparation hook to add tenant filtering
+   */
+  override prepareQuery(
+    userContext: IUserContext,
+    queryOptions: IQueryOptions,
+    operations: Operation[],
+  ): { queryObject: IQueryOptions; operations: Operation[] } {
+    if (
+      !config?.app?.isMultiTenant ||
+      userContext?.user?._id === getSystemUserId()
+    ) {
+      return super.prepareQuery(userContext, queryOptions, operations);
+    }
+    if (!userContext?.user?._orgId) {
+      throw new BadRequestError(
+        'A valid userContext was not provided to MultiTenantApiService.prepareQuery',
+      );
+    }
+
+    if (!this.tenantDecorator) {
+      throw new ServerError(
+        'A valid tenantDecorator was not provided to MultiTenantApiService.prepareQuery',
+      );
+    }
+
+    // Apply tenant filtering to the query object
+    const queryObject = this.tenantDecorator.applyTenantToQuery(
+      userContext,
+      queryOptions,
+      this.pluralResourceName,
+    );
+    return { queryObject, operations };
   }
 
-  // Apply tenant filtering to the query object
-  const queryObject = this.tenantDecorator.applyTenantToQuery(
-   userContext,
-   queryOptions,
-   this.pluralResourceName,
-  );
-  return { queryObject, operations };
- }
+  /**
+   * Override the individual entity preparation hook to add tenant ID
+   * This will be called for both create and update operations
+   */
+  override async preProcessEntity(
+    userContext: IUserContext,
+    entity: Partial<T>,
+    isCreate: boolean,
+    allowId: boolean = false,
+  ): Promise<Partial<T>> {
+    if (!config?.app?.isMultiTenant) {
+      return super.preProcessEntity(userContext, entity, isCreate, allowId);
+    }
+    if (!userContext?.user?._orgId) {
+      throw new BadRequestError(
+        'A valid userContext was not provided to MultiTenantApiService.prepareEntity',
+      );
+    }
 
- /**
-  * Override the individual entity preparation hook to add tenant ID
-  * This will be called for both create and update operations
-  */
- override async preProcessEntity(
-  userContext: IUserContext,
-  entity: Partial<T>,
-  isCreate: boolean,
-  allowId: boolean = false,
- ): Promise<Partial<T>> {
-  if (!config?.app?.isMultiTenant) {
-   return super.preProcessEntity(userContext, entity, isCreate, allowId);
+    // First call the base class implementation to handle standard entity preparation
+    const preparedEntity = await super.preProcessEntity(
+      userContext,
+      entity,
+      isCreate,
+      allowId,
+    );
+
+    // Any new item should be created in the user's organization unless it's a system-initiated action
+    if (isCreate && userContext.user._id !== getSystemUserId()) {
+      preparedEntity._orgId = userContext.user._orgId;
+    }
+
+    return preparedEntity;
   }
-  if (!userContext?.user?._orgId) {
-   throw new BadRequestError(
-    'A valid userContext was not provided to MultiTenantApiService.prepareEntity',
-   );
-  }
-
-  // First call the base class implementation to handle standard entity preparation
-  const preparedEntity = await super.preProcessEntity(
-   userContext,
-   entity,
-   isCreate,
-   allowId,
-  );
-
-  // Any new item should be created in the user's organization unless it's a system-initiated action
-  if (isCreate && userContext.user._id !== getSystemUserId()) {
-   preparedEntity._orgId = userContext.user._orgId;
-  }
-
-  return preparedEntity;
- }
 }
