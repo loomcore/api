@@ -12,97 +12,97 @@ import { entityUtils } from '@loomcore/common/utils';
 import { BadRequestError } from '../../errors/bad-request.error.js';
 
 export class MongoDBDatabase implements IDatabase {
-  private db: Db;
-  private mongoClient?: MongoClient;
+    private db: Db;
+    private mongoClient?: MongoClient;
 
-  /**
-   * @param db — Database handle used for queries/commands.
-   * @param mongoClient — Optional. Pass when this instance should own shutdown via {@link close}.
-   */
-  constructor(
-    db: Db,
-    mongoClient?: MongoClient,
-  ) {
-    this.db = db;
-    this.mongoClient = mongoClient;
-  }
-
-  /**
-   * Closes the MongoClient when one was provided to the constructor; otherwise no-op.
-   */
-  async close(): Promise<void> {
-    if (this.mongoClient) {
-      await this.mongoClient.close();
+    /**
+     * @param db — Database handle used for queries/commands.
+     * @param mongoClient — Optional. Pass when this instance should own shutdown via {@link close}.
+     */
+    constructor(
+        db: Db,
+        mongoClient?: MongoClient,
+    ) {
+        this.db = db;
+        this.mongoClient = mongoClient;
     }
-  }
 
-  preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
-    if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
-      throw new BadRequestError('id is not a valid ObjectId');
+    /**
+     * Closes the MongoClient when one was provided to the constructor; otherwise no-op.
+     */
+    async close(): Promise<void> {
+        if (this.mongoClient) {
+            await this.mongoClient.close();
+        }
     }
-    return convertStringsToObjectIds(entity, schema);
-  }
 
-  postProcessEntity<T extends IEntity>(single: T, schema: TSchema): T {
-    if (!single) return single;
+    preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
+        if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
+            throw new BadRequestError('id is not a valid ObjectId');
+        }
+        return convertStringsToObjectIds(entity, schema);
+    }
 
-    return convertObjectIdsToStrings<T>(single);
-  }
+    postProcessEntity<T extends IEntity>(single: T, schema: TSchema): T {
+        if (!single) return single;
 
-  async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
-    return getAll<T>(this.db, operations, pluralResourceName);
-  }
+        return convertObjectIdsToStrings<T>(single);
+    }
 
-  async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
-    return get<T>(this.db, operations, queryOptions, modelSpec, pluralResourceName);
-  }
+    async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
+        return getAll<T>(this.db, operations, pluralResourceName);
+    }
 
-  async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: AppIdType, pluralResourceName: string): Promise<T | null> {
-    return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
-  }
+    async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
+        return get<T>(this.db, operations, queryOptions, modelSpec, pluralResourceName);
+    }
 
-  async getCount(pluralResourceName: string): Promise<number> {
-    return getCount(this.db, pluralResourceName);
-  }
+    async getById<T extends IEntity>(operations: Operation[], queryObject: IQueryOptions, id: AppIdType, pluralResourceName: string): Promise<T | null> {
+        return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
+    }
 
-  async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppIdType; entity: T }> {
-    return create<T>(this.db, pluralResourceName, entity);
-  }
+    async getCount(pluralResourceName: string): Promise<number> {
+        return getCount(this.db, pluralResourceName);
+    }
 
-  async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: AppIdType[]; entities: T[] }> {
-    return createMany<T>(this.db, pluralResourceName, entities);
-  }
+    async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppIdType; entity: T }> {
+        return create<T>(this.db, pluralResourceName, entity);
+    }
 
-  async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
-    return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
-  }
+    async createMany<T extends IEntity>(entities: Partial<T>[], pluralResourceName: string): Promise<{ insertedIds: AppIdType[]; entities: T[] }> {
+        return createMany<T>(this.db, pluralResourceName, entities);
+    }
 
-  async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-    return fullUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
-  }
+    async batchUpdate<T extends IEntity>(entities: Partial<T>[], operations: Operation[], queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+        return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
+    }
 
-  async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-    return partialUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
-  }
+    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+        return fullUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
+    }
 
-  async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
-    return update<T>(this.db, queryObject, entity, operations, pluralResourceName);
-  }
+    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+        return partialUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
+    }
 
-  async deleteById(id: AppIdType, pluralResourceName: string): Promise<GenericDeleteResult> {
-    return deleteById(this.db, id, pluralResourceName);
-  }
+    async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
+        return update<T>(this.db, queryObject, entity, operations, pluralResourceName);
+    }
 
-  async deleteMany(queryObject: IQueryOptions, pluralResourceName: string): Promise<GenericDeleteResult> {
-    return deleteMany(this.db, queryObject, pluralResourceName);
-  }
+    async deleteById(id: AppIdType, pluralResourceName: string): Promise<GenericDeleteResult> {
+        return deleteById(this.db, id, pluralResourceName);
+    }
 
-  async find<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
-    return find<T>(this.db, queryObject, pluralResourceName);
-  }
+    async deleteMany(queryObject: IQueryOptions, pluralResourceName: string): Promise<GenericDeleteResult> {
+        return deleteMany(this.db, queryObject, pluralResourceName);
+    }
 
-  async findOne<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
-    return findOne<T>(this.db, queryObject, pluralResourceName);
-  }
+    async find<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+        return find<T>(this.db, queryObject, pluralResourceName);
+    }
+
+    async findOne<T extends IEntity>(queryObject: IQueryOptions, pluralResourceName: string): Promise<T | null> {
+        return findOne<T>(this.db, queryObject, pluralResourceName);
+    }
 };
 

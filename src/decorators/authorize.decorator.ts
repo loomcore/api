@@ -12,28 +12,28 @@ export interface AuthRequirement {
 }
 
 /**
- * Class decorator (controller-level) OR method decorator (action-level).
- *
- * Usage mirrors .NET's [Authorize] / [Authorize('featureName')] attribute design:
- *
- *   @Authorize()
- *   class ProductsController { ... }          // authenticated only
- *
- *   @Authorize('contentAdmin')
- *   class ProductsController { ... }          // authenticated + feature
- *
- *   class ProductsController {
- *     @Authorize('reportCreation')
- *     createReport(req, res) { ... }
- *   }
- *
- * By default listed features are treated with OR logic (if any are present, the user is authorized).
- *  Pass { all: true } for AND semantics (all features must be present).
- * A method-level @Authorize OVERRIDES a class-level one for that method.
- *
- * Routes that call `authorizeMethod` with no `@Authorize` metadata still require
- * a valid JWT (authenticated-only). Use `@AllowAnonymous()` to opt out.
- */
+   * Class decorator (controller-level) OR method decorator (action-level).
+   *
+   * Usage mirrors .NET's [Authorize] / [Authorize('featureName')] attribute design:
+   *
+   *   @Authorize()
+   *   class ProductsController { ... }          // authenticated only
+   *
+   *   @Authorize('contentAdmin')
+   *   class ProductsController { ... }          // authenticated + feature
+   *
+   *   class ProductsController {
+   *     @Authorize('reportCreation')
+   *     createReport(req, res) { ... }
+   *   }
+   *
+   * By default listed features are treated with OR logic (if any are present, the user is authorized).
+   *  Pass { all: true } for AND semantics (all features must be present).
+   * A method-level @Authorize OVERRIDES a class-level one for that method.
+   *
+   * Routes that call `authorizeMethod` with no `@Authorize` metadata still require
+   * a valid JWT (authenticated-only). Use `@AllowAnonymous()` to opt out.
+   */
 export function Authorize(
   features: string | string[] = [],
   options: { all?: boolean } = {}

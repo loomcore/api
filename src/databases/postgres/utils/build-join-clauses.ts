@@ -26,12 +26,12 @@ function getThroughTableAliases(operations: Operation[]): Set<string> {
 }
 
 /**
-* Builds SQL JOIN clauses for join operations.
-*
-* @param operations - Join operations to build clauses for
-* @param mainTableName - Optional main table name; when provided, the join table is aliased (AS) and the ON clause left side is qualified for the main table
-* @param options - When oneToOneOnly is true, only one-to-one joins whose parent is in FROM scope are included
-*/
+   * Builds SQL JOIN clauses for join operations.
+   *
+   * @param operations - Join operations to build clauses for
+   * @param mainTableName - Optional main table name; when provided, the join table is aliased (AS) and the ON clause left side is qualified for the main table
+   * @param options - When oneToOneOnly is true, only one-to-one joins whose parent is in FROM scope are included
+   */
 export function buildJoinClauses(
   operations: Operation[],
   mainTableName?: string,

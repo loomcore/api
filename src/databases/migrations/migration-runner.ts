@@ -23,9 +23,9 @@ export class MigrationRunner {
     this.dbUrl = this.dbType === 'postgres' ? buildPostgresUrl(dbMigrationConfig) : buildMongoUrl(dbMigrationConfig);
     this.migrationsDir = path.join(process.cwd(), 'database', 'migrations');
     /** * The IANA timezone identifier (e.g., 'America/Chicago', 'UTC') 
-      * Used for generating the YYYYMMDDHHMMSS prefix on new files.
-      * Note: CI/CD translates from 'eastern', 'central', etc in github vars 'America/New_York', 'America/Chicago', etc
-      */
+     * Used for generating the YYYYMMDDHHMMSS prefix on new files.
+     * Note: CI/CD translates from 'eastern', 'central', etc in github vars 'America/New_York', 'America/Chicago', etc
+     */
     this.primaryTimezone = dbMigrationConfig.app.primaryTimezone || 'UTC';
   }
 

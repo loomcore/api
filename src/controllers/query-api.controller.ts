@@ -10,111 +10,111 @@ import { IGenericQueryService } from '../services/index.js';
 import { apiUtils, authorizeMethod } from '../utils/index.js';
 
 export abstract class QueryApiController<T extends IEntity> {
- protected app: Application;
- protected service: IGenericQueryService<T>;
- protected slug: string;
- protected apiResourceName: string;
- protected modelSpec?: IModelSpec;
- protected publicSpec?: IModelSpec;
- protected idSchema: TSchema;
+  protected app: Application;
+  protected service: IGenericQueryService<T>;
+  protected slug: string;
+  protected apiResourceName: string;
+  protected modelSpec?: IModelSpec;
+  protected publicSpec?: IModelSpec;
+  protected idSchema: TSchema;
 
- /**
-  * Creates a new API controller for complex query operations on a specific entity type.
-  * 
-  * This constructor sets up the controller with the necessary dependencies and automatically maps
-  * standard API routes for query operations. By using the `publicSchema` parameter, derived controllers
-  * can automatically filter sensitive data from API responses.
-  * 
-  * @param slug - The URL path segment for this resource (e.g., 'users' for '/api/users')
-  * @param app - The Express application instance to register routes with
-  * @param service - The service implementing business logic for this entity type (must implement IGenericQueryService<T>))
-  * @param resourceName - The singular name of the resource (used in error messages)
-  * @param modelSpec - The TypeBox model specification containing schema and validation details
-  * @param publicSpec - Optional model spec to filter sensitive fields from API responses (e.g., remove passwords)
-  * 
-  * @example
-  * ```
-  * // Create a users controller that automatically filters out password fields
-  * class UsersController extends QueryApiController<IUser> {
-  *   constructor(app: Application, db: Db) {
-  *     const userService = new UserService(db);
-  *     super('users', app, userService, 'user', UserSpec, PublicUserSchema);
-  *   }
-  * }
-  * ```
-  */
- protected constructor(
-  slug: string,
-  app: Application,
-  service: IGenericQueryService<T>,
-  resourceName: string = '',
-  modelSpec?: IModelSpec,
-  publicSpec?: IModelSpec
- ) {
-  this.slug = slug;
-  this.app = app;
-  this.service = service;
-  this.apiResourceName = resourceName;
-  this.modelSpec = modelSpec;
-  this.publicSpec = publicSpec;
-  this.idSchema = getIdSchema();
+  /**
+   * Creates a new API controller for complex query operations on a specific entity type.
+   * 
+   * This constructor sets up the controller with the necessary dependencies and automatically maps
+   * standard API routes for query operations. By using the `publicSchema` parameter, derived controllers
+   * can automatically filter sensitive data from API responses.
+   * 
+   * @param slug - The URL path segment for this resource (e.g., 'users' for '/api/users')
+   * @param app - The Express application instance to register routes with
+   * @param service - The service implementing business logic for this entity type (must implement IGenericQueryService<T>))
+   * @param resourceName - The singular name of the resource (used in error messages)
+   * @param modelSpec - The TypeBox model specification containing schema and validation details
+   * @param publicSpec - Optional model spec to filter sensitive fields from API responses (e.g., remove passwords)
+   * 
+   * @example
+   * ```
+   * // Create a users controller that automatically filters out password fields
+   * class UsersController extends QueryApiController<IUser> {
+   *   constructor(app: Application, db: Db) {
+   *     const userService = new UserService(db);
+   *     super('users', app, userService, 'user', UserSpec, PublicUserSchema);
+   *   }
+   * }
+   * ```
+   */
+  protected constructor(
+    slug: string,
+    app: Application,
+    service: IGenericQueryService<T>,
+    resourceName: string = '',
+    modelSpec?: IModelSpec,
+    publicSpec?: IModelSpec
+  ) {
+    this.slug = slug;
+    this.app = app;
+    this.service = service;
+    this.apiResourceName = resourceName;
+    this.modelSpec = modelSpec;
+    this.publicSpec = publicSpec;
+    this.idSchema = getIdSchema();
 
-  this.mapRoutes(app);
- }
-
- mapRoutes(app: Application) {
-  // Map routes
-  // have to bind "this" because when express calls the function we tell it to here, it won't have any context and "this" will be undefined in our functions
-  const authorize = (method: keyof this) => authorizeMethod(this, method as any);
-  app.get(`/api/${this.slug}`, authorize('get'), this.get.bind(this));
-  app.get(`/api/${this.slug}/all`, authorize('getAll'), this.getAll.bind(this));
-  app.get(`/api/${this.slug}/count`, authorize('getCount'), this.getCount.bind(this));
-  app.get(`/api/${this.slug}/:id`, authorize('getById'), this.getById.bind(this));
- }
-
-
- async getAll(req: Request, res: Response, next: NextFunction) {
-  res.set('Content-Type', 'application/json');
-  const entities = await this.service.getAll(req.userContext!);
-  apiUtils.apiResponse<T[]>(res, 200, { data: entities }, this.modelSpec, this.publicSpec);
- }
-
- async get(req: Request, res: Response, next: NextFunction) {
-  res.set('Content-Type', 'application/json');
-
-  // Extract query options from request
-  const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
-
-  // Get paged result from service
-  const pagedResult = await this.service.get(req.userContext!, queryOptions);
-  // Prepare API response
-  apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSpec);
- }
-
- async getById(req: Request, res: Response, next: NextFunction) {
-  res.set('Content-Type', 'application/json');
-
-  // Convert HTTP string to AppIdType using TypeBox
-  const idParam = req.params?.id;
-  if (!idParam) {
-   throw new BadRequestError('ID parameter is required');
+    this.mapRoutes(app);
   }
 
-  let id: AppIdType;
-  try {
-   id = Value.Convert(this.idSchema, idParam) as AppIdType;
-  } catch (error: any) {
-   throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
+  mapRoutes(app: Application) {
+    // Map routes
+    // have to bind "this" because when express calls the function we tell it to here, it won't have any context and "this" will be undefined in our functions
+    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
+    app.get(`/api/${this.slug}`, authorize('get'), this.get.bind(this));
+    app.get(`/api/${this.slug}/all`, authorize('getAll'), this.getAll.bind(this));
+    app.get(`/api/${this.slug}/count`, authorize('getCount'), this.getCount.bind(this));
+    app.get(`/api/${this.slug}/:id`, authorize('getById'), this.getById.bind(this));
   }
 
-  const entity = await this.service.getById(req.userContext!, id);
-  apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
- }
 
- async getCount(req: Request, res: Response, next: NextFunction) {
-  res.set('Content-Type', 'application/json');
-  const count = await this.service.getCount(req.userContext!); // result is in the form { count: number }
-  apiUtils.apiResponse<number>(res, 200, { data: count }, this.modelSpec, this.publicSpec);
- }
+  async getAll(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+    const entities = await this.service.getAll(req.userContext!);
+    apiUtils.apiResponse<T[]>(res, 200, { data: entities }, this.modelSpec, this.publicSpec);
+  }
+
+  async get(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+
+    // Extract query options from request
+    const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
+
+    // Get paged result from service
+    const pagedResult = await this.service.get(req.userContext!, queryOptions);
+    // Prepare API response
+    apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSpec);
+  }
+
+  async getById(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+
+    // Convert HTTP string to AppIdType using TypeBox
+    const idParam = req.params?.id;
+    if (!idParam) {
+      throw new BadRequestError('ID parameter is required');
+    }
+
+    let id: AppIdType;
+    try {
+      id = Value.Convert(this.idSchema, idParam) as AppIdType;
+    } catch (error: any) {
+      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
+    }
+
+    const entity = await this.service.getById(req.userContext!, id);
+    apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
+  }
+
+  async getCount(req: Request, res: Response, next: NextFunction) {
+    res.set('Content-Type', 'application/json');
+    const count = await this.service.getCount(req.userContext!); // result is in the form { count: number }
+    apiUtils.apiResponse<number>(res, 200, { data: count }, this.modelSpec, this.publicSpec);
+  }
 
 }
