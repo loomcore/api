@@ -1,0 +1,1 @@
+export { Authorize, AllowAnonymous } from './authorize.decorator.js';
