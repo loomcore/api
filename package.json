@@ -46,6 +46,7 @@
     "./config": "./dist/config/index.js",
     "./controllers": "./dist/controllers/index.js",
     "./databases": "./dist/databases/index.js",
+    "./decorators": "./dist/decorators/index.js",
     "./errors": "./dist/errors/index.js",
     "./middleware": "./dist/middleware/index.js",
     "./models": "./dist/models/index.js",
