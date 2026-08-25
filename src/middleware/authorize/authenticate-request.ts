@@ -21,6 +21,12 @@ export function authenticateRequest(req: Request): IUserContext {
   }
 
   const authConfig = getAuthConfig();
-  const rawPayload = jwt.verify(token, authConfig.clientSecret);
+  let rawPayload: string | jwt.JwtPayload;
+  try {
+    rawPayload = jwt.verify(token, authConfig.clientSecret);
+  } catch {
+    // jwt.verify throws TokenExpiredError ("jwt expired"), JsonWebTokenError, etc.
+    throw new UnauthenticatedError();
+  }
   return getAuthUserContextSpec().decode(rawPayload) as IUserContext;
 }

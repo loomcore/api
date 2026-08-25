@@ -367,6 +367,12 @@ function getAuthToken(): string {
   return `Bearer ${token}`;
 }
 
+function getExpiredAuthToken(): string {
+  const userContext = getTestMetaOrgUserContext();
+  const token = jwt.sign(userContext, JWT_SECRET, { expiresIn: -1 });
+  return `Bearer ${token}`;
+}
+
 /**
  * Verify a JWT token
  * @param token JWT token string
@@ -688,6 +694,7 @@ const testUtils = {
   deleteMetaOrg,
   deleteTestUser,
   getAuthToken,
+  getExpiredAuthToken,
   getTestMetaOrgRefererUrl,
   initialize,
   setupTestConfig,

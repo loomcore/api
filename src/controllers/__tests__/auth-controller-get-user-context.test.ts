@@ -50,8 +50,17 @@ describe('[library] AuthController', () => {
       expect(response.body?.data?.user).toEqual(undefined);
     });
 
-    // test an expired authToken
+    it('should return a 401 when the authToken is expired', async () => {
+      const response = await testAgent
+        .get(apiEndpoint)
+        .set('Authorization', testUtils.getExpiredAuthToken())
+        .expect(401);
 
+      expect(response.body?.success).toEqual(false);
+      expect(response.body?.status).toEqual(401);
+      expect(response.body?.errors[0]?.message).toEqual('Unauthenticated');
+      expect(response.body?.data?.user).toEqual(undefined);
+    });
   });
 });
 
