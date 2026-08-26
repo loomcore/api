@@ -6,10 +6,8 @@ export function createPublicSpec(spec: IModelSpec): IModelSpec {
   if (config.debug?.showAuditFields) {
     return spec;
   }
-  const publicSpec = entityUtils.getModelSpec(spec.schema, {
-    isAuditable: spec.isAuditable,
+  // Rebuild from the domain schema: keep identity only if the source spec is an entity, omit audit fields.
+  return entityUtils.getModelSpec(spec.schema, {
     isEntity: spec.isEntity,
-    addAuditableSchema: false,
   });
-  return publicSpec;
 }

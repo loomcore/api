@@ -1,5 +1,7 @@
-import { setIdSchema } from '@loomcore/common/validation';
+import { initializeTypeBox, setIdSchema, TypeboxObjectId } from '@loomcore/common/validation';
 import { Type } from '@sinclair/typebox';
+
+initializeTypeBox();
 
 // Set IdSchema based on TEST_DATABASE environment variable
 // This must run before any modules that import @loomcore/common/models are loaded
@@ -20,7 +22,7 @@ if (testDatabase === 'postgres') {
 } else if (testDatabase === 'mongodb') {
   // Configure IdSchema for MongoDB (string ObjectIds)
   // This should automatically initialize systemUserId to 'system'
-  setIdSchema(Type.String({ title: 'ID', pattern: '^[0-9a-fA-F]{24}$' }));
+  setIdSchema(TypeboxObjectId({ title: 'ID' }));
 } else {
   throw new Error(`Invalid TEST_DATABASE value: ${testDatabase}. Must be 'postgres' or 'mongodb'`);
 }

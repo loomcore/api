@@ -5,21 +5,55 @@ import { Document, ObjectId } from 'mongodb';
 import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
 import { getPropertySchema } from '../../utils/get-property-schema.util.js';
 
+function isExcludedFromObjectIdConversion(key: string): boolean {
+  return PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key);
+}
+
+function shouldConvertEqToObjectId(
+  key: string,
+  propSchema: TSchema | undefined,
+  hasSchema: boolean,
+): boolean {
+  if (isExcludedFromObjectIdConversion(key)) {
+    return false;
+  }
+  if (key === '_id' || propSchema?.format === 'objectid') {
+    return true;
+  }
+  return !hasSchema && key.endsWith('Id');
+}
+
+function shouldConvertInToObjectIds(
+  key: string,
+  propSchema: TSchema | undefined,
+  hasSchema: boolean,
+): boolean {
+  if (isExcludedFromObjectIdConversion(key)) {
+    return false;
+  }
+  if (key === '_id' || propSchema?.format === 'objectid') {
+    return true;
+  }
+  const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
+  if (isObjectIdArray) {
+    return true;
+  }
+  return !hasSchema && (key.endsWith('Id') || key.endsWith('Ids'));
+}
+
 export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelSpec): Document {
   const filters = queryOptions.filters || {};
   const schema = modelSpec?.fullSchema;
+  const hasSchema = !!schema;
   let match: any = {};
   for (const [key, value] of Object.entries(filters)) {
     if (value) {
       const propSchema = schema ? getPropertySchema(key, schema) : undefined;
 
       if (value.eq !== undefined) {
-        const isObjectIdField = propSchema?.format === 'objectid';
         const valueToCompare = value.eq;
 
-        // Use schema to check for ObjectId, otherwise fall back to name-based check
-        // Special case for _id: always treat as ObjectId if it's a valid ObjectId string
-        if ((key === '_id' || isObjectIdField || (!schema && key.endsWith('Id') && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)))
+        if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
           && typeof valueToCompare === 'string' && entityUtils.isValidObjectId(valueToCompare)) {
           match[key] = new ObjectId(valueToCompare);
         }
@@ -33,11 +67,7 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
         }
       }
       if (value.in !== undefined && Array.isArray(value.in)) {
-        const isObjectIdArray = propSchema?.type === 'array' && (propSchema.items as TSchema)?.format === 'objectid';
-
-        // Use schema to check for ObjectId array, otherwise fall back to name-based check
-        // Special case for _id: always treat as ObjectId array if values are valid ObjectId strings
-        if (key === '_id' || isObjectIdArray || (!schema && (key.endsWith('Id') || key.endsWith('Ids')) && !PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key))) {
+        if (shouldConvertInToObjectIds(key, propSchema, hasSchema)) {
           // Convert string values to ObjectIds
           const objectIds = value.in
             .filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))

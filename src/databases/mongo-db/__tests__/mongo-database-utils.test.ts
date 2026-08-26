@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
-import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
+import { IQueryOptions, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
 import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds } from '../utils/index.js';
 
 describe('mongoUtils', () => {
@@ -174,7 +174,6 @@ describe('mongoUtils', () => {
   });
 
   describe('convertStringsToObjectIds', () => {
-    // Define a test schema
     const TestSchema = Type.Object({
       _id: TypeboxObjectId(),
       name: Type.String(),
@@ -190,7 +189,10 @@ describe('mongoUtils', () => {
           itemName: Type.String()
         })
       ),
-      _orgId: Type.String(), // This should not be converted as it's in the exclusion list
+      _orgId: TypeboxObjectId(),
+      _createdBy: TypeboxObjectId(),
+      _updatedBy: TypeboxObjectId(),
+      _deletedBy: TypeboxObjectId(),
       normalField: Type.String()
     });
 
@@ -208,7 +210,7 @@ describe('mongoUtils', () => {
       expect(result.name).toBe('Test Entity');
     });
 
-    it('should convert string ID fields based on schema', () => {
+    it('should convert string ID fields based on TypeboxObjectId format', () => {
       const mainId = new ObjectId().toString();
       const simpleId = new ObjectId().toString();
       const nestedId = new ObjectId().toString();
@@ -331,6 +333,26 @@ describe('mongoUtils', () => {
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result.simpleId).toBe(invalidId); // Should remain as string
     });
+
+    it('should leave tenant and audit fields as strings even when schema is TypeboxObjectId', () => {
+      const hexId = new ObjectId().toString();
+      const entity = {
+        _id: new ObjectId().toString(),
+        _orgId: hexId,
+        _createdBy: hexId,
+        _updatedBy: hexId,
+        _deletedBy: hexId
+      };
+
+      const result = convertStringsToObjectIds(entity, TestSchema);
+
+      expect(result._orgId).toBe(hexId);
+      expect(result._createdBy).toBe(hexId);
+      expect(result._updatedBy).toBe(hexId);
+      expect(result._deletedBy).toBe(hexId);
+      expect(typeof result._orgId).toBe('string');
+      expect(typeof result._createdBy).toBe('string');
+    });
   });
 
   // Keep the QueryOptions tests unchanged - these are the only ones that should have been modified
@@ -389,6 +411,108 @@ describe('mongoUtils', () => {
         $match: {
           clientId: { $in: [new ObjectId('507f1f77bcf86cd799439011'), new ObjectId('507f1f77bcf86cd799439012')] }
         }
+      });
+    });
+
+    it('should convert scalar *Id eq without a schema', () => {
+      const userId = '507f1f77bcf86cd799439011';
+      const queryOptions: IQueryOptions = {
+        ...DefaultQueryOptions,
+        filters: {
+          userId: {
+            eq: userId
+          }
+        }
+      };
+
+      const result = buildNoSqlMatch(queryOptions);
+
+      expect(result).toEqual({
+        $match: {
+          userId: new ObjectId(userId)
+        }
+      });
+    });
+
+    it('should convert scalar TypeboxObjectId eq and in when a schema is provided', () => {
+      const userId = '507f1f77bcf86cd799439011';
+      const roleId = '507f1f77bcf86cd799439012';
+      const modelSpec = {
+        fullSchema: Type.Object({
+          userId: TypeboxObjectId(),
+          roleId: TypeboxObjectId()
+        })
+      } as IModelSpec;
+
+      const eqResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { userId: { eq: userId } }
+      }, modelSpec);
+
+      expect(eqResult).toEqual({
+        $match: { userId: new ObjectId(userId) }
+      });
+
+      const inResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { userId: { in: [userId, roleId] } }
+      }, modelSpec);
+
+      expect(inResult).toEqual({
+        $match: {
+          userId: { $in: [new ObjectId(userId), new ObjectId(roleId)] }
+        }
+      });
+    });
+
+    it('should not convert scalar in when the schema describes the field as a plain string', () => {
+      const userId = '507f1f77bcf86cd799439011';
+      const modelSpec = {
+        fullSchema: Type.Object({
+          userId: Type.String()
+        })
+      } as IModelSpec;
+
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { userId: { in: [userId] } }
+      }, modelSpec);
+
+      expect(result).toEqual({
+        $match: { userId: { $in: [userId] } }
+      });
+    });
+
+    it('should leave tenant and audit fields as strings even when schema is TypeboxObjectId', () => {
+      const hexId = '507f1f77bcf86cd799439011';
+      const modelSpec = {
+        fullSchema: Type.Object({
+          _orgId: TypeboxObjectId(),
+          _createdBy: TypeboxObjectId(),
+          _updatedBy: TypeboxObjectId(),
+          _deletedBy: TypeboxObjectId()
+        })
+      } as IModelSpec;
+
+      const eqResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: {
+          _orgId: { eq: hexId },
+          _createdBy: { eq: hexId }
+        }
+      }, modelSpec);
+
+      expect(eqResult).toEqual({
+        $match: { _orgId: hexId, _createdBy: hexId }
+      });
+
+      const inResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { _updatedBy: { in: [hexId] }, _deletedBy: { in: [hexId] } }
+      }, modelSpec);
+
+      expect(inResult).toEqual({
+        $match: { _updatedBy: { $in: [hexId] }, _deletedBy: { $in: [hexId] } }
       });
     });
 

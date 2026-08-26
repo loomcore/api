@@ -1,6 +1,11 @@
 /**
- * List of property names that should not be converted to ObjectIds, even if they end with 'Id'
- * These properties are meant to be stored and queried as strings
+ * Property names that stay JSON strings in Mongo even when getIdSchema() / TypeboxObjectId
+ * would otherwise mark them as format: 'objectid'.
+ * These are not join keys: tenant id and audit actors.
  */
-
-export const PROPERTIES_THAT_ARE_NOT_OBJECT_IDS = ['_orgId'];
+export const PROPERTIES_THAT_ARE_NOT_OBJECT_IDS = [
+  '_orgId',
+  '_createdBy',
+  '_updatedBy',
+  '_deletedBy',
+];

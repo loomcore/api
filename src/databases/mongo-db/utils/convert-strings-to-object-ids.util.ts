@@ -6,10 +6,11 @@ import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
 import { IEntity } from '@loomcore/common/models';
 
 /**
- * Converts strings to MongoDB ObjectIds based on TypeBox schema definition
+ * Converts JSON id strings to MongoDB ObjectIds where the TypeBox schema has format: 'objectid'.
+ * Names in PROPERTIES_THAT_ARE_NOT_OBJECT_IDS stay strings (tenant and audit fields).
  * @param entity API model to be saved to MongoDB
- * @param schema TypeBox schema with TypeboxObjectId fields
- * @returns Entity with strings converted to ObjectIds for MongoDB operations
+ * @param schema TypeBox schema (typically with TypeboxObjectId / getIdSchema fields)
+ * @returns Entity with matching strings converted to ObjectIds for MongoDB operations
  */
 export function convertStringsToObjectIds<U extends IEntity | Partial<IEntity>>(entity: U, schema: TSchema): U {
   if (!entity) return entity;
@@ -51,14 +52,13 @@ export function convertStringsToObjectIds<U extends IEntity | Partial<IEntity>>(
       const items = subSchema.items as TSchema;
       if (!items) return obj; // No schema for items, return as is
 
+      const propertyName = path[path.length - 1];
+      if (propertyName && PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(propertyName)) {
+        return obj;
+      }
 
       // If array of ObjectIds (items has objectid format)
       if (items.format === 'objectid') {
-        // Skip properties that shouldn't be treated as ObjectIds
-        if (path.length === 1 && PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(path[0])) {
-          return obj;
-        }
-
         // Convert each string to ObjectId
         return obj.map(item => {
           if (typeof item === 'string' && entityUtils.isValidObjectId(item)) {
@@ -92,13 +92,13 @@ export function convertStringsToObjectIds<U extends IEntity | Partial<IEntity>>(
         const fullPath = [...path, key];
         const value = result[key];
 
-        // Check if this property should be an ObjectId (has objectid format)
-        const isObjectIdField = typedPropSchema.format === 'objectid';
-
-        // Skip properties that shouldn't be treated as ObjectIds
-        if (isObjectIdField && path.length === 0 && PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)) {
+        // Tenant and audit fields stay strings even when getIdSchema() is TypeboxObjectId
+        if (PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key)) {
           continue;
         }
+
+        // Check if this property should be an ObjectId (has objectid format)
+        const isObjectIdField = typedPropSchema.format === 'objectid';
 
         // Convert string to ObjectId if property is defined as objectid format
         if (isObjectIdField && typeof value === 'string' && entityUtils.isValidObjectId(value)) {

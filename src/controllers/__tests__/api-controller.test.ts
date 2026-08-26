@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+﻿import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Application } from 'express';
 
 import { ApiController } from '../api.controller.js';
@@ -7,9 +7,9 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestOrgUser } from '../../__tests__/test-objects.js';
+import { getTestOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
-import { UserService, OrganizationService } from '../../services/index.js';
+import { UserService } from '../../services/index.js';
 import { UsersController } from '../users.controller.js';
 import { AuthController } from '../auth.controller.js';
 import { IUser } from '@loomcore/common/models';
@@ -30,6 +30,17 @@ class TestItemController extends ApiController<ITestItem> {
 
     this.testItemService = testItemService;
   }
+}
+
+function expectPublicItem(item: any) {
+  expect(item).toBeDefined();
+  expect(item._id).toBeDefined();
+  expect(item).not.toHaveProperty('_created');
+  expect(item).not.toHaveProperty('_createdBy');
+  expect(item).not.toHaveProperty('_updated');
+  expect(item).not.toHaveProperty('_updatedBy');
+  expect(item).not.toHaveProperty('_deleted');
+  expect(item).not.toHaveProperty('_deletedBy');
 }
 
 /**
@@ -138,79 +149,63 @@ describe('ApiController - Integration Tests', () => {
   });
 
   describe('auditable behavior', () => {
-    it('should include audit properties in POST response', async () => {
-      // Make the API request with the token from testUtils
+    it('should omit audit properties from the default public POST response but keep _id', async () => {
       const response = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Test Item' });
 
-      // Assertions
       expect(response.status).toBe(201);
-      expect(response.body.data).toHaveProperty('_created');
-      expect(response.body.data).toHaveProperty('_createdBy');
-      expect(response.body.data).not.toHaveProperty('_updated');
-      expect(response.body.data).not.toHaveProperty('_updatedBy');
+      expectPublicItem(response.body.data);
+      expect(response.body.data.name).toBe('Test Item');
+
+      const stored = await testItemService.getById(getTestMetaOrgUserContext(), response.body.data._id);
+      expect(stored._created).toBeDefined();
+      expect(stored._createdBy).toBe(userId);
     });
 
     it('should update audit fields correctly when using PATCH', async () => {
-      // First create an item
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Name', value: 100 });
 
       expect(createResponse.status).toBe(201);
+      const itemId = createResponse.body.data._id;
+      expect(itemId).toBeDefined();
+      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
 
-      // Extract the entity from the response
-      const originalItem = createResponse.body.data;
-      expect(originalItem).toBeDefined();
-      expect(originalItem._id).toBeDefined();
-
-      const itemId = originalItem._id;
-
-      // Wait a bit to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update with PATCH (convert ID to string for URL)
       const updateResponse = await testAgent
         .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({ name: 'Updated Name' });
 
       expect(updateResponse.status).toBe(200);
+      expectPublicItem(updateResponse.body.data);
+      expect(updateResponse.body.data.name).toBe('Updated Name');
 
-      // Extract the updated entity
-      const updatedItem = updateResponse.body.data;
-      expect(updatedItem).toBeDefined();
-
-      // Verify audit properties
-      expect(updatedItem._created).toEqual(originalItem._created);
-      expect(updatedItem._createdBy).toEqual(originalItem._createdBy);
-      expect(updatedItem._updated).not.toEqual(originalItem._updated);
-      expect(updatedItem._updatedBy).toEqual(userId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      expect(updatedStored._created).toEqual(originalStored._created);
+      expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
+      expect(updatedStored._updated).toBeDefined();
+      expect(updatedStored._updatedBy).toEqual(userId);
     });
 
     it('should update audit fields correctly when using PUT', async () => {
-      // First create an item
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Name', value: 100 });
 
       expect(createResponse.status).toBe(201);
+      const itemId = createResponse.body.data._id;
+      expect(itemId).toBeDefined();
+      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
 
-      // Extract the entity from the response
-      const originalItem = createResponse.body.data;
-      expect(originalItem).toBeDefined();
-      expect(originalItem._id).toBeDefined();
-
-      const itemId = originalItem._id;
-
-      // Wait a bit to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update with PUT - include all required fields (convert ID to string for URL)
       const updateResponse = await testAgent
         .put(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
@@ -220,35 +215,27 @@ describe('ApiController - Integration Tests', () => {
         });
 
       expect(updateResponse.status).toBe(200);
+      expectPublicItem(updateResponse.body.data);
+      expect(updateResponse.body.data.name).toBe('New Name');
 
-      // Extract the updated entity
-      const updatedItem = updateResponse.body.data;
-      expect(updatedItem).toBeDefined();
-
-      // Verify audit properties
-      expect(updatedItem._created).toEqual(originalItem._created);
-      expect(updatedItem._createdBy).toEqual(originalItem._createdBy);
-      expect(updatedItem._updated).not.toEqual(originalItem._updated);
-      expect(updatedItem._updatedBy).toEqual(userId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      expect(updatedStored._created).toEqual(originalStored._created);
+      expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
+      expect(updatedStored._updated).toBeDefined();
+      expect(updatedStored._updatedBy).toEqual(userId);
     });
 
     it('should reject attempts to tamper with audit properties', async () => {
-      // First create an item
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Original Item' });
 
       expect(createResponse.status).toBe(201);
+      const itemId = createResponse.body.data._id;
+      expect(itemId).toBeDefined();
+      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
 
-      // Extract the entity from the response
-      const originalItem = createResponse.body.data;
-      expect(originalItem).toBeDefined();
-      expect(originalItem._id).toBeDefined();
-
-      const itemId = originalItem._id;
-
-      // Try to tamper with audit properties during update (convert ID to string for URL)
       const tamperedDate = new Date(2000, 1, 1).toISOString();
       const updateResponse = await testAgent
         .patch(`/api/test-items/${String(itemId)}`)
@@ -262,93 +249,64 @@ describe('ApiController - Integration Tests', () => {
         });
 
       expect(updateResponse.status).toBe(200);
+      expectPublicItem(updateResponse.body.data);
 
-      // Extract the updated entity
-      const updatedItem = updateResponse.body.data;
-      expect(updatedItem).toBeDefined();
-
-      // Verify tamper attempt failed
-      expect(updatedItem._created).toEqual(originalItem._created);
-      expect(updatedItem._createdBy).toEqual(originalItem._createdBy);
-      expect(updatedItem._updated).not.toEqual(tamperedDate);
-      expect(updatedItem._updatedBy).not.toEqual('hacker');
-      expect(updatedItem._updatedBy).toEqual(userId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      expect(updatedStored._created).toEqual(originalStored._created);
+      expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
+      expect(updatedStored._updatedBy).not.toEqual('hacker');
+      expect(updatedStored._updatedBy).toEqual(userId);
     });
 
-    it('should preserve audit properties when returning lists of items', async () => {
-      // Create several items
-      const item1Response = await testAgent
+    it('should omit audit properties when returning lists of items', async () => {
+      await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Item 1', value: 10 })
         .expect(201);
 
-      const item2Response = await testAgent
+      await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Item 2', value: 20 })
         .expect(201);
 
-      // Get all items via HTTP
       const response = await testAgent
         .get('/api/test-items')
         .set('Authorization', authToken)
         .expect(200);
 
-      // ApiController returns responses wrapped in IApiResponse format with paged result
-      const pagedResult = response.body.data;
-      const items = pagedResult?.entities;
-
-      // Verify we got an array of items
+      const items = response.body.data?.entities;
       expect(Array.isArray(items)).toBe(true);
       expect(items.length).toBeGreaterThan(0);
-
-      // Verify all items have audit properties
-      items.forEach((item: any) => {
-        expect(item).toHaveProperty('_created');
-        expect(item).toHaveProperty('_createdBy');
-        expect(item).not.toHaveProperty('_updated');
-        expect(item).not.toHaveProperty('_updatedBy');
-      });
+      items.forEach((item: any) => expectPublicItem(item));
     });
 
-    it('should return audit properties when getting a single item', async () => {
-      // Create an item
+    it('should omit audit properties when getting a single item', async () => {
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'Single Item', value: 42 });
 
       expect(createResponse.status).toBe(201);
-
-      // Extract the entity and ID from the response
-      const createdItem = createResponse.body.data;
-      expect(createdItem).toBeDefined();
-
-      const itemId = createdItem._id;
+      const itemId = createResponse.body.data._id;
       expect(itemId).toBeDefined();
 
-      // Get the item (convert ID to string for URL)
       const getResponse = await testAgent
         .get(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken);
 
       expect(getResponse.status).toBe(200);
+      expectPublicItem(getResponse.body.data);
 
-      // Extract the retrieved entity
-      const retrievedItem = getResponse.body.data;
-      expect(retrievedItem).toBeDefined();
-
-      // Verify audit properties
-      expect(retrievedItem).toHaveProperty('_created');
-      expect(retrievedItem).toHaveProperty('_createdBy', userId);
-      expect(retrievedItem).not.toHaveProperty('_updated');
-      expect(retrievedItem).not.toHaveProperty('_updatedBy');
+      const stored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      expect(stored._created).toBeDefined();
+      expect(stored._createdBy).toBe(userId);
     });
   });
 
   describe('user creation with public schema', () => {
-    it('should include audit properties and exclude properties not in public schema', async () => {
+    it('should exclude password from the public user response and keep _id', async () => {
       // Log that we're preparing the test user data
       const testUser = getTestOrgUser();
 
@@ -384,14 +342,8 @@ describe('ApiController - Integration Tests', () => {
 
         // Verify user properties
         expect(entity.email).toBe(uniqueEmail);
-        // Verify password is not included (removed by public schema)
         expect(entity).not.toHaveProperty('password');
-
-        // Verify audit properties are present - this is what our test is checking for
-        expect(entity).toHaveProperty('_created');
-        expect(entity).toHaveProperty('_createdBy', userId);
-        expect(entity).not.toHaveProperty('_updated');
-        expect(entity).not.toHaveProperty('_updatedBy');
+        expect(entity._id).toBeDefined();
       } catch (error) {
         console.error('Error during user creation test:', error);
         throw error;
@@ -442,12 +394,7 @@ describe('ApiController - Integration Tests', () => {
       expect(createdEntity.anotherExtraProperty).toBeUndefined();
       expect(createdEntity.nestedExtra).toBeUndefined();
 
-      // Check that system properties were preserved/added
-      expect(createdEntity._id).toBeDefined();
-      expect(createdEntity._created).toBeDefined();
-      expect(createdEntity._createdBy).toBeDefined();
-      expect(createdEntity._updated).toBeUndefined();
-      expect(createdEntity._updatedBy).toBeUndefined();
+      expectPublicItem(createdEntity);
     });
 
     it('should reject invalid entities with proper validation errors', async () => {
@@ -519,8 +466,7 @@ describe('ApiController - Integration Tests', () => {
       // Verify partial update worked correctly
       expect(updatedItem.name).toBe(originalItem.name); // Unchanged
       expect(updatedItem.value).toBe(200); // Updated
-      expect(updatedItem._created).toEqual(originalItem._created); // Preserved
-      expect(updatedItem._updated).not.toEqual(originalItem._updated); // Updated
+      expectPublicItem(updatedItem);
     });
   });
 
@@ -534,20 +480,18 @@ describe('ApiController - Integration Tests', () => {
         .send(entity);
 
       expect(response.status).toBe(201);
-      const result = response.body.data;
+      expectPublicItem(response.body.data);
 
-      expect(result).toBeDefined();
-      expect(result._created).toBeDefined();
-      expect(result._createdBy).toBe(userId);
-      expect(result._updated).toBeUndefined();
-      expect(result._updatedBy).toBeUndefined();
-      expect(new Date(result._created)).toBeInstanceOf(Date);
+      const stored = await testItemService.getById(getTestMetaOrgUserContext(), response.body.data._id);
+      expect(stored._created).toBeDefined();
+      expect(stored._createdBy).toBe(userId);
+      expect(stored._updated).toBeUndefined();
+      expect(stored._updatedBy).toBeUndefined();
     });
 
     it('should not allow client to override audit properties on create', async () => {
       const hackDate = new Date(2020, 1, 1).toISOString();
 
-      // Try to create with tampered audit properties
       const entity = {
         name: 'TamperTest',
         value: 42,
@@ -563,86 +507,73 @@ describe('ApiController - Integration Tests', () => {
         .send(entity);
 
       expect(response.status).toBe(201);
-      const result = response.body.data;
+      expectPublicItem(response.body.data);
 
-      expect(result).toBeDefined();
-      expect(result._created).not.toEqual(hackDate);
-      expect(result._createdBy).not.toEqual('hacker');
-      expect(result._updated).not.toEqual(hackDate);
-      expect(result._updatedBy).not.toEqual('hacker');
-      expect(result._createdBy).toEqual(userId);
-      expect(result._updatedBy).toBeUndefined();
+      const stored = await testItemService.getById(getTestMetaOrgUserContext(), response.body.data._id);
+      expect(stored._createdBy).not.toEqual('hacker');
+      expect(stored._createdBy).toEqual(userId);
+      expect(stored._updatedBy).not.toEqual('hacker');
+      expect(stored._updatedBy).toBeUndefined();
     });
 
     it('should update _updated and _updatedBy on update but preserve _created and _createdBy', async () => {
-      // First create an entity
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'UpdateTest', value: 100 });
 
       expect(createResponse.status).toBe(201);
-      const createdItem = createResponse.body.data;
+      const itemId = createResponse.body.data._id;
+      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
 
-      const originalCreated = createdItem._created;
-      const originalCreatedBy = createdItem._createdBy;
-      const itemId = createdItem._id;
-
-      // Wait a moment to ensure timestamps differ
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Update the entity (convert ID to string for URL)
       const updateResponse = await testAgent
         .patch(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({ name: 'Updated Test' });
 
       expect(updateResponse.status).toBe(200);
-      const updatedItem = updateResponse.body.data;
+      expectPublicItem(updateResponse.body.data);
 
-      // Check audit fields
-      expect(updatedItem._created).toEqual(originalCreated);
-      expect(updatedItem._createdBy).toEqual(originalCreatedBy);
-      expect(updatedItem._updated).not.toEqual(createdItem._updated);
-      expect(updatedItem._updatedBy).toEqual(userId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      expect(updatedStored._created).toEqual(originalStored._created);
+      expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
+      expect(updatedStored._updated).toBeDefined();
+      expect(updatedStored._updatedBy).toEqual(userId);
     });
 
     it('should handle full updates (PUT) with proper audit trail', async () => {
-      // Create initial entity
-
       const createResponse = await testAgent
         .post('/api/test-items')
         .set('Authorization', authToken)
         .send({ name: 'PUT Test', value: 50 });
 
       expect(createResponse.status).toBe(201);
-      const createdItem = createResponse.body.data;
-      const itemId = createdItem._id;
+      const itemId = createResponse.body.data._id;
+      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
 
-      // Wait to ensure timestamp difference
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Full update with PUT (convert ID to string for URL)
       const updateResponse = await testAgent
         .put(`/api/test-items/${String(itemId)}`)
         .set('Authorization', authToken)
         .send({ name: 'PUT Updated', value: 75 });
 
       expect(updateResponse.status).toBe(200);
-      const updatedItem = updateResponse.body.data;
+      expectPublicItem(updateResponse.body.data);
+      expect(updateResponse.body.data.eventDate).toBeUndefined();
+      expect(updateResponse.body.data.name).toBe('PUT Updated');
+      expect(updateResponse.body.data.value).toBe(75);
 
-      // Verify audit properties
-      expect(updatedItem.eventDate).toBeUndefined();
-      expect(updatedItem._created).toEqual(createdItem._created);
-      expect(updatedItem._createdBy).toEqual(createdItem._createdBy);
-      expect(updatedItem._updated).not.toEqual(createdItem._updated);
-      expect(updatedItem._updatedBy).toEqual(userId);
-      expect(updatedItem.name).toBe('PUT Updated');
-      expect(updatedItem.value).toBe(75);
+      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      expect(updatedStored._created).toEqual(originalStored._created);
+      expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
+      expect(updatedStored._updated).toBeDefined();
+      expect(updatedStored._updatedBy).toEqual(userId);
     });
 
     it('should handle bulk operations with audit properties', async () => {
-      // Create multiple entities to test bulk behavior
       const entities: Partial<ITestItem>[] = [
         { name: 'Bulk Item 1', value: 10, eventDate: new Date() },
         { name: 'Bulk Item 2', value: 20 },
@@ -658,19 +589,14 @@ describe('ApiController - Integration Tests', () => {
 
       const responses = await Promise.all(createPromises);
 
-      // Verify all were created successfully
       responses.forEach((response, index) => {
         expect(response.status).toBe(201);
         const item = response.body.data;
         expect(item.name).toBe(entities[index].name);
         expect(item.value).toBe(entities[index].value);
-        expect(item._created).toBeDefined();
-        expect(item._createdBy).toBe(userId);
-        expect(item._updated).toBeUndefined();
-        expect(item._updatedBy).toBeUndefined();
+        expectPublicItem(item);
       });
 
-      // Verify via list endpoint
       const listResponse = await testAgent
         .get('/api/test-items')
         .set('Authorization', authToken);
@@ -678,14 +604,7 @@ describe('ApiController - Integration Tests', () => {
       expect(listResponse.status).toBe(200);
       const pagedResult = listResponse.body.data;
       expect(pagedResult.entities.length).toBeGreaterThanOrEqual(3);
-
-      // Check that all returned entities have audit properties
-      pagedResult.entities.forEach((item: any) => {
-        expect(item._created).toBeDefined();
-        expect(item._createdBy).toBeDefined();
-        expect(item._updated).toBeUndefined();
-        expect(item._updatedBy).toBeUndefined();
-      });
+      pagedResult.entities.forEach((item: any) => expectPublicItem(item));
     });
   });
-}); 
+});
