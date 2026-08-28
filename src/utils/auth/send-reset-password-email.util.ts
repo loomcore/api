@@ -5,10 +5,12 @@ import { EmailService } from '../../services/email.service.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
 import { getAuthConfig } from './get-auth-config.util.js';
 import { getExpiresOnFromMinutes } from './get-expires-on-from-minutes.util.js';
+import { AppIdType } from '@loomcore/common/types';
 
 export async function sendResetPasswordEmail(
   userContext: IUserContext,
   database: IDatabase,
+  organizationId: AppIdType | undefined,
   emailAddress: string,
   clientBaseUrl: string,
 ) {
@@ -22,6 +24,7 @@ export async function sendResetPasswordEmail(
   const passwordResetToken =
     await passwordResetTokenService.createPasswordResetToken(
       userContext,
+      organizationId,
       emailAddress,
       expiresOn,
     );

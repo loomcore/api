@@ -80,5 +80,10 @@ describe('AuthController.changePassword', () => {
 
     expect(loginResponse.status).toBe(200);
     expect(loginResponse.body.data.tokens.accessToken).toBeDefined();
+
+    expect(userFromDb?._lastPasswordChange).toBeInstanceOf(Date);
+    expect(
+      Date.now() - userFromDb!._lastPasswordChange!.getTime(),
+    ).toBeLessThan(5000);
   });
 });

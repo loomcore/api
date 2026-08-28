@@ -12,9 +12,11 @@ import { BadRequestError, ServerError } from '../errors/index.js';
 import {
   assertAdmin,
   assertUserOrAdmin,
+  isAdmin,
 } from '../utils/auth/index.js';
 import { passwordUtils } from '../utils/password.utils.js';
 import { MultiTenantApiService } from './multi-tenant-api.service.js';
+import moment from 'moment';
 
 export class UserService extends MultiTenantApiService<IUser> {
   constructor(database: IDatabase, modelSpec: IModelSpec = UserSpec) {
@@ -113,6 +115,10 @@ export class UserService extends MultiTenantApiService<IUser> {
       );
     }
 
+    if (isAdmin(userContext)) {
+      return;
+    }
+
     if (userContext.user._id !== id) {
       throw new ServerError('You can only update your own password.');
     }
@@ -140,6 +146,10 @@ export class UserService extends MultiTenantApiService<IUser> {
       preparedEntity.password = await passwordUtils.hashPassword(
         preparedEntity.password,
       );
+      if (!isCreate) {
+        // Do this here 'cause the system property _lastPasswordChange may get stripped in super.preProcessEntity in the logged-in change password flow.
+        preparedEntity._lastPasswordChange = moment().utc().toDate();
+      }
     }
 
     return preparedEntity;

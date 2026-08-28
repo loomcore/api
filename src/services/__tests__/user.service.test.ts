@@ -306,6 +306,10 @@ describe('UserService', () => {
         newPassword,
       );
       expect(isPasswordCorrect).toBe(true);
+      expect(updatedUser._lastPasswordChange).toBeInstanceOf(Date);
+      expect(
+        Date.now() - updatedUser._lastPasswordChange!.getTime(),
+      ).toBeLessThan(5000);
     });
 
     it('should allow partial updates that do not include a password', async () => {

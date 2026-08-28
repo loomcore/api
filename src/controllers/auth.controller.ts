@@ -1,5 +1,6 @@
 import {
   EmptyUserContext,
+  getSystemUserContext,
   type ILoginResponse,
   type IModelSpec,
   type IOrganization,
@@ -208,6 +209,7 @@ export class AuthController {
     const updateResult = await changePassword(
       this.database,
       userContext,
+      userContext.user._id,
       password,
       this.userService,
     );
@@ -239,22 +241,17 @@ export class AuthController {
       }
     }
 
-    const userContext: IUserContext = {
-      ...EmptyUserContext,
-      user: {
-        ...EmptyUserContext.user,
-        _orgId: organization?._id,
-      },
-    };
+    const systemUserContext = getSystemUserContext();
 
-    const user = await this.userService.findOne(userContext, {
-      filters: { email: { eq: email.toLowerCase() } },
+    const user = await this.userService.findOne(systemUserContext, {
+      filters: { email: { eq: email.toLowerCase() }, _orgId: { eq: organization?._id } },
     });
 
     if (user) {
       await sendResetPasswordEmail(
-        userContext,
+        systemUserContext,
         this.database,
+        organization?._id,
         email,
         referer,
       );

@@ -1,5 +1,6 @@
 import {
   EmptyUserContext,
+  getSystemUserContext,
   type IModelSpec,
   type IOrganization,
   type IUserContext,
@@ -36,18 +37,12 @@ export async function resetPassword(
 
   const lowerCaseEmail = email.toLowerCase();
   const passwordResetTokenService = new PasswordResetTokenService(database);
-  const userContext: IUserContext = {
-    ...EmptyUserContext,
-    user: {
-      ...EmptyUserContext.user,
-      _orgId: organization?._id,
-    },
-  };
+  const systemUserContext = getSystemUserContext();
 
   const retrievedPasswordResetToken = await passwordResetTokenService.findOne(
-    userContext,
+    systemUserContext,
     {
-      filters: { email: { eq: lowerCaseEmail } },
+      filters: { email: { eq: lowerCaseEmail }, _orgId: { eq: organization?._id } },
     },
   );
 
@@ -64,8 +59,8 @@ export async function resetPassword(
     throw new BadRequestError('Invalid password reset token');
   }
 
-  const user = await userService.findOne(userContext, {
-    filters: { email: { eq: lowerCaseEmail } },
+  const user = await userService.findOne(systemUserContext, {
+    filters: { email: { eq: lowerCaseEmail }, _orgId: { eq: organization?._id } },
   });
 
   if (!user) {
@@ -73,12 +68,10 @@ export async function resetPassword(
       `Unable to retrieve user for email: ${lowerCaseEmail}`,
     );
   }
-
-  userContext.user = user;
-
   const result = await changePassword(
     database,
-    userContext,
+    systemUserContext,
+    user._id,
     password,
     userService,
   );
@@ -87,7 +80,7 @@ export async function resetPassword(
   );
 
   await passwordResetTokenService.deleteById(
-    userContext,
+    systemUserContext,
     retrievedPasswordResetToken._id,
   );
   console.log(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
