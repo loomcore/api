@@ -105,7 +105,7 @@ describe('UserService', () => {
       const adminContext = getTestMetaOrgAdminUserContext();
 
       const paged = await service.get(adminContext);
-      expect(paged.entities.length).toBeGreaterThan(0);
+      expect(paged.entities?.length).toBeGreaterThan(0);
 
       const all = await service.getAll(adminContext);
       expect(all.length).toBeGreaterThan(0);
