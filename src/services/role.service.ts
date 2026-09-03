@@ -4,7 +4,7 @@ import { MultiTenantApiService } from './multi-tenant-api.service.js';
 import { assertUserHasFeature } from '../utils/index.js';
 
 
-export class RolesService extends MultiTenantApiService<IRole> {
+export class RoleService extends MultiTenantApiService<IRole> {
   constructor(database: IDatabase) {
     super(database, 'roles', 'role', RoleModelSpec);
   }

@@ -4,7 +4,7 @@ import { MultiTenantApiService } from './multi-tenant-api.service.js';
 import { assertUserHasFeature } from '../utils/index.js';
 
 
-export class FeaturesService extends MultiTenantApiService<IFeature> {
+export class FeatureService extends MultiTenantApiService<IFeature> {
   constructor(database: IDatabase) {
     super(database, 'features', 'feature', FeatureModelSpec);
   }

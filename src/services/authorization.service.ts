@@ -8,18 +8,18 @@ import {
 } from '@loomcore/common/models';
 import type { IDatabase } from '../databases/index.js';
 import { assertUserHasFeature } from '../utils/index.js';
-import { FeaturesService } from './features.service.js';
+import { FeatureService } from './feature.service.js';
 import { MultiTenantApiService } from './multi-tenant-api.service.js';
-import { UserRolesService } from './user-roles.service.js';
+import { UserRoleService } from './user-role.service.js';
 
-export class AuthorizationsService extends MultiTenantApiService<IAuthorization> {
-  private userRolesService: UserRolesService;
-  private featuresService: FeaturesService;
+export class AuthorizationService extends MultiTenantApiService<IAuthorization> {
+  private userRolesService: UserRoleService;
+  private featuresService: FeatureService;
 
   constructor(database: IDatabase) {
     super(database, 'authorizations', 'authorization', AuthorizationModelSpec);
-    this.userRolesService = new UserRolesService(database);
-    this.featuresService = new FeaturesService(database);
+    this.userRolesService = new UserRoleService(database);
+    this.featuresService = new FeatureService(database);
   }
 
   override async preProcessEntity(

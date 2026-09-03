@@ -5,7 +5,7 @@ import {
   type IUserContext,
 } from '@loomcore/common/models';
 import type { IDatabase } from '../../databases/models/index.js';
-import { AuthorizationsService } from '../../services/authorizations.service.js';
+import { AuthorizationService } from '../../services/authorization.service.js';
 import { UserService } from '../../services/user.service.js';
 import { createNewTokens } from './create-new-tokens.util.js';
 import { getActiveRefreshToken } from './get-active-refresh-token.util.js';
@@ -16,7 +16,7 @@ export async function requestTokenUsingRefreshToken(
   refreshToken: string,
   deviceId: string,
   userService: UserService = new UserService(database),
-  authorizationsService: AuthorizationsService = new AuthorizationsService(
+  authorizationsService: AuthorizationService = new AuthorizationService(
     database,
   ),
 ): Promise<ITokenResponse | null> {
