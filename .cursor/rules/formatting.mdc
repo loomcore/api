@@ -1,0 +1,15 @@
+---
+description: Line width and wrapping for TypeScript in this repo
+alwaysApply: true
+---
+
+# Formatting
+
+There is no Prettier/ESLint print-width in this project. Do **not** wrap as if the limit were 80 characters.
+
+- Target line width is **about 120 characters**.
+- Keep **method calls** and **method definitions** on one line unless they would exceed ~120 characters.
+- Keep **variable assignments** (including string constants) on one line unless they would exceed ~120 characters.
+- **Object literals** stay one property per line when they have multiple properties. A call that takes an object can stay on one line up through the opening `{`, then properties wrap.
+- Do not split a call’s arguments onto separate lines just because there are multiple arguments, if the full call fits.
+- Imports with several named bindings may stay multiline.

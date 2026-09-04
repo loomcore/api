@@ -3,7 +3,7 @@ import type { Application, NextFunction, Request, Response } from 'express';
 import type { IDatabase } from '../databases/models/index.js';
 import { BadRequestError } from '../errors/index.js';
 import { OrganizationService } from '../services/index.js';
-import { apiUtils, authorizeMethod } from '../utils/index.js';
+import { apiUtils } from '../utils/index.js';
 import { ApiController } from './api.controller.js';
 import { Authorize } from '../decorators/authorize.decorator.js';
 
@@ -24,15 +24,14 @@ export class OrganizationsController extends ApiController<IOrganization> {
   override mapRoutes(app: Application) {
     super.mapRoutes(app); // map the base ApiController routes
 
-    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
     app.get(
       `/api/${this.slug}/get-by-name/:name`,
-      authorize('getByName'),
+      this.authorize('getByName'),
       this.getByName.bind(this),
     );
     app.get(
       `/api/${this.slug}/get-by-code/:code`,
-      authorize('getByCode'),
+      this.authorize('getByCode'),
       this.getByCode.bind(this),
     );
   }

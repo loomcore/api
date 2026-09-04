@@ -34,7 +34,7 @@ describe('UsersController', () => {
   describe('POST /users', () => {
     const apiEndpoint = '/api/users';
 
-    it('should allow an authenticated non-admin to create a user', async () => {
+    it('should reject non-admin users', async () => {
       const authorizationHeaderValue =
         await testUtils.loginWithTestUser(testAgent);
 
@@ -49,8 +49,7 @@ describe('UsersController', () => {
         .set('Authorization', authorizationHeaderValue)
         .send(newUser);
 
-      expect(response.status).toBe(201);
-      expect(response.body?.data?.email).toBe(testUtils.newUser1Email);
+      expect(response.status).toBe(403);
     });
   });
 });

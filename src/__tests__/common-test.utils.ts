@@ -31,6 +31,7 @@ const {
   getTestMetaOrgRefererUrl,
   getTestOrg,
   getTestOrgDomain,
+  getTestMetaOrgAdminUserContext,
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
   getTestOrgUser,
@@ -367,6 +368,13 @@ function getAuthToken(): string {
   return `Bearer ${token}`;
 }
 
+/** Same user as getAuthToken, but with the admin feature in the JWT. */
+function getAdminAuthToken(): string {
+  const userContext = getTestMetaOrgAdminUserContext();
+  const token = jwt.sign(userContext, JWT_SECRET, { expiresIn: 3600 });
+  return `Bearer ${token}`;
+}
+
 function getExpiredAuthToken(): string {
   const userContext = getTestMetaOrgUserContext();
   const token = jwt.sign(userContext, JWT_SECRET, { expiresIn: -1 });
@@ -694,6 +702,7 @@ const testUtils = {
   deleteMetaOrg,
   deleteTestUser,
   getAuthToken,
+  getAdminAuthToken,
   getExpiredAuthToken,
   getTestMetaOrgRefererUrl,
   initialize,

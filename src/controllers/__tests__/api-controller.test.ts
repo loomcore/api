@@ -7,12 +7,9 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestOrgUser, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
-import { UserService } from '../../services/index.js';
-import { UsersController } from '../users.controller.js';
 import { AuthController } from '../auth.controller.js';
-import { IUser } from '@loomcore/common/models';
 
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
@@ -54,8 +51,6 @@ describe('ApiController - Integration Tests', () => {
   let authToken: string;
   let testItemService: TestItemService;
   let testItemController: TestItemController;
-  let userService: UserService;
-  let usersController: UsersController;
   let userId: string | number;
   let isPostgres: boolean;
 
@@ -72,10 +67,6 @@ describe('ApiController - Integration Tests', () => {
     // Create service and controller instances
     testItemController = new TestItemController(app, database);
     testItemService = testItemController.testItemService;
-
-    // Create user service and controller
-    usersController = new UsersController(app, database);
-    userService = usersController.userService;
 
     // Initialize AuthController (needed for loginWithTestUser)
     new AuthController(app, database);
@@ -305,61 +296,12 @@ describe('ApiController - Integration Tests', () => {
     });
   });
 
-  describe('user creation with public schema', () => {
-    it('should exclude password from the public user response and keep _id', async () => {
-      // Log that we're preparing the test user data
-      const testUser = getTestOrgUser();
-
-      // Use a unique email to avoid conflict with the test user created by setupTestUsers()
-      // which already creates a user with testUser.email ('test-org-user@example.com')
-      const uniqueEmail = `test-user-${Date.now()}@example.com`;
-
-      // Only send properties allowed for user creation (exclude system properties)
-      const userDataForCreation: Partial<IUser> = {
-        _orgId: testUser._orgId,
-        email: uniqueEmail,
-        password: testUser.password,
-        displayName: 'Test User',
-      };
-
-      try {
-        // Create a new user with auth
-        const response = await testAgent
-          .post('/api/users')
-          .set('Authorization', authToken)
-          .send(userDataForCreation);
-
-        if (response.status !== 201) {
-          console.error('Response status:', response.status);
-          console.error('Response body:', JSON.stringify(response.body, null, 2));
-        }
-        expect(response.status).toBe(201);
-
-        // Check if the response is wrapped in a success/data format
-        const entity = response.body.data;
-
-        expect(entity).toBeDefined();
-
-        // Verify user properties
-        expect(entity.email).toBe(uniqueEmail);
-        expect(entity).not.toHaveProperty('password');
-        expect(entity._id).toBeDefined();
-      } catch (error) {
-        console.error('Error during user creation test:', error);
-        throw error;
-      }
-    });
-
-    it('should return 401 when trying to access secured endpoint without authentication', async () => {
-      // Make a request without authorization header
+  describe('authentication on ApiController routes', () => {
+    it('should return 401 when accessing a secured endpoint without authentication', async () => {
       const response = await testAgent
-        .post('/api/users')
-        .send({
-          email: 'unauthorized@example.com',
-          password: 'password123'
-        });
+        .post('/api/test-items')
+        .send({ name: 'Unauthorized Item' });
 
-      // Verify that authentication is enforced
       expect(response.status).toBe(401);
     });
   });

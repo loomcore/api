@@ -110,14 +110,17 @@ async function clearCollections(): Promise<void> {
  * Clean up resources
  */
 async function cleanup(): Promise<void> {
-  if (testDatabase) {
-    await testDatabase.cleanup();
+  try {
+    if (testDatabase) {
+      await testDatabase.cleanup();
+    }
+  } finally {
+    // Reset initialization state even if cleanup fails (e.g. init never completed)
+    initPromise = null;
+    app = undefined as any;
+    database = undefined as any;
+    testDatabase = undefined as any;
   }
-  // Reset initialization state
-  initPromise = null;
-  app = undefined as any;
-  database = undefined as any;
-  testDatabase = undefined as any;
 }
 
 /**

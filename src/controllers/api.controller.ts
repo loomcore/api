@@ -69,20 +69,35 @@ export abstract class ApiController<T extends IEntity> {
     }
   }
 
+  /**
+   * Resolves @Authorize metadata for a controller method and returns Express middleware.
+   * Use from mapRoutes in this class or any derived controller:
+   *
+   *   app.get(`/api/${this.slug}/me`, this.authorize('getSelf'), this.getSelf.bind(this));
+   *
+   * Pass the method name so metadata can be read from the prototype — a bound function
+   * is a distinct object and does not carry decorator metadata.
+   *
+   * Typed as `string` (not `keyof this`) so the same helper is valid in derived
+   * `mapRoutes` methods. Polymorphic `this` makes `keyof this` unusable on a
+   * base-class method: even `this.authorize('get')` fails to type-check.
+   */
+  protected authorize(method: string) {
+    return authorizeMethod(this, method);
+  }
+
   mapRoutes(app: Application) {
     // Map routes
     // have to bind "this" because when express calls the function we tell it to here, it won't have any context and "this" will be undefined in our functions
-    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
-
-    app.get(`/api/${this.slug}`, authorize('get'), this.get.bind(this));
-    app.get(`/api/${this.slug}/all`, authorize('getAll'), this.getAll.bind(this));
-    app.get(`/api/${this.slug}/count`, authorize('getCount'), this.getCount.bind(this));
-    app.get(`/api/${this.slug}/:id`, authorize('getById'), this.getById.bind(this));
-    app.post(`/api/${this.slug}`, authorize('create'), this.create.bind(this));
-    app.patch(`/api/${this.slug}/batch`, authorize('batchUpdate'), this.batchUpdate.bind(this));
-    app.put(`/api/${this.slug}/:id`, authorize('fullUpdateById'), this.fullUpdateById.bind(this));
-    app.patch(`/api/${this.slug}/:id`, authorize('partialUpdateById'), this.partialUpdateById.bind(this));
-    app.delete(`/api/${this.slug}/:id`, authorize('deleteById'), this.deleteById.bind(this));
+    app.get(`/api/${this.slug}`, this.authorize('get'), this.get.bind(this));
+    app.get(`/api/${this.slug}/all`, this.authorize('getAll'), this.getAll.bind(this));
+    app.get(`/api/${this.slug}/count`, this.authorize('getCount'), this.getCount.bind(this));
+    app.get(`/api/${this.slug}/:id`, this.authorize('getById'), this.getById.bind(this));
+    app.post(`/api/${this.slug}`, this.authorize('create'), this.create.bind(this));
+    app.patch(`/api/${this.slug}/batch`, this.authorize('batchUpdate'), this.batchUpdate.bind(this));
+    app.put(`/api/${this.slug}/:id`, this.authorize('fullUpdateById'), this.fullUpdateById.bind(this));
+    app.patch(`/api/${this.slug}/:id`, this.authorize('partialUpdateById'), this.partialUpdateById.bind(this));
+    app.delete(`/api/${this.slug}/:id`, this.authorize('deleteById'), this.deleteById.bind(this));
   }
 
   /**

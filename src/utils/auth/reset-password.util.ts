@@ -1,9 +1,7 @@
 import {
-  EmptyUserContext,
   getSystemUserContext,
   type IModelSpec,
   type IOrganization,
-  type IUserContext,
   passwordValidator,
   UserSpec,
 } from '@loomcore/common/models';
@@ -13,7 +11,6 @@ import type { UpdateResult } from '../../databases/models/update-result.js';
 import { BadRequestError, ServerError } from '../../errors/index.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
 import { UserService } from '../../services/user.service.js';
-import { changePassword } from './change-password.util.js';
 
 export async function resetPassword(
   database: IDatabase,
@@ -68,13 +65,7 @@ export async function resetPassword(
       `Unable to retrieve user for email: ${lowerCaseEmail}`,
     );
   }
-  const result = await changePassword(
-    database,
-    systemUserContext,
-    user._id,
-    password,
-    userService,
-  );
+  const result = await userService.changePassword(systemUserContext, user._id, password);
   console.log(
     `password changed using forgot-password for email: ${lowerCaseEmail}`,
   );
@@ -85,5 +76,8 @@ export async function resetPassword(
   );
   console.log(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
 
-  return result;
+  return {
+    success: true,
+    count: 1,
+  };
 }

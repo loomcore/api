@@ -32,10 +32,10 @@ describe('UsersController', () => {
     await TestExpressApp.cleanup();
   });
 
-  describe('PATCH /users', () => {
+  describe('PATCH /users/:id', () => {
     const apiEndpoint = '/api/users';
 
-    it('should return a 200 and only update provided properties', async () => {
+    it('should reject non-admin users', async () => {
       const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
 
       const userId = getTestMetaOrgUser()._id;
@@ -49,9 +49,7 @@ describe('UsersController', () => {
         .set('Authorization', authorizationHeaderValue)
         .send(updatedUser);
 
-      expect(response.status).toBe(200);
-      expect(response.body?.data?.displayName).toEqual('Updated Display Name');
-      expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email); // because this is partial update, properties we did not provide should remain the same
+      expect(response.status).toBe(403);
     });
   });
 

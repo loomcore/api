@@ -22,7 +22,6 @@ import { OrganizationService, UserService } from '../services/index.js';
 import {
   attemptLogin,
   authorizeMethod,
-  changePassword,
   createLoginResponseSpec,
   getAndSetDeviceIdCookie,
   getDeviceIdFromCookie,
@@ -69,19 +68,11 @@ export class AuthController {
   }
 
   mapRoutes(app: Application) {
-    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
+    const authorize = (method: string) => authorizeMethod(this, method);
     app.post(`/api/auth/login`, this.login.bind(this));
     app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
-    app.get(
-      `/api/auth/get-user-context`,
-      authorize('getUserContext'),
-      this.getUserContext.bind(this),
-    );
-    app.patch(
-      `/api/auth/change-password`,
-      authorize('changePassword'),
-      this.changePassword.bind(this),
-    );
+    app.get(`/api/auth/get-user-context`, authorize('getUserContext'), this.getUserContext.bind(this));
+    app.patch(`/api/auth/change-password`, authorize('changePassword'), this.changePassword.bind(this));
     app.post(`/api/auth/forgot-password`, this.forgotPassword.bind(this));
     app.post(`/api/auth/reset-password`, this.resetPassword.bind(this));
   }
@@ -206,13 +197,11 @@ export class AuthController {
       'AuthController.changePassword',
     );
 
-    const updateResult = await changePassword(
-      this.database,
-      userContext,
-      userContext.user._id,
-      password,
-      this.userService,
-    );
+    await this.userService.changePassword(userContext, userContext.user._id, password);
+    const updateResult = {
+      success: true,
+      count: 1,
+    };
     apiUtils.apiResponse<UpdateResult>(res, 200, { data: updateResult });
   }
 

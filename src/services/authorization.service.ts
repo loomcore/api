@@ -7,7 +7,6 @@ import {
   type IUserContext,
 } from '@loomcore/common/models';
 import type { IDatabase } from '../databases/index.js';
-import { assertUserHasFeature } from '../utils/index.js';
 import { FeatureService } from './feature.service.js';
 import { MultiTenantApiService } from './multi-tenant-api.service.js';
 import { UserRoleService } from './user-role.service.js';
@@ -28,7 +27,6 @@ export class AuthorizationService extends MultiTenantApiService<IAuthorization> 
     isCreate: boolean,
     allowId: boolean = true,
   ): Promise<Partial<IAuthorization>> {
-    assertUserHasFeature(userContext, ['admin', 'system', 'authorizations']);
     return super.preProcessEntity(userContext, entity, isCreate, allowId);
   }
 

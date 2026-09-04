@@ -31,19 +31,16 @@ describe('UsersController', () => {
     await TestExpressApp.cleanup();
   });
 
-  describe('GET /users', () => {
-    it('should not return any sensitive information for a user', async () => {
+  describe('GET /users/:id', () => {
+    it('should reject non-admin users', async () => {
       const authorizationHeaderValue = await testUtils.loginWithTestUser(testAgent);
-      // Use the actual user ID (which is updated by setupTestUsers)
       const apiEndpoint = `/api/users/${getTestMetaOrgUser()._id}`;
 
       const response = await testAgent
         .get(apiEndpoint)
         .set('Authorization', authorizationHeaderValue);
 
-      expect(response.status).toBe(200);
-      expect(response.body?.data?.email).toEqual(getTestMetaOrgUser().email);
-      expect(response.body?.data?.password).toBeUndefined();
+      expect(response.status).toBe(403);
     });
   });
 });

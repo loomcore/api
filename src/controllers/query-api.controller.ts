@@ -62,14 +62,24 @@ export abstract class QueryApiController<T extends IEntity> {
     this.mapRoutes(app);
   }
 
+  /**
+   * Resolves @Authorize metadata for a controller method and returns Express middleware.
+   * Use from mapRoutes in this class or any derived controller. Pass the method name
+   * (not a bound function) so decorator metadata can be read. Typed as `string`
+   * so the same helper is valid in derived `mapRoutes` methods — polymorphic
+   * `this` makes `keyof this` unusable on a base-class method.
+   */
+  protected authorize(method: string) {
+    return authorizeMethod(this, method);
+  }
+
   mapRoutes(app: Application) {
     // Map routes
     // have to bind "this" because when express calls the function we tell it to here, it won't have any context and "this" will be undefined in our functions
-    const authorize = (method: keyof this) => authorizeMethod(this, method as any);
-    app.get(`/api/${this.slug}`, authorize('get'), this.get.bind(this));
-    app.get(`/api/${this.slug}/all`, authorize('getAll'), this.getAll.bind(this));
-    app.get(`/api/${this.slug}/count`, authorize('getCount'), this.getCount.bind(this));
-    app.get(`/api/${this.slug}/:id`, authorize('getById'), this.getById.bind(this));
+    app.get(`/api/${this.slug}`, this.authorize('get'), this.get.bind(this));
+    app.get(`/api/${this.slug}/all`, this.authorize('getAll'), this.getAll.bind(this));
+    app.get(`/api/${this.slug}/count`, this.authorize('getCount'), this.getCount.bind(this));
+    app.get(`/api/${this.slug}/:id`, this.authorize('getById'), this.getById.bind(this));
   }
 
 

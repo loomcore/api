@@ -7,6 +7,37 @@ import { ITestDatabase } from './test-database.interface.js';
 import { IDatabase } from '../databases/models/index.js';
 import { MongoDBDatabase } from '../databases/index.js';
 
+function isPortBindError(error: unknown): boolean {
+    const code = (error as { code?: string })?.code;
+    const message = error instanceof Error ? error.message : String(error);
+    return code === 'EACCES' || code === 'EADDRINUSE' || message.includes('EACCES') || message.includes('EADDRINUSE');
+}
+
+/** Windows Hyper-V/WSL excluded port ranges can make a "free" port unbindable (EACCES). Retry with a new port. */
+async function createMongoMemoryServer(): Promise<MongoMemoryServer> {
+    const maxAttempts = 5;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await MongoMemoryServer.create({
+                instance: {
+                    ip: '127.0.0.1', // Use localhost to avoid permission issues
+                    port: 0, // Use dynamic port allocation
+                },
+                binary: {
+                    downloadDir: process.env.HOME ? `${process.env.HOME}/.cache/mongodb-binaries` : undefined,
+                },
+            });
+        } catch (error) {
+            lastError = error;
+            if (!isPortBindError(error) || attempt === maxAttempts) {
+                throw error;
+            }
+        }
+    }
+    throw lastError;
+}
+
 /**
  * Utility class for setting up a MongoDB memory server for testing
  */
@@ -29,7 +60,12 @@ export class TestMongoDatabase implements ITestDatabase {
 
         // Create and cache the initialization promise
         this.initPromise = this._performInit();
-        return this.initPromise;
+        try {
+            return await this.initPromise;
+        } catch (error) {
+            this.initPromise = null;
+            throw error;
+        }
     }
 
     getRandomId(): string {
@@ -39,15 +75,7 @@ export class TestMongoDatabase implements ITestDatabase {
     private async _performInit(): Promise<IDatabase> {
         // Set up MongoDB memory server if not already done
         if (!this.database) {
-            this.mongoServer = await MongoMemoryServer.create({
-                instance: {
-                    ip: '127.0.0.1', // Use localhost to avoid permission issues
-                    port: 0, // Use dynamic port allocation
-                },
-                binary: {
-                    downloadDir: process.env.HOME ? `${process.env.HOME}/.cache/mongodb-binaries` : undefined,
-                }
-            });
+            this.mongoServer = await createMongoMemoryServer();
             const uri = this.mongoServer.getUri();
             this.mongoClient = await MongoClient.connect(uri);
             this.mongoDb = this.mongoClient.db();
@@ -91,10 +119,17 @@ export class TestMongoDatabase implements ITestDatabase {
      * Clean up MongoDB resources
      */
     async cleanup(): Promise<void> {
-        // Clean up test data first
-        await testUtils.cleanup();
+        // Clean up test data first (only if database was initialized)
+        if (this.database) {
+            await testUtils.cleanup();
+        }
 
-        await this.clearCollections();
+        if (this.mongoDb) {
+            const collections = await this.mongoDb.collections();
+            for (const collection of collections) {
+                await collection.deleteMany({});
+            }
+        }
 
         if (this.mongoClient) {
             await this.mongoClient.close();

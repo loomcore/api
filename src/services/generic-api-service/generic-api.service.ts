@@ -38,12 +38,7 @@ export class GenericApiService<T extends IEntity>
    * @param singularResourceName This is camel-cased, singular (e.g. 'weatherAlert')
    * @param modelSpec The model spec
    */
-  constructor(
-    database: IDatabase,
-    pluralResourceName: string,
-    singularResourceName: string,
-    modelSpec: IModelSpec,
-  ) {
+  constructor(database: IDatabase, pluralResourceName: string, singularResourceName: string, modelSpec: IModelSpec) {
     this.pluralResourceName = pluralResourceName;
     this.singularResourceName = singularResourceName;
     this.modelSpec = modelSpec;
@@ -74,10 +69,7 @@ export class GenericApiService<T extends IEntity>
       operations = this.prepareQuery(userContext, {}, []).operations;
     }
 
-    const entities = await this.database.getAll<T>(
-      operations,
-      this.pluralResourceName,
-    );
+    const entities = await this.database.getAll<T>(operations, this.pluralResourceName);
 
     return entities.map((entity) => {
       const dbProcessed = this.postProcessEntity(userContext, entity);
@@ -144,12 +136,7 @@ export class GenericApiService<T extends IEntity>
    * @param allowId Whether to allow the _id property to be supplied by the caller
    * @returns The potentially modified entity
    */
-  async preProcessEntity(
-    userContext: IUserContext,
-    entity: Partial<T>,
-    isCreate: boolean,
-    allowId: boolean = true,
-  ): Promise<Partial<T>> {
+  async preProcessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = true): Promise<Partial<T>> {
     // Clone the entity to avoid modifying the original
     let preparedEntity = _.clone(entity);
 
@@ -188,10 +175,7 @@ export class GenericApiService<T extends IEntity>
       cleanedEntity = this.modelSpec.decode(preparedEntity);
     }
 
-    preparedEntity = this.database.preProcessEntity(
-      cleanedEntity,
-      this.modelSpec.fullSchema,
-    );
+    preparedEntity = this.database.preProcessEntity(cleanedEntity, this.modelSpec.fullSchema);
 
     return preparedEntity;
   }
@@ -200,10 +184,7 @@ export class GenericApiService<T extends IEntity>
     return this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
   }
 
-  async get(
-    userContext: IUserContext,
-    queryOptions?: IQueryOptions,
-  ): Promise<IPagedResult<T>>;
+  async get(userContext: IUserContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
 
   async get<TCustom extends IEntity>(
     userContext: IUserContext,
@@ -252,10 +233,7 @@ export class GenericApiService<T extends IEntity>
    * @param queryOptions The original query options
    * @returns The prepared query options
    */
-  protected prepareQueryOptions(
-    userContext: IUserContext | undefined,
-    queryOptions: IQueryOptions,
-  ): IQueryOptions {
+  protected prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
     return queryOptions;
   }
 
@@ -311,22 +289,11 @@ export class GenericApiService<T extends IEntity>
     return await this.database.getCount(this.pluralResourceName);
   }
 
-  async create(
-    userContext: IUserContext,
-    entity: Partial<T>,
-  ): Promise<T | null> {
+  async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
     let createdEntity: T | null = null;
 
-    const preparedEntity = await this.preProcessEntity(
-      userContext,
-      entity,
-      true,
-      true,
-    );
-    const insertResult = await this.database.create<T>(
-      preparedEntity,
-      this.pluralResourceName,
-    );
+    const preparedEntity = await this.preProcessEntity(userContext, entity, true, true);
+    const insertResult = await this.database.create<T>(preparedEntity, this.pluralResourceName);
 
     if (insertResult.insertedId) {
       createdEntity = this.postProcessEntity(userContext, insertResult.entity);
@@ -335,10 +302,7 @@ export class GenericApiService<T extends IEntity>
     return createdEntity;
   }
 
-  async createMany(
-    userContext: IUserContext,
-    entities: Partial<T>[],
-  ): Promise<T[]> {
+  async createMany(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
     let createdEntities: T[] = [];
 
     if (entities.length) {
@@ -347,10 +311,7 @@ export class GenericApiService<T extends IEntity>
           this.preProcessEntity(userContext, entity, true, true),
         ),
       );
-      const insertResult = await this.database.createMany<T>(
-        preparedEntities,
-        this.pluralResourceName,
-      );
+      const insertResult = await this.database.createMany<T>(preparedEntities, this.pluralResourceName);
 
       if (insertResult.insertedIds) {
         createdEntities = insertResult.entities.map((entity) =>
@@ -362,10 +323,7 @@ export class GenericApiService<T extends IEntity>
     return createdEntities;
   }
 
-  async batchUpdate(
-    userContext: IUserContext,
-    entities: Partial<T>[],
-  ): Promise<T[]> {
+  async batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
     if (!entities || entities.length === 0) {
       return [];
     }
@@ -378,12 +336,7 @@ export class GenericApiService<T extends IEntity>
 
     const { queryObject, operations } = this.prepareQuery(userContext, {}, []);
 
-    const rawUpdatedEntities = await this.database.batchUpdate<T>(
-      preparedEntities,
-      operations,
-      queryObject,
-      this.pluralResourceName,
-    );
+    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations, queryObject, this.pluralResourceName);
 
     const updatedEntities = rawUpdatedEntities.map((entity) =>
       this.postProcessEntity(userContext, entity),
@@ -391,11 +344,8 @@ export class GenericApiService<T extends IEntity>
 
     return updatedEntities;
   }
-  async fullUpdateById(
-    userContext: IUserContext,
-    id: AppIdType,
-    entity: T,
-  ): Promise<T> {
+  
+  async fullUpdateById(userContext: IUserContext, id: AppIdType, entity: T): Promise<T> {
     // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
     //  existing entity, then updates using the supplied entity.
     //  as the update process gets more complex. PREFER using partialUpdateById.
@@ -403,12 +353,7 @@ export class GenericApiService<T extends IEntity>
     const { operations, queryObject } = this.prepareQuery(userContext, {}, []);
 
     // Get existing entity to preserve audit properties
-    const existingEntity = await this.database.getById<T>(
-      operations,
-      queryObject,
-      id,
-      this.pluralResourceName,
-    );
+    const existingEntity = await this.database.getById<T>(operations, queryObject, id, this.pluralResourceName);
     if (!existingEntity) {
       throw new IdNotFoundError();
     }
@@ -419,97 +364,43 @@ export class GenericApiService<T extends IEntity>
       _createdBy: (existingEntity as any)._createdBy,
     };
 
-    const preparedEntity = await this.preProcessEntity(
-      userContext,
-      entity,
-      false,
-      true,
-    );
+    const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
     // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
     Object.assign(preparedEntity, auditProperties);
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(
-      operations,
-      id,
-      preparedEntity,
-      this.pluralResourceName,
-    );
+    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
   }
-  async partialUpdateById(
-    userContext: IUserContext,
-    id: AppIdType,
-    entity: Partial<T>,
-  ): Promise<T> {
+  
+  async partialUpdateById(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const preparedEntity = await this.preProcessEntity(
-      userContext,
-      entity,
-      false,
-      true,
-    );
+    const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(
-      operations,
-      id,
-      preparedEntity,
-      this.pluralResourceName,
-    );
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
 
     return updatedEntity;
   }
 
-  async partialUpdateByIdWithoutPreAndPostProcessing(
-    userContext: IUserContext,
-    id: AppIdType,
-    entity: Partial<T>,
-  ): Promise<T> {
-    const preparedEntity = this.database.preProcessEntity(
-      entity,
-      this.modelSpec.fullSchema,
-    );
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(
-      [],
-      id,
-      preparedEntity,
-      this.pluralResourceName,
-    );
-    return this.database.postProcessEntity(
-      rawUpdatedEntity,
-      this.modelSpec.fullSchema,
-    );
+  async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
+    const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
+    
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName);
+    
+    return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
 
-  async update(
-    userContext: IUserContext,
-    queryObject: IQueryOptions,
-    entity: Partial<T>,
-  ): Promise<T[]> {
-    const { queryObject: preparedQuery, operations } = this.prepareQuery(
-      userContext,
-      queryObject,
-      [],
-    );
+  async update(userContext: IUserContext, queryObject: IQueryOptions, entity: Partial<T>): Promise<T[]> {
+    const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const preparedEntity = await this.preProcessEntity(
-      userContext,
-      entity,
-      false,
-      true,
-    );
+    const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntities = await this.database.update<T>(
-      preparedQuery,
-      preparedEntity,
-      operations,
-      this.pluralResourceName,
-    );
+    const rawUpdatedEntities = await this.database.update<T>(preparedQuery, preparedEntity, operations, this.pluralResourceName);
 
     const updatedEntities = rawUpdatedEntities.map((entity) =>
       this.postProcessEntity(userContext, entity),
@@ -518,14 +409,8 @@ export class GenericApiService<T extends IEntity>
     return updatedEntities;
   }
 
-  async deleteById(
-    userContext: IUserContext,
-    id: AppIdType,
-  ): Promise<DeleteResult> {
-    const deleteResult = await this.database.deleteById(
-      id,
-      this.pluralResourceName,
-    );
+  async deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult> {
+    const deleteResult = await this.database.deleteById(id, this.pluralResourceName);
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();
@@ -533,57 +418,27 @@ export class GenericApiService<T extends IEntity>
 
     return deleteResult;
   }
-  async deleteMany(
-    userContext: IUserContext,
-    queryObject: IQueryOptions,
-  ): Promise<DeleteResult> {
-    const { queryObject: preparedQuery, operations } = this.prepareQuery(
-      userContext,
-      queryObject,
-      [],
-    );
+  async deleteMany(userContext: IUserContext, queryObject: IQueryOptions): Promise<DeleteResult> {
+    const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const deleteResult = await this.database.deleteMany(
-      preparedQuery,
-      this.pluralResourceName,
-    );
+    const deleteResult = await this.database.deleteMany(preparedQuery, this.pluralResourceName);
 
     return deleteResult;
   }
-  async find(
-    userContext: IUserContext,
-    queryObject: IQueryOptions,
-  ): Promise<T[]> {
-    const { queryObject: preparedQuery, operations } = this.prepareQuery(
-      userContext,
-      queryObject,
-      [],
-    );
+  async find(userContext: IUserContext, queryObject: IQueryOptions): Promise<T[]> {
+    const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const rawEntities = await this.database.find<T>(
-      preparedQuery,
-      this.pluralResourceName,
-    );
+    const rawEntities = await this.database.find<T>(preparedQuery, this.pluralResourceName);
 
     return rawEntities.map((entity) =>
       this.postProcessEntity(userContext, entity),
     );
   }
 
-  async findOne(
-    userContext: IUserContext,
-    queryObject: IQueryOptions,
-  ): Promise<T | null> {
-    const { queryObject: preparedQuery, operations } = this.prepareQuery(
-      userContext,
-      queryObject,
-      [],
-    );
+  async findOne(userContext: IUserContext, queryObject: IQueryOptions): Promise<T | null> {
+    const { queryObject: preparedQuery, operations } = this.prepareQuery(userContext, queryObject, []);
 
-    const rawEntity = await this.database.findOne<T>(
-      preparedQuery,
-      this.pluralResourceName,
-    );
+    const rawEntity = await this.database.findOne<T>(preparedQuery, this.pluralResourceName);
 
     return rawEntity ? this.postProcessEntity(userContext, rawEntity) : null;
   }
