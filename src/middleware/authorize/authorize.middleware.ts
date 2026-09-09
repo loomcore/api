@@ -8,6 +8,7 @@ import { authenticateRequest } from './authenticate-request.js';
  *
  * - `allowAnonymous: true` → no JWT required
  * - otherwise → JWT required; populates `req.userContext`
+ * - `denyOnImpersonation: true` → rejects impersonated sessions
  * - if `features` is non-empty → also enforces feature access
  *
  * Attaching this middleware (via `authorizeMethod`) opts the route into
@@ -21,6 +22,10 @@ export function buildAuthGuard(requirement: AuthRequirement | undefined): Reques
     }
     const userContext = authenticateRequest(req);
     req.userContext = userContext;
+
+    if (requirement?.denyOnImpersonation && userContext.isImpersonating) {
+      throw new UnauthorizedError(undefined, true);
+    }
 
     if (!requirement || requirement.features.length === 0) {
       return next();
