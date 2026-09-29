@@ -196,11 +196,11 @@ export class MigrationRunner {
             name: f,
             up: async () => {
               const mod = await import(importUrl);
-              await mod.up({ context });
+              await mod.up({ context, env: this.dbMigrationConfig.env });
             },
             down: async () => {
               const mod = await import(importUrl);
-              await mod.down({ context });
+              await mod.down({ context, env: this.dbMigrationConfig.env });
             }
           };
         }
@@ -348,11 +348,11 @@ export class MigrationRunner {
 // Migration: ${safeName}
 // Created: ${new Date().toISOString()}
 
-export const up = async ({ context: db }: { context: Db }) => {
+export const up = async ({ context: db, env }: { context: Db; env: string }) => {
   // await db.collection('...')....
 };
 
-export const down = async ({ context: db }: { context: Db }) => {
+export const down = async ({ context: db, env }: { context: Db; env: string }) => {
   // await db.collection('...')....
 };
 `;
