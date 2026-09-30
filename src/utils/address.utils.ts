@@ -1,4 +1,4 @@
-import { IAddressModel } from '@loomcore/common/models';
+import { IAddress } from '@loomcore/common/models';
 
 /**
  * Checks if a value is effectively empty (null, undefined, or whitespace only)
@@ -42,7 +42,7 @@ function standardizeField(field: string | undefined | null): string | null {
  * @param address The address to convert to a single line
  * @returns A standardized single line address or null if essential parts are missing
  */
-function getSingleLineAddress(address: IAddressModel): string | null {
+function getSingleLineAddress(address: IAddress): string | null {
   let result = null;
 
   if (address) {
@@ -87,7 +87,7 @@ function getSingleLineAddress(address: IAddressModel): string | null {
  * @param address The address to update
  * @returns The updated address with formattedAddress or the original address if formatting fails
  */
-function addFormattedAddress(address: IAddressModel): IAddressModel {
+function addFormattedAddress(address: IAddress): IAddress {
   const formattedAddress = getSingleLineAddress(address);
 
   if (formattedAddress) {
