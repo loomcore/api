@@ -19,7 +19,7 @@ export async function impersonateUser(
   userService: UserService = new UserService(database),
   authorizationsService: AuthorizationService = new AuthorizationService(database),
 ): Promise<ITokenResponse> {
-  if (impersonatorUserContext.isImpersonating) {
+  if (impersonatorUserContext.impersonatorId) {
     throw new BadRequestError('Already impersonating.');
   }
 
@@ -34,11 +34,11 @@ export async function impersonateUser(
     throw new BadRequestError('User not found');
   }
 
-  const features = await authorizationsService.getUserContextFeatures(targetUser);
+  const targetFeatures = await authorizationsService.getUserContextFeatures(targetUser);
   const impersonatedUserContext: IUserContext = {
     user: targetUser,
-    features,
-    isImpersonating: true,
+    features: targetFeatures,
+    impersonatorId: impersonatorUserContext.user._id,
   };
 
   if (isAdmin(impersonatedUserContext)) {

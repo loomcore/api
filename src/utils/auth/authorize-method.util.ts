@@ -1,5 +1,5 @@
 import { RequestHandler } from 'express';
-import { resolveAuthRequirement } from '../../decorators/authorize.decorator.js';
+import { resolveAuthRequirement } from '../../decorators/resolve-auth-requirement.util.js';
 import { buildAuthGuard } from '../../middleware/authorize/authorize.middleware.js';
 
 /**

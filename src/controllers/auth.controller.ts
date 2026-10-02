@@ -31,7 +31,8 @@ import {
   sendResetPasswordEmail,
 } from '../utils/auth/index.js';
 import { apiUtils } from '../utils/index.js';
-import { Authorize, DenyOnImpersonation } from '../decorators/authorize.decorator.js';
+import { Authorize } from '../decorators/authorize.decorator.js';
+import { DenyOnImpersonation } from '../decorators/deny-on-impersonation.decorator.js';
 
 export interface AuthControllerOptions {
   userService: UserService;

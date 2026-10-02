@@ -4,6 +4,8 @@ import type {
     IUserContext,
 } from '@loomcore/common/models';
 import { ServerError } from '../errors/index.js';
+import { isSystemUser } from '../utils/auth/is-system-user.util.js';
+import { isMetaOrgAdmin } from '../utils/auth/is-admin.util.js';
 
 export interface ITenantQueryOptions {
     /**
@@ -52,7 +54,9 @@ export class TenantQueryDecorator {
 
         const shouldApplyTenantFilter =
             !this.options.excludedCollections?.includes(collectionName) &&
-            userContext?.user._orgId;
+            userContext.user._orgId &&
+            !isSystemUser(userContext) &&
+            !isMetaOrgAdmin(userContext);
 
         if (shouldApplyTenantFilter) {
             // Create a new query object that includes the tenant filter

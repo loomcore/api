@@ -13,6 +13,7 @@ export * from './get-expires-on-from-minutes.util.js';
 export * from './get-expires-on-from-seconds.util.js';
 export * from './impersonate-user.util.js';
 export * from './is-admin.util.js';
+export * from './is-system-user.util.js';
 export * from './log-user-in.util.js';
 export * from './request-token-using-refresh-token.util.js';
 export * from './reset-password.util.js';

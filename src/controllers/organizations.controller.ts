@@ -11,7 +11,7 @@ import { Authorize } from '../decorators/authorize.decorator.js';
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
  * entities, requiring an orgId in addition to its primary key id. The primary key is the orgId.
  */
-@Authorize('admin')
+@Authorize('admin', { requireMetaOrg: true })
 export class OrganizationsController extends ApiController<IOrganization> {
   orgService: OrganizationService;
 
@@ -74,5 +74,14 @@ export class OrganizationsController extends ApiController<IOrganization> {
       next(err);
       return;
     }
+  }
+
+  @Authorize('admin')
+  override async getById(
+    req: Request<{ id: string }>,
+    res: Response,
+    next: NextFunction,
+  ) {
+    super.getById(req, res, next);
   }
 }

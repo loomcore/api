@@ -10,6 +10,8 @@ import type { IDatabase } from '../databases/models/index.js';
 import type { Operation } from '../databases/operations/operation.js';
 import { BadRequestError } from '../errors/bad-request.error.js';
 import { ServerError } from '../errors/index.js';
+import { isMetaOrgAdmin } from '../utils/auth/is-admin.util.js';
+import { isSystemUser } from '../utils/auth/is-system-user.util.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import { TenantQueryDecorator } from './tenant-query-decorator.js';
 
@@ -95,9 +97,14 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
             allowId,
         );
 
-        // Any new item should be created in the user's organization unless it's a system-initiated action
-        if (isCreate && userContext.user._id !== getSystemUserId()) {
+        // Any new item should be created in the user's organization unless it's a system-initiated action or a meta-org admin
+        if (isCreate && !isSystemUser(userContext) && !isMetaOrgAdmin(userContext)) {
             preparedEntity._orgId = userContext.user._orgId;
+        }
+
+        // The meta-org admin can create items in any organization, but still default to the user's organization. 
+        if (isCreate && isMetaOrgAdmin(userContext)) {
+            preparedEntity._orgId = preparedEntity._orgId ?? userContext.user._orgId;
         }
 
         return preparedEntity;

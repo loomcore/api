@@ -3,13 +3,9 @@ import { CustomError } from '@loomcore/common/errors';
 export class UnauthorizedError extends CustomError {
   statusCode = 403;
 
-  constructor(missingFeatures?: string[], denyOnImpersonation?: boolean) {
+  constructor(message?: string) {
     super(
-      denyOnImpersonation
-        ? 'Unauthorized: Endpoint requires non-impersonated user.'
-        : missingFeatures?.length
-          ? `Unauthorized: Missing required feature(s): ${missingFeatures.join(', ')}`
-          : 'Unauthorized',
+      message ?? 'Unauthorized',
     );
 
     Object.setPrototypeOf(this, UnauthorizedError.prototype);
