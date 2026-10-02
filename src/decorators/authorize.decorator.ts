@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 
 export const AUTH_METADATA_KEY = Symbol('authorize:features');
+export const DENY_ON_IMPERSONATION_METADATA_KEY = Symbol('authorize:denyOnImpersonation');
 
 export type MatchMode = 'all' | 'any';
 
@@ -9,6 +10,8 @@ export interface AuthRequirement {
   mode: MatchMode;
   /** When true, skip JWT auth entirely (from `@AllowAnonymous`). */
   allowAnonymous?: boolean;
+  /** When true, the user must not be impersonating to access the route. */
+  denyOnImpersonation?: boolean;
 }
 
 /**
@@ -31,6 +34,12 @@ export interface AuthRequirement {
    *  Pass { all: true } for AND semantics (all features must be present).
    * A method-level @Authorize OVERRIDES a class-level one for that method.
    *
+   * Stack with `@DenyOnImpersonation()` to also reject impersonated sessions:
+   *
+   *   @DenyOnImpersonation()
+   *   @Authorize()
+   *   changePassword(req, res) { ... }
+   *
    * Routes that call `authorizeMethod` with no `@Authorize` metadata still require
    * a valid JWT (authenticated-only). Use `@AllowAnonymous()` to opt out.
    */
@@ -52,6 +61,16 @@ export function Authorize(
   };
 }
 
+/** Blocks the route when the caller is impersonating. Stacks with `@Authorize` / class-level auth. */
+export function DenyOnImpersonation() {
+  return function (
+    value: Function,
+    _context: ClassDecoratorContext | ClassMethodDecoratorContext
+  ) {
+    Reflect.defineMetadata(DENY_ON_IMPERSONATION_METADATA_KEY, true, value);
+  };
+}
+
 /** Explicit opt-out, e.g. a public health-check action on an otherwise-locked-down controller. */
 export function AllowAnonymous() {
   return function (
@@ -67,6 +86,11 @@ export function AllowAnonymous() {
   };
 }
 
+function hasDenyOnImpersonation(target: Function | undefined): boolean {
+  if (!target) return false;
+  return Reflect.getMetadata(DENY_ON_IMPERSONATION_METADATA_KEY, target) === true;
+}
+
 /** Resolves the effective requirement for a given controller method: method-level wins, else class-level, else none. */
 export function resolveAuthRequirement(
   controllerConstructor: Function,
@@ -74,13 +98,26 @@ export function resolveAuthRequirement(
   propertyKey: string
 ): AuthRequirement | undefined {
   const method = prototype[propertyKey];
+  let requirement: AuthRequirement | undefined;
+
   if (typeof method === 'function') {
     const methodLevel = Reflect.getMetadata(AUTH_METADATA_KEY, method);
-    if (methodLevel) return methodLevel;
+    if (methodLevel) requirement = { ...methodLevel };
   }
 
-  const classLevel = Reflect.getMetadata(AUTH_METADATA_KEY, controllerConstructor);
-  if (classLevel) return classLevel;
+  if (!requirement) {
+    const classLevel = Reflect.getMetadata(AUTH_METADATA_KEY, controllerConstructor);
+    if (classLevel) requirement = { ...classLevel };
+  }
 
-  return undefined;
+  const denyOnImpersonation =
+    (typeof method === 'function' && hasDenyOnImpersonation(method)) ||
+    hasDenyOnImpersonation(controllerConstructor);
+
+  if (denyOnImpersonation) {
+    requirement = requirement ?? { features: [], mode: 'any' };
+    requirement.denyOnImpersonation = true;
+  }
+
+  return requirement;
 }

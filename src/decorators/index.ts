@@ -1,1 +1,1 @@
-export { Authorize, AllowAnonymous } from './authorize.decorator.js';
+export { Authorize, AllowAnonymous, DenyOnImpersonation } from './authorize.decorator.js';

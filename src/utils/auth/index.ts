@@ -11,6 +11,7 @@ export * from './get-device-id-from-cookie.util.js';
 export * from './get-expires-on-from-days.util.js';
 export * from './get-expires-on-from-minutes.util.js';
 export * from './get-expires-on-from-seconds.util.js';
+export * from './impersonate-user.util.js';
 export * from './is-admin.util.js';
 export * from './log-user-in.util.js';
 export * from './request-token-using-refresh-token.util.js';
