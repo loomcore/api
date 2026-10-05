@@ -39,12 +39,12 @@ export function buildAuthGuard(requirement: IAuthRequirement | undefined): Reque
     }
 
     const userFeatures = new Set(userContext.features);
-    const hasAccess =
+    const hasFeatures =
       requirement.matchMode === 'all'
         ? requirement.requiredFeatures?.every((f) => userFeatures.has(f))
         : requirement.requiredFeatures?.some((f) => userFeatures.has(f));
 
-    if (!hasAccess) {
+    if (!hasFeatures) {
       const missing = requirement.requiredFeatures?.filter((f) => !userFeatures.has(f));
       throw new UnauthorizedError(`Unauthorized: Missing required feature(s): ${missing?.join(', ')}`);
     }

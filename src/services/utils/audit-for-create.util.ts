@@ -5,7 +5,7 @@ import moment from 'moment';
 
 export function auditForCreate(userContext: IUserContext, doc: any) {
   const now = moment().utc().toDate();
-  const userId: AppIdType = userContext.user?._id ?? getSystemUserId();
+  const userId: AppIdType = userContext.impersonatorId ?? userContext.user?._id ?? getSystemUserId();
   doc._created = now;
   doc._createdBy = userId;
 }
