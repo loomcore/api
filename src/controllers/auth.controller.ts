@@ -32,7 +32,6 @@ import {
 } from '../utils/auth/index.js';
 import { apiUtils } from '../utils/index.js';
 import { Authorize } from '../decorators/authorize.decorator.js';
-import { DenyOnImpersonation } from '../decorators/deny-on-impersonation.decorator.js';
 
 export interface AuthControllerOptions {
   userService: UserService;
@@ -103,6 +102,11 @@ export class AuthController {
         );
       }
       const domain = referer.split('/')[2];
+      if (!domain) {
+        throw new BadRequestError(
+          'Missing required fields: domain is required.',
+        );
+      }
       organization = await this.organizationService.findByDomain(
         EmptyUserContext,
         domain,
@@ -204,8 +208,7 @@ export class AuthController {
     _loginResponse: ILoginResponse,
   ): Promise<void> { }
 
-  @Authorize()
-  @DenyOnImpersonation()
+  @Authorize({ denyOnImpersonation: true })
   async changePassword(req: Request, res: Response) {
     const userContext = req.userContext;
     if (!userContext) {
@@ -247,12 +250,17 @@ export class AuthController {
         'Missing required fields: referer is required.',
       );
     }
-    referer = referer.replace(/\/$/, '');
     let organization: IOrganization | null = null;
     if (config.app.isMultiTenant) {
+      const domain = referer.split('/')[2];
+      if (!domain) {
+        throw new BadRequestError(
+          'Missing required fields: domain is required.',
+        );
+      }
       organization = await this.organizationService.findByDomain(
         EmptyUserContext,
-        referer.split('/')[2],
+        domain,
       );
       if (!organization) {
         throw new BadRequestError(
@@ -301,9 +309,15 @@ export class AuthController {
           'Missing required fields: referer is required.',
         );
       }
+      const domain = referer.split('/')[2];
+      if (!domain) {
+        throw new BadRequestError(
+          'Missing required fields: domain is required.',
+        );
+      }
       organization = await this.organizationService.findByDomain(
         EmptyUserContext,
-        referer.split('/')[2],
+        domain,
       );
 
       if (!organization) {

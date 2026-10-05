@@ -1,25 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import {
-  Authorize,
-} from '../authorize.decorator.js';
-import { DenyOnImpersonation } from '../deny-on-impersonation.decorator.js';
+import { Authorize } from '../authorize.decorator.js';
 import { resolveAuthRequirement } from '../resolve-auth-requirement.util.js';
 
-class MethodStackedController {
-  @DenyOnImpersonation()
-  @Authorize('admin')
+class MethodController {
+  @Authorize({ features: ['admin'], denyOnImpersonation: true })
   stacked() { }
 
-  @Authorize()
-  @DenyOnImpersonation()
-  stackedReverse() { }
+  @Authorize({ denyOnImpersonation: true })
+  denyOnly() { }
 
   @Authorize()
   authOnly() { }
 }
 
-@DenyOnImpersonation()
-@Authorize('admin')
+@Authorize({ features: ['admin'], denyOnImpersonation: true })
 class ClassStackedController {
   @Authorize()
   methodOverridesFeatures() { }
@@ -29,53 +23,46 @@ class ClassStackedController {
 
 class BaseController {
   get() { }
+
+  getById() { }
 }
 
-@Authorize('admin', { requireMetaOrg: true })
+@Authorize({ features: ['admin'], requireMetaOrg: true })
 class MetaOrgController extends BaseController {
   @Authorize('admin')
-  getById() { }
+  override getById() { }
 
-  @Authorize('reports', { all: true })
+  @Authorize(['reports'], 'all')
   reports() { }
 }
 
 describe('auth decorator composition', () => {
-  it('combines @DenyOnImpersonation with @Authorize regardless of order', () => {
-    expect(resolveAuthRequirement(MethodStackedController, MethodStackedController.prototype, 'stacked')).toEqual({
-      requiredFeatures: ['admin'],
-      matchMode: 'any',
+  it('keeps denyOnImpersonation when it is set on the same @Authorize', () => {
+    expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'stacked')).toEqual({
+      features: ['admin'],
       requireMetaOrg: false,
       denyOnImpersonation: true,
     });
 
-    expect(resolveAuthRequirement(MethodStackedController, MethodStackedController.prototype, 'stackedReverse')).toEqual({
-      requiredFeatures: [],
-      matchMode: 'any',
+    expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'denyOnly')).toEqual({
       requireMetaOrg: false,
       denyOnImpersonation: true,
     });
   });
 
-  it('does not set denyOnImpersonation when only @Authorize is present', () => {
-    expect(resolveAuthRequirement(MethodStackedController, MethodStackedController.prototype, 'authOnly')).toEqual({
-      requiredFeatures: [],
-      matchMode: 'any',
+  it('does not set denyOnImpersonation when only @Authorize() is present', () => {
+    expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'authOnly')).toEqual({
       requireMetaOrg: false,
     });
   });
 
-  it('applies class-level @DenyOnImpersonation even when method-level @Authorize overrides features', () => {
+  it('keeps class denyOnImpersonation when a method @Authorize replaces features', () => {
     expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'inherited')).toEqual({
-      requiredFeatures: ['admin'],
-      matchMode: 'any',
-      requireMetaOrg: false,
+      features: ['admin'],
       denyOnImpersonation: true,
     });
 
     expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'methodOverridesFeatures')).toEqual({
-      requiredFeatures: [],
-      matchMode: 'any',
       requireMetaOrg: false,
       denyOnImpersonation: true,
     });
@@ -83,21 +70,20 @@ describe('auth decorator composition', () => {
 
   it('applies class-level admin and meta-org rules to inherited methods with no decorator', () => {
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'get')).toEqual({
-      requiredFeatures: ['admin'],
-      matchMode: 'any',
+      features: ['admin'],
       requireMetaOrg: true,
     });
   });
 
   it('lets a method @Authorize replace features, match mode, and requireMetaOrg', () => {
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'getById')).toEqual({
-      requiredFeatures: ['admin'],
+      features: ['admin'],
       matchMode: 'any',
       requireMetaOrg: false,
     });
 
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'reports')).toEqual({
-      requiredFeatures: ['reports'],
+      features: ['reports'],
       matchMode: 'all',
       requireMetaOrg: false,
     });

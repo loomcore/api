@@ -18,35 +18,32 @@ import { getSystemUserContext } from '@loomcore/common/models';
  */
 export function buildAuthGuard(requirement: IAuthRequirement | undefined): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
-    if (requirement?.allowAnonymous) {
-      return next();
-    }
     const userContext = authenticateRequest(req);
     req.userContext = userContext;
 
+    // Deny on impersonation
     if (requirement?.denyOnImpersonation && userContext.impersonatorId !== undefined) {
       throw new UnauthorizedError('Unauthorized: Endpoint requires non-impersonated user.');
     }
 
+    // Require meta organization user
     const systemUserContext = getSystemUserContext();
-
     if (requirement?.requireMetaOrg && userContext.user._orgId !== systemUserContext.user._orgId) {
       throw new UnauthorizedError('Unauthorized: Endpoint requires meta organization user.');
     }
 
-    if (!requirement || requirement.requiredFeatures?.length === 0) {
-      return next();
-    }
+    // Require features
+    if (requirement?.features?.length) {
+      const userFeatures = new Set(userContext.features);
+      const hasFeatures =
+        requirement.matchMode === 'all'
+          ? requirement.features?.every((f) => userFeatures.has(f))
+          : requirement.features?.some((f) => userFeatures.has(f));
 
-    const userFeatures = new Set(userContext.features);
-    const hasFeatures =
-      requirement.matchMode === 'all'
-        ? requirement.requiredFeatures?.every((f) => userFeatures.has(f))
-        : requirement.requiredFeatures?.some((f) => userFeatures.has(f));
-
-    if (!hasFeatures) {
-      const missing = requirement.requiredFeatures?.filter((f) => !userFeatures.has(f));
-      throw new UnauthorizedError(`Unauthorized: Missing required feature(s): ${missing?.join(', ')}`);
+      if (!hasFeatures) {
+        const missing = requirement.features?.filter((f) => !userFeatures.has(f));
+        throw new UnauthorizedError(`Unauthorized: Missing required feature(s): ${missing?.join(', ')}`);
+      }
     }
 
     next();

@@ -1,50 +1,45 @@
 import 'reflect-metadata';
 import { IAuthRequirement, MatchMode } from './index.js';
-import { IAuthDecorator } from './auth-decorator.interface.js';
 
 const AUTHORIZE_METADATA_KEY = Symbol('auth-decorator:authorize');
-export interface IAuthorizeOptions {
-  features: string | string[];
-  requireAll?: boolean;
-  requireMetaOrg?: boolean;
+
+export function getAuthRequirement(entity: any): IAuthRequirement | undefined {
+  const value = Reflect.getMetadata(AUTHORIZE_METADATA_KEY, entity);
+  return value;
 }
-export class AuthorizeDecorator implements IAuthDecorator {
-  createOrUpdateAuthRequirement(requirement: IAuthRequirement | undefined, entity: any): IAuthRequirement | undefined {
-    const value = Reflect.getMetadata(AUTHORIZE_METADATA_KEY, entity);
-    if (value === undefined) {
-      return requirement;
-    }
 
-    if (!requirement) {
-      return {
-        requiredFeatures: Array.isArray(value.features) ? value.features : [value.features],
-        matchMode: value.requireAll ? 'all' : 'any',
-        requireMetaOrg: value.requireMetaOrg === true,
-      };
-    }
+type AuthorizeDecorator = (
+  target: Function,
+  _context: ClassDecoratorContext | ClassMethodDecoratorContext
+) => void;
 
-    requirement.requiredFeatures = Array.isArray(value.features) ? value.features : [value.features];
-    requirement.matchMode = value.requireAll ? 'all' : 'any';
-    requirement.requireMetaOrg = value.requireMetaOrg === true;
 
-    return requirement;
-  }
-};
-
+export function Authorize(): AuthorizeDecorator;
+export function Authorize(authRequirement: IAuthRequirement): AuthorizeDecorator;
+export function Authorize(features: string | string[], matchMode?: MatchMode): AuthorizeDecorator;
 export function Authorize(
-  features: string | string[] = [],
-  options: { all?: boolean, requireMetaOrg?: boolean } = {}
-) {
+  authRequirementOrFeatures?: IAuthRequirement | string[] | string,
+  matchMode?: MatchMode
+): AuthorizeDecorator {
   return function (
     target: Function,
     _context: ClassDecoratorContext | ClassMethodDecoratorContext
   ) {
-    const value: IAuthorizeOptions = {
-      features: Array.isArray(features) ? features : [features],
-      requireAll: options.all === true,
-      requireMetaOrg: options.requireMetaOrg === true,
-    };
-    // Stage 3: for methods `value` is the method; for classes it is the constructor.
-    Reflect.defineMetadata(AUTHORIZE_METADATA_KEY, value, target);
+    Reflect.defineMetadata(
+      AUTHORIZE_METADATA_KEY,
+      toAuthRequirement(authRequirementOrFeatures, matchMode),
+      target
+    );
   };
+}
+
+function toAuthRequirement(
+  authRequirementOrFeatures?: IAuthRequirement | string[] | string,
+  matchMode?: MatchMode
+): IAuthRequirement | undefined {
+  if (typeof authRequirementOrFeatures === 'string' || Array.isArray(authRequirementOrFeatures)) {
+    const featureList = Array.isArray(authRequirementOrFeatures) ? authRequirementOrFeatures : [authRequirementOrFeatures];
+    return { features: featureList, matchMode: matchMode ?? 'any' };
+  }
+  return authRequirementOrFeatures;
 }

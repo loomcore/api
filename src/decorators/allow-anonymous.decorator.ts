@@ -1,25 +1,11 @@
-import { IAuthDecorator } from "./auth-decorator.interface.js";
-import { IAuthRequirement } from "./auth-requirement.interface.js";
+/** Explicit opt-out, e.g. a public health-check action on an otherwise-locked-down controller. */
 
 const ALLOW_ANONYMOUS_METADATA_KEY = Symbol('auth-decorator:allow-anonymous');
 
-/** Explicit opt-out, e.g. a public health-check action on an otherwise-locked-down controller. */
-
-export class AllowAnonymousDecorator implements IAuthDecorator {
-    createOrUpdateAuthRequirement(requirement: IAuthRequirement | undefined, entity: any): IAuthRequirement | undefined {
-        const value = Reflect.getMetadata(ALLOW_ANONYMOUS_METADATA_KEY, entity);
-        if (value === undefined) {
-            return requirement;
-        }
-
-        if (!requirement) {
-            return { allowAnonymous: true };
-        }
-
-        requirement.allowAnonymous = value;
-        return requirement;
-    }
-}
+export function getValue(entity: any): boolean | undefined {
+    const value = Reflect.getMetadata(ALLOW_ANONYMOUS_METADATA_KEY, entity);
+    return value;
+};
 
 export function AllowAnonymous() {
     return function (
