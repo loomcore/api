@@ -13,7 +13,6 @@ type AuthorizeDecorator = (
   _context: ClassDecoratorContext | ClassMethodDecoratorContext
 ) => void;
 
-
 export function Authorize(): AuthorizeDecorator;
 export function Authorize(authRequirement: IAuthRequirement): AuthorizeDecorator;
 export function Authorize(features: string | string[], matchMode?: MatchMode): AuthorizeDecorator;
@@ -25,21 +24,18 @@ export function Authorize(
     target: Function,
     _context: ClassDecoratorContext | ClassMethodDecoratorContext
   ) {
+    let authRequirement: IAuthRequirement | undefined;
+    if (typeof authRequirementOrFeatures === 'string' || Array.isArray(authRequirementOrFeatures)) {
+      const featureList = Array.isArray(authRequirementOrFeatures) ? authRequirementOrFeatures : [authRequirementOrFeatures];
+      authRequirement = { features: featureList, matchMode: matchMode ?? 'any' };
+    } else {
+      authRequirement = authRequirementOrFeatures;
+    }
+
     Reflect.defineMetadata(
       AUTHORIZE_METADATA_KEY,
-      toAuthRequirement(authRequirementOrFeatures, matchMode),
+      authRequirement,
       target
     );
   };
-}
-
-function toAuthRequirement(
-  authRequirementOrFeatures?: IAuthRequirement | string[] | string,
-  matchMode?: MatchMode
-): IAuthRequirement | undefined {
-  if (typeof authRequirementOrFeatures === 'string' || Array.isArray(authRequirementOrFeatures)) {
-    const featureList = Array.isArray(authRequirementOrFeatures) ? authRequirementOrFeatures : [authRequirementOrFeatures];
-    return { features: featureList, matchMode: matchMode ?? 'any' };
-  }
-  return authRequirementOrFeatures;
 }
