@@ -47,11 +47,9 @@ export class TenantQueryDecorator {
      */
     applyTenantToQuery(
         userContext: IUserContext,
-        queryObject: IQueryOptions,
+        queryOptions: IQueryOptions,
         collectionName: string,
     ): IQueryOptions {
-        let result = queryObject;
-
         const shouldApplyTenantFilter =
             !this.options.excludedCollections?.includes(collectionName) &&
             userContext.user._orgId &&
@@ -61,10 +59,10 @@ export class TenantQueryDecorator {
         if (shouldApplyTenantFilter) {
             // Create a new query object that includes the tenant filter
             const orgIdField = this.options.orgIdField || '_orgId';
-            result = {
-                ...queryObject,
+            queryOptions = {
+                ...queryOptions,
                 filters: {
-                    ...queryObject.filters,
+                    ...queryOptions.filters,
                     [orgIdField]: { eq: userContext.user._orgId },
                 },
             };
@@ -75,7 +73,7 @@ export class TenantQueryDecorator {
             }
         }
 
-        return result;
+        return queryOptions;
     }
 
     /**

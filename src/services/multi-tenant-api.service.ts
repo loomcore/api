@@ -42,7 +42,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
         userContext: IUserContext,
         queryOptions: IQueryOptions,
         operations: Operation[],
-    ): { queryObject: IQueryOptions; operations: Operation[] } {
+    ): { queryOptions: IQueryOptions; operations: Operation[] } {
         if (
             !config?.app?.isMultiTenant ||
             userContext?.user?._id === getSystemUserId()
@@ -62,12 +62,12 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
         }
 
         // Apply tenant filtering to the query object
-        const queryObject = this.tenantDecorator.applyTenantToQuery(
+        queryOptions = this.tenantDecorator.applyTenantToQuery(
             userContext,
             queryOptions,
             this.pluralResourceName,
         );
-        return { queryObject, operations };
+        return { queryOptions, operations };
     }
 
     /**

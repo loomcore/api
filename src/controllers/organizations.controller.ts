@@ -1,4 +1,4 @@
-import type { IOrganization } from '@loomcore/common/models';
+import { getSystemUserContext, type IOrganization } from '@loomcore/common/models';
 import type { Application, NextFunction, Request, Response } from 'express';
 import type { IDatabase } from '../databases/models/index.js';
 import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
@@ -101,8 +101,8 @@ export class OrganizationsController extends ApiController<IOrganization> {
     }
 
     // Meta-org admin can get any organization
-    const metaOrg = await this.orgService.getMetaOrg(userContext);
-    if (metaOrg && String(userContext.user._orgId) === String(metaOrg._id)) {
+    const systemUserContext = getSystemUserContext();
+    if (String(userContext.user._orgId) === String(systemUserContext.user._orgId)) {
       return super.getById(req, res, next);
     }
 

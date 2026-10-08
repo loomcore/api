@@ -29,7 +29,7 @@ export function authorizeMethod(
   const authRequirement = resolveAuthRequirement(constructor, prototype, methodName);
   if (allowAnonymous) {
     if (authRequirement) {
-      throw new Error('Allow anonymouse and authorize decorators cannot be used together.');
+      throw new Error('Allow anonymous and authorize decorators cannot be used together.');
     }
     return (_req: Request, _res: Response, next: NextFunction) => next();
   }

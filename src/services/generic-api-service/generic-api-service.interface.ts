@@ -21,9 +21,9 @@ export interface IGenericApiService<T extends IEntity> {
 
   prepareQuery(
     userContext: IUserContext | undefined,
-    queryObject: IQueryOptions,
+    queryOptions: IQueryOptions,
     operations: Operation[],
-  ): { queryObject: IQueryOptions; operations: Operation[] };
+  ): { queryOptions: IQueryOptions; operations: Operation[] };
   preProcessEntity(
     userContext: IUserContext,
     entity: Partial<T>,

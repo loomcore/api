@@ -75,9 +75,9 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   }
 
   async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
-    const rawEntity = await this.database.findOne<IOrganization>(
+    const rawEntity = await this.findOne(
+      userContext,
       { filters: { isMetaOrg: { eq: true } } },
-      this.pluralResourceName,
     );
     return rawEntity ? this.postProcessEntity(userContext, rawEntity) : null;
   }

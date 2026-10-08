@@ -282,7 +282,7 @@ async function deleteTestUser() {
   if (metaOrgUser) {
     await userService
       .deleteById(systemUserContext, metaOrgUser._id)
-      .catch(() => {});
+      .catch(() => { });
   }
 
   const testOrgUser = await userService
@@ -293,7 +293,7 @@ async function deleteTestUser() {
   if (testOrgUser) {
     await userService
       .deleteById(systemUserContext, testOrgUser._id)
-      .catch(() => {});
+      .catch(() => { });
   }
 
   const testOrg = await organizationService
@@ -304,7 +304,7 @@ async function deleteTestUser() {
   if (testOrg) {
     await organizationService
       .deleteById(getTestMetaOrgUserContext(), testOrg._id)
-      .catch(() => {});
+      .catch(() => { });
   }
 }
 
@@ -448,11 +448,11 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
 
 const prepareQueryCustom: PrepareQueryCustomFunction = (
   userContext: IUserContext | undefined,
-  queryObject: IQueryOptions,
+  queryOptions: IQueryOptions,
   operations: Operation[],
-): { queryObject: IQueryOptions; operations: Operation[] } => {
+): { queryOptions: IQueryOptions; operations: Operation[] } => {
   return {
-    queryObject: queryObject,
+    queryOptions: queryOptions,
     operations: [
       ...operations,
       new LeftJoin('categories', 'category_id', '_id', 'category'),
@@ -586,15 +586,15 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
 
   override prepareQuery(
     userContext: IUserContext,
-    queryObject: IQueryOptions,
+    queryOptions: IQueryOptions,
     operations: Operation[],
-  ): { queryObject: IQueryOptions; operations: Operation[] } {
+  ): { queryOptions: IQueryOptions; operations: Operation[] } {
     const newOperations = [
       ...operations,
       new LeftJoin('categories', 'categoryId', '_id', 'category'),
     ];
 
-    return super.prepareQuery(userContext, queryObject, newOperations);
+    return super.prepareQuery(userContext, queryOptions, newOperations);
   }
 
   override postProcessEntity(userContext: IUserContext, single: any): any {
