@@ -120,20 +120,19 @@ async function createMetaOrg() {
     );
   }
   try {
-    // Create a meta organization (required for system user context)
-    // Use EmptyUserContext to avoid the org check when querying/creating
+    // Bootstrap uses the system user so audit columns are populated.
+    const systemUserContext = getSystemUserContext();
     const existingMetaOrg =
-      await organizationService.getMetaOrg(EmptyUserContext);
+      await organizationService.getMetaOrg(systemUserContext);
     if (!existingMetaOrg) {
-      // Use EmptyUserContext when creating the meta org (no org check needed for first meta org)
       const metaOrgInsertResult = await organizationService.create(
-        EmptyUserContext,
+        systemUserContext,
         getTestMetaOrg(),
       );
       if (metaOrgInsertResult) {
         setTestMetaOrgId(metaOrgInsertResult._id);
         await organizationDomainService.create(
-          EmptyUserContext,
+          systemUserContext,
           getTestMetaOrgDomain(metaOrgInsertResult._id),
         );
       }
@@ -141,12 +140,12 @@ async function createMetaOrg() {
       // Update test objects with the actual meta org ID from database
       setTestMetaOrgId(existingMetaOrg._id);
       const existingDomain = await organizationDomainService.findOne(
-        EmptyUserContext,
+        systemUserContext,
         { filters: { domain: { eq: TEST_META_ORG_DOMAIN } } },
       );
       if (!existingDomain) {
         await organizationDomainService.create(
-          EmptyUserContext,
+          systemUserContext,
           getTestMetaOrgDomain(existingMetaOrg._id),
         );
       }
@@ -226,7 +225,7 @@ async function createTestUsers(): Promise<{
       }
       setTestOrgId(createdTestOrg._id);
       await organizationDomainService.create(
-        EmptyUserContext,
+        getSystemUserContext(),
         getTestOrgDomain(createdTestOrg._id),
       );
     } else {
@@ -237,7 +236,7 @@ async function createTestUsers(): Promise<{
       );
       if (!existingDomain) {
         await organizationDomainService.create(
-          EmptyUserContext,
+          getSystemUserContext(),
           getTestOrgDomain(existingTestOrg._id),
         );
       }
@@ -282,7 +281,7 @@ async function deleteTestUser() {
   if (metaOrgUser) {
     await userService
       .deleteById(systemUserContext, metaOrgUser._id)
-      .catch(() => {});
+      .catch(() => { });
   }
 
   const testOrgUser = await userService
@@ -293,7 +292,7 @@ async function deleteTestUser() {
   if (testOrgUser) {
     await userService
       .deleteById(systemUserContext, testOrgUser._id)
-      .catch(() => {});
+      .catch(() => { });
   }
 
   const testOrg = await organizationService
@@ -304,7 +303,7 @@ async function deleteTestUser() {
   if (testOrg) {
     await organizationService
       .deleteById(getTestMetaOrgUserContext(), testOrg._id)
-      .catch(() => {});
+      .catch(() => { });
   }
 }
 
@@ -448,11 +447,11 @@ export function setupTestConfig(isMultiTenant: boolean = true, dbType: DbType) {
 
 const prepareQueryCustom: PrepareQueryCustomFunction = (
   userContext: IUserContext | undefined,
-  queryObject: IQueryOptions,
+  queryOptions: IQueryOptions,
   operations: Operation[],
-): { queryObject: IQueryOptions; operations: Operation[] } => {
+): { queryOptions: IQueryOptions; operations: Operation[] } => {
   return {
-    queryObject: queryObject,
+    queryOptions: queryOptions,
     operations: [
       ...operations,
       new LeftJoin('categories', 'category_id', '_id', 'category'),
@@ -586,15 +585,15 @@ export class MultiTenantProductService extends MultiTenantApiService<IProduct> {
 
   override prepareQuery(
     userContext: IUserContext,
-    queryObject: IQueryOptions,
+    queryOptions: IQueryOptions,
     operations: Operation[],
-  ): { queryObject: IQueryOptions; operations: Operation[] } {
+  ): { queryOptions: IQueryOptions; operations: Operation[] } {
     const newOperations = [
       ...operations,
       new LeftJoin('categories', 'categoryId', '_id', 'category'),
     ];
 
-    return super.prepareQuery(userContext, queryObject, newOperations);
+    return super.prepareQuery(userContext, queryOptions, newOperations);
   }
 
   override postProcessEntity(userContext: IUserContext, single: any): any {

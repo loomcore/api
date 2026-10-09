@@ -1,13 +1,11 @@
-import {CustomError} from '@loomcore/common/errors';
+import { CustomError } from '@loomcore/common/errors';
 
 export class UnauthorizedError extends CustomError {
   statusCode = 403;
 
-  constructor(missing?: string[]) {
+  constructor(message?: string) {
     super(
-      missing?.length
-        ? `Missing required feature(s): ${missing.join(', ')}`
-        : 'Unauthorized',
+      message ?? 'Unauthorized',
     );
 
     Object.setPrototypeOf(this, UnauthorizedError.prototype);

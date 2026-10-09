@@ -25,12 +25,13 @@ import {
   createLoginResponseSpec,
   getAndSetDeviceIdCookie,
   getDeviceIdFromCookie,
+  impersonateUser,
   requestTokenUsingRefreshToken,
   resetPassword,
   sendResetPasswordEmail,
 } from '../utils/auth/index.js';
 import { apiUtils } from '../utils/index.js';
-import { AllowAnonymous, Authorize } from '../decorators/authorize.decorator.js';
+import { Authorize } from '../decorators/authorize.decorator.js';
 
 export interface AuthControllerOptions {
   userService: UserService;
@@ -72,6 +73,7 @@ export class AuthController {
     app.post(`/api/auth/login`, this.login.bind(this));
     app.get(`/api/auth/refresh`, this.requestTokenUsingRefreshToken.bind(this));
     app.get(`/api/auth/get-user-context`, authorize('getUserContext'), this.getUserContext.bind(this));
+    app.post(`/api/auth/impersonate`, authorize('impersonate'), this.impersonate.bind(this));
     app.patch(`/api/auth/change-password`, authorize('changePassword'), this.changePassword.bind(this));
     app.post(`/api/auth/forgot-password`, this.forgotPassword.bind(this));
     app.post(`/api/auth/reset-password`, this.resetPassword.bind(this));
@@ -100,6 +102,11 @@ export class AuthController {
         );
       }
       const domain = referer.split('/')[2];
+      if (!domain) {
+        throw new BadRequestError(
+          'Missing required fields: domain is required.',
+        );
+      }
       organization = await this.organizationService.findByDomain(
         EmptyUserContext,
         domain,
@@ -169,13 +176,39 @@ export class AuthController {
     );
   }
 
+  @Authorize('admin')
+  async impersonate(req: Request, res: Response) {
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new UnauthenticatedError();
+    }
+
+    const refreshToken = req.body.refreshToken;
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      throw new BadRequestError('Missing required fields: refreshToken is required.');
+    }
+
+    const userId = req.body?.userId;
+    if (!userId) {
+      throw new BadRequestError('Missing required fields: userId is required.');
+    }
+
+    const deviceId = getDeviceIdFromCookie(req);
+    if (!deviceId || typeof deviceId !== 'string') {
+      throw new UnauthenticatedError();
+    }
+
+    const tokens = await impersonateUser(this.database, userContext, userId, refreshToken, this.userService);
+    apiUtils.apiResponse<ITokenResponse>(res, 200, { data: tokens }, TokenResponseSpec);
+  }
+
   async afterAuth(
     _req: Request,
     _res: Response,
     _loginResponse: ILoginResponse,
   ): Promise<void> { }
 
-  @Authorize()
+  @Authorize({ denyOnImpersonation: true })
   async changePassword(req: Request, res: Response) {
     const userContext = req.userContext;
     if (!userContext) {
@@ -183,6 +216,7 @@ export class AuthController {
         'Missing required fields: userContext is required.',
       );
     }
+
     const password = req.body?.password;
 
     // Validate password in controller using the correct passwordValidator
@@ -216,12 +250,17 @@ export class AuthController {
         'Missing required fields: referer is required.',
       );
     }
-    referer = referer.replace(/\/$/, '');
     let organization: IOrganization | null = null;
     if (config.app.isMultiTenant) {
+      const domain = referer.split('/')[2];
+      if (!domain) {
+        throw new BadRequestError(
+          'Missing required fields: domain is required.',
+        );
+      }
       organization = await this.organizationService.findByDomain(
         EmptyUserContext,
-        referer.split('/')[2],
+        domain,
       );
       if (!organization) {
         throw new BadRequestError(
@@ -270,9 +309,15 @@ export class AuthController {
           'Missing required fields: referer is required.',
         );
       }
+      const domain = referer.split('/')[2];
+      if (!domain) {
+        throw new BadRequestError(
+          'Missing required fields: domain is required.',
+        );
+      }
       organization = await this.organizationService.findByDomain(
         EmptyUserContext,
-        referer.split('/')[2],
+        domain,
       );
 
       if (!organization) {

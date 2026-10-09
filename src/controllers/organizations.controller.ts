@@ -1,7 +1,7 @@
-import type { IOrganization } from '@loomcore/common/models';
+import { getSystemUserContext, type IOrganization } from '@loomcore/common/models';
 import type { Application, NextFunction, Request, Response } from 'express';
 import type { IDatabase } from '../databases/models/index.js';
-import { BadRequestError } from '../errors/index.js';
+import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
 import { OrganizationService } from '../services/index.js';
 import { apiUtils } from '../utils/index.js';
 import { ApiController } from './api.controller.js';
@@ -11,7 +11,7 @@ import { Authorize } from '../decorators/authorize.decorator.js';
  * OrganizationsController is unique, just like its service, because Organizations are not multi-tenant
  * entities, requiring an orgId in addition to its primary key id. The primary key is the orgId.
  */
-@Authorize('admin')
+@Authorize({ features: ['admin'], requireMetaOrg: true })
 export class OrganizationsController extends ApiController<IOrganization> {
   orgService: OrganizationService;
 
@@ -42,9 +42,13 @@ export class OrganizationsController extends ApiController<IOrganization> {
     next: NextFunction,
   ) {
     const { name } = req.params;
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new UnauthenticatedError();
+    }
     try {
       res.set('Content-Type', 'application/json');
-      const entity = await this.orgService.findOne(req.userContext!, {
+      const entity = await this.orgService.findOne(userContext, {
         filters: { name: { contains: name } },
       });
       if (!entity) throw new BadRequestError('Organization name not found');
@@ -62,9 +66,13 @@ export class OrganizationsController extends ApiController<IOrganization> {
     next: NextFunction,
   ) {
     const { code } = req.params;
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new UnauthenticatedError();
+    }
     try {
       res.set('Content-Type', 'application/json');
-      const entity = await this.orgService.findOne(req.userContext!, {
+      const entity = await this.orgService.findOne(userContext, {
         filters: { code: { eq: code } },
       });
       if (!entity) throw new BadRequestError('Organization code not found');
@@ -74,5 +82,30 @@ export class OrganizationsController extends ApiController<IOrganization> {
       next(err);
       return;
     }
+  }
+
+  @Authorize('admin')
+  override async getById(
+    req: Request<{ id: string }>,
+    res: Response,
+    next: NextFunction,
+  ) {
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new UnauthenticatedError();
+    }
+
+    // You can get your own organization. Route params are strings; org ids may be numbers.
+    if (String(req.params.id) === String(userContext.user._orgId)) {
+      return super.getById(req, res, next);
+    }
+
+    // Meta-org admin can get any organization
+    const systemUserContext = getSystemUserContext();
+    if (String(userContext.user._orgId) === String(systemUserContext.user._orgId)) {
+      return super.getById(req, res, next);
+    }
+
+    throw new BadRequestError('User is not authorized to access this organization');
   }
 }

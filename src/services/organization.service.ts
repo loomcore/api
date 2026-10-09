@@ -6,8 +6,8 @@ import {
 import type { AppIdType } from '@loomcore/common/types';
 import type { IDatabase } from '../databases/models/index.js';
 import { BadRequestError } from '../errors/index.js';
-import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import { OrganizationDomainService } from './organization-domain.service.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
 
 export class OrganizationService extends GenericApiService<IOrganization> {
   private organizationDomainService: OrganizationDomainService;
@@ -74,16 +74,20 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   }
 
   async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
-    const org = await this.findOne(userContext, {
+    return this.findOne(userContext, {
       filters: { isMetaOrg: { eq: true } },
     });
-    return org;
   }
 
   async findByDomain(
     userContext: IUserContext,
     domain: string,
   ): Promise<IOrganization | null> {
+    if (!domain) {
+      throw new BadRequestError(
+        'Missing required fields: domain is required.',
+      );
+    }
     const organizationDomain = await this.organizationDomainService.findOne(
       userContext,
       {

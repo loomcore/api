@@ -8,7 +8,7 @@ import { ICategory } from '../../__tests__/models/category.model.js';
 import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
-import { EmptyUserContext } from '@loomcore/common/models';
+import { EmptyUserContext, getSystemUserContext } from '@loomcore/common/models';
 import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { MultiTenantApiService } from '../../services/index.js';
 import { AppIdType } from '@loomcore/common/types';
@@ -57,7 +57,7 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     await TestExpressApp.clearCollections();
 
     // 1. Arrange: Create initial products using services
-    const categoryResult = await categoryService.create(EmptyUserContext, { name: 'Test Category' });
+    const categoryResult = await categoryService.create(getSystemUserContext(), { name: 'Test Category' });
     if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
@@ -66,21 +66,21 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     if (!multiTenantCategoryResult) throw new Error('multi-tenant category creation failed');
     multiTenantCategoryId = multiTenantCategoryResult._id;
     // Create products using services
-    const productA = await productService.create(EmptyUserContext, {
+    const productA = await productService.create(getSystemUserContext(), {
       name: 'Product A',
       description: 'Description A',
       categoryId: categoryId
     });
     if (!productA) throw new Error('product A creation failed');
 
-    const productB = await productService.create(EmptyUserContext, {
+    const productB = await productService.create(getSystemUserContext(), {
       name: 'Product B',
       description: 'Description B',
       categoryId: categoryId
     });
     if (!productB) throw new Error('product B creation failed');
 
-    const productC = await productService.create(EmptyUserContext, {
+    const productC = await productService.create(getSystemUserContext(), {
       name: 'Product C',
       description: 'Description C',
       categoryId: categoryId
