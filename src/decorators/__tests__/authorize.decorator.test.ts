@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { authorizeMethod } from '../../utils/auth/authorize-method.util.js';
+import { AllowAnonymous } from '../allow-anonymous.decorator.js';
 import { Authorize } from '../authorize.decorator.js';
+import { resolveAllowAnonymous } from '../resolve-allow-anonymous.util.js';
 import { resolveAuthRequirement } from '../resolve-auth-requirement.util.js';
 
 class MethodController {
@@ -36,56 +39,100 @@ class MetaOrgController extends BaseController {
   reports() { }
 }
 
+@Authorize('admin')
+class AuthorizeClass {
+  @AllowAnonymous()
+  health() { }
+
+  @Authorize('admin')
+  @AllowAnonymous()
+  both() { }
+
+  locked() { }
+}
+
+@AllowAnonymous()
+class AnonymousClass {
+  @Authorize('admin')
+  secure() { }
+
+  open() { }
+}
+
+@Authorize('admin')
+@AllowAnonymous()
+class BothOnClass {
+  plain() { }
+
+  @AllowAnonymous()
+  health() { }
+}
+
 describe('auth decorator composition', () => {
-  it('keeps denyOnImpersonation when it is set on the same @Authorize', () => {
+  it('returns the fields set on that @Authorize', () => {
     expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'stacked')).toEqual({
       features: ['admin'],
-      requireMetaOrg: false,
       denyOnImpersonation: true,
     });
 
     expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'denyOnly')).toEqual({
-      requireMetaOrg: false,
       denyOnImpersonation: true,
     });
   });
 
-  it('does not set denyOnImpersonation when only @Authorize() is present', () => {
-    expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'authOnly')).toEqual({
-      requireMetaOrg: false,
-    });
+  it('returns no extra fields when only @Authorize() is present', () => {
+    expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'authOnly')).toBeUndefined();
   });
 
-  it('keeps class denyOnImpersonation when a method @Authorize replaces features', () => {
+  it('keeps the class requirement on actions with no method decorator', () => {
     expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'inherited')).toEqual({
       features: ['admin'],
       denyOnImpersonation: true,
     });
 
-    expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'methodOverridesFeatures')).toEqual({
-      requireMetaOrg: false,
-      denyOnImpersonation: true,
-    });
-  });
-
-  it('applies class-level admin and meta-org rules to inherited methods with no decorator', () => {
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'get')).toEqual({
       features: ['admin'],
       requireMetaOrg: true,
     });
   });
 
-  it('lets a method @Authorize replace features, match mode, and requireMetaOrg', () => {
+  it('lets a method @Authorize replace the class requirement', () => {
+    expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'methodOverridesFeatures')).toBeUndefined();
+
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'getById')).toEqual({
       features: ['admin'],
       matchMode: 'any',
-      requireMetaOrg: false,
     });
 
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'reports')).toEqual({
       features: ['reports'],
       matchMode: 'all',
-      requireMetaOrg: false,
     });
+  });
+
+  it('lets a method decorator replace the other decorator on the controller', () => {
+    expect(resolveAllowAnonymous(AuthorizeClass, AuthorizeClass.prototype, 'health')).toBe(true);
+    expect(resolveAuthRequirement(AuthorizeClass, AuthorizeClass.prototype, 'health')).toBeUndefined();
+
+    expect(resolveAuthRequirement(AnonymousClass, AnonymousClass.prototype, 'secure')).toEqual({
+      features: ['admin'],
+      matchMode: 'any',
+    });
+    expect(resolveAllowAnonymous(AnonymousClass, AnonymousClass.prototype, 'secure')).toBeUndefined();
+
+    expect(resolveAllowAnonymous(AnonymousClass, AnonymousClass.prototype, 'open')).toBe(true);
+    expect(resolveAuthRequirement(AuthorizeClass, AuthorizeClass.prototype, 'locked')).toEqual({
+      features: ['admin'],
+      matchMode: 'any',
+    });
+  });
+
+  it('rejects both decorators only when they are on the same method or the same class', () => {
+    expect(() => authorizeMethod(new AuthorizeClass(), 'both')).toThrow(/cannot be used together/);
+    expect(() => authorizeMethod(new BothOnClass(), 'plain')).toThrow(/cannot be used together/);
+    expect(() => authorizeMethod(new BothOnClass(), 'health')).toThrow(/cannot be used together/);
+
+    expect(() => authorizeMethod(new AuthorizeClass(), 'health')).not.toThrow();
+    expect(() => authorizeMethod(new AnonymousClass(), 'secure')).not.toThrow();
   });
 });

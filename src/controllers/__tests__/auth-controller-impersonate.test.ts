@@ -92,7 +92,7 @@ describe('AuthController impersonation', () => {
 
     const payload = testUtils.verifyToken(response.body.data.accessToken);
     expect(String(payload.user._id)).toBe(String(targetUser._id));
-    expect(payload.isImpersonating).toBe(true);
+    expect(String(payload.impersonatorId)).toBe(String(getTestMetaOrgUser()._id));
 
     const userContextResponse = await testAgent
       .get('/api/auth/get-user-context')
@@ -100,7 +100,7 @@ describe('AuthController impersonation', () => {
       .expect(200);
 
     expect(userContextResponse.body.data.user.email).toBe(targetUser.email);
-    expect(userContextResponse.body.data.isImpersonating).toBe(true);
+    expect(String(userContextResponse.body.data.impersonatorId)).toBe(String(getTestMetaOrgUser()._id));
   });
 
   it('should revert to the true user when the refresh token is used', async () => {
@@ -123,7 +123,7 @@ describe('AuthController impersonation', () => {
 
   it('should return a 400 when already impersonating', async () => {
     const nestedToken = jwt.sign(
-      { ...getTestMetaOrgAdminUserContext(), isImpersonating: true },
+      { ...getTestMetaOrgAdminUserContext(), impersonatorId: getTestMetaOrgUser()._id },
       'test-secret',
       { expiresIn: 3600 },
     );

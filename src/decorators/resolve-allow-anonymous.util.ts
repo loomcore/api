@@ -1,19 +1,15 @@
-
-import { getValue } from "./allow-anonymous.decorator.js";
+import { getValue } from './allow-anonymous.decorator.js';
+import { resolveAuthDecoratorTarget } from './resolve-auth-decorator-target.util.js';
 
 /**
- * Class-level `@AllowAnonymous` applies to every action. A method-level
- * decorator overrides it. An action with no decorator keeps the class value.
+ * Returns whether the winning target is `@AllowAnonymous`.
+ * A method decorator replaces the controller decorator entirely.
  */
 export function resolveAllowAnonymous(
     controllerConstructor: Function,
     prototype: any,
-    propertyKey: string
+    propertyKey: string,
 ): boolean | undefined {
-    const method = prototype[propertyKey];
-    if (typeof method === 'function') {
-        return getValue(method);
-    } else {
-        return getValue(controllerConstructor);
-    }
+    const target = resolveAuthDecoratorTarget(controllerConstructor, prototype, propertyKey);
+    return getValue(target);
 }

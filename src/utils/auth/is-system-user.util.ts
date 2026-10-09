@@ -1,7 +1,6 @@
-import { getSystemUserContext, type IUserContext } from '@loomcore/common/models';
+import type { IUserContext } from '@loomcore/common/models';
+import { getSystemUserId } from '@loomcore/common/validation';
 
 export function isSystemUser(userContext: IUserContext): boolean {
-    const systemUserContext = getSystemUserContext();
-
-    return userContext.user._id === systemUserContext.user._id;
+    return userContext.user?._id === getSystemUserId();
 }

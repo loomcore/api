@@ -7,7 +7,10 @@ export function isAdmin(userContext: IUserContext): boolean {
 }
 
 export function isMetaOrgAdmin(userContext: IUserContext): boolean {
-  const systemUserContext = getSystemUserContext();
+  if (!isAdmin(userContext)) {
+    return false;
+  }
 
-  return isAdmin(userContext) && userContext.user._orgId === systemUserContext.user._orgId;
+  const systemUserContext = getSystemUserContext();
+  return userContext.user._orgId === systemUserContext.user._orgId;
 }

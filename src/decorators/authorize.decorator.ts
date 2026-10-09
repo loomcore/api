@@ -8,6 +8,11 @@ export function getAuthRequirement(entity: any): IAuthRequirement | undefined {
   return value;
 }
 
+/** True when `@Authorize` is present, including `@Authorize()` which stores no fields. */
+export function hasAuthRequirement(entity: any): boolean {
+  return Reflect.hasOwnMetadata(AUTHORIZE_METADATA_KEY, entity);
+}
+
 type AuthorizeDecorator = (
   target: Function,
   _context: ClassDecoratorContext | ClassMethodDecoratorContext

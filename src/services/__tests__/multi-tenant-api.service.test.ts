@@ -136,10 +136,10 @@ describe('MultiTenantApiService', () => {
 
       // Assert
       // The consumer-supplied _orgId should be completely overwritten by userContext.user._orgId
-      expect(result.queryObject.filters!['_orgId']).toEqual({
+      expect(result.queryOptions.filters!['_orgId']).toEqual({
         eq: getTestMetaOrg()._id,
       });
-      expect(result.queryObject.filters!['_orgId']).not.toEqual({
+      expect(result.queryOptions.filters!['_orgId']).not.toEqual({
         eq: otherOrgId,
       });
     });
@@ -158,9 +158,9 @@ describe('MultiTenantApiService', () => {
       const result = service.prepareQuery(userContext, queryOptions, []);
 
       // Assert
-      expect(result.queryObject.filters).toBeDefined();
-      expect(result.queryObject.filters!['name']).toEqual({ eq: 'Test' });
-      expect(result.queryObject.filters!['_orgId']).toEqual({
+      expect(result.queryOptions.filters).toBeDefined();
+      expect(result.queryOptions.filters!['name']).toEqual({ eq: 'Test' });
+      expect(result.queryOptions.filters!['_orgId']).toEqual({
         eq: userContext.user ? userContext.user._orgId : undefined,
       });
     });
@@ -194,13 +194,13 @@ describe('MultiTenantApiService', () => {
       const result = service.prepareQuery(userContext, queryOptions, []);
 
       // Assert
-      expect(result.queryObject.filters).toBeDefined();
-      expect(result.queryObject.filters!['name']).toEqual({ eq: 'Test' });
+      expect(result.queryOptions.filters).toBeDefined();
+      expect(result.queryOptions.filters!['name']).toEqual({ eq: 'Test' });
       // The consumer-supplied _orgId should be completely overwritten by userContext.user._orgId
-      expect(result.queryObject.filters!['_orgId']).toEqual({
+      expect(result.queryOptions.filters!['_orgId']).toEqual({
         eq: userContext.user ? userContext.user._orgId : undefined,
       });
-      expect(result.queryObject.filters!['_orgId']).not.toEqual({
+      expect(result.queryOptions.filters!['_orgId']).not.toEqual({
         eq: otherOrgId,
       });
     });

@@ -2,7 +2,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Db, ObjectId } from 'mongodb';
 
 import testUtils from './common-test.utils.js';
-import { initSystemUserContext } from '../config/base-api-config.js';
+import { config, initSystemUserContext } from '../config/base-api-config.js';
 import { ITestDatabase } from './test-database.interface.js';
 import { IDatabase } from '../databases/models/index.js';
 import { MongoDBDatabase } from '../databases/index.js';
@@ -84,7 +84,17 @@ export class TestMongoDatabase implements ITestDatabase {
             testUtils.initialize(testDatabase);
             await this.createIndexes(this.mongoDb);
 
-            // Create meta org before initializing system user context
+            // Bootstrap a system user so createMetaOrg can populate audit columns.
+            // initSystemUserContext below replaces this with the meta org once it exists.
+            const { initializeSystemUserContext, isSystemUserContextInitialized } =
+                await import('@loomcore/common/models');
+            if (!isSystemUserContextInitialized()) {
+                initializeSystemUserContext(
+                    config.email?.systemEmailAddress || 'system@test.com',
+                    undefined,
+                );
+            }
+
             await testUtils.createMetaOrg();
         }
 

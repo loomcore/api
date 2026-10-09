@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Type } from '@sinclair/typebox';
 import moment from 'moment';
-import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, EmptyUserContext, IOrganization } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, getSystemUserContext, IOrganization } from '@loomcore/common/models';
 import { TypeboxIsoDate, getSystemUserId } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -2941,7 +2941,7 @@ describe('GenericApiService - Integration Tests', () => {
         const updateData = { name: 'System Updated' };
 
         // Act
-        const preparedEntity = await service.preProcessEntity(EmptyUserContext, updateData, false);
+        const preparedEntity = await service.preProcessEntity(getSystemUserContext(), updateData, false);
 
         // Assert
         expect(preparedEntity._updated).toBeDefined();

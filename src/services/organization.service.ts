@@ -1,6 +1,5 @@
 import {
   type IOrganization,
-  IQueryOptions,
   type IUserContext,
   OrganizationSpec,
 } from '@loomcore/common/models';
@@ -75,11 +74,9 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   }
 
   async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
-    const rawEntity = await this.findOne(
-      userContext,
-      { filters: { isMetaOrg: { eq: true } } },
-    );
-    return rawEntity ? this.postProcessEntity(userContext, rawEntity) : null;
+    return this.findOne(userContext, {
+      filters: { isMetaOrg: { eq: true } },
+    });
   }
 
   async findByDomain(

@@ -120,20 +120,19 @@ async function createMetaOrg() {
     );
   }
   try {
-    // Create a meta organization (required for system user context)
-    // Use EmptyUserContext to avoid the org check when querying/creating
+    // Bootstrap uses the system user so audit columns are populated.
+    const systemUserContext = getSystemUserContext();
     const existingMetaOrg =
-      await organizationService.getMetaOrg(EmptyUserContext);
+      await organizationService.getMetaOrg(systemUserContext);
     if (!existingMetaOrg) {
-      // Use EmptyUserContext when creating the meta org (no org check needed for first meta org)
       const metaOrgInsertResult = await organizationService.create(
-        EmptyUserContext,
+        systemUserContext,
         getTestMetaOrg(),
       );
       if (metaOrgInsertResult) {
         setTestMetaOrgId(metaOrgInsertResult._id);
         await organizationDomainService.create(
-          EmptyUserContext,
+          systemUserContext,
           getTestMetaOrgDomain(metaOrgInsertResult._id),
         );
       }
@@ -141,12 +140,12 @@ async function createMetaOrg() {
       // Update test objects with the actual meta org ID from database
       setTestMetaOrgId(existingMetaOrg._id);
       const existingDomain = await organizationDomainService.findOne(
-        EmptyUserContext,
+        systemUserContext,
         { filters: { domain: { eq: TEST_META_ORG_DOMAIN } } },
       );
       if (!existingDomain) {
         await organizationDomainService.create(
-          EmptyUserContext,
+          systemUserContext,
           getTestMetaOrgDomain(existingMetaOrg._id),
         );
       }
@@ -226,7 +225,7 @@ async function createTestUsers(): Promise<{
       }
       setTestOrgId(createdTestOrg._id);
       await organizationDomainService.create(
-        EmptyUserContext,
+        getSystemUserContext(),
         getTestOrgDomain(createdTestOrg._id),
       );
     } else {
@@ -237,7 +236,7 @@ async function createTestUsers(): Promise<{
       );
       if (!existingDomain) {
         await organizationDomainService.create(
-          EmptyUserContext,
+          getSystemUserContext(),
           getTestOrgDomain(existingTestOrg._id),
         );
       }

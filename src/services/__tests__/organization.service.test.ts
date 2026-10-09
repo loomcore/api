@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { initializeTypeBox } from '@loomcore/common/validation';
-import { EmptyUserContext, IOrganization, IUserContext } from '@loomcore/common/models';
+import { EmptyUserContext, getSystemUserContext, IOrganization, IUserContext } from '@loomcore/common/models';
 import { ObjectId } from 'mongodb';
 
 import { OrganizationService } from '../organization.service.js';
@@ -48,7 +48,7 @@ describe('OrganizationService', () => {
       const referer = `https://${domain}/products`;
       const host = referer.split('/')[2];
 
-      const createdOrg = await service.create(EmptyUserContext, {
+      const createdOrg = await service.create(getSystemUserContext(), {
         name: 'My Org',
         code: 'my-org',
         status: 1,
@@ -56,7 +56,7 @@ describe('OrganizationService', () => {
       });
       expect(createdOrg?._id).toBeDefined();
 
-      await organizationDomainService.create(EmptyUserContext, {
+      await organizationDomainService.create(getSystemUserContext(), {
         organizationId: createdOrg!._id,
         domain,
       });
