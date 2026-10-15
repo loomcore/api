@@ -199,7 +199,7 @@ export class GenericApiService<T extends IEntity>
   ): Promise<IPagedResult<Y>> {
     let operations: Operation[] = [];
     if (prepareQueryCustom) {
-      ({ queryOptions, operations } = prepareQueryCustom(userContext, {}, []));
+      ({ queryOptions, operations } = prepareQueryCustom(userContext, queryOptions, operations));
     }
     ({ queryOptions, operations } = this.prepareQuery(userContext, queryOptions, operations));
 
