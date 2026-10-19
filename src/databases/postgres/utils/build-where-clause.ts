@@ -30,7 +30,8 @@ export function buildWhereClause(queryObject: IQueryOptions, values: any[] = [],
       const qualifiedKey = qualifyColumn(snakeKey);
 
       if (value.eq !== undefined) {
-        conditions.push(`${qualifiedKey} = $${paramIndex}`);
+        // Null-safe equality, equivalent to IS NOT DISTINCT FROM, which pg-mem cannot parse.
+        conditions.push(`(${qualifiedKey} = $${paramIndex} OR (${qualifiedKey} IS NULL AND $${paramIndex} IS NULL))`);
         values.push(value.eq);
         paramIndex++;
       }
