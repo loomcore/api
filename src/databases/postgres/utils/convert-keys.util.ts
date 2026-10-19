@@ -6,9 +6,12 @@ import _ from 'lodash';
  * @returns The snake_case version of the string
  */
 export function toSnakeCase(str: string): string {
-  // Handle camelCase transitions: insert underscore before uppercase letters
-  let result = str.replace(/([a-z])([A-Z])/g, '$1_$2');
-  
+  // Handle camelCase transitions: insert underscore before uppercase letters,
+  // and between letters and digits so addressLine1 becomes address_line_1.
+  let result = str
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([a-zA-Z])([0-9])/g, '$1_$2');
+
   // Convert to lowercase and replace spaces or hyphens with underscores
   result = result.toLowerCase()
     .replace(/[\s-]/g, '_');
