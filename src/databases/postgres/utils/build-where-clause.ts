@@ -35,6 +35,12 @@ export function buildWhereClause(queryObject: IQueryOptions, values: any[] = [],
         values.push(value.eq);
         paramIndex++;
       }
+      if (value.ne !== undefined) {
+        // Null-safe inequality, equivalent to IS DISTINCT FROM, which pg-mem cannot parse.
+        conditions.push(`(${qualifiedKey} != $${paramIndex} OR (${qualifiedKey} IS NOT NULL AND $${paramIndex} IS NULL) OR (${qualifiedKey} IS NULL AND $${paramIndex} IS NOT NULL))`);
+        values.push(value.ne);
+        paramIndex++;
+      }
       if (value.in !== undefined && Array.isArray(value.in)) {
         const placeholders = value.in.map(() => `$${paramIndex++}`).join(', ');
         conditions.push(`${qualifiedKey} IN (${placeholders})`);
