@@ -5,4 +5,5 @@ export interface IAuthConfig {
   jwtExpirationInSeconds: number;
   passwordResetTokenExpirationInMinutes: number;
   refreshTokenExpirationInDays: number;
+  welcomeEmailTokenExpirationInMinutes?: number;
 }
