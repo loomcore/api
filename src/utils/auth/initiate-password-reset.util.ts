@@ -1,7 +1,7 @@
 import { type IUserContext } from '@loomcore/common/models';
 import type { IDatabase } from '../../databases/models/index.js';
 import { ServerError } from '../../errors/index.js';
-import type { IEmailContent } from '../../models/email-client.interface.js';
+import type { IAuthConfig } from '../../models/auth-config.interface.js';
 import { EmailService } from '../../services/email.service.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
 import { getAuthConfig } from './get-auth-config.util.js';
@@ -9,18 +9,37 @@ import { getExpiresOnFromMinutes } from './get-expires-on-from-minutes.util.js';
 import { AppIdType } from '@loomcore/common/types';
 
 /**
- * Options for initiating a password reset.
+ * Kind of password email to send when initiating a password reset.
+ *
+ * To add a new type: add it to this union, add a table entry in `passwordEmails`,
+ * and add an EmailService method plus an optional IEmailClient method.
  */
-export interface IInitiatePasswordResetOptions {
-  /** Token expiry in minutes. Overrides the global authConfig.passwordResetTokenExpirationInMinutes. */
-  expiryInMinutes?: number;
-  /** Custom email content (subject and message). If omitted, the email client uses its default content. */
-  content?: IEmailContent;
-}
+export type PasswordEmailType = 'resetPassword' | 'welcome';
+
+/** Default welcome-email token expiry (7 days) used when auth config does not set welcomeEmailTokenExpirationInMinutes. */
+export const DEFAULT_WELCOME_EMAIL_TOKEN_EXPIRATION_IN_MINUTES = 7 * 24 * 60;
+
+const passwordEmails: Record<
+  PasswordEmailType,
+  {
+    getExpiryInMinutes: (authConfig: IAuthConfig) => number;
+    send: (emailService: EmailService, to: string, link: string) => Promise<void>;
+  }
+> = {
+  resetPassword: {
+    getExpiryInMinutes: (authConfig) => authConfig.passwordResetTokenExpirationInMinutes,
+    send: (emailService, to, link) => emailService.sendResetPasswordEmail(to, link),
+  },
+  welcome: {
+    getExpiryInMinutes: (authConfig) =>
+      authConfig.welcomeEmailTokenExpirationInMinutes ?? DEFAULT_WELCOME_EMAIL_TOKEN_EXPIRATION_IN_MINUTES,
+    send: (emailService, to, link) => emailService.sendWelcomeEmail(to, link),
+  },
+};
 
 /**
- * Initiate a password reset by creating a token and sending an email with the reset link.
- * This function creates the reset token and calls EmailService.sendResetPasswordEmail.
+ * Create a password-reset token and email a link to set or reset the password.
+ * `emailType` selects which expiry and EmailService method to use; defaults to `'resetPassword'`.
  */
 export async function initiatePasswordReset(
   userContext: IUserContext,
@@ -28,14 +47,14 @@ export async function initiatePasswordReset(
   organizationId: AppIdType | undefined,
   emailAddress: string,
   clientBaseUrl: string,
-  options?: IInitiatePasswordResetOptions,
+  emailType: PasswordEmailType = 'resetPassword',
 ) {
   const authConfig = getAuthConfig();
+  const passwordEmail = passwordEmails[emailType];
   const passwordResetTokenService = new PasswordResetTokenService(database);
   const emailService = new EmailService();
 
-  const expiryInMinutes = options?.expiryInMinutes ?? authConfig.passwordResetTokenExpirationInMinutes;
-  const expiresOn = getExpiresOnFromMinutes(expiryInMinutes);
+  const expiresOn = getExpiresOnFromMinutes(passwordEmail.getExpiryInMinutes(authConfig));
 
   const passwordResetToken = await passwordResetTokenService.createPasswordResetToken(
     userContext,
@@ -51,54 +70,5 @@ export async function initiatePasswordReset(
   const urlEncodedEmail = encodeURIComponent(emailAddress);
   const resetPasswordLink = `${clientBaseUrl}/reset-password/${passwordResetToken.token}/${urlEncodedEmail}`;
 
-  await emailService.sendResetPasswordEmail(emailAddress, resetPasswordLink, options?.content);
-}
-
-/** Default welcome email expiry: 7 days (in minutes) */
-export const WELCOME_EMAIL_DEFAULT_EXPIRY_MINUTES = 7 * 24 * 60;
-
-/** Default welcome email content */
-export const WELCOME_EMAIL_DEFAULT_CONTENT: IEmailContent = {
-  subject: 'Welcome - Set Your Password',
-  message: 'An account has been created for you. Please click the link below to set your password.',
-};
-
-/**
- * Options for sending a welcome email to a new user.
- */
-export interface ISendWelcomeEmailOptions {
-  /** Token expiry in minutes. Defaults to 7 days if not specified. */
-  expiryInMinutes?: number;
-  /** Custom email content (subject and/or message). Fields default to welcome email defaults when not provided. */
-  content?: Partial<IEmailContent>;
-}
-
-/**
- * Send a welcome email to a new user with a link to set their password.
- * Uses the same password reset token flow but with welcome-specific content and longer default expiry.
- *
- * Defaults are applied per-field:
- * - If expiryInMinutes is not provided, defaults to 7 days.
- * - If content is not provided, defaults to welcome email content.
- * - If content is partially provided (e.g. only subject), missing fields default to welcome email values.
- */
-export async function sendWelcomeEmail(
-  userContext: IUserContext,
-  database: IDatabase,
-  organizationId: AppIdType | undefined,
-  emailAddress: string,
-  clientBaseUrl: string,
-  options?: ISendWelcomeEmailOptions,
-) {
-  const expiryInMinutes = options?.expiryInMinutes ?? WELCOME_EMAIL_DEFAULT_EXPIRY_MINUTES;
-
-  const content: IEmailContent = {
-    subject: options?.content?.subject ?? WELCOME_EMAIL_DEFAULT_CONTENT.subject,
-    message: options?.content?.message ?? WELCOME_EMAIL_DEFAULT_CONTENT.message,
-  };
-
-  await initiatePasswordReset(userContext, database, organizationId, emailAddress, clientBaseUrl, {
-    expiryInMinutes,
-    content,
-  });
+  await passwordEmail.send(emailService, emailAddress, resetPasswordLink);
 }
