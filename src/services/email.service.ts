@@ -1,6 +1,7 @@
 import { config } from '../config/index.js';
 import { ServerError } from '../errors/index.js';
 import type { IEmailClient } from '../models/email-client.interface.js';
+import { logger } from '../utils/logger.utils.js';
 
 export class EmailService {
   private emailClient: IEmailClient;
@@ -17,7 +18,7 @@ export class EmailService {
   async sendResetPasswordEmail(emailAddress: string, resetPasswordLink: string) {
     try {
       await this.emailClient.sendResetPasswordEmail(emailAddress, resetPasswordLink);
-      console.log(`Reset password email sent to ${emailAddress} with reset password link ${resetPasswordLink}`);
+      logger.info(`Reset password email sent to ${emailAddress} with reset password link ${resetPasswordLink}`);
     } catch (error) {
       console.error('Error sending reset password email:', error);
       throw new ServerError('Error sending reset password email');
@@ -28,13 +29,13 @@ export class EmailService {
     try {
       if (this.emailClient.sendWelcomeEmail) {
         await this.emailClient.sendWelcomeEmail(emailAddress, setPasswordLink);
-        console.log(`Welcome email sent to ${emailAddress} with set password link ${setPasswordLink}`);
+        logger.info(`Welcome email sent to ${emailAddress} with set password link ${setPasswordLink}`);
       } else {
         await this.emailClient.sendResetPasswordEmail(emailAddress, setPasswordLink);
-        console.log(`Welcome email (via reset password) sent to ${emailAddress} with set password link ${setPasswordLink}`);
+        logger.info(`Welcome email (via reset password) sent to ${emailAddress} with set password link ${setPasswordLink}`);
       }
     } catch (error) {
-      console.error('Error sending welcome email:', error);
+      logger.error('Error sending welcome email:', error);
       throw new ServerError('Error sending welcome email');
     }
   }
