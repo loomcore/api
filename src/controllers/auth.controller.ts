@@ -26,9 +26,9 @@ import {
   getAndSetDeviceIdCookie,
   getDeviceIdFromCookie,
   impersonateUser,
+  initiatePasswordReset,
   requestTokenUsingRefreshToken,
   resetPassword,
-  sendResetPasswordEmail,
 } from '../utils/auth/index.js';
 import { apiUtils } from '../utils/index.js';
 import { Authorize } from '../decorators/authorize.decorator.js';
@@ -276,7 +276,7 @@ export class AuthController {
     });
 
     if (user) {
-      await sendResetPasswordEmail(
+      await initiatePasswordReset(
         systemUserContext,
         this.database,
         organization?._id,
