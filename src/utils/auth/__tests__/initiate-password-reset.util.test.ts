@@ -14,8 +14,6 @@ import {
 describe('initiatePasswordReset', () => {
   let testDatabase: any;
   let passwordResetTokenService: PasswordResetTokenService;
-  let sendResetPasswordEmailSpy: ReturnType<typeof vi.spyOn>;
-  let sendWelcomeEmailSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(async () => {
     const testSetup = await TestExpressApp.init();
@@ -36,8 +34,10 @@ describe('initiatePasswordReset', () => {
   });
 
   function spyOnEmailService() {
-    sendResetPasswordEmailSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
-    sendWelcomeEmailSpy = vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
+    return {
+      sendResetPasswordEmailSpy: vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue(),
+      sendWelcomeEmailSpy: vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue(),
+    };
   }
 
   it('uses the auth config reset expiry and calls EmailService.sendResetPasswordEmail by default', async () => {
@@ -47,7 +47,7 @@ describe('initiatePasswordReset', () => {
     const clientBaseUrl = 'https://example.com';
     const authConfig = getAuthConfig();
 
-    spyOnEmailService();
+    const { sendResetPasswordEmailSpy, sendWelcomeEmailSpy } = spyOnEmailService();
 
     const beforeCall = Date.now();
     await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl);
@@ -82,7 +82,7 @@ describe('initiatePasswordReset', () => {
     const configuredWelcomeExpiryMinutes = 1440;
     config.auth!.welcomeEmailTokenExpirationInMinutes = configuredWelcomeExpiryMinutes;
 
-    spyOnEmailService();
+    const { sendResetPasswordEmailSpy, sendWelcomeEmailSpy } = spyOnEmailService();
 
     const beforeCall = Date.now();
     await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, 'welcome');
@@ -113,7 +113,7 @@ describe('initiatePasswordReset', () => {
     const clientBaseUrl = 'https://example.com';
     expect(config.auth?.welcomeEmailTokenExpirationInMinutes).toBeUndefined();
 
-    spyOnEmailService();
+    const { sendResetPasswordEmailSpy, sendWelcomeEmailSpy } = spyOnEmailService();
 
     const beforeCall = Date.now();
     await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, 'welcome');
