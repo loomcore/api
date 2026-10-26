@@ -17,6 +17,6 @@ export * from './is-system-user.util.js';
 export * from './log-user-in.util.js';
 export * from './request-token-using-refresh-token.util.js';
 export * from './reset-password.util.js';
-export * from './send-reset-password-email.util.js';
+export * from './initiate-password-reset.util.js';
 export * from './update-last-logged-in.util.js';
 export * from './authorize-method.util.js';

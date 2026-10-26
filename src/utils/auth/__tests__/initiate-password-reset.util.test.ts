@@ -4,16 +4,17 @@ import { TestExpressApp } from '../../../__tests__/test-express-app.js';
 import { getTestMetaOrgUserContext } from '../../../__tests__/test-objects.js';
 import { PasswordResetTokenService } from '../../../services/password-reset-token.service.js';
 import { EmailService } from '../../../services/email.service.js';
+import { getAuthConfig } from '../get-auth-config.util.js';
 import {
-  sendResetPasswordEmail,
+  initiatePasswordReset,
   sendWelcomeEmail,
   WELCOME_EMAIL_DEFAULT_EXPIRY_MINUTES,
   WELCOME_EMAIL_DEFAULT_CONTENT,
-  ISendResetPasswordEmailOptions,
+  IInitiatePasswordResetOptions,
   ISendWelcomeEmailOptions,
-} from '../send-reset-password-email.util.js';
+} from '../initiate-password-reset.util.js';
 
-describe('sendResetPasswordEmail', () => {
+describe('initiatePasswordReset', () => {
   let testDatabase: any;
   let passwordResetTokenService: PasswordResetTokenService;
   let emailServiceSpy: ReturnType<typeof vi.spyOn>;
@@ -33,15 +34,18 @@ describe('sendResetPasswordEmail', () => {
     await TestExpressApp.cleanup();
   });
 
-  it('should create a password reset token and send email with default expiry when no options provided', async () => {
+  it('should create a password reset token and send email with auth-config default expiry when no options provided', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'test@example.com';
     const clientBaseUrl = 'https://example.com';
+    const authConfig = getAuthConfig();
 
     emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
 
-    await sendResetPasswordEmail(userContext, testDatabase, undefined, email, clientBaseUrl);
+    const beforeCall = Date.now();
+    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl);
+    const afterCall = Date.now();
 
     const token = await passwordResetTokenService.findOne(userContext, {
       filters: { email: { eq: email.toLowerCase() } },
@@ -50,7 +54,11 @@ describe('sendResetPasswordEmail', () => {
     expect(token).toBeDefined();
     expect(token?.email).toBe(email.toLowerCase());
     expect(token?.token).toBeDefined();
-    expect(token?.expiresOn).toBeDefined();
+
+    const expectedMinExpiry = beforeCall + authConfig.passwordResetTokenExpirationInMinutes * 60 * 1000;
+    const expectedMaxExpiry = afterCall + authConfig.passwordResetTokenExpirationInMinutes * 60 * 1000;
+    expect(token?.expiresOn).toBeGreaterThanOrEqual(expectedMinExpiry);
+    expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
 
     expect(emailServiceSpy).toHaveBeenCalledTimes(1);
     const [toEmail, resetLink, content] = emailServiceSpy.mock.calls[0];
@@ -70,7 +78,7 @@ describe('sendResetPasswordEmail', () => {
     emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
 
     const beforeCall = Date.now();
-    await sendResetPasswordEmail(userContext, testDatabase, undefined, email, clientBaseUrl, {
+    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, {
       expiryInMinutes: customExpiryMinutes,
     });
     const afterCall = Date.now();
@@ -84,9 +92,12 @@ describe('sendResetPasswordEmail', () => {
     const expectedMaxExpiry = afterCall + customExpiryMinutes * 60 * 1000;
     expect(token?.expiresOn).toBeGreaterThanOrEqual(expectedMinExpiry);
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
+
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toBeUndefined();
   });
 
-  it('should pass custom content to email service', async () => {
+  it('should pass custom content to email service unchanged', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'custom-content@example.com';
@@ -98,7 +109,7 @@ describe('sendResetPasswordEmail', () => {
 
     emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
 
-    await sendResetPasswordEmail(userContext, testDatabase, undefined, email, clientBaseUrl, {
+    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, {
       content: customContent,
     });
 
@@ -112,7 +123,7 @@ describe('sendResetPasswordEmail', () => {
     const userContext = getTestMetaOrgUserContext();
     const email = 'both-options@example.com';
     const clientBaseUrl = 'https://example.com';
-    const options: ISendResetPasswordEmailOptions = {
+    const options: IInitiatePasswordResetOptions = {
       expiryInMinutes: 120,
       content: {
         subject: 'Both Options Subject',
@@ -123,7 +134,7 @@ describe('sendResetPasswordEmail', () => {
     emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
 
     const beforeCall = Date.now();
-    await sendResetPasswordEmail(userContext, testDatabase, undefined, email, clientBaseUrl, options);
+    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, options);
     const afterCall = Date.now();
 
     const token = await passwordResetTokenService.findOne(userContext, {
@@ -161,7 +172,7 @@ describe('sendWelcomeEmail', () => {
     await TestExpressApp.cleanup();
   });
 
-  it('should use default welcome email expiry (7 days) and content', async () => {
+  it('should use default welcome email expiry (7 days) and content when no options provided', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome@example.com';
@@ -188,7 +199,7 @@ describe('sendWelcomeEmail', () => {
     expect(content).toEqual(WELCOME_EMAIL_DEFAULT_CONTENT);
   });
 
-  it('should allow overriding expiry while keeping default content', async () => {
+  it('should use custom expiry when provided while keeping default content', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome-custom-expiry@example.com';
@@ -217,7 +228,7 @@ describe('sendWelcomeEmail', () => {
     expect(content).toEqual(WELCOME_EMAIL_DEFAULT_CONTENT);
   });
 
-  it('should allow overriding content while keeping default expiry', async () => {
+  it('should use custom content when provided while keeping default expiry', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome-custom-content@example.com';
@@ -249,7 +260,49 @@ describe('sendWelcomeEmail', () => {
     expect(content).toEqual(customContent);
   });
 
-  it('should allow overriding both expiry and content', async () => {
+  it('should use partial content (subject only) with default message', async () => {
+    await testUtils.setupTestUsers();
+    const userContext = getTestMetaOrgUserContext();
+    const email = 'welcome-subject-only@example.com';
+    const clientBaseUrl = 'https://example.com';
+    const customSubject = 'Custom Welcome Subject';
+
+    emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
+
+    await sendWelcomeEmail(userContext, testDatabase, undefined, email, clientBaseUrl, {
+      content: { subject: customSubject },
+    });
+
+    expect(emailServiceSpy).toHaveBeenCalledTimes(1);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual({
+      subject: customSubject,
+      message: WELCOME_EMAIL_DEFAULT_CONTENT.message,
+    });
+  });
+
+  it('should use partial content (message only) with default subject', async () => {
+    await testUtils.setupTestUsers();
+    const userContext = getTestMetaOrgUserContext();
+    const email = 'welcome-message-only@example.com';
+    const clientBaseUrl = 'https://example.com';
+    const customMessage = 'Custom welcome message for new user.';
+
+    emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
+
+    await sendWelcomeEmail(userContext, testDatabase, undefined, email, clientBaseUrl, {
+      content: { message: customMessage },
+    });
+
+    expect(emailServiceSpy).toHaveBeenCalledTimes(1);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual({
+      subject: WELCOME_EMAIL_DEFAULT_CONTENT.subject,
+      message: customMessage,
+    });
+  });
+
+  it('should use both custom expiry and content when both provided', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome-both@example.com';
@@ -282,7 +335,7 @@ describe('sendWelcomeEmail', () => {
     expect(content).toEqual(options.content);
   });
 
-  it('should generate the same reset password link format as sendResetPasswordEmail', async () => {
+  it('should generate the same reset password link format as initiatePasswordReset', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome-link@example.com';

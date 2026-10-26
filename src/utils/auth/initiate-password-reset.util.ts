@@ -9,22 +9,26 @@ import { getExpiresOnFromMinutes } from './get-expires-on-from-minutes.util.js';
 import { AppIdType } from '@loomcore/common/types';
 
 /**
- * Options for sending a password reset or welcome email.
+ * Options for initiating a password reset.
  */
-export interface ISendResetPasswordEmailOptions {
+export interface IInitiatePasswordResetOptions {
   /** Token expiry in minutes. Overrides the global authConfig.passwordResetTokenExpirationInMinutes. */
   expiryInMinutes?: number;
   /** Custom email content (subject and message). If omitted, the email client uses its default content. */
   content?: IEmailContent;
 }
 
-export async function sendResetPasswordEmail(
+/**
+ * Initiate a password reset by creating a token and sending an email with the reset link.
+ * This function creates the reset token and calls EmailService.sendResetPasswordEmail.
+ */
+export async function initiatePasswordReset(
   userContext: IUserContext,
   database: IDatabase,
   organizationId: AppIdType | undefined,
   emailAddress: string,
   clientBaseUrl: string,
-  options?: ISendResetPasswordEmailOptions,
+  options?: IInitiatePasswordResetOptions,
 ) {
   const authConfig = getAuthConfig();
   const passwordResetTokenService = new PasswordResetTokenService(database);
@@ -65,13 +69,18 @@ export const WELCOME_EMAIL_DEFAULT_CONTENT: IEmailContent = {
 export interface ISendWelcomeEmailOptions {
   /** Token expiry in minutes. Defaults to 7 days if not specified. */
   expiryInMinutes?: number;
-  /** Custom email content (subject and message). If omitted, uses welcome email default content. */
-  content?: IEmailContent;
+  /** Custom email content (subject and/or message). Fields default to welcome email defaults when not provided. */
+  content?: Partial<IEmailContent>;
 }
 
 /**
  * Send a welcome email to a new user with a link to set their password.
  * Uses the same password reset token flow but with welcome-specific content and longer default expiry.
+ *
+ * Defaults are applied per-field:
+ * - If expiryInMinutes is not provided, defaults to 7 days.
+ * - If content is not provided, defaults to welcome email content.
+ * - If content is partially provided (e.g. only subject), missing fields default to welcome email values.
  */
 export async function sendWelcomeEmail(
   userContext: IUserContext,
@@ -82,9 +91,13 @@ export async function sendWelcomeEmail(
   options?: ISendWelcomeEmailOptions,
 ) {
   const expiryInMinutes = options?.expiryInMinutes ?? WELCOME_EMAIL_DEFAULT_EXPIRY_MINUTES;
-  const content = options?.content ?? WELCOME_EMAIL_DEFAULT_CONTENT;
 
-  await sendResetPasswordEmail(userContext, database, organizationId, emailAddress, clientBaseUrl, {
+  const content: IEmailContent = {
+    subject: options?.content?.subject ?? WELCOME_EMAIL_DEFAULT_CONTENT.subject,
+    message: options?.content?.message ?? WELCOME_EMAIL_DEFAULT_CONTENT.message,
+  };
+
+  await initiatePasswordReset(userContext, database, organizationId, emailAddress, clientBaseUrl, {
     expiryInMinutes,
     content,
   });
