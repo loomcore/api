@@ -1,6 +1,6 @@
 import { config } from '../config/index.js';
 import { ServerError } from '../errors/index.js';
-import type { IEmailClient, IEmailWording } from '../models/email-client.interface.js';
+import type { IEmailClient, IEmailContent } from '../models/email-client.interface.js';
 
 export class EmailService {
   private emailClient: IEmailClient;
@@ -14,9 +14,9 @@ export class EmailService {
     }
   }
 
-  async sendResetPasswordEmail(emailAddress: string, resetPasswordLink: string, wording?: IEmailWording) {
+  async sendResetPasswordEmail(emailAddress: string, resetPasswordLink: string, content?: IEmailContent) {
     try {
-      await this.emailClient.sendResetPasswordEmail(emailAddress, resetPasswordLink, wording);
+      await this.emailClient.sendResetPasswordEmail(emailAddress, resetPasswordLink, content);
       console.log(`Reset password email sent to ${emailAddress} with reset password link ${resetPasswordLink}`);
     } catch (error) {
       console.error('Error sending reset password email:', error);
