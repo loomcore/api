@@ -8,7 +8,7 @@ import {
   sendResetPasswordEmail,
   sendWelcomeEmail,
   WELCOME_EMAIL_DEFAULT_EXPIRY_MINUTES,
-  WELCOME_EMAIL_DEFAULT_WORDING,
+  WELCOME_EMAIL_DEFAULT_CONTENT,
   ISendResetPasswordEmailOptions,
   ISendWelcomeEmailOptions,
 } from '../send-reset-password-email.util.js';
@@ -53,11 +53,11 @@ describe('sendResetPasswordEmail', () => {
     expect(token?.expiresOn).toBeDefined();
 
     expect(emailServiceSpy).toHaveBeenCalledTimes(1);
-    const [toEmail, resetLink, wording] = emailServiceSpy.mock.calls[0];
+    const [toEmail, resetLink, content] = emailServiceSpy.mock.calls[0];
     expect(toEmail).toBe(email);
     expect(resetLink).toContain(`${clientBaseUrl}/reset-password/`);
     expect(resetLink).toContain(encodeURIComponent(email));
-    expect(wording).toBeUndefined();
+    expect(content).toBeUndefined();
   });
 
   it('should use custom expiry when provided in options', async () => {
@@ -86,12 +86,12 @@ describe('sendResetPasswordEmail', () => {
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
   });
 
-  it('should pass custom wording to email service', async () => {
+  it('should pass custom content to email service', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
-    const email = 'custom-wording@example.com';
+    const email = 'custom-content@example.com';
     const clientBaseUrl = 'https://example.com';
-    const customWording = {
+    const customContent = {
       subject: 'Custom Subject',
       message: 'Custom message content',
     };
@@ -99,22 +99,22 @@ describe('sendResetPasswordEmail', () => {
     emailServiceSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
 
     await sendResetPasswordEmail(userContext, testDatabase, undefined, email, clientBaseUrl, {
-      wording: customWording,
+      content: customContent,
     });
 
     expect(emailServiceSpy).toHaveBeenCalledTimes(1);
-    const [, , wording] = emailServiceSpy.mock.calls[0];
-    expect(wording).toEqual(customWording);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual(customContent);
   });
 
-  it('should pass both custom expiry and wording when both provided', async () => {
+  it('should pass both custom expiry and content when both provided', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'both-options@example.com';
     const clientBaseUrl = 'https://example.com';
     const options: ISendResetPasswordEmailOptions = {
       expiryInMinutes: 120,
-      wording: {
+      content: {
         subject: 'Both Options Subject',
         message: 'Both options message',
       },
@@ -136,8 +136,8 @@ describe('sendResetPasswordEmail', () => {
     expect(token?.expiresOn).toBeGreaterThanOrEqual(expectedMinExpiry);
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
 
-    const [, , wording] = emailServiceSpy.mock.calls[0];
-    expect(wording).toEqual(options.wording);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual(options.content);
   });
 });
 
@@ -161,7 +161,7 @@ describe('sendWelcomeEmail', () => {
     await TestExpressApp.cleanup();
   });
 
-  it('should use default welcome email expiry (7 days) and wording', async () => {
+  it('should use default welcome email expiry (7 days) and content', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome@example.com';
@@ -184,11 +184,11 @@ describe('sendWelcomeEmail', () => {
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
 
     expect(emailServiceSpy).toHaveBeenCalledTimes(1);
-    const [, , wording] = emailServiceSpy.mock.calls[0];
-    expect(wording).toEqual(WELCOME_EMAIL_DEFAULT_WORDING);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual(WELCOME_EMAIL_DEFAULT_CONTENT);
   });
 
-  it('should allow overriding expiry while keeping default wording', async () => {
+  it('should allow overriding expiry while keeping default content', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome-custom-expiry@example.com';
@@ -213,16 +213,16 @@ describe('sendWelcomeEmail', () => {
     expect(token?.expiresOn).toBeGreaterThanOrEqual(expectedMinExpiry);
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
 
-    const [, , wording] = emailServiceSpy.mock.calls[0];
-    expect(wording).toEqual(WELCOME_EMAIL_DEFAULT_WORDING);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual(WELCOME_EMAIL_DEFAULT_CONTENT);
   });
 
-  it('should allow overriding wording while keeping default expiry', async () => {
+  it('should allow overriding content while keeping default expiry', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
-    const email = 'welcome-custom-wording@example.com';
+    const email = 'welcome-custom-content@example.com';
     const clientBaseUrl = 'https://example.com';
-    const customWording = {
+    const customContent = {
       subject: 'Welcome to Our Platform',
       message: 'You have been invited to join our platform. Click below to set your password.',
     };
@@ -231,7 +231,7 @@ describe('sendWelcomeEmail', () => {
 
     const beforeCall = Date.now();
     await sendWelcomeEmail(userContext, testDatabase, undefined, email, clientBaseUrl, {
-      wording: customWording,
+      content: customContent,
     });
     const afterCall = Date.now();
 
@@ -245,18 +245,18 @@ describe('sendWelcomeEmail', () => {
     expect(token?.expiresOn).toBeGreaterThanOrEqual(expectedMinExpiry);
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
 
-    const [, , wording] = emailServiceSpy.mock.calls[0];
-    expect(wording).toEqual(customWording);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual(customContent);
   });
 
-  it('should allow overriding both expiry and wording', async () => {
+  it('should allow overriding both expiry and content', async () => {
     await testUtils.setupTestUsers();
     const userContext = getTestMetaOrgUserContext();
     const email = 'welcome-both@example.com';
     const clientBaseUrl = 'https://example.com';
     const options: ISendWelcomeEmailOptions = {
       expiryInMinutes: 30 * 24 * 60, // 30 days
-      wording: {
+      content: {
         subject: 'Welcome to Tenant',
         message: 'Your admin account is ready.',
       },
@@ -278,8 +278,8 @@ describe('sendWelcomeEmail', () => {
     expect(token?.expiresOn).toBeGreaterThanOrEqual(expectedMinExpiry);
     expect(token?.expiresOn).toBeLessThanOrEqual(expectedMaxExpiry);
 
-    const [, , wording] = emailServiceSpy.mock.calls[0];
-    expect(wording).toEqual(options.wording);
+    const [, , content] = emailServiceSpy.mock.calls[0];
+    expect(content).toEqual(options.content);
   });
 
   it('should generate the same reset password link format as sendResetPasswordEmail', async () => {
@@ -306,10 +306,10 @@ describe('WELCOME_EMAIL_DEFAULT_EXPIRY_MINUTES', () => {
   });
 });
 
-describe('WELCOME_EMAIL_DEFAULT_WORDING', () => {
+describe('WELCOME_EMAIL_DEFAULT_CONTENT', () => {
   it('should have appropriate welcome subject and message', () => {
-    expect(WELCOME_EMAIL_DEFAULT_WORDING.subject).toBe('Welcome - Set Your Password');
-    expect(WELCOME_EMAIL_DEFAULT_WORDING.message).toContain('account has been created');
-    expect(WELCOME_EMAIL_DEFAULT_WORDING.message).toContain('set your password');
+    expect(WELCOME_EMAIL_DEFAULT_CONTENT.subject).toBe('Welcome - Set Your Password');
+    expect(WELCOME_EMAIL_DEFAULT_CONTENT.message).toContain('account has been created');
+    expect(WELCOME_EMAIL_DEFAULT_CONTENT.message).toContain('set your password');
   });
 });
