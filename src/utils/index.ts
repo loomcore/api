@@ -2,6 +2,7 @@ export * from './address.utils.js';
 export * from './api.utils.js';
 export * from './auth/index.js';
 export * from './conversion.utils.js';
+export * from './cors-origin.util.js';
 export * from './create-public-spec.utils.js';
 export * from './express.utils.js';
 export * from './jwt.utils.js';

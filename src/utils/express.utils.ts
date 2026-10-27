@@ -12,6 +12,7 @@ import { errorHandler } from '../middleware/error-handler.js';
 import { IBaseApiConfig } from '../models/index.js';
 import { ensureUserContext } from '../middleware/ensure-user-context.js';
 import { IDatabase } from '../databases/models/index.js';
+import { toCorsAllowedOrigins } from './cors-origin.util.js';
 
 // Define the type for the routes setup function
 type RouteSetupFunction = (app: Application, database: IDatabase, config: IBaseApiConfig) => void;
@@ -37,7 +38,7 @@ function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoute
   app.use(bodyParser.json());
   app.use(cookieParser() as any);
   app.use(cors({
-    origin: config.network.corsAllowedOrigins,
+    origin: toCorsAllowedOrigins(config.network.corsAllowedOrigins),
     credentials: true
   }));
   app.use(ensureUserContext);
