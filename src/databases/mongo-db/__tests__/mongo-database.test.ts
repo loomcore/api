@@ -8,6 +8,7 @@ import { initializeTypeBox, TypeboxIsoDate, TypeboxObjectId } from '@loomcore/co
 
 import { MongoDBDatabase } from '../mongo-db.database.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
+import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { GenericApiService } from '../../../services/generic-api-service/generic-api.service.js';
 import testUtils from '../../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../../__tests__/test-express-app.js';
@@ -93,6 +94,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
     // Clean up collections before each test
     await ordersCollection.deleteMany({});
     await customersCollection.deleteMany({});
+    await db.collection('lineItems').deleteMany({});
   });
 
   describe('getAll with join operation', () => {
@@ -414,6 +416,118 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       const order1 = result.entities!.find((o: OrderWithCustomer) => o.orderNumber === 'ORD-201');
       expect(order1).toBeDefined();
       expect(order1!._joinData?.customer!.name).toBe('John Doe');
+    });
+
+    it('should filter orders by a joined customer column and keep the page total in sync', async () => {
+      const johnId = new ObjectId();
+      const janeId = new ObjectId();
+      await customersCollection.insertMany([
+        { _id: johnId, name: 'John Doe', email: 'john@example.com' },
+        { _id: janeId, name: 'Jane Smith', email: 'jane@example.com' },
+      ]);
+      await ordersCollection.insertMany([
+        { _id: new ObjectId(), orderNumber: 'ORD-401', customerId: johnId, total: 10, status: 'pending' },
+        { _id: new ObjectId(), orderNumber: 'ORD-402', customerId: janeId, total: 20, status: 'pending' },
+        { _id: new ObjectId(), orderNumber: 'ORD-403', customerId: johnId, total: 30, status: 'completed' },
+        { _id: new ObjectId(), orderNumber: 'ORD-404', customerId: new ObjectId(), total: 40, status: 'pending' },
+      ]);
+      const joinOperation = new LeftJoin('customers', 'customerId', '_id', 'customer');
+
+      const result = await orderDatabase.get<OrderWithCustomer>(
+        [joinOperation],
+        {
+          ...DefaultQueryOptions,
+          filters: { 'customer.name': { eq: 'John Doe' } },
+          orderBy: 'orderNumber',
+          sortDirection: 'asc',
+          page: 1,
+          pageSize: 1,
+        },
+        orderModelSpec,
+        'orders',
+      );
+
+      expect(result.total).toBe(2);
+      expect(result.entities).toHaveLength(1);
+      expect(result.entities![0].orderNumber).toBe('ORD-401');
+      expect(result.entities![0]._joinData?.customer!.name).toBe('John Doe');
+
+      const notJane = await orderDatabase.get<OrderWithCustomer>(
+        [joinOperation],
+        {
+          ...DefaultQueryOptions,
+          filters: { 'customer.name': { ne: 'Jane Smith' }, status: { eq: 'pending' } },
+          orderBy: 'orderNumber',
+          sortDirection: 'asc',
+          pageSize: 10,
+        },
+        orderModelSpec,
+        'orders',
+      );
+      const orderNumbers = notJane.entities!.map(order => order.orderNumber);
+      expect(orderNumbers).toEqual(['ORD-401']);
+      expect(notJane.total).toBe(1);
+    });
+
+    it('should filter orders when any joined line item matches', async () => {
+      const orderWithMatchId = new ObjectId();
+      const orderWithoutMatchId = new ObjectId();
+      await ordersCollection.insertMany([
+        { _id: orderWithMatchId, orderNumber: 'ORD-501', customerId: new ObjectId(), total: 10, status: 'pending' },
+        { _id: orderWithoutMatchId, orderNumber: 'ORD-502', customerId: new ObjectId(), total: 20, status: 'pending' },
+      ]);
+      await db.collection('lineItems').insertMany([
+        { _id: new ObjectId(), orderId: orderWithMatchId, sku: 'OTHER' },
+        { _id: new ObjectId(), orderId: orderWithMatchId, sku: 'ABC' },
+        { _id: new ObjectId(), orderId: orderWithoutMatchId, sku: 'XYZ' },
+      ]);
+      const joinItems = new LeftJoinMany('lineItems', '_id', 'orderId', 'items');
+
+      const result = await orderDatabase.get<Order>(
+        [joinItems],
+        {
+          ...DefaultQueryOptions,
+          filters: { 'items.sku': { eq: 'ABC' } },
+          orderBy: 'orderNumber',
+          sortDirection: 'asc',
+        },
+        orderModelSpec,
+        'orders',
+      );
+
+      expect(result.total).toBe(1);
+      expect(result.entities).toHaveLength(1);
+      expect(result.entities![0].orderNumber).toBe('ORD-501');
+    });
+
+    it('should apply a join filter when getting an order by id', async () => {
+      const janeId = new ObjectId();
+      const orderId = new ObjectId();
+      await customersCollection.insertOne({ _id: janeId, name: 'Jane Smith', email: 'jane@example.com' });
+      await ordersCollection.insertOne({
+        _id: orderId,
+        orderNumber: 'ORD-601',
+        customerId: janeId,
+        total: 15,
+        status: 'pending',
+      });
+      const joinOperation = new LeftJoin('customers', 'customerId', '_id', 'customer');
+
+      const match = await orderDatabase.getById<OrderWithCustomer>(
+        [joinOperation],
+        { filters: { 'customer.name': { eq: 'Jane Smith' } } },
+        orderId.toString(),
+        'orders',
+      );
+      expect(match?.orderNumber).toBe('ORD-601');
+
+      const miss = await orderDatabase.getById<OrderWithCustomer>(
+        [joinOperation],
+        { filters: { 'customer.name': { eq: 'John Doe' } } },
+        orderId.toString(),
+        'orders',
+      );
+      expect(miss).toBeNull();
     });
 
     it('should handle pagination with join operation', async () => {

@@ -25,6 +25,23 @@ function getThroughTableAliases(operations: Operation[]): Set<string> {
   return through;
 }
 
+/** One-to-one aliases that `oneToOneOnly` join clauses place in the outer FROM. */
+export function collectOuterOneToOneAliases(operations: Operation[], mainTableName?: string): Set<string> {
+  const aliases = new Set<string>();
+  for (const operation of operations) {
+    if (!(operation instanceof LeftJoin) && !(operation instanceof InnerJoin)) {
+      continue;
+    }
+    const parent = getParentAlias(operation.localField);
+    const parentInScope = parent === null || parent === mainTableName || aliases.has(parent);
+    if (!parentInScope) {
+      continue;
+    }
+    aliases.add(operation.as);
+  }
+  return aliases;
+}
+
 /**
    * Builds SQL JOIN clauses for join operations.
    *
@@ -40,18 +57,13 @@ export function buildJoinClauses(
   const oneToOneOnly = options?.oneToOneOnly ?? false;
   const throughTableAliases = oneToOneOnly ? getThroughTableAliases(operations) : new Set<string>();
   const joinClauses: string[] = [];
-  const oneToOneAliasesInScope = new Set<string>();
+  const oneToOneAliasesInScope = oneToOneOnly ? collectOuterOneToOneAliases(operations, mainTableName) : new Set<string>();
 
   for (const operation of operations) {
     if (operation instanceof LeftJoinMany) {
       if (oneToOneOnly) continue;
     } else if (operation instanceof LeftJoin || operation instanceof InnerJoin) {
-      if (oneToOneOnly) {
-        const parent = getParentAlias(operation.localField);
-        const parentInScope = parent === null || parent === mainTableName || oneToOneAliasesInScope.has(parent);
-        if (!parentInScope) continue;
-        oneToOneAliasesInScope.add(operation.as);
-      }
+      if (oneToOneOnly && !oneToOneAliasesInScope.has(operation.as)) continue;
     }
 
     if (operation instanceof LeftJoin || operation instanceof InnerJoin || operation instanceof LeftJoinMany) {

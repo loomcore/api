@@ -33,7 +33,7 @@ export async function getById<T>(
   queryObject.filters._id = { eq: id };
 
   const tablePrefix = hasJoins ? pluralResourceName : undefined;
-  const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix);
+  const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix, operations, pluralResourceName);
   const query = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause} LIMIT 1`;
   const result = await client.query(query, values);
 
