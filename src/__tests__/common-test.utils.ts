@@ -374,6 +374,16 @@ function getAdminAuthToken(): string {
   return `Bearer ${token}`;
 }
 
+/** Tenant-org user with the admin feature — not a meta-org admin. */
+function getOrgAdminAuthToken(): string {
+  const userContext = {
+    user: getTestOrgUser(),
+    features: ['admin'],
+  };
+  const token = jwt.sign(userContext, JWT_SECRET, { expiresIn: 3600 });
+  return `Bearer ${token}`;
+}
+
 function getExpiredAuthToken(): string {
   const userContext = getTestMetaOrgUserContext();
   const token = jwt.sign(userContext, JWT_SECRET, { expiresIn: -1 });
@@ -702,6 +712,7 @@ const testUtils = {
   deleteTestUser,
   getAuthToken,
   getAdminAuthToken,
+  getOrgAdminAuthToken,
   getExpiredAuthToken,
   getTestMetaOrgRefererUrl,
   initialize,

@@ -43,9 +43,15 @@ function kebabCase(str: string) {
   return result;
 }
 
+/** Single DNS label: lowercase letters, digits, hyphens; 1–63 chars; no leading/trailing hyphen. */
+function isValidDnsLabel(value: string): boolean {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
+}
+
 export const stringUtils = {
   camelCase,
   pascalCase,
-  kebabCase
+  kebabCase,
+  isValidDnsLabel,
 }
 

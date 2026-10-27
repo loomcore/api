@@ -2,7 +2,7 @@ import { getSystemUserContext, type IOrganization } from '@loomcore/common/model
 import type { Application, NextFunction, Request, Response } from 'express';
 import type { IDatabase } from '../databases/models/index.js';
 import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
-import { OrganizationService } from '../services/index.js';
+import { OrganizationService, type ICreateOrganizationWithAdminResult } from '../services/index.js';
 import { apiUtils } from '../utils/index.js';
 import { ApiController } from './api.controller.js';
 import { Authorize } from '../decorators/authorize.decorator.js';
@@ -22,6 +22,13 @@ export class OrganizationsController extends ApiController<IOrganization> {
   }
 
   override mapRoutes(app: Application) {
+    // Register before /:id so "create-with-admin" is not captured as an id on overlapping verbs.
+    app.post(
+      `/api/${this.slug}/create-with-admin`,
+      this.authorize('createOrganizationWithAdmin'),
+      this.createOrganizationWithAdmin.bind(this),
+    );
+
     super.mapRoutes(app); // map the base ApiController routes
 
     app.get(
@@ -34,6 +41,17 @@ export class OrganizationsController extends ApiController<IOrganization> {
       this.authorize('getByCode'),
       this.getByCode.bind(this),
     );
+  }
+
+  async createOrganizationWithAdmin(req: Request, res: Response) {
+    const userContext = req.userContext;
+    if (!userContext) {
+      throw new UnauthenticatedError();
+    }
+
+    res.set('Content-Type', 'application/json');
+    const result = await this.orgService.createOrganizationWithAdmin(userContext, req.body);
+    apiUtils.apiResponse<ICreateOrganizationWithAdminResult>(res, 201, { data: result });
   }
 
   async getByName(

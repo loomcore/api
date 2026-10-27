@@ -1,15 +1,23 @@
-import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { initializeTypeBox } from '@loomcore/common/validation';
 import { EmptyUserContext, getSystemUserContext, IOrganization, IUserContext } from '@loomcore/common/models';
 import { ObjectId } from 'mongodb';
 
-import { OrganizationService } from '../organization.service.js';
+import { buildOrganizationTenantDomain, OrganizationService } from '../organization.service.js';
 import { OrganizationDomainService } from '../organization-domain.service.js';
 import { BadRequestError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
-import { getTestMetaOrgUserContext, getTestMetaOrg, getTestOrgUserContext, getTestMetaOrgUser } from '../../__tests__/test-objects.js';
+import {
+  getTestMetaOrgAdminUserContext,
+  getTestMetaOrgUserContext,
+  getTestMetaOrg,
+  getTestOrgUserContext,
+  getTestMetaOrgUser,
+} from '../../__tests__/test-objects.js';
 import { MongoDBDatabase } from '../../databases/mongo-db/mongo-db.database.js';
+import { EmailService } from '../email.service.js';
+import { UserService } from '../user.service.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -232,6 +240,61 @@ describe('OrganizationService', () => {
       expect(result).toBeDefined();
       expect(result?.isMetaOrg).toBe(false);
       expect(result?.name).toBe('Regular Organization');
+    });
+  });
+
+  describe('createOrganizationWithAdmin', () => {
+    let userService: UserService;
+
+    beforeEach(async () => {
+      await testUtils.setupTestUsers();
+      userService = new UserService(database);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('cleans up the half-built org when a later step fails', async () => {
+      vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockRejectedValue(new Error('smtp down'));
+
+      const payload = {
+        name: 'Cleanup Tenant',
+        code: 'cleanup-tenant',
+        adminEmail: 'cleanup-admin@example.com',
+      };
+
+      await expect(
+        service.createOrganizationWithAdmin(getTestMetaOrgAdminUserContext(), payload),
+      ).rejects.toThrow();
+
+      const leftoverOrg = await service.findOne(getSystemUserContext(), {
+        filters: { code: { eq: payload.code } },
+      });
+      expect(leftoverOrg).toBeNull();
+
+      const leftoverDomain = await organizationDomainService.findOne(getSystemUserContext(), {
+        filters: { domain: { eq: buildOrganizationTenantDomain(payload.code) } },
+      });
+      expect(leftoverDomain).toBeNull();
+
+      const leftoverUser = await userService.findOne(getSystemUserContext(), {
+        filters: { email: { eq: payload.adminEmail } },
+      });
+      expect(leftoverUser).toBeNull();
+    });
+
+    it('defaults adminDisplayName to Admin User when it is omitted', async () => {
+      vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
+
+      const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminUserContext(), {
+        name: 'Default Name Tenant',
+        code: 'default-name',
+        adminEmail: 'default-name-admin@example.com',
+      });
+
+      expect(result.adminUser.displayName).toBe('Admin User');
+      expect(result.adminUser.password).toBeUndefined();
     });
   });
 });
