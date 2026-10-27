@@ -32,13 +32,13 @@ export async function get<T>(
 
   // When there are joins, qualify column names with table prefix to avoid ambiguity
   const tablePrefix = hasJoins ? pluralResourceName : undefined;
-  const { whereClause, values } = buildWhereClause(queryOptions, [], tablePrefix);
+  const { whereClause, values } = buildWhereClause(queryOptions, [], tablePrefix, operations, pluralResourceName);
 
   // Build the base query parts
   const baseQuery = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause}`;
 
-  // Get total count
-  const total = await executeCountQuery(client, pluralResourceName, queryOptions);
+  // Get total count with the same joins and filters so total matches the page
+  const total = await executeCountQuery(client, pluralResourceName, queryOptions, operations);
 
   // Execute the main query
   const dataQuery = `${baseQuery} ${orderByClause} ${paginationClause}`.trim();
