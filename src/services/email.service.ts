@@ -20,7 +20,7 @@ export class EmailService {
       await this.emailClient.sendResetPasswordEmail(emailAddress, resetPasswordLink);
       logger.info(`Reset password email sent to ${emailAddress}.`);
     } catch (error) {
-      console.error('Error sending reset password email:', error);
+      logger.error('Error sending reset password email:', error);
       throw new ServerError('Error sending reset password email');
     }
   }
