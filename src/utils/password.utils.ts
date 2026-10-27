@@ -10,6 +10,11 @@ async function hashPassword(password: string): Promise<string> {
   return `${buf.toString('hex')}.${salt}`;
 }
 
+/** 32 hex chars (128 bits). Fits UserSpec password maxLength (64) after hashing is applied separately. */
+function generateRandomPassword(): string {
+  return randomBytes(16).toString('hex');
+}
+
 async function comparePasswords(
   storedPassword: string,
   suppliedPassword: string,
@@ -31,4 +36,5 @@ async function comparePasswords(
 export const passwordUtils = {
   hashPassword,
   comparePasswords,
+  generateRandomPassword,
 };
