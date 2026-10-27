@@ -345,14 +345,6 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     if (existingDomain) {
       throw new BadRequestError('Organization domain is already in use.');
     }
-
-    const userService = new UserService(this.database);
-    const existingUser = await userService.findOne(getSystemUserContext(), {
-      filters: { email: { eq: parsed.adminEmail } },
-    });
-    if (existingUser) {
-      throw new BadRequestError('Admin email is already in use.');
-    }
   }
 
   private async cleanupCreatedOrganizationWithAdmin(
