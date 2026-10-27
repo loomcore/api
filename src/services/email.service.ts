@@ -18,7 +18,7 @@ export class EmailService {
   async sendResetPasswordEmail(emailAddress: string, resetPasswordLink: string) {
     try {
       await this.emailClient.sendResetPasswordEmail(emailAddress, resetPasswordLink);
-      logger.info(`Reset password email sent to ${emailAddress} with reset password link ${resetPasswordLink}`);
+      logger.info(`Reset password email sent to ${emailAddress}.`);
     } catch (error) {
       console.error('Error sending reset password email:', error);
       throw new ServerError('Error sending reset password email');
@@ -29,10 +29,10 @@ export class EmailService {
     try {
       if (this.emailClient.sendWelcomeEmail) {
         await this.emailClient.sendWelcomeEmail(emailAddress, setPasswordLink);
-        logger.info(`Welcome email sent to ${emailAddress} with set password link ${setPasswordLink}`);
+        logger.info(`Welcome email sent to ${emailAddress}.`);
       } else {
         await this.emailClient.sendResetPasswordEmail(emailAddress, setPasswordLink);
-        logger.info(`Welcome email (via reset password) sent to ${emailAddress} with set password link ${setPasswordLink}`);
+        logger.info(`Welcome email (via reset password) sent to ${emailAddress}.`);
       }
     } catch (error) {
       logger.error('Error sending welcome email:', error);

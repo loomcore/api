@@ -11,6 +11,7 @@ import type { UpdateResult } from '../../databases/models/update-result.js';
 import { BadRequestError, ServerError } from '../../errors/index.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
 import { UserService } from '../../services/user.service.js';
+import { logger } from '../logger.utils.js';
 
 export async function resetPassword(
   database: IDatabase,
@@ -66,15 +67,13 @@ export async function resetPassword(
     );
   }
   const result = await userService.changePassword(systemUserContext, user._id, password);
-  console.log(
-    `password changed using forgot-password for email: ${lowerCaseEmail}`,
-  );
+  logger.info(`password changed using forgot-password for email: ${lowerCaseEmail}`);
 
   await passwordResetTokenService.deleteById(
     systemUserContext,
     retrievedPasswordResetToken._id,
   );
-  console.log(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
+  logger.info(`passwordResetToken deleted for email: ${lowerCaseEmail}`);
 
   return {
     success: true,
