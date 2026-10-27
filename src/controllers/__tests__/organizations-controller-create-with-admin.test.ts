@@ -196,14 +196,26 @@ describe('OrganizationsController.createOrganizationWithAdmin', () => {
     expect(response.body?.errors?.[0]?.message).toBe('Organization domain is already in use.');
   });
 
-  it('rejects a duplicate admin email with 400', async () => {
-    const response = await testAgent
+  it('allows the same admin email on two different organizations', async () => {
+    const sendWelcomeEmailSpy = vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
+    const sharedEmail = getTestMetaOrgUser().email;
+
+    const first = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAdminAuthToken())
-      .send(validPayload({ adminEmail: getTestMetaOrgUser().email }));
+      .send(validPayload({ name: 'Shared Email One', code: 'shared-one', adminEmail: sharedEmail }));
+    expect(first.status).toBe(201);
+    expect(first.body?.data?.adminUser?.email).toBe(sharedEmail.toLowerCase());
 
-    expect(response.status).toBe(400);
-    expect(response.body?.errors?.[0]?.message).toBe('Admin email is already in use.');
+    const second = await testAgent
+      .post(apiEndpoint)
+      .set('Authorization', testUtils.getAdminAuthToken())
+      .send(validPayload({ name: 'Shared Email Two', code: 'shared-two', adminEmail: sharedEmail }));
+    expect(second.status).toBe(201);
+    expect(second.body?.data?.adminUser?.email).toBe(sharedEmail.toLowerCase());
+    expect(second.body?.data?.organization?._id).not.toBe(first.body?.data?.organization?._id);
+
+    expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(2);
   });
 
   it('rejects unauthenticated requests', async () => {

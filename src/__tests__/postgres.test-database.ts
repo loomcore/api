@@ -144,11 +144,10 @@ export class TestPostgresDatabase implements ITestDatabase {
 
     private async createIndexes(connection: PostgresConnection) {
         // Create indexes - keep this in sync with any production schema that is used for actual deployment
-        // Create a unique, case-insensitive index on users.email (similar to MongoDB implementation)
+        // Email uniqueness is per-org (matches schema uk_users_email on (_orgId, email)).
         try {
             await connection.query(`
                 CREATE INDEX IF NOT EXISTS email_index ON users (LOWER(email));
-                CREATE UNIQUE INDEX IF NOT EXISTS email_unique_index ON users (LOWER(email));
             `);
         } catch (error: any) {
             // If tables don't exist yet, indexes will be created when tables are created
