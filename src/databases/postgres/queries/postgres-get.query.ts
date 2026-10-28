@@ -1,9 +1,6 @@
 import type { PostgresConnection } from '../postgres-connection.js';
 import { IQueryOptions, IModelSpec, IPagedResult } from '@loomcore/common/models';
 import { Operation } from '../../operations/operation.js';
-import { LeftJoin } from '../../operations/left-join.operation.js';
-import { InnerJoin } from '../../operations/inner-join.operation.js';
-import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { buildOrderByClause } from '../utils/build-order-by-clause.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
@@ -11,6 +8,7 @@ import { buildSelectClause } from '../utils/build-select-clause.js';
 import { executeCountQuery } from '../utils/build-count-query.js';
 import { apiUtils } from '../../../utils/api.utils.js';
 import { buildPaginationClause } from '../utils/build-pagination-clause.js';
+import { isJoinOperation } from '../../utils/is-join-operation.util.js';
 
 export async function get<T>(
   client: PostgresConnection,
@@ -18,11 +16,9 @@ export async function get<T>(
   queryOptions: IQueryOptions,
   pluralResourceName: string
 ): Promise<IPagedResult<T>> {
-  const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
-  const joinClauses = hasJoins
-    ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
-    : buildJoinClauses(operations, pluralResourceName);
-  const orderByClause = buildOrderByClause(queryOptions, hasJoins ? { tablePrefix: pluralResourceName } : undefined);
+  const hasJoins = operations.some(isJoinOperation);
+  const joinClauses = buildJoinClauses(operations, pluralResourceName);
+  const orderByClause = buildOrderByClause(queryOptions, pluralResourceName);
   const paginationClause = buildPaginationClause(queryOptions);
 
   // Build SELECT clause: with joins, single jsonb entity column; otherwise *
@@ -30,9 +26,7 @@ export async function get<T>(
     ? await buildSelectClause(client, pluralResourceName, operations)
     : '*';
 
-  // When there are joins, qualify column names with table prefix to avoid ambiguity
-  const tablePrefix = hasJoins ? pluralResourceName : undefined;
-  const { whereClause, values } = buildWhereClause(queryOptions, [], tablePrefix, operations, pluralResourceName);
+  const { whereClause, values } = buildWhereClause(queryOptions, pluralResourceName, [], operations);
 
   // Build the base query parts
   const baseQuery = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause}`;

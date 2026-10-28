@@ -4,11 +4,11 @@ import { readFilterValue } from '../../utils/nullish-filter-value.js';
 import {
   findJoinOperation,
   parentAliasOf,
-  type JoinFilter,
-  type JoinOperation,
 } from '../../utils/resolve-join-filter.js';
 import { collectOuterOneToOneAliases } from './build-join-clauses.js';
 import { toPostgresStoreName, toSnakeCase } from './convert-keys.util.js';
+import { JoinFilter } from '../../models/join-filter.interface.js';
+import { JoinOperation } from '../../operations/join-operation.js';
 
 export interface SqlParamIndex {
   current: number;

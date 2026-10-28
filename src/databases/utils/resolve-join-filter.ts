@@ -1,17 +1,11 @@
 import type { Filter, IQueryOptions } from '@loomcore/common/models';
 import { BadRequestError } from '../../errors/index.js';
-import { InnerJoin } from '../operations/inner-join.operation.js';
-import { LeftJoin } from '../operations/left-join.operation.js';
+import type { ClassifiedFilterKey } from '../models/classified-filter-key.js';
 import { LeftJoinMany } from '../operations/left-join-many.operation.js';
 import type { Operation } from '../operations/operation.js';
-
-export type JoinOperation = LeftJoin | InnerJoin | LeftJoinMany;
-
-const COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-export function isJoinOperation(operation: Operation): operation is JoinOperation {
-  return operation instanceof LeftJoin || operation instanceof InnerJoin || operation instanceof LeftJoinMany;
-}
+import type { JoinOperation } from '../operations/join-operation.js';
+import { isJoinOperation } from './is-join-operation.util.js';
+import { JoinFilter } from '../models/join-filter.interface.js';
 
 export function parentAliasOf(localField: string): string | null {
   const dot = localField.indexOf('.');
@@ -35,11 +29,6 @@ export function logicalParentAlias(operation: JoinOperation, operations: Operati
   return parent ? parent.as : null;
 }
 
-export type ClassifiedFilterKey =
-  | { type: 'root' }
-  | { type: 'invalid'; message: string }
-  | { type: 'join'; aliases: string[]; column: string; crossesMany: boolean };
-
 /**
  * A dotted filter key whose first segment is a join alias is a join filter.
  * The path lists every join alias from the root through localField, then the column:
@@ -60,21 +49,17 @@ export function classifyFilterKey(key: string, operations: Operation[], mainTabl
 
   const column = parts[parts.length - 1];
   const aliases = parts.slice(0, -1);
-  if (!COLUMN_NAME.test(column)) {
-    return { type: 'invalid', message: `Invalid join filter "${key}": "${column}" is not a valid column name` };
-  }
-
   for (let index = 0; index < aliases.length; index++) {
     const alias = aliases[index];
     const operation = findJoinOperation(operations, alias);
     if (!operation) {
-      return { type: 'invalid', message: `Invalid join filter "${key}": "${alias}" is not a joined table` };
+      throw new BadRequestError(`Invalid join filter "${key}": "${alias}" is not a joined table`);
     }
     const expectedParent = index === 0 ? null : aliases[index - 1];
     const actualParent = logicalParentAlias(operation, operations, mainTableName);
     if (actualParent !== expectedParent) {
       const where = actualParent ? `"${actualParent}"` : 'the root collection';
-      return { type: 'invalid', message: `Invalid join filter "${key}": "${alias}" is nested under ${where}` };
+      throw new BadRequestError(`Invalid join filter "${key}": "${alias}" is nested under ${where}`);
     }
   }
 
@@ -82,15 +67,7 @@ export function classifyFilterKey(key: string, operations: Operation[], mainTabl
   return { type: 'join', aliases, column, crossesMany };
 }
 
-export interface JoinFilter {
-  key: string;
-  filter: Filter;
-  aliases: string[];
-  column: string;
-  crossesMany: boolean;
-}
-
-export function partitionFilters(
+export function splitFiltersByType(
   queryOptions: IQueryOptions,
   operations: Operation[],
   mainTableName: string,
@@ -103,9 +80,6 @@ export function partitionFilters(
       continue;
     }
     const classified = classifyFilterKey(key, operations, mainTableName);
-    if (classified.type === 'invalid') {
-      throw new BadRequestError(classified.message);
-    }
     if (classified.type === 'root') {
       rootFilters[key] = filter;
       continue;

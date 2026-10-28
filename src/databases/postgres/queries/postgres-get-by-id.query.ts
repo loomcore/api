@@ -21,9 +21,7 @@ export async function getById<T>(
     throw new BadRequestError('id is required');
 
   const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
-  const joinClauses = hasJoins
-    ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
-    : buildJoinClauses(operations, pluralResourceName);
+  const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
   const selectClause = hasJoins
     ? await buildSelectClause(client, pluralResourceName, operations)
@@ -32,8 +30,7 @@ export async function getById<T>(
   queryObject.filters || (queryObject.filters = {});
   queryObject.filters._id = { eq: id };
 
-  const tablePrefix = hasJoins ? pluralResourceName : undefined;
-  const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix, operations, pluralResourceName);
+  const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName, [], operations);
   const query = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause} LIMIT 1`;
   const result = await client.query(query, values);
 

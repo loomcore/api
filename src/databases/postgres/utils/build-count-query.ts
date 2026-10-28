@@ -9,17 +9,9 @@ export function buildCountQuerySql(
   queryOptions: IQueryOptions = {},
   operations: Operation[] = [],
 ): { countQuery: string; values: any[] } {
-  const joinClauses = operations.length > 0
-    ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
-    : '';
-  const tablePrefix = joinClauses ? pluralResourceName : undefined;
-  const { whereClause, values } = buildWhereClause(
-    queryOptions,
-    [],
-    tablePrefix,
-    operations.length > 0 ? operations : undefined,
-    pluralResourceName,
-  );
+  // INNER JOINS could reduce the count, so we include them
+  const joinClauses = buildJoinClauses(operations, pluralResourceName);
+  const { whereClause, values } = buildWhereClause(queryOptions, pluralResourceName, [], operations);
   const countQuery = ['SELECT COUNT(*) as total', `FROM "${pluralResourceName}"`, joinClauses, whereClause]
     .filter(part => part.trim().length > 0)
     .join(' ');

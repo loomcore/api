@@ -1,7 +1,7 @@
 import { Db } from 'mongodb';
 import { IModelSpec, IQueryOptions, IPagedResult } from '@loomcore/common/models';
 import { Operation } from '../../operations/operation.js';
-import { partitionFilters } from '../../utils/resolve-join-filter.js';
+import { splitFiltersByType } from '../../utils/resolve-join-filter.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildJoinMatchStage } from '../utils/build-join-match.util.js';
 import { apiUtils } from '../../../utils/api.utils.js';
@@ -9,7 +9,7 @@ import { apiUtils } from '../../../utils/api.utils.js';
 
 export async function get<T>(db: Db, operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
   const collection = db.collection(pluralResourceName);
-  const { rootOptions, joinFilters } = partitionFilters(queryOptions, operations, pluralResourceName);
+  const { rootOptions, joinFilters } = splitFiltersByType(queryOptions, operations, pluralResourceName);
   const pipelineBuilder = new NoSqlPipeline()
     .addMatch(rootOptions, modelSpec)
     .addOperations(operations);
@@ -20,7 +20,7 @@ export async function get<T>(db: Db, operations: Operation[], queryOptions: IQue
   const pipeline = pipelineBuilder
     .addQueryOptions(queryOptions, true)
     .build();
-      
+
   const cursor = collection.aggregate(pipeline);
   const aggregateResult = await cursor.next();
 

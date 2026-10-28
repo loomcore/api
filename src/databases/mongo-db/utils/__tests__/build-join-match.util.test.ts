@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { BadRequestError } from '../../../../errors/index.js';
 import { LeftJoin } from '../../../operations/left-join.operation.js';
 import { LeftJoinMany } from '../../../operations/left-join-many.operation.js';
-import { partitionFilters } from '../../../utils/resolve-join-filter.js';
+import { splitFiltersByType } from '../../../utils/resolve-join-filter.js';
 import { buildJoinMatchStage } from '../build-join-match.util.js';
 
 describe('buildJoinMatchStage', () => {
   const customer = new LeftJoin('customers', 'customerId', '_id', 'customer');
 
   it('matches a one-to-one join on its _joinData path', () => {
-    const { joinFilters } = partitionFilters(
+    const { joinFilters } = splitFiltersByType(
       { filters: { 'customer.name': { eq: 'Jane' } } },
       [customer],
       'orders',
@@ -23,7 +23,7 @@ describe('buildJoinMatchStage', () => {
   });
 
   it('requires the joined object to exist when using ne', () => {
-    const { joinFilters } = partitionFilters(
+    const { joinFilters } = splitFiltersByType(
       { filters: { 'customer.name': { ne: 'Jane' } } },
       [customer],
       'orders',
@@ -40,7 +40,7 @@ describe('buildJoinMatchStage', () => {
   it('matches a one-to-many join when any array element matches', () => {
     const lineItems = new LeftJoinMany('lineItems', '_id', 'orderId', 'items');
     const operations = [lineItems];
-    const { joinFilters } = partitionFilters(
+    const { joinFilters } = splitFiltersByType(
       { filters: { 'items.sku': { eq: 'ABC' } } },
       operations,
       'orders',
@@ -70,7 +70,7 @@ describe('buildJoinMatchStage', () => {
     const person = new LeftJoin('persons', 'personId', '_id', 'clientPerson');
     const emails = new LeftJoinMany('emailAddresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
     const operations = [person, emails];
-    const { joinFilters } = partitionFilters(
+    const { joinFilters } = splitFiltersByType(
       { filters: { 'clientPerson.clientEmailAddresses.email': { contains: 'gmail' } } },
       operations,
       'clients',
@@ -103,7 +103,7 @@ describe('buildJoinMatchStage', () => {
   });
 
   it('rejects a join path that does not match the operations', () => {
-    expect(() => partitionFilters(
+    expect(() => splitFiltersByType(
       { filters: { 'customer.nope.name': { eq: 'x' } } },
       [customer],
       'orders',

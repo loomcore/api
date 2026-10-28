@@ -9,8 +9,8 @@ export async function find<T>(
   queryObject: IQueryOptions,
   pluralResourceName: string
 ): Promise<T[]> {
-  const { whereClause, values } = buildWhereClause(queryObject);
-  const orderByClause = buildOrderByClause(queryObject);
+  const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
+  const orderByClause = buildOrderByClause(queryObject, pluralResourceName);
   const paginationClause = buildPaginationClause(queryObject);
 
   const query = `SELECT * FROM "${pluralResourceName}" ${whereClause} ${orderByClause} ${paginationClause}`.trim();

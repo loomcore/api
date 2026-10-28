@@ -29,6 +29,25 @@ function resolveLocalFieldPath(
   return localField;
 }
 
+/**
+ * An InnerJoin drops the root document when it matches nothing, unless it hangs off a LeftJoinMany.
+ * Those stay inside the array, the same way Postgres keeps them out of the outer FROM.
+ */
+function innerJoinDropsDocument(operation: LeftJoin | InnerJoin, processedOperations: Operation[]): boolean {
+  if (!(operation instanceof InnerJoin)) {
+    return false;
+  }
+  const dot = operation.localField.indexOf('.');
+  if (dot === -1) {
+    return true;
+  }
+  const parentAlias = operation.localField.slice(0, dot);
+  const parent = processedOperations.find(op =>
+    (op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany) && op.as === parentAlias
+  );
+  return !(parent instanceof LeftJoinMany);
+}
+
 export function convertOperationsToPipeline(operations: Operation[]): Document[] {
   let pipeline: Document[] = [];
   const processedOperations: Operation[] = [];
@@ -49,6 +68,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
       const needsObjectIdConversion = operation.foreignField === '_id';
       const isNestedField = operation.localField.includes('.');
       const resolvedLocalField = resolveLocalFieldPath(operation.localField, processedOperations);
+      const preserveMissingMatch = !innerJoinDropsDocument(operation, processedOperations);
 
       if (needsObjectIdConversion) {
         // Use $expr with $eq to handle ObjectId conversion for the lookup
@@ -80,7 +100,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
           {
             $unwind: {
               path: `$${operation.as}Arr`,
-              preserveNullAndEmptyArrays: true
+              preserveNullAndEmptyArrays: preserveMissingMatch
             }
           },
           {
@@ -113,7 +133,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
           {
             $unwind: {
               path: `$${operation.as}Arr`,
-              preserveNullAndEmptyArrays: true
+              preserveNullAndEmptyArrays: preserveMissingMatch
             }
           },
           {

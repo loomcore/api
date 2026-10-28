@@ -7,8 +7,8 @@ import { LeftJoinMany } from '../../../operations/left-join-many.operation.js';
 import { buildCountQuerySql } from '../build-count-query.js';
 import { buildWhereClause } from '../build-where-clause.js';
 
-function whereFor(filters: IQueryOptions['filters'], tablePrefix?: string) {
-  return buildWhereClause({ filters }, [], tablePrefix);
+function whereFor(filters: IQueryOptions['filters'], tablePrefix = 'items') {
+  return buildWhereClause({ filters }, tablePrefix);
 }
 
 const equality = (column: string, index: number) =>
@@ -20,73 +20,73 @@ const inequality = (column: string, index: number) =>
 describe('buildWhereClause', () => {
   it('matches a null parentId with IS NULL and no bound value', () => {
     expect(whereFor({ parentId: { eq: 'null' } })).toEqual({
-      whereClause: 'WHERE "parent_id" IS NULL',
+      whereClause: 'WHERE "items"."parent_id" IS NULL',
       values: []
     });
     expect(whereFor({ parentId: { eq: null } })).toEqual({
-      whereClause: 'WHERE "parent_id" IS NULL',
+      whereClause: 'WHERE "items"."parent_id" IS NULL',
       values: []
     });
   });
 
   it('treats a bare undefined token the same as null', () => {
     expect(whereFor({ parentId: { eq: 'undefined' } })).toEqual({
-      whereClause: 'WHERE "parent_id" IS NULL',
+      whereClause: 'WHERE "items"."parent_id" IS NULL',
       values: []
     });
   });
 
   it('matches ne null and ne undefined with IS NOT NULL', () => {
     expect(whereFor({ parentId: { ne: 'null' } })).toEqual({
-      whereClause: 'WHERE "parent_id" IS NOT NULL',
+      whereClause: 'WHERE "items"."parent_id" IS NOT NULL',
       values: []
     });
     expect(whereFor({ parentId: { ne: 'undefined' } })).toEqual({
-      whereClause: 'WHERE "parent_id" IS NOT NULL',
+      whereClause: 'WHERE "items"."parent_id" IS NOT NULL',
       values: []
     });
     expect(whereFor({ parentId: { ne: null } })).toEqual({
-      whereClause: 'WHERE "parent_id" IS NOT NULL',
+      whereClause: 'WHERE "items"."parent_id" IS NOT NULL',
       values: []
     });
   });
 
   it('binds a double-quoted null or undefined as a literal string', () => {
     expect(whereFor({ parentId: { eq: '"null"' } })).toEqual({
-      whereClause: `WHERE ${equality('"parent_id"', 1)}`,
+      whereClause: `WHERE ${equality('"items"."parent_id"', 1)}`,
       values: ['null']
     });
     expect(whereFor({ parentId: { eq: '"undefined"' } })).toEqual({
-      whereClause: `WHERE ${equality('"parent_id"', 1)}`,
+      whereClause: `WHERE ${equality('"items"."parent_id"', 1)}`,
       values: ['undefined']
     });
     expect(whereFor({ name: { ne: '"null"' } })).toEqual({
-      whereClause: `WHERE ${inequality('"name"', 1)}`,
+      whereClause: `WHERE ${inequality('"items"."name"', 1)}`,
       values: ['null']
     });
     expect(whereFor({ name: { ne: '"undefined"' } })).toEqual({
-      whereClause: `WHERE ${inequality('"name"', 1)}`,
+      whereClause: `WHERE ${inequality('"items"."name"', 1)}`,
       values: ['undefined']
     });
   });
 
   it('leaves other quoted strings unchanged', () => {
     expect(whereFor({ name: { eq: '"hello"' } })).toEqual({
-      whereClause: `WHERE ${equality('"name"', 1)}`,
+      whereClause: `WHERE ${equality('"items"."name"', 1)}`,
       values: ['"hello"']
     });
   });
 
   it('still binds an ordinary eq value', () => {
     expect(whereFor({ parentId: { eq: 5 } })).toEqual({
-      whereClause: `WHERE ${equality('"parent_id"', 1)}`,
+      whereClause: `WHERE ${equality('"items"."parent_id"', 1)}`,
       values: [5]
     });
   });
 
   it('does not consume a parameter for a nullish filter combined with another eq', () => {
     expect(whereFor({ parentId: { eq: 'null' }, name: { eq: 'Warehouse' } })).toEqual({
-      whereClause: `WHERE "parent_id" IS NULL AND ${equality('"name"', 1)}`,
+      whereClause: `WHERE "items"."parent_id" IS NULL AND ${equality('"items"."name"', 1)}`,
       values: ['Warehouse']
     });
   });
@@ -105,10 +105,9 @@ describe('buildWhereClause join filters', () => {
   it('qualifies a root filter with the main table when joins are present', () => {
     const { whereClause, values } = buildWhereClause(
       { filters: { status: { eq: 'pending' } } },
+      'orders',
       [],
-      'orders',
       [customerJoin],
-      'orders',
     );
 
     expect(whereClause).toBe('WHERE ("orders"."status" = $1 OR ("orders"."status" IS NULL AND $1 IS NULL))');
@@ -118,10 +117,9 @@ describe('buildWhereClause join filters', () => {
   it('qualifies a one-to-one join column and snake-cases it', () => {
     const { whereClause, values } = buildWhereClause(
       { filters: { 'customer.firstName': { eq: 'Jane' } } },
+      'orders',
       [],
-      'orders',
       [customerJoin],
-      'orders',
     );
 
     expect(whereClause).toBe('WHERE ("customer"."first_name" = $1 OR ("customer"."first_name" IS NULL AND $1 IS NULL))');
@@ -131,10 +129,9 @@ describe('buildWhereClause join filters', () => {
   it('does not treat a missing left join as a match for ne', () => {
     const { whereClause } = buildWhereClause(
       { filters: { 'customer.name': { ne: 'Jane' } } },
+      'orders',
       [],
-      'orders',
       [customerJoin],
-      'orders',
     );
 
     expect(whereClause).toContain('"customer"."name" != $1');
@@ -146,10 +143,9 @@ describe('buildWhereClause join filters', () => {
     const school = new LeftJoin('schools', 'clientPerson.school_id', '_id', 'school');
     const { whereClause } = buildWhereClause(
       { filters: { 'clientPerson.school.name': { eq: 'Lincoln' } } },
+      'clients',
       [],
-      'clients',
       [person, school],
-      'clients',
     );
 
     expect(whereClause).toContain('"school"."name"');
@@ -159,19 +155,18 @@ describe('buildWhereClause join filters', () => {
   it('keeps a dotted key on the root table when it is not a join alias', () => {
     const { whereClause } = buildWhereClause(
       { filters: { 'address.city': { eq: 'Austin' } } },
+      'orders',
       [],
-      'orders',
       [customerJoin],
-      'orders',
     );
 
     expect(whereClause).toContain('"orders"."address.city"');
   });
 
   it('keeps dotted keys as a single column when no joins are supplied', () => {
-    const { whereClause } = buildWhereClause({ filters: { 'customer.name': { eq: 'Jane' } } });
+    const { whereClause } = buildWhereClause({ filters: { 'customer.name': { eq: 'Jane' } } }, 'orders');
 
-    expect(whereClause).toContain('"customer.name"');
+    expect(whereClause).toContain('"orders"."customer.name"');
     expect(whereClause).not.toContain('EXISTS');
   });
 
@@ -179,10 +174,9 @@ describe('buildWhereClause join filters', () => {
     const lineItems = new LeftJoinMany('line_items', '_id', 'order_id', 'lineItems');
     const { whereClause, values } = buildWhereClause(
       { filters: { 'lineItems.sku': { eq: 'ABC' } } },
+      'orders',
       [],
-      'orders',
       [lineItems],
-      'orders',
     );
 
     expect(whereClause).toBe(
@@ -197,10 +191,9 @@ describe('buildWhereClause join filters', () => {
     const phones = new LeftJoinMany('phone_numbers', 'phoneThrough.phone_number_id', '_id', 'phones');
     const { whereClause, values } = buildWhereClause(
       { filters: { 'clientPerson.phoneThrough.phones.phoneNumber': { contains: '555' } } },
+      'clients',
       [],
-      'clients',
       [person, through, phones],
-      'clients',
     );
 
     expect(whereClause).toBe(
@@ -215,10 +208,9 @@ describe('buildWhereClause join filters', () => {
     const agents = new LeftJoinMany('agents', 'policyAgentsThrough.agent_id', '_id', 'policyAgents');
     const { whereClause, values } = buildWhereClause(
       { filters: { 'clientPolicies.policyAgentsThrough.policyAgents.name': { eq: 'Ada' } } },
+      'clients',
       [],
-      'clients',
       [policies, through, agents],
-      'clients',
     );
 
     expect(whereClause).toBe(
@@ -230,10 +222,9 @@ describe('buildWhereClause join filters', () => {
   it('rejects a dotted key that starts with a join alias but is not a real path', () => {
     expect(() => buildWhereClause(
       { filters: { 'customer.nope.name': { eq: 'x' } } },
+      'orders',
       [],
-      'orders',
       [customerJoin],
-      'orders',
     )).toThrow(BadRequestError);
   });
 

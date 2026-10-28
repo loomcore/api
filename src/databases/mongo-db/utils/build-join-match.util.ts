@@ -4,7 +4,8 @@ import { Document, ObjectId } from 'mongodb';
 import type { Operation } from '../../operations/operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
-import { findJoinOperation, type JoinFilter } from '../../utils/resolve-join-filter.js';
+import { findJoinOperation } from '../../utils/resolve-join-filter.js';
+import { JoinFilter } from '../../models/join-filter.interface.js';
 
 function shouldConvertEqToObjectId(column: string): boolean {
   if (PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(column)) {
