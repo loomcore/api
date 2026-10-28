@@ -72,6 +72,28 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
           match[key] = comparison.value;
         }
       }
+      if (value.ne !== undefined) {
+        const comparison = readFilterValue(value.ne);
+
+        if (comparison.kind === 'null') {
+          // Complement of explicit BSON null, so a missing field still matches.
+          // { $ne: null } would exclude a missing field.
+          match[key] = { $not: { $type: 'null' } };
+        } else if (comparison.kind === 'undefined') {
+          match[key] = { $exists: true };
+        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
+          && typeof comparison.value === 'string' && entityUtils.isValidObjectId(comparison.value)) {
+          match[key] = { $ne: new ObjectId(comparison.value) };
+        }
+
+        // Convert numeric strings to numbers
+        else if (typeof comparison.value === 'string' && !isNaN(Number(comparison.value))) {
+          match[key] = { $ne: Number(comparison.value) };
+        }
+        else {
+          match[key] = { $ne: comparison.value };
+        }
+      }
       if (value.in !== undefined && Array.isArray(value.in)) {
         if (shouldConvertInToObjectIds(key, propSchema, hasSchema)) {
           // Convert string values to ObjectIds
