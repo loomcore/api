@@ -535,6 +535,68 @@ describe('mongoUtils', () => {
       });
     });
 
+    it('should match a bare null token as BSON null and not an ObjectId', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: 'null' } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $type: 'null' } }
+      });
+    });
+
+    it('should match a real null the same as the bare null token', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: null } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $type: 'null' } }
+      });
+    });
+
+    it('should match a bare undefined token as a missing field', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: 'undefined' } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $exists: false } }
+      });
+    });
+
+    it('should match a double-quoted null or undefined as a literal string', () => {
+      const nullResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: '"null"' } }
+      });
+      const undefinedResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: '"undefined"' } }
+      });
+
+      expect(nullResult).toEqual({
+        $match: { parentId: 'null' }
+      });
+      expect(undefinedResult).toEqual({
+        $match: { parentId: 'undefined' }
+      });
+    });
+
+    it('should leave other quoted strings unchanged', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { name: { eq: '"hello"' } }
+      });
+
+      expect(result).toEqual({
+        $match: { name: '"hello"' }
+      });
+    });
+
     it('should combine in filter with other filters', () => {
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,

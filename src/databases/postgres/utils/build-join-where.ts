@@ -6,6 +6,7 @@ import {
   type JoinFilter,
   type JoinOperation,
 } from '../../utils/resolve-join-filter.js';
+import { readFilterValue } from '../../utils/nullish-filter-value.js';
 import { collectOuterOneToOneAliases } from './build-join-clauses.js';
 import { toPostgresStoreName, toSnakeCase } from './convert-keys.util.js';
 
@@ -35,16 +36,27 @@ export function appendFilterConditions(
   paramIndex: SqlParamIndex,
 ): void {
   if (value.eq !== undefined) {
-    // Null-safe equality, equivalent to IS NOT DISTINCT FROM, which pg-mem cannot parse.
-    conditions.push(`(${qualifiedKey} = $${paramIndex.current} OR (${qualifiedKey} IS NULL AND $${paramIndex.current} IS NULL))`);
-    values.push(value.eq);
-    paramIndex.current++;
+    const comparison = readFilterValue(value.eq);
+    if (comparison.kind === 'value') {
+      // Null-safe equality, equivalent to IS NOT DISTINCT FROM, which pg-mem cannot parse.
+      conditions.push(`(${qualifiedKey} = $${paramIndex.current} OR (${qualifiedKey} IS NULL AND $${paramIndex.current} IS NULL))`);
+      values.push(comparison.value);
+      paramIndex.current++;
+    } else {
+      // Bare null and undefined are the same in Postgres.
+      conditions.push(`${qualifiedKey} IS NULL`);
+    }
   }
   if (value.ne !== undefined) {
-    // Null-safe inequality, equivalent to IS DISTINCT FROM, which pg-mem cannot parse.
-    conditions.push(`(${qualifiedKey} != $${paramIndex.current} OR (${qualifiedKey} IS NOT NULL AND $${paramIndex.current} IS NULL) OR (${qualifiedKey} IS NULL AND $${paramIndex.current} IS NOT NULL))`);
-    values.push(value.ne);
-    paramIndex.current++;
+    const comparison = readFilterValue(value.ne);
+    if (comparison.kind === 'value') {
+      // Null-safe inequality, equivalent to IS DISTINCT FROM, which pg-mem cannot parse.
+      conditions.push(`(${qualifiedKey} != $${paramIndex.current} OR (${qualifiedKey} IS NOT NULL AND $${paramIndex.current} IS NULL) OR (${qualifiedKey} IS NULL AND $${paramIndex.current} IS NOT NULL))`);
+      values.push(comparison.value);
+      paramIndex.current++;
+    } else {
+      conditions.push(`${qualifiedKey} IS NOT NULL`);
+    }
   }
   if (value.in !== undefined && Array.isArray(value.in)) {
     const placeholders = value.in.map(() => `$${paramIndex.current++}`).join(', ');
