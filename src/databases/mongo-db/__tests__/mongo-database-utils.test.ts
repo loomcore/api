@@ -597,6 +597,83 @@ describe('mongoUtils', () => {
       });
     });
 
+    it('should exclude a bare null token without matching it as an ObjectId', () => {
+      const tokenResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: 'null' } }
+      });
+      const nullResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: null } }
+      });
+
+      expect(tokenResult).toEqual({
+        $match: { parentId: { $not: { $type: 'null' } } }
+      });
+      expect(nullResult).toEqual({
+        $match: { parentId: { $not: { $type: 'null' } } }
+      });
+    });
+
+    it('should require a field when ne is a bare undefined token', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: 'undefined' } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $exists: true } }
+      });
+    });
+
+    it('should compare ne of a double-quoted null or undefined as a literal string', () => {
+      const nullResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: '"null"' } }
+      });
+      const undefinedResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: '"undefined"' } }
+      });
+
+      expect(nullResult).toEqual({
+        $match: { parentId: { $ne: 'null' } }
+      });
+      expect(undefinedResult).toEqual({
+        $match: { parentId: { $ne: 'undefined' } }
+      });
+    });
+
+    it('should convert scalar *Id ne without a schema', () => {
+      const userId = '507f1f77bcf86cd799439011';
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { userId: { ne: userId } }
+      });
+
+      expect(result).toEqual({
+        $match: { userId: { $ne: new ObjectId(userId) } }
+      });
+    });
+
+    it('should leave a numeric string ne as a number and an ordinary string as text', () => {
+      const priorityResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { priority: { ne: '1' } }
+      });
+      const nameResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { name: { ne: 'Warehouse' } }
+      });
+
+      expect(priorityResult).toEqual({
+        $match: { priority: { $ne: 1 } }
+      });
+      expect(nameResult).toEqual({
+        $match: { name: { $ne: 'Warehouse' } }
+      });
+    });
+
     it('should combine in filter with other filters', () => {
       const queryOptions: IQueryOptions = {
         ...DefaultQueryOptions,
