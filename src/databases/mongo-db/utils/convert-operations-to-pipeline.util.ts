@@ -52,11 +52,6 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
   let pipeline: Document[] = [];
   const processedOperations: Operation[] = [];
 
-  // Collect all join aliases to initialize _joinData structure
-  const joinAliases = operations
-    .filter(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany)
-    .map(op => op.as);
-
   // Note: _joinData will be created automatically by MongoDB when we use $addFields
   // We don't initialize it here because MongoDB doesn't allow setting a field to an empty object {}
 
@@ -272,7 +267,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
                 .slice(0, processedOperations.indexOf(parentJoin))
                 .reverse()
                 .find(op => op instanceof LeftJoin || op instanceof InnerJoin);
-              
+
               if (grandparentJoin) {
                 // Nest under grandparent (e.g., clientPerson)
                 pipeline.push({
@@ -284,7 +279,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
                           [grandparentJoin.as]: {
                             $mergeObjects: [
                               { $ifNull: [`$_joinData.${grandparentJoin.as}`, {}] },
-                              { 
+                              {
                                 [operation.as]: {
                                   $ifNull: [`$_joinData.${operation.as}`, []]
                                 }

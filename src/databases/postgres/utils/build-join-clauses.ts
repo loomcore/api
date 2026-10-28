@@ -9,7 +9,7 @@ function getParentAlias(localField: string): string | null {
 }
 
 /** One-to-one aliases placed in the outer FROM. LeftJoinMany and joins whose parent is a many stay in the SELECT subquery. */
-export function collectOuterOneToOneAliases(operations: Operation[], mainTableName?: string): Set<string> {
+export function collectOuterOneToOneAliases(operations: Operation[], mainTableName: string): Set<string> {
   const aliases = new Set<string>();
   for (const operation of operations) {
     if (!(operation instanceof LeftJoin) && !(operation instanceof InnerJoin)) {
@@ -30,11 +30,11 @@ export function collectOuterOneToOneAliases(operations: Operation[], mainTableNa
  * LeftJoinMany and joins that hang off a many are omitted; the SELECT clause aggregates those.
  *
  * @param operations - Join operations to build clauses for
- * @param mainTableName - Optional main table name; when provided, the join table is aliased (AS) and the ON clause left side is qualified for the main table
+ * @param mainTableName - Main table name; qualifies the ON clause left side for root joins
  */
 export function buildJoinClauses(
   operations: Operation[],
-  mainTableName?: string,
+  mainTableName: string,
 ): string {
   const joinClauses: string[] = [];
   const oneToOneAliasesInScope = collectOuterOneToOneAliases(operations, mainTableName);
@@ -53,7 +53,7 @@ export function buildJoinClauses(
       const [alias, column] = operation.localField.split('.');
       leftSide = `"${alias}"."${column}"`;
     } else {
-      leftSide = mainTableName ? `"${mainTableName}"."${operation.localField}"` : `"${operation.localField}"`;
+      leftSide = `"${mainTableName}"."${operation.localField}"`;
     }
     const fromTable = toPostgresStoreName(operation.from);
     joinClauses.push(`${joinType} "${fromTable}" AS "${operation.as}" ON ${leftSide} = "${operation.as}"."${operation.foreignField}"`);
