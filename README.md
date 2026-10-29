@@ -37,6 +37,23 @@ The framework is built around a few core components:
 
 By extending these base classes, you can quickly stand up a new, fully-featured API endpoint with minimal boilerplate code.
 
+### Multi-tenant organization provisioning
+
+When multi-tenancy is enabled, **`POST /api/organizations`** is the only HTTP way to create a tenant organization. The request body provisions the org, its login domain, and an initial admin user (who receives a welcome/set-password email). Meta-org admins with the `admin` feature call this route; the work is implemented in `OrganizationService.createOrganizationWithAdmin` so self-service signup can reuse the same service logic later.
+
+Request shape:
+
+```json
+{
+  "name": "Acme Tenant",
+  "code": "acme",
+  "adminEmail": "acme-admin@example.com",
+  "adminDisplayName": "Acme Admin"
+}
+```
+
+Response (`201`): `{ organization, adminUser }` (password omitted). Org-only creates without an admin are not supported over HTTP.
+
 ## Testing
 
 ### PostgreSQL Testing

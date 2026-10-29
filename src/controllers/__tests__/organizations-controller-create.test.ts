@@ -15,8 +15,8 @@ import {
 import { UserService } from '../../services/user.service.js';
 import { OrganizationsController } from '../organizations.controller.js';
 
-describe('OrganizationsController.createOrganizationWithAdmin', () => {
-  const apiEndpoint = '/api/organizations/create-with-admin';
+describe('OrganizationsController POST /organizations', () => {
+  const apiEndpoint = '/api/organizations';
   let testAgent: any;
   let database: Awaited<ReturnType<typeof TestExpressApp.init>>['database'];
   let organizationService: OrganizationService;
@@ -111,6 +111,35 @@ describe('OrganizationsController.createOrganizationWithAdmin', () => {
     expect(setPasswordLink).toContain(`${buildOrganizationClientBaseUrl(payload.code)}/reset-password/`);
     expect(setPasswordLink).toContain(encodeURIComponent(payload.adminEmail));
     expect(setPasswordLink).not.toContain('undefined');
+  });
+
+  it('does not create an organization from the legacy org-only body (no admin)', async () => {
+    const response = await testAgent
+      .post(apiEndpoint)
+      .set('Authorization', testUtils.getAdminAuthToken())
+      .send({
+        name: 'Legacy Bare Org',
+        code: 'legacy-bare',
+        status: 1,
+        isMetaOrg: false,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body?.errors?.[0]?.message).toMatch(/admin email/i);
+
+    const leftover = await organizationService.findOne(getSystemUserContext(), {
+      filters: { code: { eq: 'legacy-bare' } },
+    });
+    expect(leftover).toBeNull();
+  });
+
+  it('does not expose the removed create-with-admin route', async () => {
+    const response = await testAgent
+      .post('/api/organizations/create-with-admin')
+      .set('Authorization', testUtils.getAdminAuthToken())
+      .send(validPayload());
+
+    expect(response.status).toBe(404);
   });
 
   it('rejects invalid organization codes with 400', async () => {
