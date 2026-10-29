@@ -183,7 +183,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     const authorizationService = new AuthorizationService(this.database);
 
     try {
-      const organization = await this.create(userContext, {
+      const organization = await super.create(userContext, {
         name: parsed.name,
         code: parsed.code,
         status: DEFAULT_ORGANIZATION_STATUS,
