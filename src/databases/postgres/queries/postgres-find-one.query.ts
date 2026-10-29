@@ -8,9 +8,8 @@ export async function findOne<T>(
   queryObject: IQueryOptions,
   pluralResourceName: string
 ): Promise<T | null> {
-  const { whereClause, values } = buildWhereClause(queryObject);
-
-  const orderByClause = buildOrderByClause(queryObject);
+  const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
+  const orderByClause = buildOrderByClause(queryObject, pluralResourceName);
 
   const query = `SELECT * FROM "${pluralResourceName}" ${whereClause} ${orderByClause} LIMIT 1`;
   const result = await client.query(query, values);

@@ -29,14 +29,28 @@ function resolveLocalFieldPath(
   return localField;
 }
 
+/**
+ * An InnerJoin drops the root document when it matches nothing, unless it hangs off a LeftJoinMany.
+ * Those stay inside the array, the same way Postgres keeps them out of the outer FROM.
+ */
+function innerJoinDropsDocument(operation: LeftJoin | InnerJoin, processedOperations: Operation[]): boolean {
+  if (!(operation instanceof InnerJoin)) {
+    return false;
+  }
+  const dot = operation.localField.indexOf('.');
+  if (dot === -1) {
+    return true;
+  }
+  const parentAlias = operation.localField.slice(0, dot);
+  const parent = processedOperations.find(op =>
+    (op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany) && op.as === parentAlias
+  );
+  return !(parent instanceof LeftJoinMany);
+}
+
 export function convertOperationsToPipeline(operations: Operation[]): Document[] {
   let pipeline: Document[] = [];
   const processedOperations: Operation[] = [];
-
-  // Collect all join aliases to initialize _joinData structure
-  const joinAliases = operations
-    .filter(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany)
-    .map(op => op.as);
 
   // Note: _joinData will be created automatically by MongoDB when we use $addFields
   // We don't initialize it here because MongoDB doesn't allow setting a field to an empty object {}
@@ -49,6 +63,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
       const needsObjectIdConversion = operation.foreignField === '_id';
       const isNestedField = operation.localField.includes('.');
       const resolvedLocalField = resolveLocalFieldPath(operation.localField, processedOperations);
+      const preserveMissingMatch = !innerJoinDropsDocument(operation, processedOperations);
 
       if (needsObjectIdConversion) {
         // Use $expr with $eq to handle ObjectId conversion for the lookup
@@ -80,7 +95,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
           {
             $unwind: {
               path: `$${operation.as}Arr`,
-              preserveNullAndEmptyArrays: true
+              preserveNullAndEmptyArrays: preserveMissingMatch
             }
           },
           {
@@ -113,7 +128,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
           {
             $unwind: {
               path: `$${operation.as}Arr`,
-              preserveNullAndEmptyArrays: true
+              preserveNullAndEmptyArrays: preserveMissingMatch
             }
           },
           {
@@ -252,7 +267,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
                 .slice(0, processedOperations.indexOf(parentJoin))
                 .reverse()
                 .find(op => op instanceof LeftJoin || op instanceof InnerJoin);
-              
+
               if (grandparentJoin) {
                 // Nest under grandparent (e.g., clientPerson)
                 pipeline.push({
@@ -264,7 +279,7 @@ export function convertOperationsToPipeline(operations: Operation[]): Document[]
                           [grandparentJoin.as]: {
                             $mergeObjects: [
                               { $ifNull: [`$_joinData.${grandparentJoin.as}`, {}] },
-                              { 
+                              {
                                 [operation.as]: {
                                   $ifNull: [`$_joinData.${operation.as}`, []]
                                 }

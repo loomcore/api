@@ -35,7 +35,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(result._id).toBe(objId.toString());
       expect(typeof result._id).toBe('string');
       expect(result.name).toBe('Test Entity');
@@ -45,7 +45,7 @@ describe('mongoUtils', () => {
       const mainId = new ObjectId();
       const simpleId = new ObjectId();
       const nestedId = new ObjectId();
-      
+
       const entity = {
         _id: mainId,
         name: 'Test Entity',
@@ -58,11 +58,11 @@ describe('mongoUtils', () => {
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(result._id).toBe(mainId.toString());
       expect(result.simpleId).toBe(simpleId.toString());
       expect(result.nestedObject.nestedId).toBe(nestedId.toString());
-      
+
       // Normal fields should remain unchanged
       expect(result.name).toBe('Test Entity');
       expect(result.nestedObject.normalField).toBe('Normal Value');
@@ -73,14 +73,14 @@ describe('mongoUtils', () => {
       const id1 = new ObjectId();
       const id2 = new ObjectId();
       const id3 = new ObjectId();
-      
+
       const entity = {
         _id: new ObjectId(),
         arrayOfIds: [id1, id2, id3]
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(Array.isArray(result.arrayOfIds)).toBe(true);
       expect(result.arrayOfIds).toHaveLength(3);
       expect(result.arrayOfIds[0]).toBe(id1.toString());
@@ -91,7 +91,7 @@ describe('mongoUtils', () => {
     it('should convert ObjectIds within array of objects', () => {
       const itemId1 = new ObjectId();
       const itemId2 = new ObjectId();
-      
+
       const entity = {
         _id: new ObjectId(),
         arrayOfObjects: [
@@ -101,7 +101,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(Array.isArray(result.arrayOfObjects)).toBe(true);
       expect(result.arrayOfObjects).toHaveLength(2);
       expect(result.arrayOfObjects[0].itemId).toBe(itemId1.toString());
@@ -112,14 +112,14 @@ describe('mongoUtils', () => {
 
     it('should not convert _orgId field (exclusion list)', () => {
       const orgId = 'org-123'; // String value
-      
+
       const entity = {
         _id: new ObjectId(),
         _orgId: orgId
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(result._orgId).toBe(orgId);
       expect(typeof result._orgId).toBe('string');
     });
@@ -135,7 +135,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(typeof result._id).toBe('string');
       expect(result.simpleId).toBeNull();
       expect(result.nestedObject.nestedId).toBeUndefined();
@@ -144,7 +144,7 @@ describe('mongoUtils', () => {
     it('should convert non-schema fields to strings', () => {
       const extraId = new ObjectId();
       const idString = new ObjectId().toString(); // String ID that should be in our models
-      
+
       const entity = {
         _id: idString, // TO database, this would be a string ID
         extraField: 'Extra Value',
@@ -152,7 +152,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(result._id).toBe(idString); // Should remain as string
       expect(result.extraField).toBe('Extra Value');
       expect(result.extraObjectId).toBe(extraId.toString()); // Should be converted to string
@@ -166,7 +166,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertObjectIdsToStrings(entity);
-      
+
       expect(result._id).toBe(objId.toString());
       expect(typeof result._id).toBe('string');
       expect(result.name).toBe('Test Entity');
@@ -204,7 +204,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result._id.toString()).toBe(idString);
       expect(result.name).toBe('Test Entity');
@@ -214,7 +214,7 @@ describe('mongoUtils', () => {
       const mainId = new ObjectId().toString();
       const simpleId = new ObjectId().toString();
       const nestedId = new ObjectId().toString();
-      
+
       const entity = {
         _id: mainId, // TO database, these are string IDs
         name: 'Test Entity',
@@ -227,16 +227,16 @@ describe('mongoUtils', () => {
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result._id.toString()).toBe(mainId);
-      
+
       expect(result.simpleId).toBeInstanceOf(ObjectId);
       expect(result.simpleId.toString()).toBe(simpleId);
-      
+
       expect(result.nestedObject.nestedId).toBeInstanceOf(ObjectId);
       expect(result.nestedObject.nestedId.toString()).toBe(nestedId);
-      
+
       // Normal fields should remain unchanged
       expect(result.name).toBe('Test Entity');
       expect(result.nestedObject.normalField).toBe('Normal Value');
@@ -247,14 +247,14 @@ describe('mongoUtils', () => {
       const id1 = new ObjectId().toString();
       const id2 = new ObjectId().toString();
       const id3 = new ObjectId().toString();
-      
+
       const entity = {
         _id: new ObjectId().toString(), // TO database, these are string IDs
         arrayOfIds: [id1, id2, id3]
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(Array.isArray(result.arrayOfIds)).toBe(true);
       expect(result.arrayOfIds).toHaveLength(3);
       expect(result.arrayOfIds[0]).toBeInstanceOf(ObjectId);
@@ -266,7 +266,7 @@ describe('mongoUtils', () => {
     it('should convert string IDs within array of objects', () => {
       const itemId1 = new ObjectId().toString();
       const itemId2 = new ObjectId().toString();
-      
+
       const entity = {
         _id: new ObjectId().toString(),
         arrayOfObjects: [
@@ -276,7 +276,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(Array.isArray(result.arrayOfObjects)).toBe(true);
       expect(result.arrayOfObjects).toHaveLength(2);
       expect(result.arrayOfObjects[0].itemId).toBeInstanceOf(ObjectId);
@@ -289,21 +289,21 @@ describe('mongoUtils', () => {
 
     it('should not convert _orgId field (exclusion list)', () => {
       const orgId = 'org-123'; // String value that should stay as string
-      
+
       const entity = {
         _id: new ObjectId().toString(),
         _orgId: orgId
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(result._orgId).toBe(orgId);
       expect(typeof result._orgId).toBe('string');
     });
 
     it('should handle null/undefined values', () => {
       const idString = new ObjectId().toString();
-      
+
       const entity = {
         _id: idString,
         simpleId: null,
@@ -314,7 +314,7 @@ describe('mongoUtils', () => {
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result.simpleId).toBeNull();
       expect(result.nestedObject.nestedId).toBeUndefined();
@@ -322,14 +322,14 @@ describe('mongoUtils', () => {
 
     it('should not convert invalid ObjectId strings', () => {
       const invalidId = 'not-an-objectid';
-      
+
       const entity = {
         _id: new ObjectId().toString(), // Valid
         simpleId: invalidId // Invalid
       };
 
       const result = convertStringsToObjectIds(entity, TestSchema);
-      
+
       expect(result._id).toBeInstanceOf(ObjectId);
       expect(result.simpleId).toBe(invalidId); // Should remain as string
     });
@@ -442,7 +442,7 @@ describe('mongoUtils', () => {
           userId: TypeboxObjectId(),
           roleId: TypeboxObjectId()
         })
-      } as IModelSpec;
+      } as unknown as IModelSpec;
 
       const eqResult = buildNoSqlMatch({
         ...DefaultQueryOptions,
@@ -471,7 +471,7 @@ describe('mongoUtils', () => {
         fullSchema: Type.Object({
           userId: Type.String()
         })
-      } as IModelSpec;
+      } as unknown as IModelSpec;
 
       const result = buildNoSqlMatch({
         ...DefaultQueryOptions,
@@ -492,7 +492,7 @@ describe('mongoUtils', () => {
           _updatedBy: TypeboxObjectId(),
           _deletedBy: TypeboxObjectId()
         })
-      } as IModelSpec;
+      } as unknown as IModelSpec;
 
       const eqResult = buildNoSqlMatch({
         ...DefaultQueryOptions,
@@ -532,6 +532,145 @@ describe('mongoUtils', () => {
         $match: {
           status: { $in: [] }
         }
+      });
+    });
+
+    it('should match a bare null token as BSON null and not an ObjectId', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: 'null' } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $type: 'null' } }
+      });
+    });
+
+    it('should match a real null the same as the bare null token', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: null } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $type: 'null' } }
+      });
+    });
+
+    it('should match a bare undefined token as a missing field', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: 'undefined' } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $exists: false } }
+      });
+    });
+
+    it('should match a double-quoted null or undefined as a literal string', () => {
+      const nullResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: '"null"' } }
+      });
+      const undefinedResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { eq: '"undefined"' } }
+      });
+
+      expect(nullResult).toEqual({
+        $match: { parentId: 'null' }
+      });
+      expect(undefinedResult).toEqual({
+        $match: { parentId: 'undefined' }
+      });
+    });
+
+    it('should leave other quoted strings unchanged', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { name: { eq: '"hello"' } }
+      });
+
+      expect(result).toEqual({
+        $match: { name: '"hello"' }
+      });
+    });
+
+    it('should exclude a bare null token without matching it as an ObjectId', () => {
+      const tokenResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: 'null' } }
+      });
+      const nullResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: null } }
+      });
+
+      expect(tokenResult).toEqual({
+        $match: { parentId: { $not: { $type: 'null' } } }
+      });
+      expect(nullResult).toEqual({
+        $match: { parentId: { $not: { $type: 'null' } } }
+      });
+    });
+
+    it('should require a field when ne is a bare undefined token', () => {
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: 'undefined' } }
+      });
+
+      expect(result).toEqual({
+        $match: { parentId: { $exists: true } }
+      });
+    });
+
+    it('should compare ne of a double-quoted null or undefined as a literal string', () => {
+      const nullResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: '"null"' } }
+      });
+      const undefinedResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { parentId: { ne: '"undefined"' } }
+      });
+
+      expect(nullResult).toEqual({
+        $match: { parentId: { $ne: 'null' } }
+      });
+      expect(undefinedResult).toEqual({
+        $match: { parentId: { $ne: 'undefined' } }
+      });
+    });
+
+    it('should convert scalar *Id ne without a schema', () => {
+      const userId = '507f1f77bcf86cd799439011';
+      const result = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { userId: { ne: userId } }
+      });
+
+      expect(result).toEqual({
+        $match: { userId: { $ne: new ObjectId(userId) } }
+      });
+    });
+
+    it('should leave a numeric string ne as a number and an ordinary string as text', () => {
+      const priorityResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { priority: { ne: '1' } }
+      });
+      const nameResult = buildNoSqlMatch({
+        ...DefaultQueryOptions,
+        filters: { name: { ne: 'Warehouse' } }
+      });
+
+      expect(priorityResult).toEqual({
+        $match: { priority: { $ne: 1 } }
+      });
+      expect(nameResult).toEqual({
+        $match: { name: { $ne: 'Warehouse' } }
       });
     });
 

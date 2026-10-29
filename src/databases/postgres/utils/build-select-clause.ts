@@ -4,6 +4,7 @@ import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { toPostgresStoreName } from './convert-keys.util.js';
+import { isJoinOperation } from '../../utils/is-join-operation.util.js';
 
 const PK = '_id';
 
@@ -263,11 +264,7 @@ export async function buildSelectClause(
   mainTableName: string,
   operations: Operation[]
 ): Promise<string> {
-  const leftJoinOperations = operations.filter(op => op instanceof LeftJoin) as LeftJoin[];
-  const innerJoinOperations = operations.filter(op => op instanceof InnerJoin) as InnerJoin[];
-  const leftJoinManyOperations = operations.filter(op => op instanceof LeftJoinMany) as LeftJoinMany[];
-
-  const hasJoins = leftJoinOperations.length > 0 || innerJoinOperations.length > 0 || leftJoinManyOperations.length > 0;
+  const hasJoins = operations.some(isJoinOperation);
 
   if (!hasJoins) {
     return '*';

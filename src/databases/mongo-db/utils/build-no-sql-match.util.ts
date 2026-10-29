@@ -4,6 +4,7 @@ import { TSchema } from '@sinclair/typebox';
 import { Document, ObjectId } from 'mongodb';
 import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
 import { getPropertySchema } from '../../utils/get-property-schema.util.js';
+import { readFilterValue } from '../../utils/nullish-filter-value.js';
 
 function isExcludedFromObjectIdConversion(key: string): boolean {
   return PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key);
@@ -51,19 +52,46 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
       const propSchema = schema ? getPropertySchema(key, schema) : undefined;
 
       if (value.eq !== undefined) {
-        const valueToCompare = value.eq;
+        const comparison = readFilterValue(value.eq);
 
-        if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
-          && typeof valueToCompare === 'string' && entityUtils.isValidObjectId(valueToCompare)) {
-          match[key] = new ObjectId(valueToCompare);
+        if (comparison.kind === 'null') {
+          // Explicit BSON null only. { field: null } would also match a missing field.
+          match[key] = { $type: 'null' };
+        } else if (comparison.kind === 'undefined') {
+          match[key] = { $exists: false };
+        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
+          && typeof comparison.value === 'string' && entityUtils.isValidObjectId(comparison.value)) {
+          match[key] = new ObjectId(comparison.value);
         }
 
         // Convert numeric strings to numbers
-        else if (typeof valueToCompare === 'string' && !isNaN(Number(valueToCompare))) {
-          match[key] = Number(valueToCompare);
+        else if (typeof comparison.value === 'string' && !isNaN(Number(comparison.value))) {
+          match[key] = Number(comparison.value);
         }
         else {
-          match[key] = valueToCompare;
+          match[key] = comparison.value;
+        }
+      }
+      if (value.ne !== undefined) {
+        const comparison = readFilterValue(value.ne);
+
+        if (comparison.kind === 'null') {
+          // Complement of explicit BSON null, so a missing field still matches.
+          // { $ne: null } would exclude a missing field.
+          match[key] = { $not: { $type: 'null' } };
+        } else if (comparison.kind === 'undefined') {
+          match[key] = { $exists: true };
+        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
+          && typeof comparison.value === 'string' && entityUtils.isValidObjectId(comparison.value)) {
+          match[key] = { $ne: new ObjectId(comparison.value) };
+        }
+
+        // Convert numeric strings to numbers
+        else if (typeof comparison.value === 'string' && !isNaN(Number(comparison.value))) {
+          match[key] = { $ne: Number(comparison.value) };
+        }
+        else {
+          match[key] = { $ne: comparison.value };
         }
       }
       if (value.in !== undefined && Array.isArray(value.in)) {
