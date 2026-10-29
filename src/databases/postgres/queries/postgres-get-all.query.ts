@@ -12,9 +12,7 @@ export async function getAll<T>(
   pluralResourceName: string
 ): Promise<T[]> {
   const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
-  const joinClauses = hasJoins
-    ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
-    : buildJoinClauses(operations, pluralResourceName);
+  const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
   const selectClause = hasJoins
     ? await buildSelectClause(client, pluralResourceName, operations)

@@ -20,8 +20,7 @@ export async function update<T extends IEntity>(
   pluralResourceName: string
 ): Promise<T[]> {
   try {
-    // Build WHERE clause from queryObject (unqualified — UPDATE targets a single table)
-    const { whereClause, values: whereValues } = buildWhereClause(queryObject);
+    const { whereClause, values: whereValues } = buildWhereClause(queryObject, pluralResourceName);
 
     // Extract columns and values from the entity (only the fields to update)
     const { columns, values: entityValues } = columnsAndValuesFromEntity(entity);
@@ -59,21 +58,9 @@ export async function update<T extends IEntity>(
 
     // Retrieve updated entities with operations applied
     const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
-    const joinClauses = hasJoins
-      ? buildJoinClauses(operations, pluralResourceName, { oneToOneOnly: true })
-      : buildJoinClauses(operations, pluralResourceName);
-    const orderByClause = buildOrderByClause(
-      queryObject,
-      hasJoins ? { tablePrefix: pluralResourceName } : undefined,
-    );
-
-    // When there are joins, qualify column names with table prefix to avoid ambiguity
-    const tablePrefix = hasJoins ? pluralResourceName : undefined;
-    const { whereClause: selectWhereClause, values: selectWhereValues } = buildWhereClause(
-      queryObject,
-      [],
-      tablePrefix,
-    );
+    const joinClauses = buildJoinClauses(operations, pluralResourceName);
+    const orderByClause = buildOrderByClause(queryObject, pluralResourceName);
+    const { whereClause: selectWhereClause, values: selectWhereValues } = buildWhereClause(queryObject, pluralResourceName);
 
     const selectClause = hasJoins
       ? await buildSelectClause(client, pluralResourceName, operations)

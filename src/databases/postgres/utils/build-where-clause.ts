@@ -1,75 +1,34 @@
 import { IQueryOptions } from '@loomcore/common/models';
-import { toSnakeCase } from './convert-keys.util.js';
+import type { Operation } from '../../operations/operation.js';
+import { splitFiltersByType } from '../../utils/resolve-join-filter.js';
+import { appendFilterConditions, joinFilterSql, toSqlColumnName, type SqlParamIndex } from './build-join-where.js';
 
-export function buildWhereClause(queryObject: IQueryOptions, values: any[] = [], tablePrefix?: string): { whereClause: string, values: any[] } {
-  const filters = queryObject.filters || {};
+export function buildWhereClause(
+  queryObject: IQueryOptions,
+  tablePrefix: string,
+  values: any[] = [],
+  operations?: Operation[],
+): { whereClause: string; values: any[] } {
+  const useJoinFilters = operations !== undefined && operations.length > 0;
+  const { rootOptions, joinFilters } = useJoinFilters
+    ? splitFiltersByType(queryObject, operations, tablePrefix)
+    : { rootOptions: queryObject, joinFilters: [] };
+  const filters = rootOptions.filters || {};
   const conditions: string[] = [];
-  let paramIndex = values.length + 1;
+  const paramIndex: SqlParamIndex = { current: values.length + 1 };
 
-  // Qualify column names with table prefix if provided
-  const qualifyColumn = (columnName: string): string => {
-    return tablePrefix ? `"${tablePrefix}"."${columnName}"` : `"${columnName}"`;
-  };
-
-  // Build WHERE clause from filters
   for (const [key, value] of Object.entries(filters)) {
     if (value) {
-      // Convert key to snake_case to match database columns
-      // Special case: 'id' maps to '_id' (unless key already starts with underscore)
-      let snakeKey: string;
-      if (key.startsWith('_')) {
-        // Preserve keys that start with underscore
-        snakeKey = key;
-      } else if (key === 'id') {
-        // Map 'id' to '_id' for the primary key column
-        snakeKey = '_id';
-      } else {
-        // Convert camelCase to snake_case
-        snakeKey = toSnakeCase(key);
-      }
-      const qualifiedKey = qualifyColumn(snakeKey);
+      const qualifiedKey = `"${tablePrefix}"."${toSqlColumnName(key)}"`;
+      appendFilterConditions(qualifiedKey, value, conditions, values, paramIndex);
+    }
+  }
 
-      if (value.eq !== undefined) {
-        // Null-safe equality, equivalent to IS NOT DISTINCT FROM, which pg-mem cannot parse.
-        conditions.push(`(${qualifiedKey} = $${paramIndex} OR (${qualifiedKey} IS NULL AND $${paramIndex} IS NULL))`);
-        values.push(value.eq);
-        paramIndex++;
-      }
-      if (value.ne !== undefined) {
-        // Null-safe inequality, equivalent to IS DISTINCT FROM, which pg-mem cannot parse.
-        conditions.push(`(${qualifiedKey} != $${paramIndex} OR (${qualifiedKey} IS NOT NULL AND $${paramIndex} IS NULL) OR (${qualifiedKey} IS NULL AND $${paramIndex} IS NOT NULL))`);
-        values.push(value.ne);
-        paramIndex++;
-      }
-      if (value.in !== undefined && Array.isArray(value.in)) {
-        const placeholders = value.in.map(() => `$${paramIndex++}`).join(', ');
-        conditions.push(`${qualifiedKey} IN (${placeholders})`);
-        values.push(...value.in);
-      }
-      if (value.gte !== undefined) {
-        conditions.push(`${qualifiedKey} >= $${paramIndex}`);
-        values.push(value.gte);
-        paramIndex++;
-      }
-      if (value.lte !== undefined) {
-        conditions.push(`${qualifiedKey} <= $${paramIndex}`);
-        values.push(value.lte);
-        paramIndex++;
-      }
-      if (value.gt !== undefined) {
-        conditions.push(`${qualifiedKey} > $${paramIndex}`);
-        values.push(value.gt);
-        paramIndex++;
-      }
-      if (value.lt !== undefined) {
-        conditions.push(`${qualifiedKey} < $${paramIndex}`);
-        values.push(value.lt);
-        paramIndex++;
-      }
-      if (value.contains !== undefined) {
-        conditions.push(`LOWER(${qualifiedKey}) LIKE LOWER($${paramIndex})`);
-        values.push(`%${value.contains}%`);
-        paramIndex++;
+  if (useJoinFilters) {
+    for (const joinFilter of joinFilters) {
+      const predicate = joinFilterSql(joinFilter, operations, tablePrefix, values, paramIndex);
+      if (predicate) {
+        conditions.push(predicate);
       }
     }
   }

@@ -62,7 +62,7 @@ export async function batchUpdate<T extends IEntity>(
       const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
       queryObject.filters._id = { eq: _id };
-      const { whereClause } = buildWhereClause(queryObject, values);
+      const { whereClause } = buildWhereClause(queryObject, pluralResourceName, values);
 
       const query = `
         UPDATE "${pluralResourceName}"
@@ -77,13 +77,11 @@ export async function batchUpdate<T extends IEntity>(
 
     const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
-    // When there are joins, qualify column names with table prefix to avoid ambiguity
     const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
-    const tablePrefix = hasJoins ? pluralResourceName : undefined;
 
     queryObject.filters._id = { in: entityIds as any };
 
-    const { whereClause, values } = buildWhereClause(queryObject, [], tablePrefix);
+    const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
 
     // Build SELECT clause with explicit columns and JSON aggregation for joins
     // If no joins, use SELECT * for simplicity

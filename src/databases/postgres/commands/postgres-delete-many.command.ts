@@ -10,7 +10,7 @@ export async function deleteMany(
 ): Promise<DeleteResult> {
   try {
     // Build WHERE clause from queryObject
-    const { whereClause, values } = buildWhereClause(queryObject);
+    const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
 
     const query = `DELETE FROM "${pluralResourceName}" ${whereClause}`;
     const result = await client.query(query, values);
