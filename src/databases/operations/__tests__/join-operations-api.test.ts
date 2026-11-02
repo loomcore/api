@@ -41,9 +41,9 @@ interface ITestClientReportsApiModel extends ITestClientReportsModel {
 // Custom prepareQuery function that adds join operations
 const prepareQueryCustom: PrepareQueryCustomFunction = (
   userContext: IUserContext | undefined,
-  queryObject: IQueryOptions,
+  queryOptions: IQueryOptions,
   operations: Operation[]
-): { queryObject: IQueryOptions, operations: Operation[] } => {
+): { queryOptions: IQueryOptions, operations: Operation[] } => {
   // Create join operations
   const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'client_person');
   const joinAgent = new LeftJoin('agents', 'agent_id', '_id', 'agent');
@@ -94,7 +94,7 @@ const prepareQueryCustom: PrepareQueryCustomFunction = (
   );
 
   return {
-    queryObject: queryObject,
+    queryOptions: queryOptions,
     operations: [
       ...operations,
       joinPerson,

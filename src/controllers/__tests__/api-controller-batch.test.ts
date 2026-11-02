@@ -92,21 +92,21 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     const multiTenantProductA = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productA,
       _id: undefined,
-      _orgId: getTestMetaOrgUserContext().organization?._id
+      _orgId: getTestMetaOrgUserContext().user?._orgId
     });
     if (!multiTenantProductA) throw new Error('multi-tenant product A creation failed');
 
     const multiTenantProductB = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productB,
       _id: undefined,
-      _orgId: getTestMetaOrgUserContext().organization?._id
+      _orgId: getTestMetaOrgUserContext().user?._orgId
     });
     if (!multiTenantProductB) throw new Error('multi-tenant product B creation failed');
 
     const multiTenantProductC = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
       ...productC,
       _id: undefined,
-      _orgId: getTestMetaOrgUserContext().organization?._id
+      _orgId: getTestMetaOrgUserContext().user?._orgId
     });
     if (!multiTenantProductC) throw new Error('multi-tenant product C creation failed');
 

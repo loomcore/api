@@ -216,14 +216,7 @@ describe('OrganizationService', () => {
       // Create a userContext with the actual metaOrg _id
       const metaOrgUserContext: IUserContext = {
         user: getTestMetaOrgUser(),
-        organization: createdMetaOrg,
-        authorizations: [{
-          _id: testUtils.getRandomId(),
-          _orgId: createdMetaOrg._id,
-          role: 'metaorgUser',
-          feature: 'metaorgUser',
-          config: {},
-        }],
+        features: ['metaorgUser'],
       };
 
       // Act: Create a regular org with metaOrg userContext

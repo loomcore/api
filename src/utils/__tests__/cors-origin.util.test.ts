@@ -58,10 +58,27 @@ describe('isCorsOriginAllowed', () => {
       expect(isCorsOriginAllowed('https://app.example.com:443', exact)).toBe(false);
       expect(isCorsOriginAllowed('http://app.example.com', exact)).toBe(false);
     });
+  });
 
-    it('treats a lone * as an exact origin, not allow-all', () => {
+  describe('allow-all (*)', () => {
+    it('allows any origin when the list contains a lone *', () => {
+      expect(isCorsOriginAllowed('https://acme.example.com', ['*'])).toBe(true);
+      expect(isCorsOriginAllowed('http://localhost:3000', ['*'])).toBe(true);
       expect(isCorsOriginAllowed('*', ['*'])).toBe(true);
-      expect(isCorsOriginAllowed('https://acme.example.com', ['*'])).toBe(false);
+    });
+
+    it('allows any origin when * is mixed with other entries', () => {
+      const mixed = ['*', 'https://a.com'];
+      expect(isCorsOriginAllowed('https://a.com', mixed)).toBe(true);
+      expect(isCorsOriginAllowed('https://other.example.com', mixed)).toBe(true);
+      expect(isCorsOriginAllowed('http://localhost:4200', mixed)).toBe(true);
+    });
+  });
+
+  describe('empty allow-list', () => {
+    it('allows nothing', () => {
+      expect(isCorsOriginAllowed('https://acme.example.com', [])).toBe(false);
+      expect(isCorsOriginAllowed('*', [])).toBe(false);
     });
   });
 
@@ -90,13 +107,27 @@ describe('isCorsOriginAllowed', () => {
 });
 
 describe('toCorsAllowedOrigins', () => {
+  it('returns true when the list contains * so cors reflects the request origin', () => {
+    expect(toCorsAllowedOrigins(['*'])).toBe(true);
+    expect(toCorsAllowedOrigins(['*', 'https://a.com'])).toBe(true);
+    expect(toCorsAllowedOrigins(['https://app.example.com', '*'])).toBe(true);
+  });
+
   it('leaves exact origins as strings so cors keeps === matching', () => {
-    const result = toCorsAllowedOrigins(['https://app.example.com', '*']);
-    expect(result).toEqual(['https://app.example.com', '*']);
+    const result = toCorsAllowedOrigins(['https://app.example.com', 'https://admin.example.com']);
+    expect(result).toEqual(['https://app.example.com', 'https://admin.example.com']);
+  });
+
+  it('returns an empty list when nothing is allowed', () => {
+    expect(toCorsAllowedOrigins([])).toEqual([]);
   });
 
   it('converts DNS-label wildcards to anchored regexes', () => {
     const result = toCorsAllowedOrigins(['https://*.example.com']);
+    expect(Array.isArray(result)).toBe(true);
+    if (!Array.isArray(result)) {
+      return;
+    }
     expect(result).toHaveLength(1);
     expect(result[0]).toBeInstanceOf(RegExp);
     expect((result[0] as RegExp).test('https://acme.example.com')).toBe(true);
