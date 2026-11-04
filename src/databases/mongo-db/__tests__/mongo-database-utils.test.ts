@@ -3,9 +3,26 @@ import { ObjectId } from 'mongodb';
 import { Type } from '@sinclair/typebox';
 import { TypeboxObjectId } from '@loomcore/common/validation';
 import { IQueryOptions, IModelSpec, DefaultQueryOptions } from '@loomcore/common/models';
-import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds } from '../utils/index.js';
+import { buildNoSqlMatch, convertObjectIdsToStrings, convertStringsToObjectIds, isMongoDuplicateKeyError } from '../utils/index.js';
 
 describe('mongoUtils', () => {
+  describe('isMongoDuplicateKeyError', () => {
+    it('returns true when err.code is 11000', () => {
+      expect(isMongoDuplicateKeyError({ code: 11000 })).toBe(true);
+    });
+
+    it('returns true when writeErrors include code 11000', () => {
+      expect(isMongoDuplicateKeyError({ writeErrors: [{ code: 11000 }] })).toBe(true);
+    });
+
+    it('returns false for non-duplicate errors', () => {
+      expect(isMongoDuplicateKeyError({ code: 66 })).toBe(false);
+      expect(isMongoDuplicateKeyError({ writeErrors: [{ code: 66 }] })).toBe(false);
+      expect(isMongoDuplicateKeyError(new Error('boom'))).toBe(false);
+      expect(isMongoDuplicateKeyError(null)).toBe(false);
+    });
+  });
+
   describe('convertObjectIdsToStrings', () => {
     // Define a test schema
     const TestSchema = Type.Object({

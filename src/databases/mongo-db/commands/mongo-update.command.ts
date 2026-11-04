@@ -1,15 +1,25 @@
 import { Db } from 'mongodb';
 import { IQueryOptions } from '@loomcore/common/models';
 import { Operation } from '../../operations/operation.js';
-import { NotFoundError } from '../../../errors/index.js';
+import { DuplicateKeyError, NotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
+import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 
 export async function update<T>(db: Db, queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
   const collection = db.collection(pluralResourceName);
   const matchDocument = buildNoSqlMatch(queryObject);
   const filter = matchDocument.$match;
-  const updateResult = await collection.updateMany(filter, { $set: entity });
+  let updateResult;
+  try {
+    updateResult = await collection.updateMany(filter, { $set: entity });
+  }
+  catch (err: any) {
+    if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
+      throw new DuplicateKeyError(`One or more ${pluralResourceName} already exist`);
+    }
+    throw err;
+  }
   
   if (updateResult.matchedCount <= 0) {
     throw new NotFoundError('No records found matching update query');

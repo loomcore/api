@@ -1,8 +1,9 @@
 import { Db } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
-import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
+import { BadRequestError, DuplicateKeyError, IdNotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
+import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 import { entityUtils } from '@loomcore/common/utils';
 import type { AppIdType } from '@loomcore/common/types';
 
@@ -17,11 +18,20 @@ export async function partialUpdateById<T>(db: Db, operations: Operation[], id: 
   
   // For partial update, we use findOneAndUpdate with $set
   // The operations are used when retrieving the updated entity
-  const updatedEntity = await collection.findOneAndUpdate(
-    filter,
-    { $set: entity },
-    { returnDocument: 'after' }
-  );
+  let updatedEntity;
+  try {
+    updatedEntity = await collection.findOneAndUpdate(
+      filter,
+      { $set: entity },
+      { returnDocument: 'after' }
+    );
+  }
+  catch (err: any) {
+    if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
+      throw new DuplicateKeyError(`${pluralResourceName} already exists`);
+    }
+    throw err;
+  }
   
   if (!updatedEntity) {
     throw new IdNotFoundError();
