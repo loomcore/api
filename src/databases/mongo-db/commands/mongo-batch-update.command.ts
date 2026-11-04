@@ -1,7 +1,7 @@
 import { Db, Document, ObjectId } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
-import { BadRequestError } from '../../../errors/index.js';
-import { convertOperationsToPipeline } from '../utils/index.js';
+import { BadRequestError, DuplicateKeyError } from '../../../errors/index.js';
+import { convertOperationsToPipeline, isMongoDuplicateKeyError } from '../utils/index.js';
 import { IQueryOptions } from '@loomcore/common/models';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
@@ -41,7 +41,15 @@ export async function batchUpdate<T>(db: Db, entities: Partial<T>[], operations:
   }
 
   if (bulkOperations.length > 0) {
-    await collection.bulkWrite(bulkOperations);
+    try {
+      await collection.bulkWrite(bulkOperations);
+    }
+    catch (err: any) {
+      if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
+        throw new DuplicateKeyError(`One or more ${pluralResourceName} already exist`);
+      }
+      throw err;
+    }
   }
 
   // Build query to retrieve updated entities, merging _id filter with queryObject filters

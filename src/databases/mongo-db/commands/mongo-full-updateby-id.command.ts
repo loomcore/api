@@ -1,8 +1,9 @@
 import { Db } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
-import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
+import { BadRequestError, DuplicateKeyError, IdNotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
+import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 import { entityUtils } from '@loomcore/common/utils';
 import type { AppIdType } from '@loomcore/common/types';
 
@@ -16,7 +17,16 @@ export async function fullUpdateById<T>(db: Db, operations: Operation[], id: App
   const matchDocument = buildNoSqlMatch({ filters: { _id: { eq: id } } });
   const filter = matchDocument.$match;
   
-  const replaceResult = await collection.replaceOne(filter, entity);
+  let replaceResult;
+  try {
+    replaceResult = await collection.replaceOne(filter, entity);
+  }
+  catch (err: any) {
+    if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
+      throw new DuplicateKeyError(`${pluralResourceName} already exists`);
+    }
+    throw err;
+  }
   if (replaceResult.matchedCount <= 0) {
     throw new IdNotFoundError();
   }
