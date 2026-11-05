@@ -1,5 +1,6 @@
 import {
   DefaultQueryOptions,
+  type IAuditable,
   type IEntity,
   type IModelSpec,
   type IPagedResult,
@@ -350,19 +351,21 @@ export class GenericApiService<T extends IEntity>
       throw new IdNotFoundError();
     }
 
-    // Preserve system properties that should not be updated
-    // These fields exist at runtime for auditable entities and multi-tenant entities
-    const entityRecord = existingEntity as Record<string, unknown>;
-    const systemProperties = {
-      _created: entityRecord._created,
-      _createdBy: entityRecord._createdBy,
-      _orgId: entityRecord._orgId,
-    };
-
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
-    // Merge system properties back into the prepared entity (after preparation to avoid stripping)
-    Object.assign(preparedEntity, systemProperties);
+    // Preserve system properties that should not be updated
+    // _orgId is on IEntity (T extends IEntity), so we can access it directly
+    preparedEntity._orgId = existingEntity._orgId;
+
+    // Audit fields are only present when modelSpec.isAuditable is true.
+    // TypeScript can't narrow T based on this runtime check, so we use a type assertion.
+    if (this.modelSpec.isAuditable) {
+      const auditable = existingEntity as T & IAuditable;
+      Object.assign(preparedEntity, {
+        _created: auditable._created,
+        _createdBy: auditable._createdBy,
+      });
+    }
 
     const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, queryOptions, id, preparedEntity, this.pluralResourceName);
 

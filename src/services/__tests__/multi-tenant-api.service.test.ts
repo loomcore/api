@@ -51,6 +51,10 @@ describe('MultiTenantApiService', () => {
   // Fixture entity names for isolation tests
   const metaOrgEntityName = 'Meta Org Test Entity';
   const testOrgEntityName = 'Test Org Test Entity';
+  const sharedEntityName = 'Shared Entity Name';
+  const attackName = 'Attempted Cross-Org Update';
+  const updatedMetaName = 'Updated Meta Entity';
+  const updatedTestName = 'Updated Test Entity';
 
   // Set up the test environment once before all tests
   beforeAll(async () => {
@@ -122,6 +126,20 @@ describe('MultiTenantApiService', () => {
     const entity = await service.create(getTestOrgUserContext(), { name });
     if (!entity) throw new Error('Failed to create entity in test org');
     return entity;
+  }
+
+  // Helper to build a full TestEntity for update tests. The fullUpdateById method's signature
+  // expects T, though system properties (_created, _createdBy, _orgId) are preserved from the
+  // existing entity. This helper provides the required type fields for TypeScript compliance.
+  function buildUpdateEntity(existingEntity: TestEntity, updates: Partial<TestEntity>): TestEntity {
+    return {
+      _id: existingEntity._id,
+      _orgId: existingEntity._orgId,
+      _created: existingEntity._created,
+      _createdBy: existingEntity._createdBy,
+      name: existingEntity.name,
+      ...updates,
+    };
   }
 
   // Test protected methods directly
@@ -486,7 +504,7 @@ describe('MultiTenantApiService', () => {
       }
 
       const updateEntity: Partial<TestEntity> = {
-        name: 'Updated Name',
+        name: updatedMetaName,
       };
 
       // Act
@@ -499,7 +517,7 @@ describe('MultiTenantApiService', () => {
       // Assert
       expect(updated).toBeDefined();
       expect(updated._id).toBe(created._id);
-      expect(updated.name).toBe('Updated Name');
+      expect(updated.name).toBe(updatedMetaName);
       expect(updated._orgId).toBe(actualOrgId);
     });
 
@@ -509,13 +527,13 @@ describe('MultiTenantApiService', () => {
       // Use an ID that doesn't exist (type depends on database)
       const isPostgres = process.env.TEST_DATABASE === 'postgres';
       const nonExistentId = isPostgres ? 999999 : '507f1f77bcf86cd799439011';
-      const entity: Partial<TestEntity> = {
-        name: 'Updated Name',
+      const updateEntity: Partial<TestEntity> = {
+        name: updatedMetaName,
       };
 
       // Act & Assert
       await expect(
-        service.partialUpdateById(userContext, nonExistentId, entity),
+        service.partialUpdateById(userContext, nonExistentId, updateEntity),
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -523,7 +541,7 @@ describe('MultiTenantApiService', () => {
       const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
 
       await expect(
-        service.partialUpdateById(getTestOrgUserContext(), metaOrgEntity._id, { name: 'Hacked' }),
+        service.partialUpdateById(getTestOrgUserContext(), metaOrgEntity._id, { name: attackName }),
       ).rejects.toThrow(IdNotFoundError);
 
       const unchanged = await service.getById(getTestMetaOrgUserContext(), metaOrgEntity._id);
@@ -534,9 +552,10 @@ describe('MultiTenantApiService', () => {
   describe('fullUpdateById', () => {
     it('should not allow full update of an entity from another org', async () => {
       const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+      const attackPayload = buildUpdateEntity(metaOrgEntity, { name: attackName });
 
       await expect(
-        service.fullUpdateById(getTestOrgUserContext(), metaOrgEntity._id, { name: 'Hacked' } as TestEntity),
+        service.fullUpdateById(getTestOrgUserContext(), metaOrgEntity._id, attackPayload),
       ).rejects.toThrow(IdNotFoundError);
 
       const unchanged = await service.getById(getTestMetaOrgUserContext(), metaOrgEntity._id);
@@ -545,14 +564,15 @@ describe('MultiTenantApiService', () => {
 
     it('should allow full update of an entity in the same org', async () => {
       const testOrgEntity = await createInTestOrg(testOrgEntityName);
+      const updatePayload = buildUpdateEntity(testOrgEntity, { name: updatedTestName });
 
       const updated = await service.fullUpdateById(
         getTestOrgUserContext(),
         testOrgEntity._id,
-        { name: 'Updated Name' } as TestEntity,
+        updatePayload,
       );
 
-      expect(updated.name).toBe('Updated Name');
+      expect(updated.name).toBe(updatedTestName);
       expect(updated._orgId).toBe(actualTestOrg!._id);
     });
   });
@@ -565,7 +585,7 @@ describe('MultiTenantApiService', () => {
         service.partialUpdateByIdWithoutPreAndPostProcessing(
           getTestOrgUserContext(),
           metaOrgEntity._id,
-          { name: 'Hacked' } as TestEntity,
+          { name: attackName },
         ),
       ).rejects.toThrow(IdNotFoundError);
 
@@ -632,12 +652,11 @@ describe('MultiTenantApiService', () => {
 
   describe('find', () => {
     it('should only find entities in the caller\'s org', async () => {
-      const sharedName = 'Shared Entity Name';
-      await createInMetaOrg(sharedName);
-      await createInTestOrg(sharedName);
+      await createInMetaOrg(sharedEntityName);
+      await createInTestOrg(sharedEntityName);
 
-      const metaOrgResults = await service.find(getTestMetaOrgUserContext(), { filters: { name: { eq: sharedName } } });
-      const testOrgResults = await service.find(getTestOrgUserContext(), { filters: { name: { eq: sharedName } } });
+      const metaOrgResults = await service.find(getTestMetaOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+      const testOrgResults = await service.find(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
 
       expect(metaOrgResults).toHaveLength(1);
       expect(metaOrgResults[0]._orgId).toBe(actualMetaOrg!._id);
@@ -649,12 +668,11 @@ describe('MultiTenantApiService', () => {
 
   describe('findOne', () => {
     it('should only find one entity in the caller\'s org', async () => {
-      const sharedName = 'Shared Entity Name';
-      const metaOrgEntity = await createInMetaOrg(sharedName);
-      const testOrgEntity = await createInTestOrg(sharedName);
+      const metaOrgEntity = await createInMetaOrg(sharedEntityName);
+      const testOrgEntity = await createInTestOrg(sharedEntityName);
 
-      const metaOrgResult = await service.findOne(getTestMetaOrgUserContext(), { filters: { name: { eq: sharedName } } });
-      const testOrgResult = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedName } } });
+      const metaOrgResult = await service.findOne(getTestMetaOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+      const testOrgResult = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
 
       expect(metaOrgResult).toBeDefined();
       expect(metaOrgResult?._id).toBe(metaOrgEntity._id);
@@ -686,15 +704,15 @@ describe('MultiTenantApiService', () => {
       const testOrgEntity = await createInTestOrg(testOrgEntityName);
 
       const batchUpdates: Partial<TestEntity>[] = [
-        { _id: metaOrgEntity._id, name: 'Updated Meta' },
-        { _id: testOrgEntity._id, name: 'Updated Test' },
+        { _id: metaOrgEntity._id, name: updatedMetaName },
+        { _id: testOrgEntity._id, name: updatedTestName },
       ];
 
       const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), batchUpdates);
 
       expect(updatedEntities).toHaveLength(1);
       expect(updatedEntities[0]._id).toBe(metaOrgEntity._id);
-      expect(updatedEntities[0].name).toBe('Updated Meta');
+      expect(updatedEntities[0].name).toBe(updatedMetaName);
 
       const unchangedTestEntity = await service.getById(getTestOrgUserContext(), testOrgEntity._id);
       expect(unchangedTestEntity.name).toBe(testOrgEntityName);
@@ -703,17 +721,16 @@ describe('MultiTenantApiService', () => {
 
   describe('update', () => {
     it('should only update entities in the caller\'s org based on query', async () => {
-      const sharedName = 'Shared Entity Name';
-      await createInMetaOrg(sharedName);
-      await createInTestOrg(sharedName);
+      await createInMetaOrg(sharedEntityName);
+      await createInTestOrg(sharedEntityName);
 
-      const queryOptions: IQueryOptions = { filters: { name: { eq: sharedName } } };
-      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryOptions, { description: 'Updated' });
+      const queryOptions: IQueryOptions = { filters: { name: { eq: sharedEntityName } } };
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryOptions, { description: 'Updated description' });
 
       expect(updatedEntities).toHaveLength(1);
       expect(updatedEntities[0]._orgId).toBe(actualMetaOrg!._id);
 
-      const testOrgEntity = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedName } } });
+      const testOrgEntity = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
       expect(testOrgEntity?.description).toBeUndefined();
     });
   });
