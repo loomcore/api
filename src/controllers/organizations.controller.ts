@@ -87,9 +87,7 @@ export class OrganizationsController extends ApiController<IOrganization> {
     }
     try {
       res.set('Content-Type', 'application/json');
-      const entity = await this.orgService.findOne(userContext, {
-        filters: { code: { eq: code } },
-      });
+      const entity = await this.orgService.getByCode(userContext, code);
       if (!entity) throw new BadRequestError('Organization code not found');
 
       apiUtils.apiResponse<IOrganization>(res, 200, { data: entity });

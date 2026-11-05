@@ -340,7 +340,7 @@ export const getPostgresInitialSchema = (
           `,
           [
             dbConfig.multiTenant?.metaOrgName,
-            dbConfig.multiTenant?.metaOrgCode,
+            dbConfig.multiTenant?.metaOrgCode?.trim().toLowerCase(),
           ],
         );
 

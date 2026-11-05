@@ -5,7 +5,7 @@ import { ObjectId } from 'mongodb';
 
 import { buildOrganizationTenantDomain, OrganizationService } from '../organization.service.js';
 import { OrganizationDomainService } from '../organization-domain.service.js';
-import { BadRequestError } from '../../errors/index.js';
+import { BadRequestError, DuplicateKeyError } from '../../errors/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import {
@@ -132,6 +132,24 @@ describe('OrganizationService', () => {
     it('should return null when domain is not registered', async () => {
       const found = await service.findByDomain(EmptyUserContext, 'unknown.example.com');
       expect(found).toBeNull();
+    });
+
+    it('should resolve a tenant domain case-insensitively', async () => {
+      const domain = 'acme.localhost';
+      const createdOrg = await service.create(getSystemUserContext(), {
+        name: 'Acme Domain Org',
+        code: 'acme-domain',
+        status: 1,
+        isMetaOrg: false,
+      });
+
+      await organizationDomainService.create(getSystemUserContext(), {
+        organizationId: createdOrg!._id,
+        domain,
+      });
+
+      const found = await service.findByDomain(EmptyUserContext, 'ACME.LocalHost');
+      expect(found?._id).toBe(createdOrg!._id);
     });
   });
 
@@ -277,6 +295,24 @@ describe('OrganizationService', () => {
       expect(leftoverUser).toBeNull();
     });
 
+    it('stores a mixed-case code as lowercase and builds a lowercase tenant domain', async () => {
+      vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
+
+      const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminUserContext(), {
+        name: 'Mixed Case Tenant',
+        code: '  AcMe  ',
+        adminEmail: 'mixed-case-admin@example.com',
+      });
+
+      expect(result.organization.code).toBe('acme');
+
+      const createdDomain = await organizationDomainService.findOne(getSystemUserContext(), {
+        filters: { domain: { eq: buildOrganizationTenantDomain('acme') } },
+      });
+      expect(createdDomain).toBeDefined();
+      expect(createdDomain?.domain).toBe(buildOrganizationTenantDomain('acme'));
+    });
+
     it('defaults adminDisplayName to Admin User when it is omitted', async () => {
       vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
@@ -288,6 +324,90 @@ describe('OrganizationService', () => {
 
       expect(result.adminUser.displayName).toBe('Admin User');
       expect(result.adminUser.password).toBeUndefined();
+    });
+  });
+
+  describe('organization code normalization', () => {
+    it('stores a mixed-case code as lowercase on create', async () => {
+      const created = await service.create(getTestMetaOrgUserContext(), {
+        name: 'Mixed Case Create',
+        code: '  AcMe  ',
+        status: 1,
+        isMetaOrg: false,
+      });
+
+      expect(created?.code).toBe('acme');
+    });
+
+    it('stores a mixed-case code as lowercase on update', async () => {
+      const created = await service.create(getTestMetaOrgUserContext(), {
+        name: 'Mixed Case Update',
+        code: 'original-code',
+        status: 1,
+        isMetaOrg: false,
+      });
+      if (!created?._id) {
+        throw new Error('Organization not created or missing ID');
+      }
+
+      const updated = await service.partialUpdateById(
+        getTestMetaOrgUserContext(),
+        created._id,
+        { code: 'New-Code' },
+      );
+
+      expect(updated.code).toBe('new-code');
+    });
+
+    it('finds an organization by mixed-case code', async () => {
+      await service.create(getTestMetaOrgUserContext(), {
+        name: 'Lookup Org',
+        code: 'lookup-org',
+        status: 1,
+        isMetaOrg: false,
+      });
+
+      const found = await service.getByCode(getTestMetaOrgUserContext(), 'Lookup-ORG');
+      expect(found?.code).toBe('lookup-org');
+    });
+
+    it('throws DuplicateKeyError when creating Acme if acme already exists', async () => {
+      await service.create(getTestMetaOrgUserContext(), {
+        name: 'Acme One',
+        code: 'acme',
+        status: 1,
+        isMetaOrg: false,
+      });
+
+      await expect(
+        service.create(getTestMetaOrgUserContext(), {
+          name: 'Acme Two',
+          code: 'Acme',
+          status: 1,
+          isMetaOrg: false,
+        }),
+      ).rejects.toThrow(DuplicateKeyError);
+    });
+
+    it('validates a repo auth token when orgCode case differs', async () => {
+      const created = await service.create(getTestMetaOrgUserContext(), {
+        name: 'Repo Auth Org',
+        code: 'repo-auth',
+        status: 1,
+        isMetaOrg: false,
+        authToken: 'repo-token',
+      });
+
+      if (!created?._id) {
+        throw new Error('Organization not created or missing ID');
+      }
+
+      const orgId = await service.validateRepoAuthToken(
+        getTestMetaOrgUserContext(),
+        'REPO-AUTH',
+        'repo-token',
+      );
+      expect(orgId).toBe(created._id);
     });
   });
 });

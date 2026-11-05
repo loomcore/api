@@ -142,8 +142,36 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.status).toBe(404);
   });
 
+  it('stores a mixed-case organization code as lowercase', async () => {
+    vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
+
+    const response = await testAgent
+      .post(apiEndpoint)
+      .set('Authorization', testUtils.getAdminAuthToken())
+      .send(validPayload({ code: 'AcMe' }));
+
+    expect(response.status).toBe(201);
+    expect(response.body?.data?.organization?.code).toBe('acme');
+  });
+
+  it('finds an organization by mixed-case code', async () => {
+    vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
+
+    await testAgent
+      .post(apiEndpoint)
+      .set('Authorization', testUtils.getAdminAuthToken())
+      .send(validPayload({ code: 'acme' }));
+
+    const response = await testAgent
+      .get('/api/organizations/get-by-code/ACME')
+      .set('Authorization', testUtils.getAdminAuthToken());
+
+    expect(response.status).toBe(200);
+    expect(response.body?.data?.code).toBe('acme');
+  });
+
   it('rejects invalid organization codes with 400', async () => {
-    const invalidCodes = ['Acme', '-acme', 'acme-', 'acme.code', 'acme_code', 'a'.repeat(64), ''];
+    const invalidCodes = ['-acme', 'acme-', 'acme.code', 'acme_code', 'a'.repeat(64), ''];
 
     for (const code of invalidCodes) {
       const response = await testAgent
