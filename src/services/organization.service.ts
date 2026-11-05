@@ -1,6 +1,7 @@
 import {
   getSystemUserContext,
   type IOrganization,
+  type IQueryOptions,
   type IUser,
   type IUserContext,
   OrganizationSpec,
@@ -8,6 +9,7 @@ import {
 import type { AppIdType } from '@loomcore/common/types';
 import { config } from '../config/index.js';
 import type { IDatabase } from '../databases/models/index.js';
+import type { Operation } from '../databases/operations/operation.js';
 import { BadRequestError, ServerError } from '../errors/index.js';
 import { initiatePasswordReset } from '../utils/auth/initiate-password-reset.util.js';
 import { logger } from '../utils/logger.utils.js';
@@ -49,6 +51,41 @@ type CreatedOrganizationRecords = {
   authorizationId?: AppIdType;
 };
 
+/** Organization codes are subdomain names: trim and lowercase before store or lookup. */
+export function normalizeOrganizationCode(code: string): string {
+  return code.trim().toLowerCase();
+}
+
+function normalizeOrganizationCodeFilterValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return normalizeOrganizationCode(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => (typeof item === 'string' ? normalizeOrganizationCode(item) : item));
+  }
+  return value;
+}
+
+function normalizeOrganizationCodeQuery(queryOptions: IQueryOptions): IQueryOptions {
+  const codeFilter = queryOptions?.filters?.code;
+  if (!codeFilter || typeof codeFilter !== 'object') {
+    return queryOptions;
+  }
+
+  const normalizedCodeFilter: Record<string, unknown> = { ...codeFilter };
+  for (const [operator, value] of Object.entries(codeFilter)) {
+    normalizedCodeFilter[operator] = normalizeOrganizationCodeFilterValue(value);
+  }
+
+  return {
+    ...queryOptions,
+    filters: {
+      ...queryOptions.filters,
+      code: normalizedCodeFilter,
+    },
+  };
+}
+
 /**
  * Tenant login host: `${code}.${config.network.hostName}`.
  * hostName is the client domain in prod and `dev.<client-domain>` in dev,
@@ -59,7 +96,7 @@ export function buildOrganizationTenantDomain(code: string): string {
   if (!hostName) {
     throw new ServerError('network.hostName is not configured');
   }
-  return `${code}.${hostName}`;
+  return `${normalizeOrganizationCode(code)}.${hostName}`.toLowerCase();
 }
 
 /**
@@ -101,7 +138,22 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       isCreate,
       allowId,
     );
+    if (typeof result.code === 'string') {
+      result.code = normalizeOrganizationCode(result.code);
+    }
     return result;
+  }
+
+  override prepareQuery(
+    userContext: IUserContext | undefined,
+    queryOptions: IQueryOptions,
+    operations: Operation[],
+  ): { queryOptions: IQueryOptions; operations: Operation[] } {
+    const prepared = super.prepareQuery(userContext, queryOptions, operations);
+    return {
+      queryOptions: normalizeOrganizationCodeQuery(prepared.queryOptions),
+      operations: prepared.operations,
+    };
   }
 
   // TODO: override prepareQuery to add check for isMetaOrg.
@@ -121,9 +173,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     authToken: string,
   ): Promise<AppIdType | null> {
     // this is used to auth content-api calls - the orgCode is used in the api call hostname
-    const org = await this.findOne(userContext, {
-      filters: { code: { eq: orgCode } },
-    });
+    const org = await this.getByCode(userContext, orgCode);
 
     if (!org) {
       return null;
@@ -132,6 +182,12 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     const orgId = org.authToken === authToken ? org._id : null;
 
     return orgId;
+  }
+
+  async getByCode(userContext: IUserContext, code: string): Promise<IOrganization | null> {
+    return this.findOne(userContext, {
+      filters: { code: { eq: code } },
+    });
   }
 
   async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
@@ -149,10 +205,11 @@ export class OrganizationService extends GenericApiService<IOrganization> {
         'Missing required fields: domain is required.',
       );
     }
+    const normalizedDomain = domain.trim().toLowerCase();
     const organizationDomain = await this.organizationDomainService.findOne(
       userContext,
       {
-        filters: { domain: { eq: domain } },
+        filters: { domain: { eq: normalizedDomain } },
       },
     );
     if (!organizationDomain) {
@@ -292,7 +349,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     }
 
     const name = typeof input.name === 'string' ? input.name.trim() : '';
-    const code = typeof input.code === 'string' ? input.code : '';
+    const code = typeof input.code === 'string' ? normalizeOrganizationCode(input.code) : '';
     const adminEmail = typeof input.adminEmail === 'string' ? input.adminEmail.trim().toLowerCase() : '';
     if (input.adminDisplayName !== undefined && typeof input.adminDisplayName !== 'string') {
       throw new BadRequestError('Admin display name must be a string.');
@@ -332,9 +389,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       throw new BadRequestError('Organization name is already in use.');
     }
 
-    const existingByCode = await this.findOne(userContext, {
-      filters: { code: { eq: parsed.code } },
-    });
+    const existingByCode = await this.getByCode(userContext, parsed.code);
     if (existingByCode) {
       throw new BadRequestError('Organization code is already in use.');
     }

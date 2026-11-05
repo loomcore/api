@@ -109,6 +109,9 @@ export class TestMongoDatabase implements ITestDatabase {
         await db.command({
             createIndexes: 'users', indexes: [{ key: { _orgId: 1, email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
         });
+        await db.command({
+            createIndexes: 'organizations', indexes: [{ key: { code: 1 }, name: 'code_index', unique: true }]
+        });
     }
 
     /**
