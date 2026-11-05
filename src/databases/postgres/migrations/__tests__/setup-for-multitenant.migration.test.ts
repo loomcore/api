@@ -7,6 +7,8 @@ import { newDb } from 'pg-mem';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupTestConfig } from '../../../../__tests__/common-test.utils.js';
 import { config } from '../../../../config/base-api-config.js';
+import { IInitialDbMigrationConfig } from '../../../../models/initial-database-config.interface.js';
+import { getPostgresInitialSchema } from '../postgres-initial-schema.js';
 import { runInitialSchemaMigrations } from './test-migration-helper.js';
 
 // Skip this test suite if not running with PostgreSQL
@@ -123,3 +125,60 @@ describe.skipIf(!isPostgres)('setupDatabaseForMultitenant', () => {
     );
   });
 });
+
+describe.skipIf(!isPostgres)('postgres initial schema meta-org seed', () => {
+  it('stores a mixed-case metaOrgCode as lowercase', async () => {
+    setupTestConfig(true, 'postgres');
+    const { Client } = newDb().adapters.createPg();
+    const client = new Client();
+    await client.connect();
+    const pool = client as unknown as Pool;
+
+    if (!isSystemUserContextInitialized()) {
+      initializeSystemUserContext(
+        config.email?.systemEmailAddress || 'system@test.com',
+        undefined,
+      );
+    }
+
+    const dbConfig: IInitialDbMigrationConfig = {
+      env: 'test',
+      app: {
+        isMultiTenant: true,
+        isAuthEnabled: false,
+        name: 'test-app',
+        dbType: 'postgres',
+      },
+      database: {
+        name: 'test-db',
+        host: 'localhost',
+        password: 'test-password',
+        port: 5432,
+        username: 'test-user',
+      },
+      adminUser: { email: 'admin@test.com', password: 'admin-password' },
+      multiTenant: {
+        metaOrgName: 'Mixed Case Meta',
+        metaOrgCode: '  MetaOrg  ',
+        metaOrgDomains: [],
+      },
+      email: config.email,
+    };
+
+    try {
+      const migrations = getPostgresInitialSchema(dbConfig);
+      for (const name of ['00000000000002_schema-organizations', '00000000000010_data-meta-org']) {
+        const migration = migrations.find((item) => item.name === name);
+        expect(migration, `missing migration ${name}`).toBeDefined();
+        await migration!.up({ context: pool });
+      }
+
+      const result = await client.query(`SELECT code FROM organizations WHERE "is_meta_org" = TRUE`);
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0].code).toBe('metaorg');
+    } finally {
+      await client.end();
+    }
+  });
+});
+
