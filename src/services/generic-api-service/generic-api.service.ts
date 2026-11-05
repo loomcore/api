@@ -1,6 +1,5 @@
 import {
   DefaultQueryOptions,
-  type IAuditable,
   type IEntity,
   type IModelSpec,
   type IPagedResult,
@@ -357,13 +356,11 @@ export class GenericApiService<T extends IEntity>
     // _orgId is on IEntity (T extends IEntity), so we can access it directly
     preparedEntity._orgId = existingEntity._orgId;
 
-    // Audit fields are only present when modelSpec.isAuditable is true.
-    // TypeScript can't narrow T based on this runtime check, so we use a type assertion.
-    if (this.modelSpec.isAuditable) {
-      const auditable = existingEntity as T & IAuditable;
+    // Preserve audit fields if present (using 'in' narrowing for type safety)
+    if ('_created' in existingEntity && '_createdBy' in existingEntity) {
       Object.assign(preparedEntity, {
-        _created: auditable._created,
-        _createdBy: auditable._createdBy,
+        _created: existingEntity._created,
+        _createdBy: existingEntity._createdBy,
       });
     }
 
