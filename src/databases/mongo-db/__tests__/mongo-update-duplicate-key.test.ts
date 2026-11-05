@@ -5,7 +5,7 @@ import { DefaultQueryOptions, IQueryOptions } from '@loomcore/common/models';
 
 import { BadRequestError, DuplicateKeyError, IdNotFoundError, NotFoundError } from '../../../errors/index.js';
 import { batchUpdate } from '../commands/mongo-batch-update.command.js';
-import { fullUpdateById } from '../commands/mongo-full-updateby-id.command.js';
+import { fullUpdateById } from '../commands/mongo-full-update-by-id.command.js';
 import { partialUpdateById } from '../commands/mongo-partial-update-by-id.command.js';
 import { update } from '../commands/mongo-update.command.js';
 
