@@ -351,10 +351,12 @@ export class GenericApiService<T extends IEntity>
     }
 
     // Preserve system properties that should not be updated
+    // These fields exist at runtime for auditable entities and multi-tenant entities
+    const entityRecord = existingEntity as Record<string, unknown>;
     const systemProperties = {
-      _created: (existingEntity as any)._created,
-      _createdBy: (existingEntity as any)._createdBy,
-      _orgId: (existingEntity as any)._orgId,
+      _created: entityRecord._created,
+      _createdBy: entityRecord._createdBy,
+      _orgId: entityRecord._orgId,
     };
 
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
@@ -381,9 +383,11 @@ export class GenericApiService<T extends IEntity>
   }
 
   async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
+    const { queryOptions } = this.prepareQuery(userContext, {}, []);
+
     const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], {}, id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], queryOptions, id, preparedEntity, this.pluralResourceName);
 
     return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
