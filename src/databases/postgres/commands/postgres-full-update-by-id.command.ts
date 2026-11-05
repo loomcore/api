@@ -6,12 +6,14 @@ import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
-import { IEntity } from '@loomcore/common/models';
+import { buildWhereClause } from '../utils/build-where-clause.js';
+import { IEntity, IQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 
 export async function fullUpdateById<T extends IEntity>(
     client: PostgresConnection,
     operations: Operation[],
+    queryOptions: IQueryOptions,
     id: AppIdType,
     entity: Partial<T>,
     pluralResourceName: string
@@ -76,14 +78,23 @@ export async function fullUpdateById<T extends IEntity>(
         // Build SET clause
         const setClause = updateColumns.join(', ');
 
-        // Add id as the last parameter for WHERE clause
+        // Build combined WHERE clause with _id and any additional queryOptions filters (e.g., _orgId for tenant isolation)
+        const combinedQueryOptions: IQueryOptions = {
+            ...queryOptions,
+            filters: {
+                ...queryOptions.filters,
+                _id: { eq: id },
+            },
+        };
+        const { whereClause, values: whereValues } = buildWhereClause(combinedQueryOptions, pluralResourceName, [...updateValues]);
+
         const query = `
             UPDATE "${pluralResourceName}"
             SET ${setClause}
-            WHERE "_id" = $${paramIndex}
+            ${whereClause}
         `;
 
-        const result = await client.query(query, [...updateValues, id]);
+        const result = await client.query(query, whereValues);
 
         if (result.rowCount === 0) {
             throw new IdNotFoundError();

@@ -7,12 +7,14 @@ import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
-import { IEntity } from '@loomcore/common/models';
+import { buildWhereClause } from '../utils/build-where-clause.js';
+import { IEntity, IQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 
 export async function partialUpdateById<T extends IEntity>(
   client: PostgresConnection,
   operations: Operation[],
+  queryOptions: IQueryOptions,
   id: AppIdType,
   entity: Partial<T>,
   pluralResourceName: string
@@ -32,14 +34,23 @@ export async function partialUpdateById<T extends IEntity>(
     // Build SET clause for UPDATE
     const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
-    // Add id as the last parameter for WHERE clause
+    // Build combined WHERE clause with _id and any additional queryOptions filters (e.g., _orgId for tenant isolation)
+    const combinedQueryOptions: IQueryOptions = {
+      ...queryOptions,
+      filters: {
+        ...queryOptions.filters,
+        _id: { eq: id },
+      },
+    };
+    const { whereClause, values: whereValues } = buildWhereClause(combinedQueryOptions, pluralResourceName, [...updateValues]);
+
     const query = `
       UPDATE "${pluralResourceName}"
       SET ${setClause}
-      WHERE "_id" = $${updateValues.length + 1}
+      ${whereClause}
     `;
 
-    const result = await client.query(query, [...updateValues, id]);
+    const result = await client.query(query, whereValues);
 
     if (result.rowCount === 0) {
       throw new IdNotFoundError();

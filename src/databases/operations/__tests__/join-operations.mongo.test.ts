@@ -354,6 +354,7 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     // Query using getAll
     const rawResults = await database.getAll<ITestClientReportsModel>(
       operations,
+      {},
       'clients'
     );
 

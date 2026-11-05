@@ -97,9 +97,9 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
+    const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
 
-    const entities = await this.database.getAll<T>(operations, this.rootTableName);
+    const entities = await this.database.getAll<T>(operations, queryOptions, this.rootTableName);
 
     return entities.map(entity => this.postProcessEntityInternal(userContext, entity));
   }
@@ -132,7 +132,7 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   }
 
   async getCount(userContext: IUserContext): Promise<number> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
-    return await this.database.getCount(this.rootTableName);
+    const { queryOptions } = this.prepareQuery(userContext, {}, []);
+    return await this.database.getCount(queryOptions, this.rootTableName);
   }
 }
