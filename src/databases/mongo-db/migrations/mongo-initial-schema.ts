@@ -245,7 +245,7 @@ export const getMongoInitialSchema = (
       up: async ({ context: db }) => {
         const metaOrgDoc = {
           name: dbConfig.multiTenant!.metaOrgName,
-          code: dbConfig.multiTenant!.metaOrgCode.trim().toLowerCase(),
+          code: dbConfig.multiTenant!.metaOrgCode,
           description: undefined,
           status: 1,
           isMetaOrg: true,
