@@ -1,3 +1,4 @@
+import { IQueryOptions } from '@loomcore/common/models';
 import { Db } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
 import { BadRequestError, DuplicateKeyError, IdNotFoundError } from '../../../errors/index.js';
@@ -7,15 +8,20 @@ import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.
 import { entityUtils } from '@loomcore/common/utils';
 import type { AppIdType } from '@loomcore/common/types';
 
-export async function partialUpdateById<T>(db: Db, operations: Operation[], id: AppIdType, entity: Partial<any>, pluralResourceName: string): Promise<T> {
+export async function partialUpdateById<T>(db: Db, operations: Operation[], queryOptions: IQueryOptions, id: AppIdType, entity: Partial<any>, pluralResourceName: string): Promise<T> {
   if (!entityUtils.isValidObjectId(id)) {
     throw new BadRequestError('id is not a valid ObjectId');
   }
   const collection = db.collection(pluralResourceName);
-  // Build match document and extract the filter object
-  const matchDocument = buildNoSqlMatch({ filters: { _id: { eq: id } } });
+
+  // Build combined filter with _id and any additional queryOptions filters (e.g., _orgId for tenant isolation)
+  const combinedFilters = {
+    ...queryOptions.filters,
+    _id: { eq: id },
+  };
+  const matchDocument = buildNoSqlMatch({ filters: combinedFilters });
   const filter = matchDocument.$match;
-  
+
   // For partial update, we use findOneAndUpdate with $set
   // The operations are used when retrieving the updated entity
   let updatedEntity;
@@ -27,21 +33,21 @@ export async function partialUpdateById<T>(db: Db, operations: Operation[], id: 
     );
   }
   catch (err: any) {
-    if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
+    if (isMongoDuplicateKeyError(err)) {
       throw new DuplicateKeyError(`${pluralResourceName} already exists`);
     }
     throw err;
   }
-  
+
   if (!updatedEntity) {
     throw new IdNotFoundError();
   }
-  
+
   const pipeline = new NoSqlPipeline()
-    .addMatch({ filters: { _id: { eq: id } } })
+    .addMatch({ filters: combinedFilters })
     .addOperations(operations)
     .build();
-  
+
   const updatedEntityWithOperations = await collection.aggregate(pipeline).next();
   if (!updatedEntityWithOperations) {
     throw new IdNotFoundError();

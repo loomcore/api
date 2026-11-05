@@ -73,11 +73,13 @@ export class PostgresDatabase implements IDatabase {
     }
     async getAll<T extends IEntity>(
         operations: Operation[],
+        queryOptions: IQueryOptions,
         pluralResourceName: string,
     ): Promise<T[]> {
         return getAllQuery(
             this.connection,
             operations,
+            queryOptions,
             toPostgresStoreName(pluralResourceName),
         );
     }
@@ -108,9 +110,10 @@ export class PostgresDatabase implements IDatabase {
             toPostgresStoreName(pluralResourceName),
         );
     }
-    async getCount(pluralResourceName: string): Promise<number> {
+    async getCount(queryOptions: IQueryOptions, pluralResourceName: string): Promise<number> {
         return getCountQuery(
             this.connection,
+            queryOptions,
             toPostgresStoreName(pluralResourceName),
         );
     }
@@ -150,6 +153,7 @@ export class PostgresDatabase implements IDatabase {
     }
     async fullUpdateById<T extends IEntity>(
         operations: Operation[],
+        queryOptions: IQueryOptions,
         id: AppIdType,
         entity: Partial<T>,
         pluralResourceName: string,
@@ -157,6 +161,7 @@ export class PostgresDatabase implements IDatabase {
         return fullUpdateByIdCommand(
             this.connection,
             operations,
+            queryOptions,
             id,
             entity,
             toPostgresStoreName(pluralResourceName),
@@ -164,6 +169,7 @@ export class PostgresDatabase implements IDatabase {
     }
     async partialUpdateById<T extends IEntity>(
         operations: Operation[],
+        queryOptions: IQueryOptions,
         id: AppIdType,
         entity: Partial<T>,
         pluralResourceName: string,
@@ -171,6 +177,7 @@ export class PostgresDatabase implements IDatabase {
         return partialUpdateByIdCommand(
             this.connection,
             operations,
+            queryOptions,
             id,
             entity,
             toPostgresStoreName(pluralResourceName),
@@ -191,11 +198,13 @@ export class PostgresDatabase implements IDatabase {
         );
     }
     async deleteById(
+        queryOptions: IQueryOptions,
         id: AppIdType,
         pluralResourceName: string,
     ): Promise<DeleteResult> {
         return deleteByIdCommand(
             this.connection,
+            queryOptions,
             id,
             toPostgresStoreName(pluralResourceName),
         );
