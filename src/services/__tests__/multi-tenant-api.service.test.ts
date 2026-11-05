@@ -1,6 +1,7 @@
 import {
   DefaultQueryOptions,
   EmptyUserContext,
+  getSystemUserContext,
   IEntity,
   IOrganization,
   IQueryOptions,
@@ -23,7 +24,10 @@ import {
   getTestMetaOrg,
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
+  getTestOrg,
+  getTestOrgUserContext,
   setTestMetaOrgId,
+  setTestOrgId,
 } from '../../__tests__/test-objects.js';
 import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
@@ -39,9 +43,18 @@ describe('MultiTenantApiService', () => {
   let service: MultiTenantApiService<TestEntity>;
   let organizationService: OrganizationService;
   let actualMetaOrg: IOrganization | null = null;
+  let actualTestOrg: IOrganization | null = null;
 
   // Test data
   const otherOrgId = 'org-456';
+
+  // Fixture entity names for isolation tests
+  const metaOrgEntityName = 'Meta Org Test Entity';
+  const testOrgEntityName = 'Test Org Test Entity';
+  const sharedEntityName = 'Shared Entity Name';
+  const attackName = 'Attempted Cross-Org Update';
+  const updatedMetaName = 'Updated Meta Entity';
+  const updatedTestName = 'Updated Test Entity';
 
   // Set up the test environment once before all tests
   beforeAll(async () => {
@@ -72,6 +85,8 @@ describe('MultiTenantApiService', () => {
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
 
+    const systemUserContext = getSystemUserContext();
+
     // Recreate meta org after clearing collections (it gets deleted by clearCollections)
     await testUtils.createMetaOrg();
 
@@ -83,11 +98,49 @@ describe('MultiTenantApiService', () => {
     // Update test objects with the actual meta org ID
     setTestMetaOrgId(actualMetaOrg._id);
 
+    // Create a second organization for isolation tests
+    const createdTestOrg = await organizationService.create(
+      systemUserContext,
+      getTestOrg(),
+    );
+    if (createdTestOrg) {
+      actualTestOrg = createdTestOrg;
+      setTestOrgId(createdTestOrg._id);
+    }
+
     // Spy on TenantQueryDecorator methods to verify they're called
     vi.spyOn(TenantQueryDecorator.prototype, 'applyTenantToQuery');
     vi.spyOn(TenantQueryDecorator.prototype, 'applyTenantToQueryOptions');
     vi.spyOn(TenantQueryDecorator.prototype, 'getOrgIdField');
   });
+
+  // Helper to create an entity in the meta org
+  async function createInMetaOrg(name: string): Promise<TestEntity> {
+    const entity = await service.create(getTestMetaOrgUserContext(), { name });
+    if (!entity) throw new Error('Failed to create entity in meta org');
+    return entity;
+  }
+
+  // Helper to create an entity in the test org
+  async function createInTestOrg(name: string): Promise<TestEntity> {
+    const entity = await service.create(getTestOrgUserContext(), { name });
+    if (!entity) throw new Error('Failed to create entity in test org');
+    return entity;
+  }
+
+  // Helper to build a full TestEntity for update tests. The fullUpdateById method's signature
+  // expects T, though system properties (_created, _createdBy, _orgId) are preserved from the
+  // existing entity. This helper provides the required type fields for TypeScript compliance.
+  function buildUpdateEntity(existingEntity: TestEntity, updates: Partial<TestEntity>): TestEntity {
+    return {
+      _id: existingEntity._id,
+      _orgId: existingEntity._orgId,
+      _created: existingEntity._created,
+      _createdBy: existingEntity._createdBy,
+      name: existingEntity.name,
+      ...updates,
+    };
+  }
 
   // Test protected methods directly
   describe('prepareQuery', () => {
@@ -302,6 +355,30 @@ describe('MultiTenantApiService', () => {
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBeGreaterThan(0);
     });
+
+    it('should return only entities in the caller\'s org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+      const testOrgEntity = await createInTestOrg(testOrgEntityName);
+
+      const metaOrgResults = await service.getAll(getTestMetaOrgUserContext());
+      const testOrgResults = await service.getAll(getTestOrgUserContext());
+
+      expect(metaOrgResults).toHaveLength(1);
+      expect(metaOrgResults[0]._id).toBe(metaOrgEntity._id);
+      expect(metaOrgResults[0].name).toBe(metaOrgEntityName);
+
+      expect(testOrgResults).toHaveLength(1);
+      expect(testOrgResults[0]._id).toBe(testOrgEntity._id);
+      expect(testOrgResults[0].name).toBe(testOrgEntityName);
+    });
+
+    it('should return empty array when the caller\'s org has no entities', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+
+      const testOrgResults = await service.getAll(getTestOrgUserContext());
+
+      expect(testOrgResults).toHaveLength(0);
+    });
   });
 
   describe('get', () => {
@@ -320,6 +397,63 @@ describe('MultiTenantApiService', () => {
       expect(result).toBeDefined();
       expect(result.entities).toBeDefined();
       expect(Array.isArray(result.entities)).toBe(true);
+    });
+
+    it('should return only paginated results from the caller\'s org', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+      await createInMetaOrg(metaOrgEntityName + ' 2');
+      await createInTestOrg(testOrgEntityName);
+
+      const metaOrgResults = await service.get(getTestMetaOrgUserContext());
+      const testOrgResults = await service.get(getTestOrgUserContext());
+
+      expect(metaOrgResults.total).toBe(2);
+      expect(metaOrgResults.entities).toHaveLength(2);
+
+      expect(testOrgResults.total).toBe(1);
+      expect(testOrgResults.entities).toHaveLength(1);
+    });
+  });
+
+  describe('getById', () => {
+    it('should not allow getting an entity from another org by ID', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+
+      await expect(
+        service.getById(getTestOrgUserContext(), metaOrgEntity._id),
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should allow getting an entity from the same org by ID', async () => {
+      const testOrgEntity = await createInTestOrg(testOrgEntityName);
+
+      const result = await service.getById(getTestOrgUserContext(), testOrgEntity._id);
+
+      expect(result).toBeDefined();
+      expect(result._id).toBe(testOrgEntity._id);
+      expect(result._orgId).toBe(actualTestOrg!._id);
+    });
+  });
+
+  describe('getCount', () => {
+    it('should only count entities in the caller\'s org', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+      await createInMetaOrg(metaOrgEntityName + ' 2');
+      await createInTestOrg(testOrgEntityName);
+
+      const metaOrgCount = await service.getCount(getTestMetaOrgUserContext());
+      const testOrgCount = await service.getCount(getTestOrgUserContext());
+
+      expect(metaOrgCount).toBe(2);
+      expect(testOrgCount).toBe(1);
+    });
+
+    it('should return zero when the caller\'s org has no entities', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+
+      const testOrgCount = await service.getCount(getTestOrgUserContext());
+
+      expect(testOrgCount).toBe(0);
     });
   });
 
@@ -363,16 +497,14 @@ describe('MultiTenantApiService', () => {
       const actualOrgId = actualMetaOrg._id;
 
       // Create a test entity (let database auto-generate ID)
-      const created = await service.create(userContext, {
-        name: 'Original Name',
-      } as Partial<TestEntity>);
+      const created = await service.create(userContext, { name: 'Original Name' });
 
       if (!created || !created._id) {
         throw new Error('Entity not created or missing ID');
       }
 
       const updateEntity: Partial<TestEntity> = {
-        name: 'Updated Name',
+        name: updatedMetaName,
       };
 
       // Act
@@ -385,7 +517,7 @@ describe('MultiTenantApiService', () => {
       // Assert
       expect(updated).toBeDefined();
       expect(updated._id).toBe(created._id);
-      expect(updated.name).toBe('Updated Name');
+      expect(updated.name).toBe(updatedMetaName);
       expect(updated._orgId).toBe(actualOrgId);
     });
 
@@ -395,14 +527,70 @@ describe('MultiTenantApiService', () => {
       // Use an ID that doesn't exist (type depends on database)
       const isPostgres = process.env.TEST_DATABASE === 'postgres';
       const nonExistentId = isPostgres ? 999999 : '507f1f77bcf86cd799439011';
-      const entity: Partial<TestEntity> = {
-        name: 'Updated Name',
+      const updateEntity: Partial<TestEntity> = {
+        name: updatedMetaName,
       };
 
       // Act & Assert
       await expect(
-        service.partialUpdateById(userContext, nonExistentId, entity),
+        service.partialUpdateById(userContext, nonExistentId, updateEntity),
       ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should not allow updating an entity from another org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+
+      await expect(
+        service.partialUpdateById(getTestOrgUserContext(), metaOrgEntity._id, { name: attackName }),
+      ).rejects.toThrow(IdNotFoundError);
+
+      const unchanged = await service.getById(getTestMetaOrgUserContext(), metaOrgEntity._id);
+      expect(unchanged.name).toBe(metaOrgEntityName);
+    });
+  });
+
+  describe('fullUpdateById', () => {
+    it('should not allow full update of an entity from another org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+      const attackPayload = buildUpdateEntity(metaOrgEntity, { name: attackName });
+
+      await expect(
+        service.fullUpdateById(getTestOrgUserContext(), metaOrgEntity._id, attackPayload),
+      ).rejects.toThrow(IdNotFoundError);
+
+      const unchanged = await service.getById(getTestMetaOrgUserContext(), metaOrgEntity._id);
+      expect(unchanged._orgId).toBe(actualMetaOrg!._id);
+    });
+
+    it('should allow full update of an entity in the same org', async () => {
+      const testOrgEntity = await createInTestOrg(testOrgEntityName);
+      const updatePayload = buildUpdateEntity(testOrgEntity, { name: updatedTestName });
+
+      const updated = await service.fullUpdateById(
+        getTestOrgUserContext(),
+        testOrgEntity._id,
+        updatePayload,
+      );
+
+      expect(updated.name).toBe(updatedTestName);
+      expect(updated._orgId).toBe(actualTestOrg!._id);
+    });
+  });
+
+  describe('partialUpdateByIdWithoutPreAndPostProcessing', () => {
+    it('should not allow updating an entity from another org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+
+      await expect(
+        service.partialUpdateByIdWithoutPreAndPostProcessing(
+          getTestOrgUserContext(),
+          metaOrgEntity._id,
+          { name: attackName },
+        ),
+      ).rejects.toThrow(IdNotFoundError);
+
+      const unchanged = await service.getById(getTestMetaOrgUserContext(), metaOrgEntity._id);
+      expect(unchanged.name).toBe(metaOrgEntityName);
     });
   });
 
@@ -412,9 +600,7 @@ describe('MultiTenantApiService', () => {
       const userContext = getTestMetaOrgUserContext();
 
       // Create a test entity (let database auto-generate ID)
-      const created = await service.create(userContext, {
-        name: 'Test Entity',
-      } as Partial<TestEntity>);
+      const created = await service.create(userContext, { name: 'Test Entity' });
 
       if (!created || !created._id) {
         throw new Error('Entity not created or missing ID');
@@ -449,6 +635,103 @@ describe('MultiTenantApiService', () => {
       await expect(
         service.deleteById(userContext, nonExistentId),
       ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should not allow deleting an entity from another org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+
+      await expect(
+        service.deleteById(getTestOrgUserContext(), metaOrgEntity._id),
+      ).rejects.toThrow(IdNotFoundError);
+
+      const stillExists = await service.getById(getTestMetaOrgUserContext(), metaOrgEntity._id);
+      expect(stillExists).toBeDefined();
+      expect(stillExists._id).toBe(metaOrgEntity._id);
+    });
+  });
+
+  describe('find', () => {
+    it('should only find entities in the caller\'s org', async () => {
+      await createInMetaOrg(sharedEntityName);
+      await createInTestOrg(sharedEntityName);
+
+      const metaOrgResults = await service.find(getTestMetaOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+      const testOrgResults = await service.find(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+
+      expect(metaOrgResults).toHaveLength(1);
+      expect(metaOrgResults[0]._orgId).toBe(actualMetaOrg!._id);
+
+      expect(testOrgResults).toHaveLength(1);
+      expect(testOrgResults[0]._orgId).toBe(actualTestOrg!._id);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should only find one entity in the caller\'s org', async () => {
+      const metaOrgEntity = await createInMetaOrg(sharedEntityName);
+      const testOrgEntity = await createInTestOrg(sharedEntityName);
+
+      const metaOrgResult = await service.findOne(getTestMetaOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+      const testOrgResult = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+
+      expect(metaOrgResult).toBeDefined();
+      expect(metaOrgResult?._id).toBe(metaOrgEntity._id);
+      expect(metaOrgResult?._orgId).toBe(actualMetaOrg!._id);
+
+      expect(testOrgResult).toBeDefined();
+      expect(testOrgResult?._id).toBe(testOrgEntity._id);
+      expect(testOrgResult?._orgId).toBe(actualTestOrg!._id);
+    });
+  });
+
+  describe('deleteMany', () => {
+    it('should only delete entities in the caller\'s org', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+      await createInTestOrg(testOrgEntityName);
+
+      const deleteResult = await service.deleteMany(getTestMetaOrgUserContext(), {});
+
+      expect(deleteResult.count).toBe(1);
+
+      const testOrgResults = await service.getAll(getTestOrgUserContext());
+      expect(testOrgResults).toHaveLength(1);
+    });
+  });
+
+  describe('batchUpdate', () => {
+    it('should only update entities in the caller\'s org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+      const testOrgEntity = await createInTestOrg(testOrgEntityName);
+
+      const batchUpdates: Partial<TestEntity>[] = [
+        { _id: metaOrgEntity._id, name: updatedMetaName },
+        { _id: testOrgEntity._id, name: updatedTestName },
+      ];
+
+      const updatedEntities = await service.batchUpdate(getTestMetaOrgUserContext(), batchUpdates);
+
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0]._id).toBe(metaOrgEntity._id);
+      expect(updatedEntities[0].name).toBe(updatedMetaName);
+
+      const unchangedTestEntity = await service.getById(getTestOrgUserContext(), testOrgEntity._id);
+      expect(unchangedTestEntity.name).toBe(testOrgEntityName);
+    });
+  });
+
+  describe('update', () => {
+    it('should only update entities in the caller\'s org based on query', async () => {
+      await createInMetaOrg(sharedEntityName);
+      await createInTestOrg(sharedEntityName);
+
+      const queryOptions: IQueryOptions = { filters: { name: { eq: sharedEntityName } } };
+      const updatedEntities = await service.update(getTestMetaOrgUserContext(), queryOptions, { description: 'Updated description' });
+
+      expect(updatedEntities).toHaveLength(1);
+      expect(updatedEntities[0]._orgId).toBe(actualMetaOrg!._id);
+
+      const testOrgEntity = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
+      expect(testOrgEntity?.description).toBeUndefined();
     });
   });
 });
