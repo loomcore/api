@@ -21,7 +21,20 @@ import { IdNotFoundError, ServerError } from '../../errors/index.js';
 import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
+import { runWithTenantContext, type ITenantContext } from '../tenant-context.js';
 import type { IGenericApiService } from './generic-api-service.interface.js';
+
+/**
+ * Extract tenant context from query options for use with AsyncLocalStorage.
+ * Returns undefined orgId if no tenant filter is present.
+ */
+function extractTenantContext(queryOptions: IQueryOptions): ITenantContext {
+  const orgIdFilter = queryOptions.filters?._orgId;
+  if (orgIdFilter && typeof orgIdFilter === 'object' && 'eq' in orgIdFilter) {
+    return { orgId: orgIdFilter.eq as AppIdType };
+  }
+  return {};
+}
 
 export class GenericApiService<T extends IEntity>
   implements IGenericApiService<T> {
@@ -68,7 +81,10 @@ export class GenericApiService<T extends IEntity>
     }
     ({ operations, queryOptions } = this.prepareQuery(userContext, queryOptions, operations));
 
-    const entities = await this.database.getAll<T>(operations, queryOptions, this.pluralResourceName);
+    const tenantContext = extractTenantContext(queryOptions);
+    const entities = await runWithTenantContext(tenantContext, () =>
+      this.database.getAll<T>(operations, this.pluralResourceName)
+    );
 
     return entities.map((entity) => {
       const dbProcessed = this.postProcessEntity(userContext, entity);
@@ -278,7 +294,10 @@ export class GenericApiService<T extends IEntity>
 
   async getCount(userContext: IUserContext): Promise<number> {
     const { queryOptions } = this.prepareQuery(userContext, {}, []);
-    return await this.database.getCount(queryOptions, this.pluralResourceName);
+    const tenantContext = extractTenantContext(queryOptions);
+    return runWithTenantContext(tenantContext, () =>
+      this.database.getCount(this.pluralResourceName)
+    );
   }
 
   async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
@@ -343,6 +362,7 @@ export class GenericApiService<T extends IEntity>
     //  as the update process gets more complex. PREFER using partialUpdateById.
 
     const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
+    const tenantContext = extractTenantContext(queryOptions);
 
     // Get existing entity to preserve audit properties
     const existingEntity = await this.database.getById<T>(operations, queryOptions, id, this.pluralResourceName);
@@ -364,7 +384,9 @@ export class GenericApiService<T extends IEntity>
       });
     }
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, queryOptions, id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await runWithTenantContext(tenantContext, () =>
+      this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName)
+    );
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
@@ -372,10 +394,13 @@ export class GenericApiService<T extends IEntity>
 
   async partialUpdateById(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
+    const tenantContext = extractTenantContext(queryOptions);
 
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, queryOptions, id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await runWithTenantContext(tenantContext, () =>
+      this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName)
+    );
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
 
@@ -384,10 +409,13 @@ export class GenericApiService<T extends IEntity>
 
   async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const { queryOptions } = this.prepareQuery(userContext, {}, []);
+    const tenantContext = extractTenantContext(queryOptions);
 
     const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], queryOptions, id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await runWithTenantContext(tenantContext, () =>
+      this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName)
+    );
 
     return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
@@ -408,8 +436,11 @@ export class GenericApiService<T extends IEntity>
 
   async deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult> {
     const { queryOptions } = this.prepareQuery(userContext, {}, []);
+    const tenantContext = extractTenantContext(queryOptions);
 
-    const deleteResult = await this.database.deleteById(queryOptions, id, this.pluralResourceName);
+    const deleteResult = await runWithTenantContext(tenantContext, () =>
+      this.database.deleteById(id, this.pluralResourceName)
+    );
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();

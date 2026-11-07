@@ -607,7 +607,6 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
     // Query using getAll
     const results = await database.getAll<ITestClientReportsModel>(
       operations,
-      {},
       'clients'
     );
 

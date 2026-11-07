@@ -150,7 +150,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       );
 
       // Act
-      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], {}, 'orders');
+      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], 'orders');
 
       // Assert
       expect(results).toHaveLength(3);
@@ -197,7 +197,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       );
 
       // Act
-      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], {}, 'orders');
+      const results = await orderDatabase.getAll<OrderWithCustomer>([joinOperation], 'orders');
 
       // Assert
       expect(results).toHaveLength(1);
@@ -226,7 +226,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       ]);
 
       // Act
-      const results = await orderDatabase.getAll<Order>([], {}, 'orders');
+      const results = await orderDatabase.getAll<Order>([], 'orders');
 
       // Assert
       expect(results).toHaveLength(2);

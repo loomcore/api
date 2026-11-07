@@ -10,6 +10,7 @@ import { create, createMany, batchUpdate, fullUpdateById, partialUpdateById, upd
 import { getAll, get, getById, getCount, find, findOne } from './queries/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { BadRequestError } from '../../errors/bad-request.error.js';
+import { getTenantOrgId } from '../../services/tenant-context.js';
 
 export class MongoDBDatabase implements IDatabase {
     private db: Db;
@@ -36,6 +37,18 @@ export class MongoDBDatabase implements IDatabase {
         }
     }
 
+    /**
+     * Build query options with tenant filtering from the current AsyncLocalStorage context.
+     * If no tenant context is set, returns empty query options (no filtering).
+     */
+    private buildTenantQueryOptions(): IQueryOptions {
+        const orgId = getTenantOrgId();
+        if (orgId === undefined) {
+            return {};
+        }
+        return { filters: { _orgId: { eq: orgId } } };
+    }
+
     preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
         if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
             throw new BadRequestError('id is not a valid ObjectId');
@@ -49,8 +62,9 @@ export class MongoDBDatabase implements IDatabase {
         return convertObjectIdsToStrings<T>(single);
     }
 
-    async getAll<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, pluralResourceName: string): Promise<T[]> {
-        return getAll<T>(this.db, operations, queryOptions, pluralResourceName);
+    async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
+        const tenantQueryOptions = this.buildTenantQueryOptions();
+        return getAll<T>(this.db, operations, tenantQueryOptions, pluralResourceName);
     }
 
     async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
@@ -61,8 +75,9 @@ export class MongoDBDatabase implements IDatabase {
         return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
     }
 
-    async getCount(queryOptions: IQueryOptions, pluralResourceName: string): Promise<number> {
-        return getCount(this.db, queryOptions, pluralResourceName);
+    async getCount(pluralResourceName: string): Promise<number> {
+        const tenantQueryOptions = this.buildTenantQueryOptions();
+        return getCount(this.db, tenantQueryOptions, pluralResourceName);
     }
 
     async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppIdType; entity: T }> {
@@ -77,20 +92,23 @@ export class MongoDBDatabase implements IDatabase {
         return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
     }
 
-    async fullUpdateById<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-        return fullUpdateById<T>(this.db, operations, queryOptions, id, entity, pluralResourceName);
+    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+        const tenantQueryOptions = this.buildTenantQueryOptions();
+        return fullUpdateById<T>(this.db, operations, tenantQueryOptions, id, entity, pluralResourceName);
     }
 
-    async partialUpdateById<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-        return partialUpdateById<T>(this.db, operations, queryOptions, id, entity, pluralResourceName);
+    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
+        const tenantQueryOptions = this.buildTenantQueryOptions();
+        return partialUpdateById<T>(this.db, operations, tenantQueryOptions, id, entity, pluralResourceName);
     }
 
     async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return update<T>(this.db, queryObject, entity, operations, pluralResourceName);
     }
 
-    async deleteById(queryOptions: IQueryOptions, id: AppIdType, pluralResourceName: string): Promise<GenericDeleteResult> {
-        return deleteById(this.db, queryOptions, id, pluralResourceName);
+    async deleteById(id: AppIdType, pluralResourceName: string): Promise<GenericDeleteResult> {
+        const tenantQueryOptions = this.buildTenantQueryOptions();
+        return deleteById(this.db, tenantQueryOptions, id, pluralResourceName);
     }
 
     async deleteMany(queryObject: IQueryOptions, pluralResourceName: string): Promise<GenericDeleteResult> {
@@ -105,4 +123,3 @@ export class MongoDBDatabase implements IDatabase {
         return findOne<T>(this.db, queryObject, pluralResourceName);
     }
 };
-
