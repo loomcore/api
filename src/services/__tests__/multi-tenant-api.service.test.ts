@@ -734,4 +734,114 @@ describe('MultiTenantApiService', () => {
       expect(testOrgEntity?.description).toBeUndefined();
     });
   });
+
+  describe('concurrent context isolation', () => {
+    it('should isolate interleaved concurrent reads across orgs', async () => {
+      await createInMetaOrg('meta-entity-1');
+      await createInMetaOrg('meta-entity-2');
+      await createInTestOrg('test-entity-1');
+      await createInTestOrg('test-entity-2');
+      await createInTestOrg('test-entity-3');
+
+      const [metaResults, testResults] = await Promise.all([
+        service.getAll(getTestMetaOrgUserContext()),
+        service.getAll(getTestOrgUserContext()),
+      ]);
+
+      expect(metaResults).toHaveLength(2);
+      expect(metaResults.every(e => e._orgId === actualMetaOrg!._id)).toBe(true);
+
+      expect(testResults).toHaveLength(3);
+      expect(testResults.every(e => e._orgId === actualTestOrg!._id)).toBe(true);
+    });
+
+    it('should isolate interleaved concurrent mutations across orgs', async () => {
+      const metaEntity = await createInMetaOrg('meta-original');
+      const testEntity = await createInTestOrg('test-original');
+
+      const [metaUpdated, testUpdated] = await Promise.all([
+        service.partialUpdateById(getTestMetaOrgUserContext(), metaEntity._id, { name: 'meta-updated' }),
+        service.partialUpdateById(getTestOrgUserContext(), testEntity._id, { name: 'test-updated' }),
+      ]);
+
+      expect(metaUpdated.name).toBe('meta-updated');
+      expect(metaUpdated._orgId).toBe(actualMetaOrg!._id);
+
+      expect(testUpdated.name).toBe('test-updated');
+      expect(testUpdated._orgId).toBe(actualTestOrg!._id);
+
+      const metaVerify = await service.getById(getTestMetaOrgUserContext(), metaEntity._id);
+      const testVerify = await service.getById(getTestOrgUserContext(), testEntity._id);
+
+      expect(metaVerify.name).toBe('meta-updated');
+      expect(testVerify.name).toBe('test-updated');
+    });
+
+    it('should reject cross-org access during concurrent operations', async () => {
+      const metaEntity = await createInMetaOrg('meta-protected');
+      const testEntity = await createInTestOrg('test-protected');
+
+      const results = await Promise.allSettled([
+        service.getById(getTestOrgUserContext(), metaEntity._id),
+        service.getById(getTestMetaOrgUserContext(), testEntity._id),
+        service.partialUpdateById(getTestOrgUserContext(), metaEntity._id, { name: 'attack' }),
+        service.partialUpdateById(getTestMetaOrgUserContext(), testEntity._id, { name: 'attack' }),
+      ]);
+
+      expect(results.every(r => r.status === 'rejected')).toBe(true);
+      results.forEach(r => {
+        expect((r as PromiseRejectedResult).reason).toBeInstanceOf(IdNotFoundError);
+      });
+
+      const metaVerify = await service.getById(getTestMetaOrgUserContext(), metaEntity._id);
+      const testVerify = await service.getById(getTestOrgUserContext(), testEntity._id);
+
+      expect(metaVerify.name).toBe('meta-protected');
+      expect(testVerify.name).toBe('test-protected');
+    });
+
+    it('should isolate counts during concurrent operations', async () => {
+      await createInMetaOrg('m1');
+      await createInMetaOrg('m2');
+      await createInTestOrg('t1');
+      await createInTestOrg('t2');
+      await createInTestOrg('t3');
+
+      const [metaCount, testCount, metaAll, testAll] = await Promise.all([
+        service.getCount(getTestMetaOrgUserContext()),
+        service.getCount(getTestOrgUserContext()),
+        service.getAll(getTestMetaOrgUserContext()),
+        service.getAll(getTestOrgUserContext()),
+      ]);
+
+      expect(metaCount).toBe(2);
+      expect(testCount).toBe(3);
+      expect(metaAll).toHaveLength(2);
+      expect(testAll).toHaveLength(3);
+    });
+
+    it('should isolate deletes during concurrent operations', async () => {
+      const metaToDelete = await createInMetaOrg('meta-delete-me');
+      const testToDelete = await createInTestOrg('test-delete-me');
+      const metaToKeep = await createInMetaOrg('meta-keep-me');
+      const testToKeep = await createInTestOrg('test-keep-me');
+
+      const [metaDelete, testDelete] = await Promise.all([
+        service.deleteById(getTestMetaOrgUserContext(), metaToDelete._id),
+        service.deleteById(getTestOrgUserContext(), testToDelete._id),
+      ]);
+
+      expect(metaDelete.count).toBe(1);
+      expect(testDelete.count).toBe(1);
+
+      const metaRemaining = await service.getAll(getTestMetaOrgUserContext());
+      const testRemaining = await service.getAll(getTestOrgUserContext());
+
+      expect(metaRemaining).toHaveLength(1);
+      expect(metaRemaining[0]._id).toBe(metaToKeep._id);
+
+      expect(testRemaining).toHaveLength(1);
+      expect(testRemaining[0]._id).toBe(testToKeep._id);
+    });
+  });
 });
