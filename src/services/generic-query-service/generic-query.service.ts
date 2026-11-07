@@ -39,7 +39,10 @@ import { runWithTenantContext, type ITenantContext } from '../tenant-context.js'
 function extractTenantContext(queryOptions: IQueryOptions): ITenantContext {
   const orgIdFilter = queryOptions.filters?._orgId;
   if (orgIdFilter && typeof orgIdFilter === 'object' && 'eq' in orgIdFilter) {
-    return { orgId: orgIdFilter.eq as AppIdType };
+    const eq = orgIdFilter.eq;
+    if (typeof eq === 'string' || typeof eq === 'number') {
+      return { orgId: eq };
+    }
   }
   return {};
 }

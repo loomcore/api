@@ -7,19 +7,21 @@ import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
-import { buildWhereClause } from '../utils/build-where-clause.js';
-import { IEntity, IQueryOptions } from '@loomcore/common/models';
+import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
+import { getTenantOrgId } from '../../../services/tenant-context.js';
 
 export async function partialUpdateById<T extends IEntity>(
   client: PostgresConnection,
   operations: Operation[],
-  queryOptions: IQueryOptions,
   id: AppIdType,
   entity: Partial<T>,
   pluralResourceName: string
 ): Promise<T> {
   try {
+    // Check for tenant isolation from AsyncLocalStorage context
+    const tenantOrgId = getTenantOrgId();
+
     // Extract columns and values from the entity (only the fields to update)
     const { columns, values } = columnsAndValuesFromEntity(entity);
 
@@ -34,15 +36,17 @@ export async function partialUpdateById<T extends IEntity>(
     // Build SET clause for UPDATE
     const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
-    // Build combined WHERE clause with _id and any additional queryOptions filters (e.g., _orgId for tenant isolation)
-    const combinedQueryOptions: IQueryOptions = {
-      ...queryOptions,
-      filters: {
-        ...queryOptions.filters,
-        _id: { eq: id },
-      },
-    };
-    const { whereClause, values: whereValues } = buildWhereClause(combinedQueryOptions, pluralResourceName, [...updateValues]);
+    // Build WHERE clause with _id and optional tenant filter
+    let whereClause: string;
+    let queryValues: unknown[];
+
+    if (tenantOrgId !== undefined) {
+      whereClause = `WHERE "_id" = $${updateValues.length + 1} AND "_orgId" = $${updateValues.length + 2}`;
+      queryValues = [...updateValues, id, tenantOrgId];
+    } else {
+      whereClause = `WHERE "_id" = $${updateValues.length + 1}`;
+      queryValues = [...updateValues, id];
+    }
 
     const query = `
       UPDATE "${pluralResourceName}"
@@ -50,7 +54,7 @@ export async function partialUpdateById<T extends IEntity>(
       ${whereClause}
     `;
 
-    const result = await client.query(query, whereValues);
+    const result = await client.query(query, queryValues);
 
     if (result.rowCount === 0) {
       throw new IdNotFoundError();
@@ -66,12 +70,26 @@ export async function partialUpdateById<T extends IEntity>(
 
     // Qualify _id when joins are present to avoid ambiguous column references
     const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
+
+    // Build SELECT WHERE clause with tenant filter
+    let selectWhereClause: string;
+    let selectValues: unknown[];
+
+    if (tenantOrgId !== undefined) {
+      const orgIdColumn = hasJoins ? `"${pluralResourceName}"."_orgId"` : '"_orgId"';
+      selectWhereClause = `WHERE ${idColumn} = $1 AND ${orgIdColumn} = $2`;
+      selectValues = [id, tenantOrgId];
+    } else {
+      selectWhereClause = `WHERE ${idColumn} = $1`;
+      selectValues = [id];
+    }
+
     const selectQuery = `
       SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
-      WHERE ${idColumn} = $1 LIMIT 1
+      ${selectWhereClause} LIMIT 1
     `;
 
-    const selectResult = await client.query(selectQuery, [id]);
+    const selectResult = await client.query(selectQuery, selectValues);
 
     if (selectResult.rows.length === 0) {
       throw new IdNotFoundError();

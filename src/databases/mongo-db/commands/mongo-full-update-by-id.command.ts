@@ -1,27 +1,26 @@
-import { IQueryOptions } from '@loomcore/common/models';
-import { Db } from 'mongodb';
+import { Db, ObjectId } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
 import { BadRequestError, DuplicateKeyError, IdNotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
-import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 import { entityUtils } from '@loomcore/common/utils';
 import type { AppIdType } from '@loomcore/common/types';
+import { getTenantOrgId } from '../../../services/tenant-context.js';
 
-export async function fullUpdateById<T>(db: Db, operations: Operation[], queryOptions: IQueryOptions, id: AppIdType, entity: any, pluralResourceName: string): Promise<T> {
+export async function fullUpdateById<T>(db: Db, operations: Operation[], id: AppIdType, entity: any, pluralResourceName: string): Promise<T> {
   if (!entityUtils.isValidObjectId(id)) {
     throw new BadRequestError('id is not a valid ObjectId');
   }
 
   const collection = db.collection(pluralResourceName);
 
-  // Build combined filter with _id and any additional queryOptions filters (e.g., _orgId for tenant isolation)
-  const combinedFilters = {
-    ...queryOptions.filters,
-    _id: { eq: id },
-  };
-  const matchDocument = buildNoSqlMatch({ filters: combinedFilters });
-  const filter = matchDocument.$match;
+  // Build filter with _id and optional tenant isolation from AsyncLocalStorage context
+  // Note: _orgId is stored as a string (not ObjectId) per PROPERTIES_THAT_ARE_NOT_OBJECT_IDS
+  const filter: Record<string, unknown> = { _id: new ObjectId(id.toString()) };
+  const tenantOrgId = getTenantOrgId();
+  if (tenantOrgId !== undefined) {
+    filter._orgId = tenantOrgId.toString();
+  }
 
   let replaceResult;
   try {
@@ -37,8 +36,14 @@ export async function fullUpdateById<T>(db: Db, operations: Operation[], queryOp
     throw new IdNotFoundError();
   }
 
+  // Build pipeline for operations, including tenant filter
+  const filters: Record<string, { eq: AppIdType }> = { _id: { eq: id } };
+  if (tenantOrgId !== undefined) {
+    filters._orgId = { eq: tenantOrgId };
+  }
+
   const pipeline = new NoSqlPipeline()
-    .addMatch({ filters: combinedFilters })
+    .addMatch({ filters })
     .addOperations(operations)
     .build();
 
