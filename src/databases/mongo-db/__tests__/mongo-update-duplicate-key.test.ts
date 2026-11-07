@@ -93,20 +93,20 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       const { secondId } = await insertNamedPair();
 
       await expectDuplicateKeyError(
-        fullUpdateById(db, [], {}, secondId.toString(), { name: 'Alice' }, collectionName),
+        fullUpdateById(db, [], secondId.toString(), { name: 'Alice' }, collectionName),
         `${collectionName} already exists`,
       );
     });
 
     it('should throw BadRequestError when id is not a valid ObjectId', async () => {
       await expect(
-        fullUpdateById(db, [], {}, 'invalid-object-id', { name: 'Alice' }, collectionName),
+        fullUpdateById(db, [], 'invalid-object-id', { name: 'Alice' }, collectionName),
       ).rejects.toThrow(BadRequestError);
     });
 
     it('should throw IdNotFoundError when the id does not exist', async () => {
       await expect(
-        fullUpdateById(db, [], {}, new ObjectId().toString(), { name: 'Alice' }, collectionName),
+        fullUpdateById(db, [], new ObjectId().toString(), { name: 'Alice' }, collectionName),
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -114,7 +114,7 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       const { secondId } = await insertNamedPair();
 
       const error = await expectNonDuplicateError(
-        fullUpdateById(db, [], {}, secondId.toString(), { _id: new ObjectId(), name: 'Charlie' }, collectionName),
+        fullUpdateById(db, [], secondId.toString(), { _id: new ObjectId(), name: 'Charlie' }, collectionName),
       );
       expect(error).not.toBeInstanceOf(BadRequestError);
       expect(error).not.toBeInstanceOf(IdNotFoundError);
@@ -126,7 +126,7 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       const { secondId } = await insertNamedPair();
 
       await expectDuplicateKeyError(
-        partialUpdateById(db, [], {}, secondId.toString(), { name: 'Alice' }, collectionName),
+        partialUpdateById(db, [], secondId.toString(), { name: 'Alice' }, collectionName),
         `${collectionName} already exists`,
       );
     });
@@ -140,20 +140,20 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       ]);
 
       await expectDuplicateKeyError(
-        partialUpdateById(db, [], {}, secondId.toString(), { name: 'CAFÉ' }, collationCollectionName),
+        partialUpdateById(db, [], secondId.toString(), { name: 'CAFÉ' }, collationCollectionName),
         `${collationCollectionName} already exists`,
       );
     });
 
     it('should throw BadRequestError when id is not a valid ObjectId', async () => {
       await expect(
-        partialUpdateById(db, [], {}, 'invalid-object-id', { name: 'Alice' }, collectionName),
+        partialUpdateById(db, [], 'invalid-object-id', { name: 'Alice' }, collectionName),
       ).rejects.toThrow(BadRequestError);
     });
 
     it('should throw IdNotFoundError when the id does not exist', async () => {
       await expect(
-        partialUpdateById(db, [], {}, new ObjectId().toString(), { name: 'Alice' }, collectionName),
+        partialUpdateById(db, [], new ObjectId().toString(), { name: 'Alice' }, collectionName),
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -161,7 +161,7 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       const { secondId } = await insertNamedPair();
 
       const error = await expectNonDuplicateError(
-        partialUpdateById(db, [], {}, secondId.toString(), { _id: new ObjectId() }, collectionName),
+        partialUpdateById(db, [], secondId.toString(), { _id: new ObjectId() }, collectionName),
       );
       expect(error).not.toBeInstanceOf(BadRequestError);
       expect(error).not.toBeInstanceOf(IdNotFoundError);

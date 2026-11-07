@@ -29,7 +29,6 @@ import {
     toPostgresStoreName,
 } from './utils/convert-keys.util.js';
 import { convertNullToUndefined } from './utils/convert-null-to-undefined.util.js';
-import { getTenantOrgId } from '../../services/tenant-context.js';
 
 export class PostgresDatabase implements IDatabase {
     private connection: PostgresConnection;
@@ -62,18 +61,6 @@ export class PostgresDatabase implements IDatabase {
         }
     }
 
-    /**
-     * Build query options with tenant filtering from the current AsyncLocalStorage context.
-     * If no tenant context is set, returns empty query options (no filtering).
-     */
-    private buildTenantQueryOptions(): IQueryOptions {
-        const orgId = getTenantOrgId();
-        if (orgId === undefined) {
-            return {};
-        }
-        return { filters: { _orgId: { eq: orgId } } };
-    }
-
     preProcessEntity<T extends IEntity>(
         entity: Partial<T>,
         modelSpec: TSchema,
@@ -88,11 +75,9 @@ export class PostgresDatabase implements IDatabase {
         operations: Operation[],
         pluralResourceName: string,
     ): Promise<T[]> {
-        const tenantQueryOptions = this.buildTenantQueryOptions();
         return getAllQuery(
             this.connection,
             operations,
-            tenantQueryOptions,
             toPostgresStoreName(pluralResourceName),
         );
     }
@@ -124,10 +109,8 @@ export class PostgresDatabase implements IDatabase {
         );
     }
     async getCount(pluralResourceName: string): Promise<number> {
-        const tenantQueryOptions = this.buildTenantQueryOptions();
         return getCountQuery(
             this.connection,
-            tenantQueryOptions,
             toPostgresStoreName(pluralResourceName),
         );
     }
@@ -171,11 +154,9 @@ export class PostgresDatabase implements IDatabase {
         entity: Partial<T>,
         pluralResourceName: string,
     ): Promise<T> {
-        const tenantQueryOptions = this.buildTenantQueryOptions();
         return fullUpdateByIdCommand(
             this.connection,
             operations,
-            tenantQueryOptions,
             id,
             entity,
             toPostgresStoreName(pluralResourceName),
@@ -187,11 +168,9 @@ export class PostgresDatabase implements IDatabase {
         entity: Partial<T>,
         pluralResourceName: string,
     ): Promise<T> {
-        const tenantQueryOptions = this.buildTenantQueryOptions();
         return partialUpdateByIdCommand(
             this.connection,
             operations,
-            tenantQueryOptions,
             id,
             entity,
             toPostgresStoreName(pluralResourceName),
@@ -215,10 +194,8 @@ export class PostgresDatabase implements IDatabase {
         id: AppIdType,
         pluralResourceName: string,
     ): Promise<DeleteResult> {
-        const tenantQueryOptions = this.buildTenantQueryOptions();
         return deleteByIdCommand(
             this.connection,
-            tenantQueryOptions,
             id,
             toPostgresStoreName(pluralResourceName),
         );
