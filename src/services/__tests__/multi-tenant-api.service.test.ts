@@ -2,7 +2,6 @@ import {
   DefaultQueryOptions,
   EmptyUserContext,
   getSystemUserContext,
-  IEntity,
   IOrganization,
   IQueryOptions,
   IUserContext,
@@ -22,6 +21,7 @@ import { TestEntity, testModelSpec } from '../../__tests__/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import {
   getTestMetaOrg,
+  getTestMetaOrgAdminUserContext,
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
   getTestOrg,
@@ -29,6 +29,7 @@ import {
   setTestMetaOrgId,
   setTestOrgId,
 } from '../../__tests__/test-objects.js';
+import type { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../controllers/types.js';
 import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
 import { OrganizationService } from '../organization.service.js';
@@ -397,7 +398,7 @@ describe('MultiTenantApiService', () => {
       expect(testOrgResults).toHaveLength(0);
     });
 
-    it('should isolate interleaved concurrent reads across orgs and clear context after completion', async () => {
+    it('should isolate interleaved concurrent reads across orgs', async () => {
       await createInMetaOrg(concurrentMetaEntity1);
       await createInMetaOrg(concurrentMetaEntity2);
       await createInTestOrg(concurrentTestEntity1);
@@ -414,6 +415,80 @@ describe('MultiTenantApiService', () => {
 
       expect(testResults).toHaveLength(3);
       expect(testResults.every(e => e._orgId === actualTestOrg!._id)).toBe(true);
+    });
+
+    it('should apply custom prepare and post-process callbacks while remaining scoped to the caller org', async () => {
+      const metaOrgEntity = await createInMetaOrg(metaOrgEntityName);
+      await createInTestOrg(testOrgEntityName);
+
+      interface TestEntityWithLabel extends TestEntity {
+        label: string;
+      }
+
+      let prepareCalled = false;
+      const prepareQueryCustom: PrepareQueryCustomFunction = (userContext, queryOptions, operations) => {
+        prepareCalled = true;
+        return { queryOptions, operations };
+      };
+      const postProcessEntityCustom: PostProcessEntityCustomFunction<TestEntity, TestEntityWithLabel> = (
+        userContext,
+        entity,
+      ) => {
+        return {
+          ...entity,
+          label: `labeled:${entity.name}`,
+        };
+      };
+
+      const results = await service.getAll<TestEntityWithLabel>(
+        getTestMetaOrgUserContext(),
+        prepareQueryCustom,
+        postProcessEntityCustom,
+      );
+
+      expect(prepareCalled).toBe(true);
+      expect(results).toHaveLength(1);
+      expect(results[0]._id).toBe(metaOrgEntity._id);
+      expect(results[0].name).toBe(metaOrgEntityName);
+      expect(results[0].label).toBe(`labeled:${metaOrgEntityName}`);
+    });
+
+    it('should reject getAll when userContext has no _orgId', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+
+      const userContextWithoutOrg: IUserContext = {
+        user: {
+          _id: getTestMetaOrgUser()._id,
+          externalId: 'test-external-id',
+          email: 'test@example.com',
+          password: '',
+          _created: new Date(),
+          _createdBy: 'system',
+          _updated: new Date(),
+          _updatedBy: 'system',
+        },
+        features: ['testUser'],
+      };
+
+      await expect(service.getAll(userContextWithoutOrg)).rejects.toThrow(BadRequestError);
+    });
+
+    it('should return entities from all orgs for a system user', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+      await createInTestOrg(testOrgEntityName);
+
+      const results = await service.getAll(getSystemUserContext());
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should return entities from all orgs for a meta org admin', async () => {
+      await createInMetaOrg(metaOrgEntityName);
+      await createInTestOrg(testOrgEntityName);
+
+      const results = await service.getAll(getTestMetaOrgAdminUserContext());
+
+      expect(results).toHaveLength(2);
     });
   });
 
