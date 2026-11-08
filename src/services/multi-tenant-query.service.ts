@@ -1,11 +1,9 @@
 import type { IEntity, IModelSpec, IQueryOptions, IUserContext } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { getSystemUserId } from '@loomcore/common/validation';
 import { config } from '../config/base-api-config.js';
 import type { IDatabase } from '../databases/models/index.js';
 import type { Operation } from '../databases/operations/operation.js';
-import { BadRequestError } from '../errors/index.js';
-import { ServerError } from '../errors/index.js';
+import { BadRequestError, ServerError } from '../errors/index.js';
 import { isMetaOrgAdmin } from '../utils/auth/is-admin.util.js';
 import { isSystemUser } from '../utils/auth/is-system-user.util.js';
 import { GenericQueryService } from './generic-query-service/generic-query.service.js';
@@ -13,8 +11,17 @@ import { TenantQueryDecorator } from './tenant-query-decorator.js';
 
 /**
  * Decorates GenericQueryService with multi-tenancy behavior.
- * This implementation extends GenericQueryService and overrides methods to pass
- * explicit orgId for tenant isolation in database operations.
+ *
+ * Needed because GenericQueryService.getAll/getCount do not use queryOptions, so
+ * prepareQuery tenant filters cannot isolate those reads. get() applies
+ * prepareQueryOptions to the real query and then calls prepareQuery with {},
+ * discarding that method's queryOptions. This class:
+ * - overrides getDatabaseOrgId so getAll/getCount pass explicit orgId
+ * - overrides prepareQuery so getById's queryOptions include the tenant filter
+ * - overrides prepareQueryOptions so paginated get() is tenant-scoped
+ *
+ * Policy matches MultiTenantApiService: unscoped for single-tenant, system users,
+ * and meta org admins; reject when a required tenant call has no _orgId.
  */
 export class MultiTenantQueryService<T extends IEntity> extends GenericQueryService<T> {
     private tenantDecorator?: TenantQueryDecorator;
@@ -32,18 +39,14 @@ export class MultiTenantQueryService<T extends IEntity> extends GenericQueryServ
     }
 
     /**
-     * Get the tenant orgId for database operations.
-     * Returns undefined for single-tenant mode, system users, or meta org admins (unscoped access).
-     * Throws BadRequestError if multi-tenant and no valid orgId is available.
+     * Supplies orgId for getAll/getCount. Unscoped for single-tenant, system users,
+     * and meta org admins. Throws if a tenant-scoped call is missing _orgId.
      */
-    private getTenantOrgId(userContext: IUserContext): AppIdType | undefined {
+    protected override getDatabaseOrgId(userContext: IUserContext): AppIdType | undefined {
         if (!config?.app?.isMultiTenant) {
             return undefined;
         }
-        if (isSystemUser(userContext)) {
-            return undefined;
-        }
-        if (isMetaOrgAdmin(userContext)) {
+        if (isSystemUser(userContext) || isMetaOrgAdmin(userContext)) {
             return undefined;
         }
         if (!userContext?.user?._orgId) {
@@ -54,6 +57,9 @@ export class MultiTenantQueryService<T extends IEntity> extends GenericQueryServ
         return userContext.user._orgId;
     }
 
+    /**
+     * Adds tenant filtering to queryOptions used by getById.
+     */
     override prepareQuery(
         userContext: IUserContext | undefined,
         queryOptions: IQueryOptions,
@@ -61,10 +67,7 @@ export class MultiTenantQueryService<T extends IEntity> extends GenericQueryServ
     ): { queryOptions: IQueryOptions; operations: Operation[] } {
         const mergedOperations = [...this.defaultOperations, ...operations];
 
-        if (
-            !config?.app?.isMultiTenant ||
-            userContext?.user?._id === getSystemUserId()
-        ) {
+        if (!config?.app?.isMultiTenant || (userContext && isSystemUser(userContext))) {
             return { queryOptions, operations: mergedOperations };
         }
         if (!userContext?.user?._orgId) {
@@ -87,20 +90,32 @@ export class MultiTenantQueryService<T extends IEntity> extends GenericQueryServ
         return { queryOptions, operations: mergedOperations };
     }
 
-    override async getAll(userContext: IUserContext): Promise<T[]> {
-        const { operations } = this.prepareQuery(userContext, {}, []);
-        const orgId = this.getTenantOrgId(userContext);
+    /**
+     * Adds tenant filtering for paginated get(), which uses prepareQueryOptions
+     * on the real query options and discards prepareQuery's queryOptions.
+     * Uses applyTenantToQuery (not applyTenantToQueryOptions) so system users
+     * and meta org admins stay unscoped, matching MultiTenantApiService.
+     */
+    override prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
+        if (!config?.app?.isMultiTenant || (userContext && isSystemUser(userContext))) {
+            return queryOptions;
+        }
+        if (!userContext?.user?._orgId) {
+            throw new BadRequestError(
+                'A valid userContext was not provided to MultiTenantQueryService.prepareQueryOptions',
+            );
+        }
 
-        const entities = await this.database.getAll<T>(operations, this.rootTableName, orgId);
+        if (!this.tenantDecorator) {
+            throw new ServerError(
+                'A valid tenantDecorator was not provided to MultiTenantQueryService.prepareQueryOptions',
+            );
+        }
 
-        return entities.map(entity => {
-            const dbPostProcessed = this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
-            return this.postProcessEntity(userContext, dbPostProcessed);
-        });
-    }
-
-    override async getCount(userContext: IUserContext): Promise<number> {
-        const orgId = this.getTenantOrgId(userContext);
-        return this.database.getCount(this.rootTableName, orgId);
+        return this.tenantDecorator.applyTenantToQuery(
+            userContext,
+            queryOptions,
+            this.rootTableName,
+        );
     }
 }

@@ -48,6 +48,15 @@ export class GenericApiService<T extends IEntity>
     return this.modelSpec;
   }
 
+  /**
+   * Hook for subclasses to supply an organization ID for database operations that
+   * enforce tenant isolation atomically. The base implementation returns undefined
+   * so existing callers remain unscoped. MultiTenantApiService overrides this.
+   */
+  protected getDatabaseOrgId(_userContext: IUserContext): AppIdType | undefined {
+    return undefined;
+  }
+
   async getAll(userContext: IUserContext): Promise<T[]>;
 
   async getAll<TCustom extends IEntity>(
@@ -68,7 +77,7 @@ export class GenericApiService<T extends IEntity>
     }
     ({ operations, queryOptions } = this.prepareQuery(userContext, queryOptions, operations));
 
-    const entities = await this.database.getAll<T>(operations, this.pluralResourceName);
+    const entities = await this.database.getAll<T>(operations, this.pluralResourceName, this.getDatabaseOrgId(userContext));
 
     return entities.map((entity) => {
       const dbProcessed = this.postProcessEntity(userContext, entity);
@@ -277,7 +286,7 @@ export class GenericApiService<T extends IEntity>
   }
 
   async getCount(userContext: IUserContext): Promise<number> {
-    return this.database.getCount(this.pluralResourceName);
+    return this.database.getCount(this.pluralResourceName, this.getDatabaseOrgId(userContext));
   }
 
   async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
@@ -355,7 +364,7 @@ export class GenericApiService<T extends IEntity>
       });
     }
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getDatabaseOrgId(userContext));
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
@@ -366,7 +375,7 @@ export class GenericApiService<T extends IEntity>
 
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getDatabaseOrgId(userContext));
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
 
@@ -376,7 +385,7 @@ export class GenericApiService<T extends IEntity>
   async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName);
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName, this.getDatabaseOrgId(userContext));
 
     return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
@@ -396,7 +405,7 @@ export class GenericApiService<T extends IEntity>
   }
 
   async deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult> {
-    const deleteResult = await this.database.deleteById(id, this.pluralResourceName);
+    const deleteResult = await this.database.deleteById(id, this.pluralResourceName, this.getDatabaseOrgId(userContext));
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();

@@ -81,6 +81,15 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   }
 
   /**
+   * Hook for subclasses to supply an organization ID for database operations that
+   * enforce tenant isolation atomically. The base implementation returns undefined
+   * so existing callers remain unscoped. MultiTenantQueryService overrides this.
+   */
+  protected getDatabaseOrgId(_userContext: IUserContext): AppIdType | undefined {
+    return undefined;
+  }
+
+  /**
    * Post-process an entity after fetching from the database. Subclasses can override this to transform data.
    * @param userContext The user context
    * @param entity The entity to post-process
@@ -99,7 +108,7 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   async getAll(userContext: IUserContext): Promise<T[]> {
     const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const entities = await this.database.getAll<T>(operations, this.rootTableName);
+    const entities = await this.database.getAll<T>(operations, this.rootTableName, this.getDatabaseOrgId(userContext));
 
     return entities.map(entity => this.postProcessEntityInternal(userContext, entity));
   }
@@ -132,6 +141,6 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   }
 
   async getCount(userContext: IUserContext): Promise<number> {
-    return this.database.getCount(this.rootTableName);
+    return this.database.getCount(this.rootTableName, this.getDatabaseOrgId(userContext));
   }
 }
