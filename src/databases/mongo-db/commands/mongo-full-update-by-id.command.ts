@@ -12,7 +12,7 @@ export async function fullUpdateById<T>(db: Db, operations: Operation[], id: App
   }
 
   const collection = db.collection(pluralResourceName);
-
+  // Build match document and extract the filter object
   const filter: Record<string, unknown> = { _id: new ObjectId(id.toString()) };
   if (orgId !== undefined) {
     filter._orgId = orgId.toString();
@@ -23,7 +23,7 @@ export async function fullUpdateById<T>(db: Db, operations: Operation[], id: App
     replaceResult = await collection.replaceOne(filter, entity);
   }
   catch (err: any) {
-    if (isMongoDuplicateKeyError(err)) {
+    if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
       throw new DuplicateKeyError(`${pluralResourceName} already exists`);
     }
     throw err;

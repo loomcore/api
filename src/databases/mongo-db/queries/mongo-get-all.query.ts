@@ -18,6 +18,8 @@ export async function getAll<T>(db: Db, operations: Operation[], pluralResourceN
   let aggregateResult: Document[];
 
   if (builtPipeline.length === 0 && orgId === undefined) {
+    // Use existing simple find approach if no additional stages
+    // This is more efficient than using aggregate for simple queries
     const cursor = collection.find();
     aggregateResult = await cursor.toArray();
   } else {

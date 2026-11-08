@@ -11,12 +11,14 @@ export async function partialUpdateById<T>(db: Db, operations: Operation[], id: 
     throw new BadRequestError('id is not a valid ObjectId');
   }
   const collection = db.collection(pluralResourceName);
-
+  // Build match document and extract the filter object
   const filter: Record<string, unknown> = { _id: new ObjectId(id.toString()) };
   if (orgId !== undefined) {
     filter._orgId = orgId.toString();
   }
 
+  // For partial update, we use findOneAndUpdate with $set
+  // The operations are used when retrieving the updated entity
   let updatedEntity;
   try {
     updatedEntity = await collection.findOneAndUpdate(
@@ -26,7 +28,7 @@ export async function partialUpdateById<T>(db: Db, operations: Operation[], id: 
     );
   }
   catch (err: any) {
-    if (isMongoDuplicateKeyError(err)) {
+    if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
       throw new DuplicateKeyError(`${pluralResourceName} already exists`);
     }
     throw err;

@@ -346,8 +346,13 @@ export class GenericApiService<T extends IEntity>
   }
 
   async fullUpdateById(userContext: IUserContext, id: AppIdType, entity: T): Promise<T> {
+    // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
+    //  existing entity, then updates using the supplied entity.
+    //  as the update process gets more complex. PREFER using partialUpdateById.
+
     const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
 
+    // Get existing entity to preserve audit properties
     const existingEntity = await this.database.getById<T>(operations, queryOptions, id, this.pluralResourceName);
     if (!existingEntity) {
       throw new IdNotFoundError();
@@ -355,9 +360,11 @@ export class GenericApiService<T extends IEntity>
 
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
+    // Preserve system properties that should not be updated
     preparedEntity._orgId = existingEntity._orgId;
 
     if ('_created' in existingEntity && '_createdBy' in existingEntity) {
+      // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
       Object.assign(preparedEntity, {
         _created: existingEntity._created,
         _createdBy: existingEntity._createdBy,

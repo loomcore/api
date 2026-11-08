@@ -17,8 +17,9 @@ import { TenantQueryDecorator } from './tenant-query-decorator.js';
 
 /**
  * Decorates the GenericApiService with multi-tenancy behavior.
- * Tenant policy lives here: prepareQuery/preProcessEntity plus getDatabaseOrgId
- * for commands that enforce matching _orgId atomically.
+ * This implementation extends GenericApiService and overrides the query preparation hooks
+ * to transparently add tenant filtering to all database operations.
+ * Tenant policy also lives in getDatabaseOrgId for commands that enforce matching _orgId atomically.
  */
 export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
     private tenantDecorator?: TenantQueryDecorator;
@@ -56,8 +57,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
     }
 
     /**
-     * Override the query preparation hook to add tenant filtering.
-     * Used by methods that pass queryOptions to database operations (get, getById, find, etc.).
+     * Override the query preparation hook to add tenant filtering
      */
     override prepareQuery(
         userContext: IUserContext,
@@ -79,6 +79,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
             );
         }
 
+        // Apply tenant filtering to the query object
         queryOptions = this.tenantDecorator.applyTenantToQuery(
             userContext,
             queryOptions,
@@ -89,6 +90,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
 
     /**
      * Override the individual entity preparation hook to add tenant ID
+     * This will be called for both create and update operations
      */
     override async preProcessEntity(
         userContext: IUserContext,
@@ -105,6 +107,7 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
             );
         }
 
+        // First call the base class implementation to handle standard entity preparation
         const preparedEntity = await super.preProcessEntity(
             userContext,
             entity,
@@ -112,10 +115,12 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
             allowId,
         );
 
+        // Any new item should be created in the user's organization unless it's a system-initiated action or a meta-org admin
         if (isCreate && !isSystemUser(userContext) && !isMetaOrgAdmin(userContext)) {
             preparedEntity._orgId = userContext.user._orgId;
         }
 
+        // The meta-org admin can create items in any organization, but still default to the user's organization. 
         if (isCreate && isMetaOrgAdmin(userContext)) {
             preparedEntity._orgId = preparedEntity._orgId ?? userContext.user._orgId;
         }
