@@ -4,6 +4,7 @@ export * from './generic-api-service/generic-api-service.interface.js';
 export * from './generic-query-service/generic-query.service.js';
 export * from './generic-query-service/generic-query-service.interface.js';
 export * from './multi-tenant-api.service.js';
+export * from './multi-tenant-query.service.js';
 export * from './organization.service.js';
 export * from './organization-domain.service.js';
 export * from './password-reset-token.service.js';

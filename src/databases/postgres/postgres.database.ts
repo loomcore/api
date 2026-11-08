@@ -74,11 +74,13 @@ export class PostgresDatabase implements IDatabase {
     async getAll<T extends IEntity>(
         operations: Operation[],
         pluralResourceName: string,
+        orgId?: AppIdType,
     ): Promise<T[]> {
         return getAllQuery(
             this.connection,
             operations,
             toPostgresStoreName(pluralResourceName),
+            orgId,
         );
     }
     async get<T extends IEntity>(
@@ -108,10 +110,11 @@ export class PostgresDatabase implements IDatabase {
             toPostgresStoreName(pluralResourceName),
         );
     }
-    async getCount(pluralResourceName: string): Promise<number> {
+    async getCount(pluralResourceName: string, orgId?: AppIdType): Promise<number> {
         return getCountQuery(
             this.connection,
             toPostgresStoreName(pluralResourceName),
+            orgId,
         );
     }
     async create<T extends IEntity>(
@@ -153,6 +156,7 @@ export class PostgresDatabase implements IDatabase {
         id: AppIdType,
         entity: Partial<T>,
         pluralResourceName: string,
+        orgId?: AppIdType,
     ): Promise<T> {
         return fullUpdateByIdCommand(
             this.connection,
@@ -160,6 +164,7 @@ export class PostgresDatabase implements IDatabase {
             id,
             entity,
             toPostgresStoreName(pluralResourceName),
+            orgId,
         );
     }
     async partialUpdateById<T extends IEntity>(
@@ -167,6 +172,7 @@ export class PostgresDatabase implements IDatabase {
         id: AppIdType,
         entity: Partial<T>,
         pluralResourceName: string,
+        orgId?: AppIdType,
     ): Promise<T> {
         return partialUpdateByIdCommand(
             this.connection,
@@ -174,6 +180,7 @@ export class PostgresDatabase implements IDatabase {
             id,
             entity,
             toPostgresStoreName(pluralResourceName),
+            orgId,
         );
     }
     async update<T extends IEntity>(
@@ -193,11 +200,13 @@ export class PostgresDatabase implements IDatabase {
     async deleteById(
         id: AppIdType,
         pluralResourceName: string,
+        orgId?: AppIdType,
     ): Promise<DeleteResult> {
         return deleteByIdCommand(
             this.connection,
             id,
             toPostgresStoreName(pluralResourceName),
+            orgId,
         );
     }
     async deleteMany(
