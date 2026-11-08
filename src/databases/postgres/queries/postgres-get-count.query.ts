@@ -1,19 +1,13 @@
 import type { PostgresConnection } from '../postgres-connection.js';
-import { getTenantOrgId } from '../../../services/tenant-context.js';
+import type { AppIdType } from '@loomcore/common/types';
 
-export async function getCount(
-  client: PostgresConnection,
-  pluralResourceName: string
-): Promise<number> {
-  // Check for tenant isolation from AsyncLocalStorage context
-  const tenantOrgId = getTenantOrgId();
-
+export async function getCount(client: PostgresConnection, pluralResourceName: string, orgId?: AppIdType): Promise<number> {
   let query: string;
   let values: unknown[];
 
-  if (tenantOrgId !== undefined) {
+  if (orgId !== undefined) {
     query = `SELECT COUNT(*) FROM "${pluralResourceName}" WHERE "_orgId" = $1`;
-    values = [tenantOrgId];
+    values = [orgId];
   } else {
     query = `SELECT COUNT(*) FROM "${pluralResourceName}"`;
     values = [];

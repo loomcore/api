@@ -9,23 +9,18 @@ import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { getTenantOrgId } from '../../../services/tenant-context.js';
 
 export async function partialUpdateById<T extends IEntity>(
   client: PostgresConnection,
   operations: Operation[],
   id: AppIdType,
   entity: Partial<T>,
-  pluralResourceName: string
+  pluralResourceName: string,
+  orgId?: AppIdType
 ): Promise<T> {
   try {
-    // Check for tenant isolation from AsyncLocalStorage context
-    const tenantOrgId = getTenantOrgId();
-
-    // Extract columns and values from the entity (only the fields to update)
     const { columns, values } = columnsAndValuesFromEntity(entity);
 
-    // Filter out _id from columns for the SET clause (we use it in WHERE)
     const updateColumns = columns.filter(col => col !== '"_id"');
     const updateValues = values.filter((_, index) => columns[index] !== '"_id"');
 
@@ -33,16 +28,14 @@ export async function partialUpdateById<T extends IEntity>(
       throw new BadRequestError('Cannot perform partial update with no fields to update');
     }
 
-    // Build SET clause for UPDATE
     const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
-    // Build WHERE clause with _id and optional tenant filter
     let whereClause: string;
     let queryValues: unknown[];
 
-    if (tenantOrgId !== undefined) {
+    if (orgId !== undefined) {
       whereClause = `WHERE "_id" = $${updateValues.length + 1} AND "_orgId" = $${updateValues.length + 2}`;
-      queryValues = [...updateValues, id, tenantOrgId];
+      queryValues = [...updateValues, id, orgId];
     } else {
       whereClause = `WHERE "_id" = $${updateValues.length + 1}`;
       queryValues = [...updateValues, id];
@@ -60,7 +53,6 @@ export async function partialUpdateById<T extends IEntity>(
       throw new IdNotFoundError();
     }
 
-    // Retrieve updated entity with operations applied
     const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
     const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
@@ -68,17 +60,15 @@ export async function partialUpdateById<T extends IEntity>(
       ? await buildSelectClause(client, pluralResourceName, operations)
       : '*';
 
-    // Qualify _id when joins are present to avoid ambiguous column references
     const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
 
-    // Build SELECT WHERE clause with tenant filter
     let selectWhereClause: string;
     let selectValues: unknown[];
 
-    if (tenantOrgId !== undefined) {
+    if (orgId !== undefined) {
       const orgIdColumn = hasJoins ? `"${pluralResourceName}"."_orgId"` : '"_orgId"';
       selectWhereClause = `WHERE ${idColumn} = $1 AND ${orgIdColumn} = $2`;
-      selectValues = [id, tenantOrgId];
+      selectValues = [id, orgId];
     } else {
       selectWhereClause = `WHERE ${idColumn} = $1`;
       selectValues = [id];

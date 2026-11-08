@@ -49,8 +49,8 @@ export class MongoDBDatabase implements IDatabase {
         return convertObjectIdsToStrings<T>(single);
     }
 
-    async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string): Promise<T[]> {
-        return getAll<T>(this.db, operations, pluralResourceName);
+    async getAll<T extends IEntity>(operations: Operation[], pluralResourceName: string, orgId?: AppIdType): Promise<T[]> {
+        return getAll<T>(this.db, operations, pluralResourceName, orgId);
     }
 
     async get<T extends IEntity>(operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
@@ -61,8 +61,8 @@ export class MongoDBDatabase implements IDatabase {
         return getById<T>(this.db, operations, queryObject, id, pluralResourceName);
     }
 
-    async getCount(pluralResourceName: string): Promise<number> {
-        return getCount(this.db, pluralResourceName);
+    async getCount(pluralResourceName: string, orgId?: AppIdType): Promise<number> {
+        return getCount(this.db, pluralResourceName, orgId);
     }
 
     async create<T extends IEntity>(entity: Partial<T>, pluralResourceName: string): Promise<{ insertedId: AppIdType; entity: T }> {
@@ -77,20 +77,20 @@ export class MongoDBDatabase implements IDatabase {
         return batchUpdate<T>(this.db, entities, operations, queryObject, pluralResourceName);
     }
 
-    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-        return fullUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
+    async fullUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string, orgId?: AppIdType): Promise<T> {
+        return fullUpdateById<T>(this.db, operations, id, entity, pluralResourceName, orgId);
     }
 
-    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string): Promise<T> {
-        return partialUpdateById<T>(this.db, operations, id, entity, pluralResourceName);
+    async partialUpdateById<T extends IEntity>(operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string, orgId?: AppIdType): Promise<T> {
+        return partialUpdateById<T>(this.db, operations, id, entity, pluralResourceName, orgId);
     }
 
     async update<T extends IEntity>(queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
         return update<T>(this.db, queryObject, entity, operations, pluralResourceName);
     }
 
-    async deleteById(id: AppIdType, pluralResourceName: string): Promise<GenericDeleteResult> {
-        return deleteById(this.db, id, pluralResourceName);
+    async deleteById(id: AppIdType, pluralResourceName: string, orgId?: AppIdType): Promise<GenericDeleteResult> {
+        return deleteById(this.db, id, pluralResourceName, orgId);
     }
 
     async deleteMany(queryObject: IQueryOptions, pluralResourceName: string): Promise<GenericDeleteResult> {

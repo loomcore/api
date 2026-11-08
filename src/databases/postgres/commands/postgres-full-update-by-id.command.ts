@@ -8,18 +8,16 @@ import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { getTenantOrgId } from '../../../services/tenant-context.js';
 
 export async function fullUpdateById<T extends IEntity>(
     client: PostgresConnection,
     operations: Operation[],
     id: AppIdType,
     entity: Partial<T>,
-    pluralResourceName: string
+    pluralResourceName: string,
+    orgId?: AppIdType
 ): Promise<T> {
     try {
-        // Check for tenant isolation from AsyncLocalStorage context
-        const tenantOrgId = getTenantOrgId();
 
         // Get all columns and their default values from the table schema
         const tableColumns = await client.query<{
@@ -80,13 +78,12 @@ export async function fullUpdateById<T extends IEntity>(
         // Build SET clause
         const setClause = updateColumns.join(', ');
 
-        // Build WHERE clause with _id and optional tenant filter
         let whereClause: string;
         const queryValues = [...updateValues];
 
-        if (tenantOrgId !== undefined) {
+        if (orgId !== undefined) {
             whereClause = `WHERE "_id" = $${paramIndex} AND "_orgId" = $${paramIndex + 1}`;
-            queryValues.push(id, tenantOrgId);
+            queryValues.push(id, orgId);
         } else {
             whereClause = `WHERE "_id" = $${paramIndex}`;
             queryValues.push(id);
@@ -115,14 +112,13 @@ export async function fullUpdateById<T extends IEntity>(
         // Qualify _id when joins are present to avoid ambiguous column references
         const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
 
-        // Build SELECT WHERE clause with tenant filter
         let selectWhereClause: string;
         let selectValues: unknown[];
 
-        if (tenantOrgId !== undefined) {
+        if (orgId !== undefined) {
             const orgIdColumn = hasJoins ? `"${pluralResourceName}"."_orgId"` : '"_orgId"';
             selectWhereClause = `WHERE ${idColumn} = $1 AND ${orgIdColumn} = $2`;
-            selectValues = [id, tenantOrgId];
+            selectValues = [id, orgId];
         } else {
             selectWhereClause = `WHERE ${idColumn} = $1`;
             selectValues = [id];

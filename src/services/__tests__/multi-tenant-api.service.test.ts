@@ -33,7 +33,6 @@ import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
 import { OrganizationService } from '../organization.service.js';
 import { TenantQueryDecorator } from '../tenant-query-decorator.js';
-import { getTenantOrgId } from '../tenant-context.js';
 
 // Initialize TypeBox before running any tests
 beforeAll(() => {
@@ -415,8 +414,6 @@ describe('MultiTenantApiService', () => {
 
       expect(testResults).toHaveLength(3);
       expect(testResults.every(e => e._orgId === actualTestOrg!._id)).toBe(true);
-
-      expect(getTenantOrgId()).toBeUndefined();
     });
   });
 
@@ -513,8 +510,6 @@ describe('MultiTenantApiService', () => {
       expect(testCount).toBe(3);
       expect(metaAll).toHaveLength(2);
       expect(testAll).toHaveLength(3);
-
-      expect(getTenantOrgId()).toBeUndefined();
     });
   });
 
@@ -629,11 +624,9 @@ describe('MultiTenantApiService', () => {
 
       expect(metaVerify.name).toBe(concurrentMetaUpdated);
       expect(testVerify.name).toBe(concurrentTestUpdated);
-
-      expect(getTenantOrgId()).toBeUndefined();
     });
 
-    it('should reject cross-org access during concurrent operations and clear context after rejection', async () => {
+    it('should reject cross-org access during concurrent operations', async () => {
       const metaEntity = await createInMetaOrg(concurrentMetaProtected);
       const testEntity = await createInTestOrg(concurrentTestProtected);
 
@@ -656,8 +649,6 @@ describe('MultiTenantApiService', () => {
 
       expect(metaVerify.name).toBe(concurrentMetaProtected);
       expect(testVerify.name).toBe(concurrentTestProtected);
-
-      expect(getTenantOrgId()).toBeUndefined();
     });
   });
 
@@ -783,8 +774,6 @@ describe('MultiTenantApiService', () => {
 
       expect(testRemaining).toHaveLength(1);
       expect(testRemaining[0]._id).toBe(testToKeep._id);
-
-      expect(getTenantOrgId()).toBeUndefined();
     });
   });
 

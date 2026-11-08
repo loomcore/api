@@ -30,22 +30,6 @@ import { IGenericQueryService } from './generic-query-service.interface.js';
 import { Operation } from '../../databases/operations/operation.js';
 import { IdNotFoundError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { runWithTenantContext, type ITenantContext } from '../tenant-context.js';
-
-/**
- * Extract tenant context from query options for use with AsyncLocalStorage.
- * Returns undefined orgId if no tenant filter is present.
- */
-function extractTenantContext(queryOptions: IQueryOptions): ITenantContext {
-  const orgIdFilter = queryOptions.filters?._orgId;
-  if (orgIdFilter && typeof orgIdFilter === 'object' && 'eq' in orgIdFilter) {
-    const eq = orgIdFilter.eq;
-    if (typeof eq === 'string' || typeof eq === 'number') {
-      return { orgId: eq };
-    }
-  }
-  return {};
-}
 
 export class GenericQueryService<T extends IEntity> implements IGenericQueryService<T> {
   protected database: IDatabase;
@@ -113,12 +97,9 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   }
 
   async getAll(userContext: IUserContext): Promise<T[]> {
-    const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
-    const tenantContext = extractTenantContext(queryOptions);
+    const { operations } = this.prepareQuery(userContext, {}, []);
 
-    const entities = await runWithTenantContext(tenantContext, () =>
-      this.database.getAll<T>(operations, this.rootTableName)
-    );
+    const entities = await this.database.getAll<T>(operations, this.rootTableName);
 
     return entities.map(entity => this.postProcessEntityInternal(userContext, entity));
   }
@@ -151,10 +132,6 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   }
 
   async getCount(userContext: IUserContext): Promise<number> {
-    const { queryOptions } = this.prepareQuery(userContext, {}, []);
-    const tenantContext = extractTenantContext(queryOptions);
-    return runWithTenantContext(tenantContext, () =>
-      this.database.getCount(this.rootTableName)
-    );
+    return this.database.getCount(this.rootTableName);
   }
 }
