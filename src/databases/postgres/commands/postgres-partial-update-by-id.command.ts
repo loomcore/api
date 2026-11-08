@@ -19,8 +19,10 @@ export async function partialUpdateById<T extends IEntity>(
   orgId?: AppIdType
 ): Promise<T> {
   try {
+    // Extract columns and values from the entity (only the fields to update)
     const { columns, values } = columnsAndValuesFromEntity(entity);
 
+    // Filter out _id from columns for the SET clause (we use it in WHERE)
     const updateColumns = columns.filter(col => col !== '"_id"');
     const updateValues = values.filter((_, index) => columns[index] !== '"_id"');
 
@@ -28,11 +30,13 @@ export async function partialUpdateById<T extends IEntity>(
       throw new BadRequestError('Cannot perform partial update with no fields to update');
     }
 
+    // Build SET clause for UPDATE
     const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
     let whereClause: string;
     let queryValues: unknown[];
 
+    // Add id as the last parameter for WHERE clause (and orgId when provided)
     if (orgId !== undefined) {
       whereClause = `WHERE "_id" = $${updateValues.length + 1} AND "_orgId" = $${updateValues.length + 2}`;
       queryValues = [...updateValues, id, orgId];
@@ -53,6 +57,7 @@ export async function partialUpdateById<T extends IEntity>(
       throw new IdNotFoundError();
     }
 
+    // Retrieve updated entity with operations applied
     const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
     const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
@@ -60,6 +65,7 @@ export async function partialUpdateById<T extends IEntity>(
       ? await buildSelectClause(client, pluralResourceName, operations)
       : '*';
 
+    // Qualify _id when joins are present to avoid ambiguous column references
     const idColumn = hasJoins ? `"${pluralResourceName}"."_id"` : '"_id"';
 
     let selectWhereClause: string;

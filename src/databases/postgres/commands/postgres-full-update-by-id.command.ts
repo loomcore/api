@@ -81,6 +81,7 @@ export async function fullUpdateById<T extends IEntity>(
         let whereClause: string;
         const queryValues = [...updateValues];
 
+        // Add id as the last parameter for WHERE clause (and orgId when provided)
         if (orgId !== undefined) {
             whereClause = `WHERE "_id" = $${paramIndex} AND "_orgId" = $${paramIndex + 1}`;
             queryValues.push(id, orgId);
