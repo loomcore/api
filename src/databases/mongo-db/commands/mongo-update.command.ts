@@ -1,12 +1,12 @@
 import { Db } from 'mongodb';
-import { IQueryOptions } from '@loomcore/common/models';
+import { IEntity, IQueryOptions } from '@loomcore/common/models';
 import { Operation } from '../../operations/operation.js';
 import { DuplicateKeyError, NotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 
-export async function update<T>(db: Db, queryObject: IQueryOptions, entity: Partial<any>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
+export async function update<T extends IEntity>(db: Db, queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
   const collection = db.collection(pluralResourceName);
   const matchDocument = buildNoSqlMatch(queryObject);
   const filter = matchDocument.$match;
