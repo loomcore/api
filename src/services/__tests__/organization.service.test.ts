@@ -389,26 +389,6 @@ describe('OrganizationService', () => {
       ).rejects.toThrow(DuplicateKeyError);
     });
 
-    it('validates a repo auth token when orgCode case differs', async () => {
-      const created = await service.create(getTestMetaOrgUserContext(), {
-        name: 'Repo Auth Org',
-        code: 'repo-auth',
-        status: 1,
-        isMetaOrg: false,
-        authToken: 'repo-token',
-      });
-
-      if (!created?._id) {
-        throw new Error('Organization not created or missing ID');
-      }
-
-      const orgId = await service.validateRepoAuthToken(
-        getTestMetaOrgUserContext(),
-        'REPO-AUTH',
-        'repo-token',
-      );
-      expect(orgId).toBe(created._id);
-    });
   });
 });
 

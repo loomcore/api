@@ -156,34 +156,6 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     };
   }
 
-  // TODO: override prepareQuery to add check for isMetaOrg.
-  // If user is not meta org, throw error.
-  async getAuthTokenByRepoCode(
-    userContext: IUserContext,
-    orgId: AppIdType,
-  ): Promise<string | null> {
-    // until we implement repos, we use orgId - repos are a feature providing separate data repositories for a single org
-    const org = await this.getById(userContext, orgId);
-    return org?.authToken ?? null;
-  }
-
-  async validateRepoAuthToken(
-    userContext: IUserContext,
-    orgCode: string,
-    authToken: string,
-  ): Promise<AppIdType | null> {
-    // this is used to auth content-api calls - the orgCode is used in the api call hostname
-    const org = await this.getByCode(userContext, orgCode);
-
-    if (!org) {
-      return null;
-    }
-
-    const orgId = org.authToken === authToken ? org._id : null;
-
-    return orgId;
-  }
-
   async getByCode(userContext: IUserContext, code: string): Promise<IOrganization | null> {
     return this.findOne(userContext, {
       filters: { code: { eq: code } },
