@@ -4,9 +4,10 @@ import { BadRequestError, DuplicateKeyError, IdNotFoundError } from '../../../er
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 import { entityUtils } from '@loomcore/common/utils';
+import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 
-export async function partialUpdateById<T>(db: Db, operations: Operation[], id: AppIdType, entity: Partial<any>, pluralResourceName: string, orgId?: AppIdType): Promise<T> {
+export async function partialUpdateById<T extends IEntity>(db: Db, operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string, orgId?: AppIdType): Promise<T> {
   if (!entityUtils.isValidObjectId(id)) {
     throw new BadRequestError('id is not a valid ObjectId');
   }
