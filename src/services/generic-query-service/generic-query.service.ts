@@ -116,6 +116,7 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
   async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
     const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
 
+    // this currently ignores any queryOptions returned by prepareQuery.
     const { operations } = this.prepareQuery(userContext, {}, []);
 
     const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.rootTableName);
