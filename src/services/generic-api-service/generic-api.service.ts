@@ -208,6 +208,15 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
   }
 
   /**
+   * Hook for subclasses to supply a model spec for preprocessing a given entity.
+   * Subclasses can return a per-entity spec (e.g. schema driven by stored data).
+   * The default is the service's model spec.
+   */
+  protected async getModelSpecForPreProcessing(userContext: IUserContext, entity: Partial<T>): Promise<IModelSpec> {
+    return this.modelSpec;
+  }
+
+  /**
    * Prepares a single entity before database operations.
    * This contains the core logic for entity preparation that's applied to each entity.
    * @param userContext The user context for the operation
@@ -223,8 +232,10 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
     // Strip out any system properties sent by the client
     stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
 
+    const modelSpec = await this.getModelSpecForPreProcessing(userContext, entity);
+
     // Apply appropriate auditing based on operation type if the entity is auditable
-    if (this.modelSpec.isAuditable) {
+    if (modelSpec.isAuditable) {
       if (isCreate) {
         auditForCreate(userContext, preparedEntity);
       } else {
@@ -233,14 +244,14 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
     }
 
     // Require a modelSpec for decode and conversion - without a schema we can't do either
-    if (!this.modelSpec?.fullSchema) {
+    if (!modelSpec?.fullSchema) {
       throw new ServerError(
         `Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`,
       );
     }
 
     let cleanedEntity = preparedEntity;
-    if (this.modelSpec) {
+    if (modelSpec) {
       /**
        * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming
        *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the
@@ -252,10 +263,10 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
        *   This is necessary because shared model classes can't define anything as ObjectId - it would require
        *   importing MongoDb, which we definitely don't want in a shared model library.
        */
-      cleanedEntity = this.modelSpec.decode(preparedEntity);
+      cleanedEntity = modelSpec.decode(preparedEntity);
     }
 
-    preparedEntity = this.database.preProcessEntity(cleanedEntity, this.modelSpec.fullSchema);
+    preparedEntity = this.database.preProcessEntity(cleanedEntity, modelSpec.fullSchema);
 
     return preparedEntity;
   }
