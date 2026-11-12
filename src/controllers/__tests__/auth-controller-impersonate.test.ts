@@ -1,4 +1,4 @@
-import type { ITokenResponse, IUser } from '@loomcore/common/models';
+import type { ILoginResponse, ITokenResponse, IUser } from '@loomcore/common/models';
 import jwt from 'jsonwebtoken';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import testUtils from '../../__tests__/common-test.utils.js';
@@ -85,18 +85,22 @@ describe('AuthController impersonation', () => {
     const response = await impersonateTarget(loginTokens.refreshToken);
 
     expect(response.status).toBe(200);
-    expect(response.body.data.accessToken).toBeDefined();
-    expect(response.body.data.refreshToken).toBe(loginTokens.refreshToken);
-    expect(response.body.data.expiresOn).toBeGreaterThan(Date.now() + 3500 * 1000);
-    expect(response.body.data.expiresOn).toBeLessThan(Date.now() + 3700 * 1000);
+    const loginResponse: ILoginResponse = response.body.data;
+    expect(loginResponse.tokens.accessToken).toBeDefined();
+    expect(loginResponse.tokens.refreshToken).toBe(loginTokens.refreshToken);
+    expect(loginResponse.tokens.expiresOn).toBeGreaterThan(Date.now() + 3500 * 1000);
+    expect(loginResponse.tokens.expiresOn).toBeLessThan(Date.now() + 3700 * 1000);
+    expect(loginResponse.userContext.user.email).toBe(targetUser.email);
+    expect(String(loginResponse.userContext.user._id)).toBe(String(targetUser._id));
+    expect(String(loginResponse.userContext.impersonatorId)).toBe(String(getTestMetaOrgUser()._id));
 
-    const payload = testUtils.verifyToken(response.body.data.accessToken);
+    const payload = testUtils.verifyToken(loginResponse.tokens.accessToken);
     expect(String(payload.user._id)).toBe(String(targetUser._id));
     expect(String(payload.impersonatorId)).toBe(String(getTestMetaOrgUser()._id));
 
     const userContextResponse = await testAgent
       .get('/api/auth/get-user-context')
-      .set('Authorization', `Bearer ${response.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${loginResponse.tokens.accessToken}`)
       .expect(200);
 
     expect(userContextResponse.body.data.user.email).toBe(targetUser.email);
@@ -107,7 +111,7 @@ describe('AuthController impersonation', () => {
     const loginTokens = await loginAsMetaOrgUser();
     const impersonateResponse = await impersonateTarget(loginTokens.refreshToken);
     expect(impersonateResponse.status).toBe(200);
-    expect(impersonateResponse.body.data.refreshToken).toBe(loginTokens.refreshToken);
+    expect(impersonateResponse.body.data.tokens.refreshToken).toBe(loginTokens.refreshToken);
 
     const refreshResponse = await testAgent
       .get('/api/auth/refresh')
@@ -168,7 +172,7 @@ describe('AuthController impersonation', () => {
 
     const response = await testAgent
       .patch('/api/auth/change-password')
-      .set('Authorization', `Bearer ${impersonateResponse.body.data.accessToken}`)
+      .set('Authorization', `Bearer ${impersonateResponse.body.data.tokens.accessToken}`)
       .send({ password: 'newSecurePassword123!' });
 
     expect(response.status).toBe(403);
