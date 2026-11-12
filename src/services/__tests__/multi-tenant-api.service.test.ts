@@ -2,11 +2,14 @@ import {
   DefaultQueryOptions,
   EmptyUserContext,
   getSystemUserContext,
+  IModelSpec,
   IOrganization,
   IQueryOptions,
   IUserContext,
 } from '@loomcore/common/models';
 import { initializeTypeBox } from '@loomcore/common/validation';
+import { entityUtils } from '@loomcore/common/utils';
+import { Type } from '@sinclair/typebox';
 import {
   afterAll,
   beforeAll,
@@ -18,6 +21,7 @@ import {
 } from 'vitest';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
+import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import {
   getTestMetaOrg,
@@ -32,6 +36,7 @@ import {
 import type { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
 import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
+import type { IDatabase } from '../../databases/models/index.js';
 import { OrganizationService } from '../organization.service.js';
 import { TenantQueryDecorator } from '../tenant-query-decorator.js';
 
@@ -41,6 +46,7 @@ beforeAll(() => {
 });
 
 describe('MultiTenantApiService', () => {
+  let database: IDatabase;
   let service: MultiTenantApiService<TestEntity>;
   let organizationService: OrganizationService;
   let actualMetaOrg: IOrganization | null = null;
@@ -77,6 +83,7 @@ describe('MultiTenantApiService', () => {
   // Set up the test environment once before all tests
   beforeAll(async () => {
     const setup = await TestExpressApp.init();
+    database = setup.database;
 
     // Create service with real database
     service = new MultiTenantApiService<TestEntity>(
@@ -934,6 +941,52 @@ describe('MultiTenantApiService', () => {
 
       const testOrgEntity = await service.findOne(getTestOrgUserContext(), { filters: { name: { eq: sharedEntityName } } });
       expect(testOrgEntity?.description).toBeUndefined();
+    });
+  });
+
+  describe('getModelSpecForPreProcessing', () => {
+    const baseItemSpec = entityUtils.getModelSpec(
+      Type.Object({
+        name: Type.String(),
+        value: Type.Optional(Type.Number()),
+        notes: Type.Optional(Type.String()),
+      }),
+      { isAuditable: true },
+    );
+
+    class OverrideModelSpecMultiTenantService extends MultiTenantApiService<ITestItem> {
+      constructor(db: IDatabase) {
+        super(db, 'testItems', 'testItem', baseItemSpec);
+      }
+
+      protected override async getModelSpecForPreProcessing(
+        _userContext: IUserContext,
+        _entity: Partial<ITestItem>,
+      ): Promise<IModelSpec> {
+        return TestItemSpec;
+      }
+    }
+
+    it('should decode with a subclass override spec and stamp _orgId', async () => {
+      const overrideService = new OverrideModelSpecMultiTenantService(database);
+      const isoDateString = new Date().toISOString();
+
+      const createdEntity = await overrideService.create(getTestMetaOrgUserContext(), {
+        name: 'Multi-tenant override spec item',
+        value: 5,
+        notes: 'only on constructor spec',
+        eventDate: isoDateString as any,
+        extraProperty: 'should be stripped',
+      } as any);
+
+      expect(createdEntity).toBeDefined();
+      expect(createdEntity!._orgId).toBe(getTestMetaOrg()._id);
+      expect(createdEntity!.name).toBe('Multi-tenant override spec item');
+      expect(createdEntity!.value).toBe(5);
+      expect(createdEntity!.eventDate instanceof Date).toBe(true);
+      expect(createdEntity!.eventDate!.toISOString()).toBe(isoDateString);
+      expect((createdEntity as any).notes).toBeUndefined();
+      expect((createdEntity as any).extraProperty).toBeUndefined();
     });
   });
 });

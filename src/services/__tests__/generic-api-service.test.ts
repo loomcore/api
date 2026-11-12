@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Type } from '@sinclair/typebox';
 import moment from 'moment';
-import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, getSystemUserContext, IOrganization } from '@loomcore/common/models';
+import { IUserContext, IQueryOptions, DefaultQueryOptions, IEntity, IAuditable, getSystemUserContext, IOrganization, IModelSpec } from '@loomcore/common/models';
 import { TypeboxIsoDate, getSystemUserId } from '@loomcore/common/validation';
 import { entityUtils } from '@loomcore/common/utils';
 
@@ -11,6 +11,7 @@ import { OrganizationService } from '../organization.service.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, TestEntitySchema, testModelSpec } from '../../__tests__/index.js';
+import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { IDatabase } from '../../databases/models/index.js';
 import { getTestMetaOrg, getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
 import { AppIdType } from '@loomcore/common/types';
@@ -2987,6 +2988,199 @@ describe('GenericApiService - Integration Tests', () => {
           expect((preparedEntity as any).event_date.toISOString()).toBe(isoDateString);
         }
       });
+    });
+  });
+
+  describe('getModelSpecForPreProcessing', () => {
+    const baseItemSpec = entityUtils.getModelSpec(
+      Type.Object({
+        name: Type.String(),
+        value: Type.Optional(Type.Number()),
+        notes: Type.Optional(Type.String()),
+      }),
+      { isAuditable: true },
+    );
+
+    class OverrideModelSpecService extends GenericApiService<ITestItem> {
+      constructor(db: IDatabase) {
+        super(db, 'testItem', 'testItems', baseItemSpec);
+      }
+
+      protected override async getModelSpecForPreProcessing(
+        _userContext: IUserContext,
+        _entity: Partial<ITestItem>,
+      ): Promise<IModelSpec> {
+        return TestItemSpec;
+      }
+    }
+
+    function expectPreProcessedEventDate(preparedEntity: any, isoDateString: string) {
+      if (database instanceof MongoDBDatabase) {
+        expect(preparedEntity.eventDate instanceof Date).toBe(true);
+        expect(preparedEntity.eventDate.toISOString()).toBe(isoDateString);
+      } else {
+        expect(preparedEntity.event_date instanceof Date).toBe(true);
+        expect(preparedEntity.event_date.toISOString()).toBe(isoDateString);
+      }
+    }
+
+    it('should decode with the service model spec by default', async () => {
+      const dateService = new GenericApiService<ITestItem>(
+        database,
+        'testItem',
+        'testItems',
+        TestItemSpec,
+      );
+      const isoDateString = new Date().toISOString();
+
+      const preparedEntity = await dateService.preProcessEntity(
+        getTestMetaOrgUserContext(),
+        {
+          name: 'Default spec date',
+          eventDate: isoDateString as any,
+          extraProperty: 'should be stripped',
+        } as any,
+        true,
+      );
+
+      expectPreProcessedEventDate(preparedEntity, isoDateString);
+      expect(preparedEntity.name).toBe('Default spec date');
+      expect((preparedEntity as any).extraProperty).toBeUndefined();
+      expect((preparedEntity as any).extra_property).toBeUndefined();
+    });
+
+    it('should strip fields that exist only on an unused override spec when using the default model spec', async () => {
+      const baseService = new GenericApiService<ITestItem>(
+        database,
+        'testItem',
+        'testItems',
+        baseItemSpec,
+      );
+      const isoDateString = new Date().toISOString();
+
+      const preparedEntity = await baseService.preProcessEntity(
+        getTestMetaOrgUserContext(),
+        {
+          name: 'No eventDate on service spec',
+          notes: 'kept by default spec',
+          eventDate: isoDateString,
+          extraProperty: 'should be stripped',
+        } as any,
+        true,
+      );
+
+      expect(preparedEntity.name).toBe('No eventDate on service spec');
+      expect((preparedEntity as any).notes).toBe('kept by default spec');
+      expect((preparedEntity as any).eventDate).toBeUndefined();
+      expect((preparedEntity as any).event_date).toBeUndefined();
+      expect((preparedEntity as any).extraProperty).toBeUndefined();
+    });
+
+    it('should decode with a subclass override spec', async () => {
+      const overrideService = new OverrideModelSpecService(database);
+      const isoDateString = new Date().toISOString();
+
+      const preparedEntity = await overrideService.preProcessEntity(
+        getTestMetaOrgUserContext(),
+        {
+          name: 'Override spec date',
+          value: 42,
+          notes: 'only on constructor spec',
+          eventDate: isoDateString as any,
+          extraProperty: 'should be stripped',
+        } as any,
+        true,
+      );
+
+      expectPreProcessedEventDate(preparedEntity, isoDateString);
+      expect(preparedEntity.name).toBe('Override spec date');
+      expect(preparedEntity.value).toBe(42);
+      expect((preparedEntity as any).notes).toBeUndefined();
+      expect((preparedEntity as any).extraProperty).toBeUndefined();
+      expect((preparedEntity as any).extra_property).toBeUndefined();
+    });
+
+    it('should decode with a subclass override spec when creating an entity', async () => {
+      const overrideService = new OverrideModelSpecService(database);
+      const isoDateString = new Date().toISOString();
+
+      const createdEntity = await overrideService.create(getTestMetaOrgUserContext(), {
+        name: 'Created with override spec',
+        value: 7,
+        notes: 'only on constructor spec',
+        eventDate: isoDateString as any,
+        extraProperty: 'should be stripped',
+      } as any);
+
+      expect(createdEntity).toBeDefined();
+      expect(createdEntity!.name).toBe('Created with override spec');
+      expect(createdEntity!.value).toBe(7);
+      expect(createdEntity!.eventDate instanceof Date).toBe(true);
+      expect(createdEntity!.eventDate!.toISOString()).toBe(isoDateString);
+      expect((createdEntity as any).notes).toBeUndefined();
+      expect((createdEntity as any).extraProperty).toBeUndefined();
+    });
+
+    it('should decode with a subclass override spec when fully updating an entity by id', async () => {
+      const overrideService = new OverrideModelSpecService(database);
+      const createdEntity = await overrideService.create(getTestMetaOrgUserContext(), {
+        name: 'Original full update item',
+        value: 1,
+      });
+
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+
+      const isoDateString = new Date().toISOString();
+      const updatedEntity = await overrideService.fullUpdateById(
+        getTestMetaOrgUserContext(),
+        createdEntity._id,
+        {
+          name: 'Updated with override spec',
+          value: 9,
+          notes: 'only on constructor spec',
+          eventDate: isoDateString as any,
+          extraProperty: 'should be stripped',
+        } as any,
+      );
+
+      expect(updatedEntity.name).toBe('Updated with override spec');
+      expect(updatedEntity.value).toBe(9);
+      expect(updatedEntity.eventDate instanceof Date).toBe(true);
+      expect(updatedEntity.eventDate!.toISOString()).toBe(isoDateString);
+      expect((updatedEntity as any).notes).toBeUndefined();
+      expect((updatedEntity as any).extraProperty).toBeUndefined();
+    });
+
+    it('should decode with a subclass override spec when partially updating an entity by id', async () => {
+      const overrideService = new OverrideModelSpecService(database);
+      const createdEntity = await overrideService.create(getTestMetaOrgUserContext(), {
+        name: 'Original partial update item',
+        value: 3,
+      });
+
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+
+      const isoDateString = new Date().toISOString();
+      const updatedEntity = await overrideService.partialUpdateById(
+        getTestMetaOrgUserContext(),
+        createdEntity._id,
+        {
+          eventDate: isoDateString as any,
+          notes: 'only on constructor spec',
+          extraProperty: 'should be stripped',
+        } as any,
+      );
+
+      expect(updatedEntity.name).toBe('Original partial update item');
+      expect(updatedEntity.value).toBe(3);
+      expect(updatedEntity.eventDate instanceof Date).toBe(true);
+      expect(updatedEntity.eventDate!.toISOString()).toBe(isoDateString);
+      expect((updatedEntity as any).notes).toBeUndefined();
+      expect((updatedEntity as any).extraProperty).toBeUndefined();
     });
   });
 });
