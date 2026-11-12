@@ -198,8 +198,9 @@ export class AuthController {
       throw new UnauthenticatedError();
     }
 
-    const tokens = await impersonateUser(this.database, userContext, userId, refreshToken, this.userService);
-    apiUtils.apiResponse<ITokenResponse>(res, 200, { data: tokens }, TokenResponseSpec);
+    const loginResponse = await impersonateUser(this.database, userContext, userId, refreshToken, this.userService);
+    await this.afterAuth(req, res, loginResponse);
+    apiUtils.apiResponse<ILoginResponse>(res, 200, { data: loginResponse }, this.loginResponseSpec);
   }
 
   async afterAuth(

@@ -1,5 +1,5 @@
 import {
-  type ITokenResponse,
+  ILoginResponse,
   type IUserContext,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
@@ -18,7 +18,7 @@ export async function impersonateUser(
   refreshToken: string,
   userService: UserService = new UserService(database),
   authorizationsService: AuthorizationService = new AuthorizationService(database),
-): Promise<ITokenResponse> {
+): Promise<ILoginResponse> {
   if (impersonatorUserContext.impersonatorId) {
     throw new BadRequestError('Already impersonating.');
   }
@@ -48,8 +48,11 @@ export async function impersonateUser(
   const accessToken = generateJwt(impersonatedUserContext, IMPERSONATION_JWT_EXPIRATION_IN_SECONDS);
 
   return {
-    accessToken,
-    refreshToken,
-    expiresOn: getExpiresOnFromSeconds(IMPERSONATION_JWT_EXPIRATION_IN_SECONDS),
+    tokens: {
+      accessToken,
+      refreshToken,
+      expiresOn: getExpiresOnFromSeconds(IMPERSONATION_JWT_EXPIRATION_IN_SECONDS),
+    },
+    userContext: impersonatedUserContext,
   };
 }
