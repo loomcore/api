@@ -14,7 +14,8 @@
  * // Create the service with default operations
  * const clientReportService = new GenericQueryService<IClientReportsModel>(
  *   database,
- *   'clients',  // root table
+ *   'client',
+ *   'clients',
  *   clientReportsModelSpec,
  *   [joinPerson, joinEmailAddresses]  // default operations
  * );
@@ -30,30 +31,165 @@ import { IGenericQueryService } from './generic-query-service.interface.js';
 import { Operation } from '../../databases/operations/operation.js';
 import { IdNotFoundError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
+import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
 
 export class GenericQueryService<T extends IEntity> implements IGenericQueryService<T> {
   protected database: IDatabase;
-  protected rootTableName: string;
+  protected singularResourceName: string;
+  protected pluralResourceName: string;
   protected modelSpec: IModelSpec;
-  protected defaultOperations: Operation[];
+  protected defaultOperations: Operation[] = [];
 
   /**
    * @constructs GenericQueryService<T> where T extends IEntity
    * @param database The database instance
-   * @param rootTableName The root table name (e.g. 'clients')
+   * @param singularResourceName The singular resource name (e.g. 'client')
+   * @param pluralResourceName The plural resource name (e.g. 'clients')
    * @param modelSpec The model spec for the result type
    * @param defaultOperations Optional default operations (joins) to apply to all queries
    */
   constructor(
     database: IDatabase,
-    rootTableName: string,
+    singularResourceName: string,
+    pluralResourceName: string,
     modelSpec: IModelSpec,
-    defaultOperations: Operation[] = []
+    defaultOperations: Operation[] = [],
   ) {
     this.database = database;
-    this.rootTableName = rootTableName;
+    this.singularResourceName = singularResourceName;
+    this.pluralResourceName = pluralResourceName;
     this.modelSpec = modelSpec;
     this.defaultOperations = defaultOperations;
+  }
+
+  async getAll(userContext: IUserContext): Promise<T[]>;
+
+  async getAll<TCustom extends IEntity>(
+    userContext: IUserContext,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
+  ): Promise<TCustom[]>;
+
+  async getAll<Y extends IEntity = T>(
+    userContext: IUserContext,
+    prepareQueryCustom?: PrepareQueryCustomFunction,
+    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>,
+  ): Promise<Y[]> {
+    let operations: Operation[] = [];
+    let queryOptions: IQueryOptions = {};
+    if (prepareQueryCustom) {
+      ({ operations, queryOptions } = prepareQueryCustom(userContext, {}, []));
+    }
+    ({ operations, queryOptions } = this.prepareQuery(userContext, queryOptions, operations));
+
+    const entities = await this.database.getAll<T>(operations, this.pluralResourceName, this.getTenantOrgId(userContext));
+
+    return entities.map((entity) => {
+      const dbProcessed = this.postProcessEntity(userContext, entity);
+      if (postProcessEntityCustom) {
+        return postProcessEntityCustom(userContext, dbProcessed);
+      }
+      return dbProcessed as unknown as Y;
+    });
+  }
+
+  async get(userContext: IUserContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
+
+  async get<TCustom extends IEntity>(
+    userContext: IUserContext,
+    queryOptions: IQueryOptions,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
+  ): Promise<IPagedResult<TCustom>>;
+
+  async get<Y extends IEntity = T>(
+    userContext: IUserContext,
+    queryOptions: IQueryOptions = { ...DefaultQueryOptions },
+    prepareQueryCustom?: PrepareQueryCustomFunction,
+    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>,
+  ): Promise<IPagedResult<Y>> {
+    let operations: Operation[] = [];
+    if (prepareQueryCustom) {
+      ({ queryOptions, operations } = prepareQueryCustom(userContext, queryOptions, operations));
+    }
+    ({ queryOptions, operations } = this.prepareQuery(userContext, queryOptions, operations));
+
+    const pagedResult = await this.database.get<T>(
+      operations,
+      queryOptions,
+      this.modelSpec,
+      this.pluralResourceName,
+    );
+
+    const transformedEntities = (pagedResult.entities || []).map((entity) => {
+      const transformedEntity: T = this.postProcessEntity(userContext, entity);
+      if (postProcessEntityCustom) {
+        return postProcessEntityCustom(userContext, transformedEntity);
+      }
+      return transformedEntity as unknown as Y;
+    });
+    return {
+      ...pagedResult,
+      entities: transformedEntities,
+    };
+  }
+
+  async getById(userContext: IUserContext, id: AppIdType): Promise<T>;
+
+  async getById<TCustom extends IEntity>(
+    userContext: IUserContext,
+    id: AppIdType,
+    prepareQueryCustom: PrepareQueryCustomFunction,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
+  ): Promise<TCustom>;
+
+  async getById<Y extends IEntity = T>(
+    userContext: IUserContext,
+    id: AppIdType,
+    prepareQueryCustom?: PrepareQueryCustomFunction,
+    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>,
+  ): Promise<Y> {
+    let operations: Operation[] = [];
+    let queryOptions: IQueryOptions = {};
+
+    if (prepareQueryCustom) {
+      ({ operations, queryOptions } = prepareQueryCustom(userContext, {}, []));
+    }
+    ({ operations, queryOptions } = this.prepareQuery(userContext, queryOptions, operations));
+
+    const entity = await this.database.getById<T>(operations, queryOptions, id, this.pluralResourceName);
+
+    if (!entity) {
+      throw new IdNotFoundError();
+    }
+
+    const transformedEntity = this.postProcessEntity(userContext, entity);
+    if (postProcessEntityCustom) {
+      return postProcessEntityCustom(userContext, transformedEntity);
+    }
+    return transformedEntity as unknown as Y;
+  }
+
+  async getCount(userContext: IUserContext): Promise<number> {
+    return this.database.getCount(this.pluralResourceName, this.getTenantOrgId(userContext));
+  }
+
+  async find(userContext: IUserContext, queryOptions: IQueryOptions): Promise<T[]> {
+    const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
+
+    const rawEntities = await this.database.find<T>(preparedQuery, this.pluralResourceName);
+
+    return rawEntities.map((entity) =>
+      this.postProcessEntity(userContext, entity),
+    );
+  }
+
+  async findOne(userContext: IUserContext, queryOptions: IQueryOptions): Promise<T | null> {
+    const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
+
+    const rawEntity = await this.database.findOne<T>(preparedQuery, this.pluralResourceName);
+
+    return rawEntity ? this.postProcessEntity(userContext, rawEntity) : null;
   }
 
   /**
@@ -64,20 +200,14 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
    * @param operations A list of operations to apply before executing the database request
    * @returns The potentially modified query options and list of operations
    */
-  prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
+  prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[] = []): { queryOptions: IQueryOptions, operations: Operation[] } {
     // Merge default operations with provided operations
-    const mergedOperations = [...this.defaultOperations, ...operations];
+    const mergedOperations = (this.defaultOperations || []).concat(operations);
     return { queryOptions, operations: mergedOperations };
   }
 
-  /**
-   * Prepare query options before using them. Subclasses can override this to apply tenant filters, etc.
-   * @param userContext The user context
-   * @param queryOptions The original query options
-   * @returns The prepared query options
-   */
-  prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
-    return queryOptions;
+  postProcessEntity(userContext: IUserContext, entity: T): T {
+    return this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
   }
 
   /**
@@ -85,63 +215,11 @@ export class GenericQueryService<T extends IEntity> implements IGenericQueryServ
    * enforce tenant isolation atomically. The base implementation returns undefined
    * so existing callers remain unscoped. MultiTenantQueryService overrides this.
    */
-  protected getDatabaseOrgId(_userContext: IUserContext): AppIdType | undefined {
+  protected getTenantOrgId(_userContext: IUserContext): AppIdType | undefined {
     return undefined;
   }
 
-  /**
-   * Post-process an entity after fetching from the database. Subclasses can override this to transform data.
-   * @param userContext The user context
-   * @param entity The entity to post-process
-   * @returns The post-processed entity
-   */
-  protected postProcessEntityInternal(userContext: IUserContext, entity: any): T {
-    const dbPostProcessedEntity = this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
-
-    return this.postProcessEntity(userContext, dbPostProcessedEntity);
-  }
-
-  public postProcessEntity(userContext: IUserContext, entity: any): T {
-    return entity as T;
-  }
-
-  async getAll(userContext: IUserContext): Promise<T[]> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    const entities = await this.database.getAll<T>(operations, this.rootTableName, this.getDatabaseOrgId(userContext));
-
-    return entities.map(entity => this.postProcessEntityInternal(userContext, entity));
-  }
-
-  async get(userContext: IUserContext, queryOptions: IQueryOptions = { ...DefaultQueryOptions }): Promise<IPagedResult<T>> {
-    const preparedOptions = this.prepareQueryOptions(userContext, queryOptions);
-
-    // this currently ignores any queryOptions returned by prepareQuery.
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    const pagedResult = await this.database.get<T>(operations, preparedOptions, this.modelSpec, this.rootTableName);
-
-    const transformedEntities = (pagedResult.entities || []).map(entity => this.postProcessEntityInternal(userContext, entity));
-
-    return {
-      ...pagedResult,
-      entities: transformedEntities
-    };
-  }
-
-  async getById(userContext: IUserContext, id: AppIdType): Promise<T> {
-    const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
-
-    const entity = await this.database.getById<T>(operations, queryOptions, id, this.rootTableName);
-
-    if (!entity) {
-      throw new IdNotFoundError();
-    }
-
-    return this.postProcessEntityInternal(userContext, entity);
-  }
-
-  async getCount(userContext: IUserContext): Promise<number> {
-    return this.database.getCount(this.rootTableName, this.getDatabaseOrgId(userContext));
+  getModelSpec(): IModelSpec {
+    return this.modelSpec;
   }
 }

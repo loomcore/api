@@ -28,7 +28,9 @@ import {
   setTestOrgId,
 } from '../../__tests__/test-objects.js';
 import { config } from '../../config/base-api-config.js';
-import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
+import type { IDatabase } from '../../databases/models/index.js';
+import { BadRequestError, IdNotFoundError, ServerError } from '../../errors/index.js';
+import { GenericQueryService } from '../generic-query-service/generic-query.service.js';
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
 import { MultiTenantQueryService } from '../multi-tenant-query.service.js';
 import { OrganizationService } from '../organization.service.js';
@@ -38,6 +40,7 @@ beforeAll(() => {
 });
 
 describe('MultiTenantQueryService', () => {
+  let database: IDatabase;
   let apiService: MultiTenantApiService<TestEntity>;
   let queryService: MultiTenantQueryService<TestEntity>;
   let organizationService: OrganizationService;
@@ -54,6 +57,7 @@ describe('MultiTenantQueryService', () => {
 
   beforeAll(async () => {
     const setup = await TestExpressApp.init();
+    database = setup.database;
 
     apiService = new MultiTenantApiService<TestEntity>(
       setup.database,
@@ -63,6 +67,7 @@ describe('MultiTenantQueryService', () => {
     );
     queryService = new MultiTenantQueryService<TestEntity>(
       setup.database,
+      'testEntity',
       'testEntities',
       testModelSpec,
     );
@@ -109,6 +114,10 @@ describe('MultiTenantQueryService', () => {
     const entity = await apiService.create(getTestOrgUserContext(), { name });
     if (!entity) throw new Error('Failed to create entity in test org');
     return entity;
+  }
+
+  function unscopedQueryService(): GenericQueryService<TestEntity> {
+    return new GenericQueryService<TestEntity>(database, 'testEntity', 'testEntities', testModelSpec);
   }
 
   function userContextWithoutOrg(): IUserContext {
@@ -202,7 +211,13 @@ describe('MultiTenantQueryService', () => {
       const originalIsMultiTenant = config.app.isMultiTenant;
       config.app.isMultiTenant = false;
       try {
-        const results = await queryService.getAll(getTestOrgUserContext());
+        expect(() => new MultiTenantQueryService<TestEntity>(
+          database,
+          'testEntity',
+          'testEntities',
+          testModelSpec,
+        )).toThrow(ServerError);
+        const results = await unscopedQueryService().getAll(getTestOrgUserContext());
         expect(results).toHaveLength(2);
       } finally {
         config.app.isMultiTenant = originalIsMultiTenant;
@@ -280,7 +295,13 @@ describe('MultiTenantQueryService', () => {
       const originalIsMultiTenant = config.app.isMultiTenant;
       config.app.isMultiTenant = false;
       try {
-        const results = await queryService.get(getTestOrgUserContext());
+        expect(() => new MultiTenantQueryService<TestEntity>(
+          database,
+          'testEntity',
+          'testEntities',
+          testModelSpec,
+        )).toThrow(ServerError);
+        const results = await unscopedQueryService().get(getTestOrgUserContext());
         expect(results.total).toBe(2);
         expect(results.entities).toHaveLength(2);
       } finally {
@@ -338,7 +359,13 @@ describe('MultiTenantQueryService', () => {
       const originalIsMultiTenant = config.app.isMultiTenant;
       config.app.isMultiTenant = false;
       try {
-        const result = await queryService.getById(getTestOrgUserContext(), metaOrgEntity._id);
+        expect(() => new MultiTenantQueryService<TestEntity>(
+          database,
+          'testEntity',
+          'testEntities',
+          testModelSpec,
+        )).toThrow(ServerError);
+        const result = await unscopedQueryService().getById(getTestOrgUserContext(), metaOrgEntity._id);
         expect(result._id).toBe(metaOrgEntity._id);
       } finally {
         config.app.isMultiTenant = originalIsMultiTenant;
@@ -418,7 +445,13 @@ describe('MultiTenantQueryService', () => {
       const originalIsMultiTenant = config.app.isMultiTenant;
       config.app.isMultiTenant = false;
       try {
-        const count = await queryService.getCount(getTestOrgUserContext());
+        expect(() => new MultiTenantQueryService<TestEntity>(
+          database,
+          'testEntity',
+          'testEntities',
+          testModelSpec,
+        )).toThrow(ServerError);
+        const count = await unscopedQueryService().getCount(getTestOrgUserContext());
         expect(count).toBe(2);
       } finally {
         config.app.isMultiTenant = originalIsMultiTenant;

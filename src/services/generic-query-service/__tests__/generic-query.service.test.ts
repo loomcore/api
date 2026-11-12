@@ -68,6 +68,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     // Create service instance
     service = new GenericQueryService<ITestClientReportsModel>(
       database,
+      'client',
       'clients',
       testClientReportsModelSpec,
       defaultOperations
@@ -318,6 +319,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
       const customService = new CustomQueryService(
         database,
+        'client',
         'clients',
         testClientReportsModelSpec,
         [] // No default operations
@@ -334,15 +336,17 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     });
   });
 
-  describe('prepareQueryOptions hook', () => {
-    it('should allow overriding prepareQueryOptions to modify query options', async () => {
+  describe('prepareQuery hook for query options', () => {
+    it('should allow overriding prepareQuery to modify query options used by get', async () => {
       class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
-        override prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
-          const prepared = super.prepareQueryOptions(userContext, queryOptions);
-          // Add a filter
-          prepared.filters = {
-            ...prepared.filters,
-            _id: { eq: clientId }
+        override prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
+          const prepared = super.prepareQuery(userContext, queryOptions, operations);
+          prepared.queryOptions = {
+            ...prepared.queryOptions,
+            filters: {
+              ...prepared.queryOptions.filters,
+              _id: { eq: clientId }
+            },
           };
           return prepared;
         }
@@ -350,6 +354,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
       const customService = new CustomQueryService(
         database,
+        'client',
         'clients',
         testClientReportsModelSpec,
         []
@@ -378,6 +383,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
       const customService = new CustomQueryService(
         database,
+        'client',
         'clients',
         testClientReportsModelSpec,
         []
@@ -423,6 +429,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     it('should work with service that has no default operations', async () => {
       const serviceWithoutDefaults = new GenericQueryService<ITestClientReportsModel>(
         database,
+        'client',
         'clients',
         testClientReportsModelSpec,
         [] // No default operations

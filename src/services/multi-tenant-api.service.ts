@@ -19,73 +19,49 @@ import { TenantQueryDecorator } from './tenant-query-decorator.js';
  * Decorates the GenericApiService with multi-tenancy behavior.
  * This implementation extends GenericApiService and overrides the query preparation hooks
  * to transparently add tenant filtering to all database operations.
- * Tenant policy also lives in getDatabaseOrgId for commands that enforce matching _orgId atomically.
+ * Tenant policy for commands that match _orgId atomically lives in getTenantOrgId.
  */
 export class MultiTenantApiService<T extends IEntity> extends GenericApiService<T> {
-    private tenantDecorator?: TenantQueryDecorator;
+    private tenantDecorator: TenantQueryDecorator;
 
     constructor(
         database: IDatabase,
         pluralResourceName: string,
         singularResourceName: string,
         modelSpec: IModelSpec,
+        defaultOperations: Operation[] = [],
     ) {
-        super(database, pluralResourceName, singularResourceName, modelSpec);
-        if (config?.app?.isMultiTenant) {
-            this.tenantDecorator = new TenantQueryDecorator();
-        }
-    }
-
-    /**
-     * Supplies orgId for database commands that filter atomically by _orgId.
-     * Unscoped (undefined) for single-tenant mode, system users, and meta org admins.
-     * Throws if a tenant-scoped call is missing _orgId rather than silently widening.
-     */
-    protected override getDatabaseOrgId(userContext: IUserContext): AppIdType | undefined {
         if (!config?.app?.isMultiTenant) {
-            return undefined;
-        }
-        if (isSystemUser(userContext) || isMetaOrgAdmin(userContext)) {
-            return undefined;
-        }
-        if (!userContext?.user?._orgId) {
-            throw new BadRequestError(
-                'A valid userContext with _orgId is required for multi-tenant operations',
+            throw new ServerError(
+                'MultiTenantApiService can only be used in multi-tenant mode',
             );
         }
-        return userContext.user._orgId;
+        super(database, singularResourceName, pluralResourceName, modelSpec, defaultOperations);
+        this.tenantDecorator = new TenantQueryDecorator();
     }
 
     /**
-     * Override the query preparation hook to add tenant filtering
+     * Adds tenant filtering to queryOptions used by getById.
      */
     override prepareQuery(
         userContext: IUserContext,
         queryOptions: IQueryOptions,
         operations: Operation[],
     ): { queryOptions: IQueryOptions; operations: Operation[] } {
-        if (!config?.app?.isMultiTenant || (userContext && isSystemUser(userContext))) {
-            return super.prepareQuery(userContext, queryOptions, operations);
-        }
         if (!userContext?.user?._orgId) {
             throw new BadRequestError(
-                'A valid userContext was not provided to MultiTenantApiService.prepareQuery',
+                'A valid userContext was not provided to MultiTenantApiService.prepareEntity',
             );
         }
 
-        if (!this.tenantDecorator) {
-            throw new ServerError(
-                'A valid tenantDecorator was not provided to MultiTenantApiService.prepareQuery',
-            );
-        }
+        let { queryOptions: mergedQueryOptions, operations: mergedOperations } = super.prepareQuery(userContext, queryOptions, operations);
 
-        // Apply tenant filtering to the query object
-        queryOptions = this.tenantDecorator.applyTenantToQuery(
+        mergedQueryOptions = this.tenantDecorator.applyTenantToQuery(
             userContext,
-            queryOptions,
+            mergedQueryOptions,
             this.pluralResourceName,
         );
-        return { queryOptions, operations };
+        return { queryOptions: mergedQueryOptions, operations: mergedOperations };
     }
 
     /**
@@ -98,9 +74,6 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
         isCreate: boolean,
         allowId: boolean = false,
     ): Promise<Partial<T>> {
-        if (!config?.app?.isMultiTenant) {
-            return super.preProcessEntity(userContext, entity, isCreate, allowId);
-        }
         if (!userContext?.user?._orgId) {
             throw new BadRequestError(
                 'A valid userContext was not provided to MultiTenantApiService.prepareEntity',
@@ -126,5 +99,9 @@ export class MultiTenantApiService<T extends IEntity> extends GenericApiService<
         }
 
         return preparedEntity;
+    }
+
+    override getTenantOrgId(userContext: IUserContext): AppIdType | undefined {
+        return this.tenantDecorator?.getTenantOrgId(userContext);
     }
 }

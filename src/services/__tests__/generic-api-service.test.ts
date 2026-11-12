@@ -28,8 +28,8 @@ describe('GenericApiService - Integration Tests', () => {
     // Create service with auditable model spec
     service = new GenericApiService<TestEntity>(
       testSetup.database,
-      'testEntities',
       'testEntity',
+      'testEntities',
       testModelSpec
     );
   });
@@ -2844,8 +2844,8 @@ describe('GenericApiService - Integration Tests', () => {
         const nonAuditableModelSpec = entityUtils.getModelSpec(TestEntitySchema, { isAuditable: false });
         const nonAuditableService = new GenericApiService<TestEntity>(
           database,
-          'testEntities',
           'testEntity',
+          'testEntities',
           nonAuditableModelSpec
         );
 
@@ -2964,8 +2964,8 @@ describe('GenericApiService - Integration Tests', () => {
         const dateModelSpec = entityUtils.getModelSpec(DateSchema, { isAuditable: true });
         const dateService = new GenericApiService<any>(
           database,
-          'dateEntities',
           'dateEntity',
+          'dateEntities',
           dateModelSpec
         );
 

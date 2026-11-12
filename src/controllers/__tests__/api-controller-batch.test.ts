@@ -41,8 +41,8 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     new CategoryController(app, testSetup.database);
     new MultiTenantProductsController(app, testSetup.database);
 
-    productService = new GenericApiService<IProduct>(testSetup.database, 'products', 'product', ProductSpec);
-    categoryService = new GenericApiService<ICategory>(testSetup.database, 'categories', 'category', CategorySpec);
+    productService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
+    categoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
 
     multiTenantProductService = new MultiTenantApiService<IProduct>(testSetup.database, 'products', 'product', ProductSpec);
     multiTenantCategoryService = new MultiTenantApiService<ICategory>(testSetup.database, 'categories', 'category', CategorySpec);

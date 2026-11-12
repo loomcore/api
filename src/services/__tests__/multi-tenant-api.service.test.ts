@@ -29,7 +29,7 @@ import {
   setTestMetaOrgId,
   setTestOrgId,
 } from '../../__tests__/test-objects.js';
-import type { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../controllers/types.js';
+import type { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
 import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { MultiTenantApiService } from '../multi-tenant-api.service.js';
 import { OrganizationService } from '../organization.service.js';

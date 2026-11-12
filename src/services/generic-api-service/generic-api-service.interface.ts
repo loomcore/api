@@ -1,63 +1,26 @@
 import type {
   IEntity,
   IModelSpec,
-  IPagedResult,
   IQueryOptions,
   IUserContext,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import type { ValueError } from '@sinclair/typebox/errors';
-import type {
-  PostProcessEntityCustomFunction,
-  PrepareQueryCustomFunction,
-} from '../../controllers/types.js';
 import type { DeleteResult } from '../../databases/models/delete-result.js';
-import type { Operation } from '../../databases/operations/operation.js';
+import { IGenericQueryService } from '../generic-query-service/generic-query-service.interface.js';
 
-export interface IGenericApiService<T extends IEntity> {
+export interface IGenericApiService<T extends IEntity> extends IGenericQueryService<T> {
   getModelSpec(): IModelSpec;
   validate(doc: any, isPartial?: boolean): ValueError[] | null;
   validateMany(docs: any[], isPartial?: boolean): ValueError[] | null;
 
-  prepareQuery(
-    userContext: IUserContext | undefined,
-    queryOptions: IQueryOptions,
-    operations: Operation[],
-  ): { queryOptions: IQueryOptions; operations: Operation[] };
   preProcessEntity(
     userContext: IUserContext,
     entity: Partial<T>,
     isCreate: boolean,
     allowId: boolean,
   ): Promise<Partial<T>>;
-  postProcessEntity(userContext: IUserContext, entity: T): T;
 
-  getAll(userContext: IUserContext): Promise<T[]>;
-  getAll<TCustom extends IEntity>(
-    userContext: IUserContext,
-    prepareQueryCustom: PrepareQueryCustomFunction,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-  ): Promise<TCustom[]>;
-
-  get(
-    userContext: IUserContext,
-    queryOptions?: IQueryOptions,
-  ): Promise<IPagedResult<T>>;
-  get<TCustom extends IEntity>(
-    userContext: IUserContext,
-    queryOptions: IQueryOptions,
-    prepareQueryCustom: PrepareQueryCustomFunction,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-  ): Promise<IPagedResult<TCustom>>;
-
-  getById(userContext: IUserContext, id: AppIdType): Promise<T>;
-  getById<TCustom extends IEntity>(
-    userContext: IUserContext,
-    id: AppIdType,
-    prepareQueryCustom: PrepareQueryCustomFunction,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-  ): Promise<TCustom>;
-  getCount(userContext: IUserContext): Promise<number>;
   create(userContext: IUserContext, entity: Partial<T>): Promise<T | null>;
   createMany(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
   batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]>;
@@ -86,14 +49,4 @@ export interface IGenericApiService<T extends IEntity> {
     userContext: IUserContext,
     queryObject: IQueryOptions,
   ): Promise<DeleteResult>;
-  find(
-    userContext: IUserContext,
-    queryObject: IQueryOptions,
-    options?: any,
-  ): Promise<T[]>;
-  findOne(
-    userContext: IUserContext,
-    queryObject: IQueryOptions,
-    options?: any,
-  ): Promise<T | null>;
 }

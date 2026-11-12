@@ -49,7 +49,7 @@ import { config, setBaseApiConfig } from '../config/index.js';
 import type {
   PostProcessEntityCustomFunction,
   PrepareQueryCustomFunction,
-} from '../controllers/types.js';
+} from '../services/types.js';
 import type { DbType } from '../databases/db-type.type.js';
 import { attemptLogin } from '../utils/auth/index.js';
 import { apiUtils } from '../utils/index.js';
@@ -402,7 +402,7 @@ function verifyToken(token: string): any {
 // Service that does NOT use aggregation
 export class CategoryService extends GenericApiService<ICategory> {
   constructor(database: IDatabase) {
-    super(database, 'categories', 'category', CategorySpec);
+    super(database, 'category', 'categories', CategorySpec);
   }
 }
 
@@ -481,7 +481,7 @@ const postProcessEntityCustom: PostProcessEntityCustomFunction<
 
 export class ProductService extends GenericApiService<IProductWithCategory> {
   constructor(database: IDatabase) {
-    super(database, 'products', 'product', ProductSpec);
+    super(database, 'product', 'products', ProductSpec);
   }
 }
 

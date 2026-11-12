@@ -1,8 +1,6 @@
 import {
-  DefaultQueryOptions,
   type IEntity,
   type IModelSpec,
-  type IPagedResult,
   type IQueryOptions,
   type IUserContext,
 } from '@loomcore/common/models';
@@ -10,10 +8,6 @@ import type { AppIdType } from '@loomcore/common/types';
 import { entityUtils } from '@loomcore/common/utils';
 import type { ValueError } from '@sinclair/typebox/errors';
 import _ from 'lodash';
-import type {
-  PostProcessEntityCustomFunction,
-  PrepareQueryCustomFunction,
-} from '../../controllers/types.js';
 import type { DeleteResult } from '../../databases/models/delete-result.js';
 import type { IDatabase } from '../../databases/models/index.js';
 import type { Operation } from '../../databases/operations/operation.js';
@@ -22,271 +16,24 @@ import { auditForCreate } from '../utils/audit-for-create.util.js';
 import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import type { IGenericApiService } from './generic-api-service.interface.js';
+import { GenericQueryService } from '../generic-query-service/generic-query.service.js';
 
-export class GenericApiService<T extends IEntity>
-  implements IGenericApiService<T> {
-  protected database: IDatabase;
-  protected pluralResourceName: string;
-  protected singularResourceName: string;
-  protected modelSpec: IModelSpec;
-
+export class GenericApiService<T extends IEntity> extends GenericQueryService<T> implements IGenericApiService<T> {
   /**
    * @constructs GenericApiService<T> where T extends IEntity
    * @param database The database instance
-   * @param pluralResourceName This is camel-cased, plural (e.g. 'weatherAlerts')
    * @param singularResourceName This is camel-cased, singular (e.g. 'weatherAlert')
+   * @param pluralResourceName This is camel-cased, plural (e.g. 'weatherAlerts')
    * @param modelSpec The model spec
+   * @param defaultOperations Optional default operations (joins) to apply to all queries
    */
-  constructor(database: IDatabase, pluralResourceName: string, singularResourceName: string, modelSpec: IModelSpec) {
-    this.pluralResourceName = pluralResourceName;
-    this.singularResourceName = singularResourceName;
-    this.modelSpec = modelSpec;
-    this.database = database;
-  }
-
-  getModelSpec(): IModelSpec {
-    return this.modelSpec;
-  }
-
-  /**
-   * Hook for subclasses to supply an organization ID for database operations that
-   * enforce tenant isolation atomically. The base implementation returns undefined
-   * so existing callers remain unscoped. MultiTenantApiService overrides this.
-   */
-  protected getDatabaseOrgId(_userContext: IUserContext): AppIdType | undefined {
-    return undefined;
-  }
-
-  async getAll(userContext: IUserContext): Promise<T[]>;
-
-  async getAll<TCustom extends IEntity>(
-    userContext: IUserContext,
-    prepareQueryCustom: PrepareQueryCustomFunction,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-  ): Promise<TCustom[]>;
-
-  async getAll<Y extends IEntity = T>(
-    userContext: IUserContext,
-    prepareQueryCustom?: PrepareQueryCustomFunction,
-    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>,
-  ): Promise<Y[]> {
-    let operations: Operation[] = [];
-    let queryOptions: IQueryOptions = {};
-    if (prepareQueryCustom) {
-      ({ operations, queryOptions } = prepareQueryCustom(userContext, {}, []));
-    }
-    ({ operations, queryOptions } = this.prepareQuery(userContext, queryOptions, operations));
-
-    const entities = await this.database.getAll<T>(operations, this.pluralResourceName, this.getDatabaseOrgId(userContext));
-
-    return entities.map((entity) => {
-      const dbProcessed = this.postProcessEntity(userContext, entity);
-      if (postProcessEntityCustom) {
-        return postProcessEntityCustom(userContext, dbProcessed);
-      }
-      return dbProcessed as unknown as Y;
-    });
-  }
-
-  /**
-   * This is a hook method that can be overridden by derived classes to modify queries (e.g. add tenantId).
-   * It can be overridden by derived classes to provide certain operations before executing the database request.
-   * @param userContext The user context for the operation
-   * @param queryOptions The original query object
-   * @param operations A list of operations to apply before executing the database request
-   * @returns The potentially modified query object and list of operations
-   */
-  prepareQuery(
-    userContext: IUserContext | undefined,
-    queryOptions: IQueryOptions,
-    operations: Operation[],
-  ): { queryOptions: IQueryOptions; operations: Operation[] } {
-    return { queryOptions, operations };
-  }
-
-  /**
-   * Validates a document against the schema using TypeBox
-   * @param doc The document to validate
-   * @param isPartial Whether to use the partial schema (for PATCH operations)
-   * @returns null if valid, or an array of ValueError objects if invalid
-   */
-  validate(doc: any, isPartial: boolean = false): ValueError[] | null {
-    // Use common validation function
-    return entityUtils.validate(this.modelSpec, doc, isPartial);
-  }
-
-  /**
-   * Validates multiple documents against the schema using TypeBox
-   * @param docs Array of documents to validate
-   * @param isPartial Whether to use the partial schema (for PATCH operations)
-   * @returns null if all valid, or an array of ValueError objects if any are invalid
-   */
-  validateMany(docs: any[], isPartial: boolean = false): ValueError[] | null {
-    let allErrors: ValueError[] = [];
-
-    for (const doc of docs) {
-      const errors = entityUtils.validate(this.modelSpec, doc, isPartial);
-      if (errors && errors.length > 0) {
-        allErrors.push(...errors);
-      }
-    }
-
-    // Return null if no errors found, otherwise return the accumulated errors
-    return allErrors.length > 0 ? allErrors : null;
-  }
-
-  /**
-   * Prepares a single entity before database operations.
-   * This contains the core logic for entity preparation that's applied to each entity.
-   * @param userContext The user context for the operation
-   * @param entity The original entity object
-   * @param isCreate Whether this is for a create operation (true) or update operation (false)
-   * @param allowId Whether to allow the _id property to be supplied by the caller
-   * @returns The potentially modified entity
-   */
-  async preProcessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = true): Promise<Partial<T>> {
-    // Clone the entity to avoid modifying the original
-    let preparedEntity = _.clone(entity);
-
-    // Strip out any system properties sent by the client
-    stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
-
-    // Apply appropriate auditing based on operation type if the entity is auditable
-    if (this.modelSpec.isAuditable) {
-      if (isCreate) {
-        auditForCreate(userContext, preparedEntity);
-      } else {
-        auditForUpdate(userContext, preparedEntity);
-      }
-    }
-
-    // Require a modelSpec for decode and conversion - without a schema we can't do either
-    if (!this.modelSpec?.fullSchema) {
-      throw new ServerError(
-        `Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`,
-      );
-    }
-
-    let cleanedEntity = preparedEntity;
-    if (this.modelSpec) {
-      /**
-       * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming
-       *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the
-       *  controllers, transforming entities back into json format as the response of the controller endpoints.
-       *  We keep the actual types (ObjectId, Date, etc) for use throughout the api, only transforming to their json
-       *  format when finally sending back to the client.
-       * Note: All our models define props that are ObjectIds in Mongodb as strings. That's why we have a separate step
-       *  (below) to convert those strings into ObjectIds. As far as TypeBox is concerned, those props are strings.
-       *   This is necessary because shared model classes can't define anything as ObjectId - it would require
-       *   importing MongoDb, which we definitely don't want in a shared model library.
-       */
-      cleanedEntity = this.modelSpec.decode(preparedEntity);
-    }
-
-    preparedEntity = this.database.preProcessEntity(cleanedEntity, this.modelSpec.fullSchema);
-
-    return preparedEntity;
-  }
-
-  postProcessEntity(userContext: IUserContext, entity: T): T {
-    return this.database.postProcessEntity(entity, this.modelSpec.fullSchema);
-  }
-
-  async get(userContext: IUserContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
-
-  async get<TCustom extends IEntity>(
-    userContext: IUserContext,
-    queryOptions: IQueryOptions,
-    prepareQueryCustom: PrepareQueryCustomFunction,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-  ): Promise<IPagedResult<TCustom>>;
-
-  async get<Y extends IEntity = T>(
-    userContext: IUserContext,
-    queryOptions: IQueryOptions = { ...DefaultQueryOptions },
-    prepareQueryCustom?: PrepareQueryCustomFunction,
-    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>,
-  ): Promise<IPagedResult<Y>> {
-    let operations: Operation[] = [];
-    if (prepareQueryCustom) {
-      ({ queryOptions, operations } = prepareQueryCustom(userContext, queryOptions, operations));
-    }
-    ({ queryOptions, operations } = this.prepareQuery(userContext, queryOptions, operations));
-
-    const pagedResult = await this.database.get<T>(
-      operations,
-      queryOptions,
-      this.modelSpec,
-      this.pluralResourceName,
-    );
-
-    const transformedEntities = (pagedResult.entities || []).map((entity) => {
-      const transformedEntity: T = this.postProcessEntity(userContext, entity);
-      if (postProcessEntityCustom) {
-        return postProcessEntityCustom(userContext, transformedEntity);
-      }
-      return transformedEntity as unknown as Y;
-    });
-    return {
-      ...pagedResult,
-      entities: transformedEntities,
-    };
-  }
-  /**
-   * Prepare query options before using them. Subclasses can override this to apply tenant filters, etc.
-   * @param userContext The user context
-   * @param queryOptions The original query options
-   * @returns The prepared query options
-   */
-  protected prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions {
-    return queryOptions;
-  }
-
-  async getById(userContext: IUserContext, id: AppIdType): Promise<T>;
-
-  async getById<TCustom extends IEntity>(
-    userContext: IUserContext,
-    id: AppIdType,
-    prepareQueryCustom: PrepareQueryCustomFunction,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-  ): Promise<TCustom>;
-
-  async getById<Y extends IEntity = T>(
-    userContext: IUserContext,
-    id: AppIdType,
-    prepareQueryCustom?: PrepareQueryCustomFunction,
-    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y>,
-  ): Promise<Y> {
-    let operations: Operation[] = [];
-    let queryOptions: IQueryOptions = {};
-
-    if (prepareQueryCustom) {
-      ({ operations, queryOptions } = prepareQueryCustom(userContext, {}, []));
-    }
-    ({ operations, queryOptions } = this.prepareQuery(userContext, queryOptions, operations));
-
-    const entity = await this.database.getById<T>(
-      operations,
-      queryOptions,
-      id,
-      this.pluralResourceName,
-    );
-
-    if (!entity) {
-      throw new IdNotFoundError();
-    }
-
-    const transformedEntity = this.postProcessEntity(userContext, entity);
-
-    if (postProcessEntityCustom) {
-      return postProcessEntityCustom(userContext, transformedEntity);
-    } else {
-      return transformedEntity as unknown as Y;
-    }
-  }
-
-  async getCount(userContext: IUserContext): Promise<number> {
-    return this.database.getCount(this.pluralResourceName, this.getDatabaseOrgId(userContext));
+  constructor(
+    database: IDatabase,
+    singularResourceName: string,
+    pluralResourceName: string,
+    modelSpec: IModelSpec,
+    defaultOperations: Operation[] = [],) {
+    super(database, singularResourceName, pluralResourceName, modelSpec, defaultOperations);
   }
 
   async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
@@ -371,7 +118,7 @@ export class GenericApiService<T extends IEntity>
       });
     }
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getDatabaseOrgId(userContext));
+    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getTenantOrgId(userContext));
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
     return updatedEntity;
@@ -382,7 +129,7 @@ export class GenericApiService<T extends IEntity>
 
     const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getDatabaseOrgId(userContext));
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getTenantOrgId(userContext));
 
     const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
 
@@ -392,7 +139,7 @@ export class GenericApiService<T extends IEntity>
   async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
     const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
 
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName, this.getDatabaseOrgId(userContext));
+    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName, this.getTenantOrgId(userContext));
 
     return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
   }
@@ -412,7 +159,7 @@ export class GenericApiService<T extends IEntity>
   }
 
   async deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult> {
-    const deleteResult = await this.database.deleteById(id, this.pluralResourceName, this.getDatabaseOrgId(userContext));
+    const deleteResult = await this.database.deleteById(id, this.pluralResourceName, this.getTenantOrgId(userContext));
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();
@@ -420,6 +167,7 @@ export class GenericApiService<T extends IEntity>
 
     return deleteResult;
   }
+
   async deleteMany(userContext: IUserContext, queryOptions: IQueryOptions): Promise<DeleteResult> {
     const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
 
@@ -427,21 +175,88 @@ export class GenericApiService<T extends IEntity>
 
     return deleteResult;
   }
-  async find(userContext: IUserContext, queryOptions: IQueryOptions): Promise<T[]> {
-    const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
 
-    const rawEntities = await this.database.find<T>(preparedQuery, this.pluralResourceName);
-
-    return rawEntities.map((entity) =>
-      this.postProcessEntity(userContext, entity),
-    );
+  /**
+   * Validates a document against the schema using TypeBox
+   * @param doc The document to validate
+   * @param isPartial Whether to use the partial schema (for PATCH operations)
+   * @returns null if valid, or an array of ValueError objects if invalid
+   */
+  validate(doc: any, isPartial: boolean = false): ValueError[] | null {
+    // Use common validation function
+    return entityUtils.validate(this.modelSpec, doc, isPartial);
   }
 
-  async findOne(userContext: IUserContext, queryOptions: IQueryOptions): Promise<T | null> {
-    const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
+  /**
+   * Validates multiple documents against the schema using TypeBox
+   * @param docs Array of documents to validate
+   * @param isPartial Whether to use the partial schema (for PATCH operations)
+   * @returns null if all valid, or an array of ValueError objects if any are invalid
+   */
+  validateMany(docs: any[], isPartial: boolean = false): ValueError[] | null {
+    let allErrors: ValueError[] = [];
 
-    const rawEntity = await this.database.findOne<T>(preparedQuery, this.pluralResourceName);
+    for (const doc of docs) {
+      const errors = entityUtils.validate(this.modelSpec, doc, isPartial);
+      if (errors && errors.length > 0) {
+        allErrors.push(...errors);
+      }
+    }
 
-    return rawEntity ? this.postProcessEntity(userContext, rawEntity) : null;
+    // Return null if no errors found, otherwise return the accumulated errors
+    return allErrors.length > 0 ? allErrors : null;
+  }
+
+  /**
+   * Prepares a single entity before database operations.
+   * This contains the core logic for entity preparation that's applied to each entity.
+   * @param userContext The user context for the operation
+   * @param entity The original entity object
+   * @param isCreate Whether this is for a create operation (true) or update operation (false)
+   * @param allowId Whether to allow the _id property to be supplied by the caller
+   * @returns The potentially modified entity
+   */
+  async preProcessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = true): Promise<Partial<T>> {
+    // Clone the entity to avoid modifying the original
+    let preparedEntity = _.clone(entity);
+
+    // Strip out any system properties sent by the client
+    stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
+
+    // Apply appropriate auditing based on operation type if the entity is auditable
+    if (this.modelSpec.isAuditable) {
+      if (isCreate) {
+        auditForCreate(userContext, preparedEntity);
+      } else {
+        auditForUpdate(userContext, preparedEntity);
+      }
+    }
+
+    // Require a modelSpec for decode and conversion - without a schema we can't do either
+    if (!this.modelSpec?.fullSchema) {
+      throw new ServerError(
+        `Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`,
+      );
+    }
+
+    let cleanedEntity = preparedEntity;
+    if (this.modelSpec) {
+      /**
+       * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming
+       *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the
+       *  controllers, transforming entities back into json format as the response of the controller endpoints.
+       *  We keep the actual types (ObjectId, Date, etc) for use throughout the api, only transforming to their json
+       *  format when finally sending back to the client.
+       * Note: All our models define props that are ObjectIds in Mongodb as strings. That's why we have a separate step
+       *  (below) to convert those strings into ObjectIds. As far as TypeBox is concerned, those props are strings.
+       *   This is necessary because shared model classes can't define anything as ObjectId - it would require
+       *   importing MongoDb, which we definitely don't want in a shared model library.
+       */
+      cleanedEntity = this.modelSpec.decode(preparedEntity);
+    }
+
+    preparedEntity = this.database.preProcessEntity(cleanedEntity, this.modelSpec.fullSchema);
+
+    return preparedEntity;
   }
 }

@@ -23,7 +23,7 @@ import { AppIdType } from '@loomcore/common/types';
 import { apiUtils } from '../../../utils/index.js';
 import { Value } from '@sinclair/typebox/value';
 import testUtils from '../../../__tests__/common-test.utils.js';
-import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../../controllers/types.js';
+import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../../services/types.js';
 
 // Skip this test suite if not running with PostgreSQL
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
@@ -205,7 +205,7 @@ const postProcessEntityCustom: PostProcessEntityCustomFunction<any, ITestClientR
 // Test service that uses the custom prepareQuery and postProcessEntity
 class TestClientReportsService extends GenericApiService<ITestClientReportsApiModel> {
   constructor(database: any) {
-    super(database, 'clients', 'client', testClientReportsModelSpec);
+    super(database, 'client', 'clients', testClientReportsModelSpec);
   }
 }
 

@@ -111,7 +111,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   private organizationDomainService: OrganizationDomainService;
 
   constructor(database: IDatabase) {
-    super(database, 'organizations', 'organization', OrganizationSpec);
+    super(database, 'organization', 'organizations', OrganizationSpec);
     this.organizationDomainService = new OrganizationDomainService(database);
   }
 

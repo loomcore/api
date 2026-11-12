@@ -5,6 +5,5 @@ export * from './features.controller.js';
 export * from './organizations.controller.js';
 export * from './query-api.controller.js';
 export * from './roles.controller.js';
-export * from './types.js';
 export * from './user-roles.controller.js';
 export * from './users.controller.js';

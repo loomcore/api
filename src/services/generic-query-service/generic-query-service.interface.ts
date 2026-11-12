@@ -1,6 +1,7 @@
 import { IUserContext, IEntity, IPagedResult, IQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { Operation } from '../../databases/operations/operation.js';
+import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
 
 export interface IGenericQueryService<T extends IEntity> {
     /**
@@ -13,14 +14,6 @@ export interface IGenericQueryService<T extends IEntity> {
     prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] };
 
     /**
-     * Prepare query options before using them. Subclasses can override this to apply tenant filters, etc.
-     * @param userContext The user context
-     * @param queryOptions The original query options
-     * @returns The prepared query options
-     */
-    prepareQueryOptions(userContext: IUserContext | undefined, queryOptions: IQueryOptions): IQueryOptions;
-
-    /**
      * Post-process an entity after fetching from the database. Subclasses can override this to transform data.
      * @param userContext The user context
      * @param entity The entity to post-process
@@ -28,28 +21,31 @@ export interface IGenericQueryService<T extends IEntity> {
      */
     postProcessEntity(userContext: IUserContext, entity: any): T;
 
-    /**
-     * Get all entities matching the query with joins applied
-     * @param userContext The user context
-     * @returns Array of all entities
-     */
     getAll(userContext: IUserContext): Promise<T[]>;
+    getAll<TCustom extends IEntity>(
+        userContext: IUserContext,
+        prepareQueryCustom: PrepareQueryCustomFunction,
+        postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
+    ): Promise<TCustom[]>;
 
-    /**
-     * Get paginated entities matching the query with joins applied
-     * @param userContext The user context
-     * @param queryOptions Query options for pagination, sorting, and filtering
-     * @returns Paginated result with entities
-     */
-    get(userContext: IUserContext, queryOptions: IQueryOptions): Promise<IPagedResult<T>>;
+    get(
+        userContext: IUserContext,
+        queryOptions?: IQueryOptions,
+    ): Promise<IPagedResult<T>>;
+    get<TCustom extends IEntity>(
+        userContext: IUserContext,
+        queryOptions: IQueryOptions,
+        prepareQueryCustom: PrepareQueryCustomFunction,
+        postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
+    ): Promise<IPagedResult<TCustom>>;
 
-    /**
-     * Get a single entity by ID with joins applied
-     * @param userContext The user context
-     * @param id The ID of the entity to fetch
-     * @returns The entity or throws IdNotFoundError if not found
-     */
     getById(userContext: IUserContext, id: AppIdType): Promise<T>;
+    getById<TCustom extends IEntity>(
+        userContext: IUserContext,
+        id: AppIdType,
+        prepareQueryCustom: PrepareQueryCustomFunction,
+        postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
+    ): Promise<TCustom>;
 
     /**
      * Get the count of entities matching the query with joins applied
@@ -57,4 +53,15 @@ export interface IGenericQueryService<T extends IEntity> {
      * @returns The count of entities
      */
     getCount(userContext: IUserContext): Promise<number>;
+
+    find(
+        userContext: IUserContext,
+        queryObject: IQueryOptions,
+        options?: any,
+    ): Promise<T[]>;
+    findOne(
+        userContext: IUserContext,
+        queryObject: IQueryOptions,
+        options?: any,
+    ): Promise<T | null>;
 }

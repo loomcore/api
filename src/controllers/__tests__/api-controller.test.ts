@@ -14,7 +14,7 @@ import { AuthController } from '../auth.controller.js';
 // Test service and controller
 class TestItemService extends GenericApiService<ITestItem> {
   constructor(database: IDatabase) {
-    super(database, 'testItems', 'testItem', TestItemSpec);
+    super(database, 'testItem', 'testItems', TestItemSpec);
   }
 }
 

@@ -631,8 +631,8 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       const objectIdModelSpec = entityUtils.getModelSpec(ObjectIdSchema, { isAuditable: true });
       const objectIdService = new GenericApiService<any>(
         testDatabase,
-        'objectIdToStringTest',
         'objectIdEntity',
+        'objectIdToStringTest',
         objectIdModelSpec
       );
 
@@ -675,8 +675,8 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       const complexModelSpec = entityUtils.getModelSpec(ComplexSchema);
       const complexService = new GenericApiService<any>(
         testDatabase,
-        'complexEntities',
         'complexEntity',
+        'complexEntities',
         complexModelSpec
       );
 
@@ -726,8 +726,8 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
       // Create service with auditable model spec
       service = new GenericApiService<TestEntity>(
         testSetup.database,
-        'testEntities',
         'testEntity',
+        'testEntities',
         testModelSpec
       );
     });

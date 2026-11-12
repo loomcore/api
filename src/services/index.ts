@@ -15,3 +15,4 @@ export * from './role.service.js';
 export * from './user-role.service.js';
 export * from './tenant-query-decorator.js';
 export * from './user.service.js';
+export * from './types.js';

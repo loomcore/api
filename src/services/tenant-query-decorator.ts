@@ -3,9 +3,10 @@ import type {
     IQueryOptions,
     IUserContext,
 } from '@loomcore/common/models';
-import { ServerError } from '../errors/index.js';
+import { BadRequestError, ServerError } from '../errors/index.js';
 import { isSystemUser } from '../utils/auth/is-system-user.util.js';
 import { isMetaOrgAdmin } from '../utils/auth/is-admin.util.js';
+import { AppIdType } from '@loomcore/common/types';
 
 export interface ITenantQueryOptions {
     /**
@@ -155,5 +156,22 @@ export class TenantQueryDecorator {
      */
     getOrgIdField(): string {
         return this.options.orgIdField || '_orgId';
+    }
+
+    /**
+     * Supplies orgId for database commands that filter atomically by _orgId.
+     * Unscoped (undefined) for single-tenant mode, system users, and meta org admins.
+     * Throws if a tenant-scoped call is missing _orgId rather than silently widening.
+     */
+    getTenantOrgId(userContext: IUserContext): AppIdType | undefined {
+        if (isSystemUser(userContext) || isMetaOrgAdmin(userContext)) {
+            return undefined;
+        }
+        if (!userContext?.user?._orgId) {
+            throw new BadRequestError(
+                'A valid userContext with _orgId is required for multi-tenant operations',
+            );
+        }
+        return userContext.user._orgId;
     }
 }
