@@ -1,18 +1,15 @@
 import type { PostgresConnection } from '../postgres-connection.js';
-import type { AppIdType } from '@loomcore/common/types';
+import { buildWhereClause } from '../utils/build-where-clause.js';
+import type { Filters } from '../../../services/filters.type.js';
 
-export async function getCount(client: PostgresConnection, pluralResourceName: string, orgId?: AppIdType): Promise<number> {
-  let query: string;
-  let values: unknown[];
+export async function getCount(
+  client: PostgresConnection,
+  pluralResourceName: string,
+  filters: Filters,
+): Promise<number> {
+  const { whereClause, values } = buildWhereClause({ filters }, pluralResourceName);
 
-  if (orgId !== undefined) {
-    query = `SELECT COUNT(*) FROM "${pluralResourceName}" WHERE "_orgId" = $1`;
-    values = [orgId];
-  } else {
-    query = `SELECT COUNT(*) FROM "${pluralResourceName}"`;
-    values = [];
-  }
-
+  const query = `SELECT COUNT(*) FROM "${pluralResourceName}" ${whereClause}`;
   const result = await client.query(query, values);
   return parseInt(result.rows[0].count, 10);
 }
