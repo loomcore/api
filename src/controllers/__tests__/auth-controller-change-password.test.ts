@@ -54,8 +54,8 @@ describe('AuthController.changePassword', () => {
 
     // 3. Fetch the user directly from the database
     const userFromDb = await database.findOne<IUser>(
-      { filters: { _id: { eq: getTestMetaOrgUser()._id } } },
       'users',
+      { _id: { eq: getTestMetaOrgUser()._id } },
     );
 
     // 4. Verify the password in the DB is not the plain text password

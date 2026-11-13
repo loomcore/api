@@ -6,6 +6,7 @@ import {
   OrganizationSpec,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
+import { ObjectId } from 'mongodb';
 import { config } from '../config/index.js';
 import type { IDatabase } from '../databases/models/index.js';
 import type { Operation } from '../databases/operations/operation.js';
@@ -117,6 +118,14 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     this.organizationDomainService = new OrganizationDomainService(database);
   }
 
+  /** Id suitable for create validation; Postgres create strips _id, MongoDB persists it. */
+  private newCreateId(): AppIdType {
+    if (config.app.dbType === 'postgres') {
+      return Date.now() + Math.floor(Math.random() * 1000);
+    }
+    return new ObjectId().toString();
+  }
+
   override async preProcessEntity(
     context: IRequestContext,
     spec: IModelSpec,
@@ -214,7 +223,11 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     const authorizationService = new AuthorizationService(this.database);
 
     try {
+      // OrganizationSchema/_domain schemas require _id in the base validator; supply one for create.
+      // Postgres create strips _id and uses serial; MongoDB keeps the provided ObjectId.
+      const organizationIdForCreate = this.newCreateId();
       const organization = await super.create(context, {
+        _id: organizationIdForCreate,
         name: parsed.name,
         code: parsed.code,
         status: DEFAULT_ORGANIZATION_STATUS,
@@ -226,6 +239,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       created.organizationId = organization._id;
 
       const organizationDomain = await this.organizationDomainService.create(context, {
+        _id: this.newCreateId(),
         organizationId: organization._id,
         domain,
       });

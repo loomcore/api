@@ -4,6 +4,7 @@ import type {
   IUser,
   IUserContext,
 } from '@loomcore/common/models';
+import { createSystemContext, type IRequestContext } from '../services/index.js';
 
 export let TEST_META_ORG_ID: string | number = '69261691f936c45f85da24d0';
 export let TEST_META_ORG_USER_ID: string | number = '69261672f48fb7bf76e54dfb';
@@ -58,6 +59,7 @@ export function getTestMetaOrgDomain(
   organizationId: string | number = TEST_META_ORG_ID,
 ): Partial<IOrganizationDomain> {
   return {
+    _id: '69261691f936c45f85da24d1',
     organizationId,
     domain: TEST_META_ORG_DOMAIN,
   };
@@ -133,6 +135,7 @@ export function getTestOrgDomain(
   organizationId: string | number = TEST_ORG_ID,
 ): Partial<IOrganizationDomain> {
   return {
+    _id: '6926167d06c0073a778a1251',
     organizationId,
     domain: TEST_ORG_DOMAIN,
   };
@@ -167,4 +170,20 @@ export function getTestOrgUserContext(): IUserContext {
     user: getTestOrgUser(),
     features: ['testOrgUser'],
   };
+}
+
+export function getTestMetaOrgContext(): IRequestContext {
+  return { userContext: getTestMetaOrgUserContext() };
+}
+
+export function getTestMetaOrgAdminContext(): IRequestContext {
+  return { userContext: getTestMetaOrgAdminUserContext() };
+}
+
+export function getTestOrgContext(): IRequestContext {
+  return { userContext: getTestOrgUserContext() };
+}
+
+export function getSystemContext(): IRequestContext {
+  return createSystemContext();
 }
