@@ -8,6 +8,7 @@ import {
   getTestMetaOrgRefererUrl,
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
+  getTestMetaOrgContext,
 } from '../../__tests__/test-objects.js';
 import { UserService } from '../../services/user.service.js';
 import { AuthController } from '../auth.controller.js';
@@ -31,7 +32,7 @@ describe('AuthController impersonation', () => {
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
     await testUtils.setupTestUsers();
-    const created = await userService.create(getTestMetaOrgUserContext(), {
+    const created = await userService.create(getTestMetaOrgContext(), {
       email: 'impersonation-target@example.com',
       displayName: 'Impersonation Target',
       password: 'target-password-1',

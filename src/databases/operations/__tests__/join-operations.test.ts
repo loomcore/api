@@ -331,11 +331,10 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
 
     // Query using getById
     const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-    const result = await database.getById<ITestClientReportsModel>(
+    const result = await database.findOne<ITestClientReportsModel>(
+      'clients',
+      { ...(queryOptions.filters || {}), _id: { eq: clientId } },
       operations,
-      queryOptions,
-      clientId,
-      'clients'
     );
 
     // Verify the result structure
@@ -536,10 +535,10 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
     };
 
     const result = await database.get<ITestClientReportsModel>(
-      operations,
+      'clients',
       queryOptions,
+      operations,
       testClientReportsModelSpec,
-      'clients'
     );
 
     // Verify paginated result
@@ -606,8 +605,9 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
 
     // Query using getAll
     const results = await database.getAll<ITestClientReportsModel>(
+      'clients',
+      {},
       operations,
-      'clients'
     );
 
     // Verify results
@@ -663,11 +663,10 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
 
     // Query the new client
     const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-    const result = await database.getById<ITestClientReportsModel>(
+    const result = await database.findOne<ITestClientReportsModel>(
+      'clients',
+      { ...(queryOptions.filters || {}), _id: { eq: newClientId } },
       operations,
-      queryOptions,
-      newClientId,
-      'clients'
     );
 
     // Verify empty arrays are returned (result keys are snake_case)
@@ -711,11 +710,10 @@ describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () =>
 
     // Query using getById
     const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-    const result = await database.getById<ITestClientReportsModel>(
+    const result = await database.findOne<ITestClientReportsModel>(
+      'clients',
+      { ...(queryOptions.filters || {}), _id: { eq: clientId } },
       operations,
-      queryOptions,
-      clientId,
-      'clients'
     );
 
     // Verify the result structure

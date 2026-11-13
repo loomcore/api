@@ -1,10 +1,9 @@
 import { IRefreshToken, refreshTokenModelSpec } from '@loomcore/common/models';
 import type { IDatabase } from '../databases/models/index.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
 
-import { MultiTenantApiService } from './multi-tenant-api.service.js';
-
-export class RefreshTokenService extends MultiTenantApiService<IRefreshToken> {
+export class RefreshTokenService extends GenericApiService<IRefreshToken> {
   constructor(database: IDatabase) {
-    super(database, 'refreshTokens', 'refreshToken', refreshTokenModelSpec);
+    super(database, 'refreshToken', 'refreshTokens', refreshTokenModelSpec);
   }
 }

@@ -13,17 +13,17 @@ import {
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import { getTestMetaOrgUser } from '../../__tests__/test-objects.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { MultiTenantApiService } from '../../services/multi-tenant-api.service.js';
+import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { ApiController } from '../api.controller.js';
 
-// Create a test service that uses MultiTenantApiService
-class TestItemService extends MultiTenantApiService<ITestItem> {
+// Create a test service that uses GenericApiService (TenantScope applied when multi-tenant)
+class TestItemService extends GenericApiService<ITestItem> {
   constructor(database: IDatabase) {
-    super(database, 'testItems', 'testItem', TestItemSpec);
+    super(database, 'testItem', 'testItems', TestItemSpec);
   }
 }
 
-// Create a test controller that uses the MultiTenantApiService
+// Create a test controller that uses the GenericApiService
 class TestItemController extends ApiController<ITestItem> {
   public testItemService: TestItemService;
 
@@ -36,10 +36,10 @@ class TestItemController extends ApiController<ITestItem> {
 }
 
 /**
- * This suite tests the ApiController with a MultiTenantApiService.
+ * This suite tests the ApiController with a GenericApiService.
  * It focuses on validating proper error handling when userContext is invalid.
  */
-describe('ApiController with MultiTenantApiService', () => {
+describe('ApiController with GenericApiService (multi-tenant)', () => {
   let database: IDatabase;
   let app: Application;
   let testAgent: any;

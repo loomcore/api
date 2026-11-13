@@ -5,6 +5,7 @@ import {
   getTestMetaOrgRefererUrl,
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
+  getTestMetaOrgContext,
 } from '../../__tests__/test-objects.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
 import { UserService } from '../../services/user.service.js';
@@ -40,10 +41,10 @@ describe('AuthController.resetPassword', () => {
 
   it('should set _lastPasswordChange when resetting a password via forgot-password', async () => {
     const user = getTestMetaOrgUser();
-    const userContext = getTestMetaOrgUserContext();
+    const context = getTestMetaOrgContext();
     const newPassword = 'resetSecurePassword123!';
 
-    const userBeforeReset = await userService.findOne(userContext, {
+    const userBeforeReset = await userService.findOne(context, {
       filters: { _id: { eq: user._id } },
     });
     expect(userBeforeReset?._lastPasswordChange).toBeUndefined();
@@ -56,7 +57,7 @@ describe('AuthController.resetPassword', () => {
     expect(forgotPasswordResponse.status).toBe(200);
 
     const passwordResetToken = await passwordResetTokenService.findOne(
-      userContext,
+      context,
       {
         filters: { email: { eq: user.email.toLowerCase() } },
       },
@@ -75,7 +76,7 @@ describe('AuthController.resetPassword', () => {
 
     expect(resetPasswordResponse.status).toBe(200);
 
-    const userAfterReset = await userService.findOne(userContext, {
+    const userAfterReset = await userService.findOne(context, {
       filters: { _id: { eq: user._id } },
     });
 

@@ -2,11 +2,9 @@ import {
   type IEntity,
   type IModelSpec,
   type IQueryOptions,
-  type IUserContext,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { entityUtils } from '@loomcore/common/utils';
-import type { ValueError } from '@sinclair/typebox/errors';
 import _ from 'lodash';
 import type { DeleteResult } from '../../databases/models/delete-result.js';
 import type { IDatabase } from '../../databases/models/index.js';
@@ -17,8 +15,13 @@ import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import type { IGenericApiService } from './generic-api-service.interface.js';
 import { GenericQueryService } from '../generic-query-service/generic-query.service.js';
+import type { Filters } from '../filters.type.js';
+import type { IRequestContext } from '../request-context.interface.js';
 
-export class GenericApiService<T extends IEntity> extends GenericQueryService<T> implements IGenericApiService<T> {
+export class GenericApiService<T extends IEntity, TContext extends IRequestContext = IRequestContext>
+  extends GenericQueryService<T, TContext>
+  implements IGenericApiService<T, TContext>
+{
   /**
    * @constructs GenericApiService<T> where T extends IEntity
    * @param database The database instance
@@ -32,37 +35,82 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
     singularResourceName: string,
     pluralResourceName: string,
     modelSpec: IModelSpec,
-    defaultOperations: Operation[] = [],) {
+    defaultOperations: Operation[] = [],
+  ) {
     super(database, singularResourceName, pluralResourceName, modelSpec, defaultOperations);
   }
 
-  async create(userContext: IUserContext, entity: Partial<T>): Promise<T | null> {
+  /**
+   * Validates a document against the given model spec. Synchronous because the spec is resolved first.
+   * Override and call super.validate first for extra domain validation.
+   */
+  protected validate(spec: IModelSpec, entity: unknown, options: { partial: boolean }): void {
+    const errors = entityUtils.validate(spec, entity, options.partial);
+    entityUtils.handleValidationResult(errors, `${this.constructor.name}.validate`);
+  }
+
+  /**
+   * Detects fields that Clean will strip (schema additionalProperties not true).
+   * Runs before stripSenderProvidedSystemProperties so it reports fields unknown to fullSchema.
+   */
+  protected detectStrippedFields(context: TContext, spec: IModelSpec, entity: unknown): void {
+    const cleaned = spec.clean(structuredClone(entity));
+    if (!_.isEqual(cleaned, entity)) {
+      // TODO: log to persistent logging the fact we had to strip
+      this.onFieldsStripped(context, entity, cleaned);
+    }
+  }
+
+  /** Extension point; the default does nothing beyond the TODO above. */
+  protected onFieldsStripped(_context: TContext, _original: unknown, _cleaned: unknown): void {}
+
+  /**
+   * Scope stamps use domain (camelCase) field names. preProcessEntity already ran
+   * IDatabase.preProcessEntity (e.g. camelCase → snake_case on Postgres), so re-run it
+   * after applyScopesToEntity so newly stamped fields are converted before the write.
+   */
+  protected finalizeEntityForWrite(spec: IModelSpec, entity: Partial<T>): Partial<T> {
+    return this.database.preProcessEntity(entity, spec.fullSchema);
+  }
+
+  async create(context: TContext, entity: Partial<T>): Promise<T | null> {
     let createdEntity: T | null = null;
 
-    const preparedEntity = await this.preProcessEntity(userContext, entity, true, true);
-    const insertResult = await this.database.create<T>(preparedEntity, this.pluralResourceName);
+    const spec = await this.resolveModelSpec(context);
+    this.validate(spec, entity, { partial: false });
+    this.detectStrippedFields(context, spec, entity);
+    const preparedEntity = await this.preProcessEntity(context, spec, entity, true);
+    this.applyScopesToEntity(context, preparedEntity, true);
+    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
+
+    const insertResult = await this.database.create<T>(this.pluralResourceName, dbReady);
 
     if (insertResult.insertedId) {
-      createdEntity = this.postProcessEntity(userContext, insertResult.entity);
+      createdEntity = this.postProcessEntity(context, spec, insertResult.entity);
     }
 
     return createdEntity;
   }
 
-  async createMany(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
+  async createMany(context: TContext, entities: Partial<T>[]): Promise<T[]> {
     let createdEntities: T[] = [];
 
     if (entities.length) {
+      const spec = await this.resolveModelSpec(context);
       const preparedEntities = await Promise.all(
-        entities.map((entity) =>
-          this.preProcessEntity(userContext, entity, true, true),
-        ),
+        entities.map(async (entity) => {
+          this.validate(spec, entity, { partial: false });
+          this.detectStrippedFields(context, spec, entity);
+          const prepared = await this.preProcessEntity(context, spec, entity, true);
+          this.applyScopesToEntity(context, prepared, true);
+          return this.finalizeEntityForWrite(spec, prepared);
+        }),
       );
-      const insertResult = await this.database.createMany<T>(preparedEntities, this.pluralResourceName);
+      const insertResult = await this.database.createMany<T>(this.pluralResourceName, preparedEntities);
 
       if (insertResult.insertedIds) {
         createdEntities = insertResult.entities.map((entity) =>
-          this.postProcessEntity(userContext, entity),
+          this.postProcessEntity(context, spec, entity),
         );
       }
     }
@@ -70,46 +118,57 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
     return createdEntities;
   }
 
-  async batchUpdate(userContext: IUserContext, entities: Partial<T>[]): Promise<T[]> {
+  async batchUpdate(context: TContext, entities: Partial<T>[]): Promise<T[]> {
     if (!entities || entities.length === 0) {
       return [];
     }
 
+    const spec = await this.resolveModelSpec(context);
     const preparedEntities = await Promise.all(
-      entities.map((entity) =>
-        this.preProcessEntity(userContext, entity, false, true),
-      ),
+      entities.map(async (entity) => {
+        this.validate(spec, entity, { partial: true });
+        this.detectStrippedFields(context, spec, entity);
+        const prepared = await this.preProcessEntity(context, spec, entity, false);
+        this.applyScopesToEntity(context, prepared, false);
+        return this.finalizeEntityForWrite(spec, prepared);
+      }),
     );
 
-    const { queryOptions, operations } = this.prepareQuery(userContext, {}, []);
+    const { queryOptions, operations } = this.buildQuery(context, {});
 
-    const rawUpdatedEntities = await this.database.batchUpdate<T>(preparedEntities, operations, queryOptions, this.pluralResourceName);
-
-    const updatedEntities = rawUpdatedEntities.map((entity) =>
-      this.postProcessEntity(userContext, entity),
+    const rawUpdatedEntities = await this.database.batchUpdate<T>(
+      this.pluralResourceName,
+      queryOptions.filters || {},
+      preparedEntities,
+      operations,
     );
 
-    return updatedEntities;
+    return rawUpdatedEntities.map((entity) => this.postProcessEntity(context, spec, entity));
   }
 
-  async fullUpdateById(userContext: IUserContext, id: AppIdType, entity: T): Promise<T> {
+  async fullUpdateById(context: TContext, id: AppIdType, entity: T): Promise<T> {
     // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
     //  existing entity, then updates using the supplied entity.
     //  as the update process gets more complex. PREFER using partialUpdateById.
 
-    const { operations, queryOptions } = this.prepareQuery(userContext, {}, []);
+    const spec = await this.resolveModelSpec(context);
+    this.validate(spec, entity, { partial: false });
+    this.detectStrippedFields(context, spec, entity);
 
-    // Get existing entity to preserve audit properties
-    const existingEntity = await this.database.getById<T>(operations, queryOptions, id, this.pluralResourceName);
+    const { operations, queryOptions } = this.buildQuery(context, {});
+    const scopeFilters: Filters = { ...queryOptions.filters, _id: { eq: id } };
+
+    // Get existing entity to preserve audit properties (scoped read — mismatch is 404)
+    const existingEntity = await this.database.findOne<T>(this.pluralResourceName, scopeFilters, operations);
     if (!existingEntity) {
       throw new IdNotFoundError();
     }
 
-    const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
+    const preparedEntity = await this.preProcessEntity(context, spec, entity, false);
+    this.applyScopesToEntity(context, preparedEntity, false);
 
     // Preserve system properties that should not be updated
-    preparedEntity._orgId = existingEntity._orgId;
-
+    // (_orgId may already be stamped by TenantScope.applyToEntity for tenant users)
     if ('_created' in existingEntity && '_createdBy' in existingEntity) {
       // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
       Object.assign(preparedEntity, {
@@ -118,48 +177,61 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
       });
     }
 
-    const rawUpdatedEntity = await this.database.fullUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getTenantOrgId(userContext));
-
-    const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
-    return updatedEntity;
-  }
-
-  async partialUpdateById(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
-    const { operations } = this.prepareQuery(userContext, {}, []);
-
-    const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
-
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>(operations, id, preparedEntity, this.pluralResourceName, this.getTenantOrgId(userContext));
-
-    const updatedEntity = this.postProcessEntity(userContext, rawUpdatedEntity);
-
-    return updatedEntity;
-  }
-
-  async partialUpdateByIdWithoutPreAndPostProcessing(userContext: IUserContext, id: AppIdType, entity: Partial<T>): Promise<T> {
-    const preparedEntity = this.database.preProcessEntity(entity, this.modelSpec.fullSchema);
-
-    const rawUpdatedEntity = await this.database.partialUpdateById<T>([], id, preparedEntity, this.pluralResourceName, this.getTenantOrgId(userContext));
-
-    return this.database.postProcessEntity(rawUpdatedEntity, this.modelSpec.fullSchema);
-  }
-
-  async update(userContext: IUserContext, queryOptions: IQueryOptions, entity: Partial<T>): Promise<T[]> {
-    const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
-
-    const preparedEntity = await this.preProcessEntity(userContext, entity, false, true);
-
-    const rawUpdatedEntities = await this.database.update<T>(preparedQuery, preparedEntity, operations, this.pluralResourceName);
-
-    const updatedEntities = rawUpdatedEntities.map((entity) =>
-      this.postProcessEntity(userContext, entity),
+    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
+    const rawUpdatedEntity = await this.database.replaceOne<T>(
+      this.pluralResourceName,
+      scopeFilters,
+      dbReady,
+      operations,
     );
 
-    return updatedEntities;
+    return this.postProcessEntity(context, spec, rawUpdatedEntity);
   }
 
-  async deleteById(userContext: IUserContext, id: AppIdType): Promise<DeleteResult> {
-    const deleteResult = await this.database.deleteById(id, this.pluralResourceName, this.getTenantOrgId(userContext));
+  async partialUpdateById(context: TContext, id: AppIdType, entity: Partial<T>): Promise<T> {
+    const spec = await this.resolveModelSpec(context);
+    this.validate(spec, entity, { partial: true });
+    this.detectStrippedFields(context, spec, entity);
+    const prepared = await this.preProcessEntity(context, spec, entity, false);
+    this.applyScopesToEntity(context, prepared, false);
+    const dbReady = this.finalizeEntityForWrite(spec, prepared);
+
+    const { operations } = this.buildQuery(context, {});
+    const filters: Filters = { _id: { eq: id }, ...this.getScopeFilters(context) };
+
+    const updated = await this.database.updateOne<T>(
+      this.pluralResourceName,
+      filters,
+      dbReady,
+      operations,
+    );
+
+    return this.postProcessEntity(context, spec, updated);
+  }
+
+  async update(context: TContext, queryOptions: IQueryOptions, entity: Partial<T>): Promise<T[]> {
+    const spec = await this.resolveModelSpec(context);
+    this.validate(spec, entity, { partial: true });
+    this.detectStrippedFields(context, spec, entity);
+
+    const { queryOptions: preparedQuery, operations } = this.buildQuery(context, queryOptions, []);
+    const preparedEntity = await this.preProcessEntity(context, spec, entity, false);
+    this.applyScopesToEntity(context, preparedEntity, false);
+    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
+
+    const rawUpdatedEntities = await this.database.updateMany<T>(
+      this.pluralResourceName,
+      preparedQuery.filters || {},
+      dbReady,
+      operations,
+    );
+
+    return rawUpdatedEntities.map((e) => this.postProcessEntity(context, spec, e));
+  }
+
+  async deleteById(context: TContext, id: AppIdType): Promise<DeleteResult> {
+    const filters: Filters = { _id: { eq: id }, ...this.getScopeFilters(context) };
+    const deleteResult = await this.database.deleteOne(this.pluralResourceName, filters);
 
     if (deleteResult.count <= 0) {
       throw new IdNotFoundError();
@@ -168,90 +240,45 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
     return deleteResult;
   }
 
-  async deleteMany(userContext: IUserContext, queryOptions: IQueryOptions): Promise<DeleteResult> {
-    const { queryOptions: preparedQuery, operations } = this.prepareQuery(userContext, queryOptions, []);
-
-    const deleteResult = await this.database.deleteMany(preparedQuery, this.pluralResourceName);
-
-    return deleteResult;
-  }
-
-  /**
-   * Validates a document against the schema using TypeBox
-   * @param doc The document to validate
-   * @param isPartial Whether to use the partial schema (for PATCH operations)
-   * @returns null if valid, or an array of ValueError objects if invalid
-   */
-  validate(doc: any, isPartial: boolean = false): ValueError[] | null {
-    // Use common validation function
-    return entityUtils.validate(this.modelSpec, doc, isPartial);
-  }
-
-  /**
-   * Validates multiple documents against the schema using TypeBox
-   * @param docs Array of documents to validate
-   * @param isPartial Whether to use the partial schema (for PATCH operations)
-   * @returns null if all valid, or an array of ValueError objects if any are invalid
-   */
-  validateMany(docs: any[], isPartial: boolean = false): ValueError[] | null {
-    let allErrors: ValueError[] = [];
-
-    for (const doc of docs) {
-      const errors = entityUtils.validate(this.modelSpec, doc, isPartial);
-      if (errors && errors.length > 0) {
-        allErrors.push(...errors);
-      }
-    }
-
-    // Return null if no errors found, otherwise return the accumulated errors
-    return allErrors.length > 0 ? allErrors : null;
-  }
-
-  /**
-   * Hook for subclasses to supply a model spec for preprocessing a given entity.
-   * Subclasses can return a per-entity spec (e.g. schema driven by stored data).
-   * The default is the service's model spec.
-   */
-  protected async getModelSpecForPreProcessing(userContext: IUserContext, entity: Partial<T>): Promise<IModelSpec> {
-    return this.modelSpec;
+  async deleteMany(context: TContext, queryOptions: IQueryOptions): Promise<DeleteResult> {
+    const { queryOptions: preparedQuery } = this.buildQuery(context, queryOptions, []);
+    return this.database.deleteMany(this.pluralResourceName, preparedQuery.filters || {});
   }
 
   /**
    * Prepares a single entity before database operations.
-   * This contains the core logic for entity preparation that's applied to each entity.
-   * @param userContext The user context for the operation
-   * @param entity The original entity object
-   * @param isCreate Whether this is for a create operation (true) or update operation (false)
-   * @param allowId Whether to allow the _id property to be supplied by the caller
-   * @returns The potentially modified entity
+   * Receives the resolved spec explicitly. _orgId stamping lives in TenantScope.applyToEntity.
    */
-  async preProcessEntity(userContext: IUserContext, entity: Partial<T>, isCreate: boolean, allowId: boolean = true): Promise<Partial<T>> {
+  async preProcessEntity(
+    context: TContext,
+    spec: IModelSpec,
+    entity: Partial<T>,
+    isCreate: boolean,
+  ): Promise<Partial<T>> {
     // Clone the entity to avoid modifying the original
     let preparedEntity = _.clone(entity);
 
-    // Strip out any system properties sent by the client
-    stripSenderProvidedSystemProperties(userContext, preparedEntity, allowId);
-
-    const modelSpec = await this.getModelSpecForPreProcessing(userContext, entity);
+    // Strip out any system properties sent by the client (allowId is always true — every caller needs it)
+    stripSenderProvidedSystemProperties(context.userContext, preparedEntity, true);
 
     // Apply appropriate auditing based on operation type if the entity is auditable
-    if (modelSpec.isAuditable) {
+    if (spec.isAuditable) {
       if (isCreate) {
-        auditForCreate(userContext, preparedEntity);
+        auditForCreate(context.userContext, preparedEntity);
       } else {
-        auditForUpdate(userContext, preparedEntity);
+        auditForUpdate(context.userContext, preparedEntity);
       }
     }
 
     // Require a modelSpec for decode and conversion - without a schema we can't do either
-    if (!modelSpec?.fullSchema) {
+    if (!spec?.fullSchema) {
       throw new ServerError(
         `Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`,
       );
     }
 
     let cleanedEntity = preparedEntity;
-    if (modelSpec) {
+    if (spec) {
       /**
        * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming
        *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the
@@ -263,10 +290,10 @@ export class GenericApiService<T extends IEntity> extends GenericQueryService<T>
        *   This is necessary because shared model classes can't define anything as ObjectId - it would require
        *   importing MongoDb, which we definitely don't want in a shared model library.
        */
-      cleanedEntity = modelSpec.decode(preparedEntity);
+      cleanedEntity = spec.decode(preparedEntity);
     }
 
-    preparedEntity = this.database.preProcessEntity(cleanedEntity, modelSpec.fullSchema);
+    preparedEntity = this.database.preProcessEntity(cleanedEntity, spec.fullSchema);
 
     return preparedEntity;
   }

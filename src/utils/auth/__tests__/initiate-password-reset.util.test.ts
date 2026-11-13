@@ -42,7 +42,7 @@ describe('initiatePasswordReset', () => {
 
   it('uses the auth config reset expiry and calls EmailService.sendResetPasswordEmail by default', async () => {
     await testUtils.setupTestUsers();
-    const userContext = getTestMetaOrgUserContext();
+    const context = { userContext: getTestMetaOrgUserContext() };
     const email = 'test@example.com';
     const clientBaseUrl = 'https://example.com';
     const authConfig = getAuthConfig();
@@ -50,10 +50,10 @@ describe('initiatePasswordReset', () => {
     const { sendResetPasswordEmailSpy, sendWelcomeEmailSpy } = spyOnEmailService();
 
     const beforeCall = Date.now();
-    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl);
+    await initiatePasswordReset(context, testDatabase, undefined, email, clientBaseUrl);
     const afterCall = Date.now();
 
-    const token = await passwordResetTokenService.findOne(userContext, {
+    const token = await passwordResetTokenService.findOne(context, {
       filters: { email: { eq: email.toLowerCase() } },
     });
 
@@ -76,7 +76,7 @@ describe('initiatePasswordReset', () => {
 
   it('uses the configured welcome expiry and calls EmailService.sendWelcomeEmail when emailType is welcome', async () => {
     await testUtils.setupTestUsers();
-    const userContext = getTestMetaOrgUserContext();
+    const context = { userContext: getTestMetaOrgUserContext() };
     const email = 'welcome-configured@example.com';
     const clientBaseUrl = 'https://example.com';
     const configuredWelcomeExpiryMinutes = 1440;
@@ -85,10 +85,10 @@ describe('initiatePasswordReset', () => {
     const { sendResetPasswordEmailSpy, sendWelcomeEmailSpy } = spyOnEmailService();
 
     const beforeCall = Date.now();
-    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, 'welcome');
+    await initiatePasswordReset(context, testDatabase, undefined, email, clientBaseUrl, 'welcome');
     const afterCall = Date.now();
 
-    const token = await passwordResetTokenService.findOne(userContext, {
+    const token = await passwordResetTokenService.findOne(context, {
       filters: { email: { eq: email.toLowerCase() } },
     });
 
@@ -108,7 +108,7 @@ describe('initiatePasswordReset', () => {
 
   it('uses 10080 minutes when welcome expiry is unset and emailType is welcome', async () => {
     await testUtils.setupTestUsers();
-    const userContext = getTestMetaOrgUserContext();
+    const context = { userContext: getTestMetaOrgUserContext() };
     const email = 'welcome-default@example.com';
     const clientBaseUrl = 'https://example.com';
     expect(config.auth?.welcomeEmailTokenExpirationInMinutes).toBeUndefined();
@@ -116,10 +116,10 @@ describe('initiatePasswordReset', () => {
     const { sendResetPasswordEmailSpy, sendWelcomeEmailSpy } = spyOnEmailService();
 
     const beforeCall = Date.now();
-    await initiatePasswordReset(userContext, testDatabase, undefined, email, clientBaseUrl, 'welcome');
+    await initiatePasswordReset(context, testDatabase, undefined, email, clientBaseUrl, 'welcome');
     const afterCall = Date.now();
 
-    const token = await passwordResetTokenService.findOne(userContext, {
+    const token = await passwordResetTokenService.findOne(context, {
       filters: { email: { eq: email.toLowerCase() } },
     });
 

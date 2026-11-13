@@ -2,7 +2,7 @@ import { getSystemUserContext } from '@loomcore/common/models';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import { getTestMetaOrgUser, getTestOrg } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUser, getTestOrg, getSystemContext } from '../../__tests__/test-objects.js';
 import { config } from '../../config/index.js';
 import { EmailService } from '../../services/email.service.js';
 import { AuthorizationService } from '../../services/authorization.service.js';
@@ -85,16 +85,16 @@ describe('OrganizationsController POST /organizations', () => {
     const expectedDomain = buildOrganizationTenantDomain(payload.code);
     expect(expectedDomain).toBe(`${payload.code}.${config.network.hostName}`);
 
-    const createdOrg = await organizationService.findByDomain(getSystemUserContext(), expectedDomain);
+    const createdOrg = await organizationService.findByDomain(getSystemContext(), expectedDomain);
     expect(createdOrg?._id).toBe(response.body?.data?.organization?._id);
 
-    const domainRecord = await organizationDomainService.findOne(getSystemUserContext(), {
+    const domainRecord = await organizationDomainService.findOne(getSystemContext(), {
       filters: { domain: { eq: expectedDomain } },
     });
     expect(domainRecord?.organizationId).toBeDefined();
     expect(String(domainRecord?.organizationId)).toBe(String(createdOrg?._id));
 
-    const storedUser = await userService.findOne(getSystemUserContext(), {
+    const storedUser = await userService.findOne(getSystemContext(), {
       filters: { email: { eq: payload.adminEmail } },
     });
     expect(storedUser).toBeDefined();
@@ -127,7 +127,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.status).toBe(400);
     expect(response.body?.errors?.[0]?.message).toMatch(/admin email/i);
 
-    const leftover = await organizationService.findOne(getSystemUserContext(), {
+    const leftover = await organizationService.findOne(getSystemContext(), {
       filters: { code: { eq: 'legacy-bare' } },
     });
     expect(leftover).toBeNull();
@@ -239,7 +239,8 @@ describe('OrganizationsController POST /organizations', () => {
 
   it('rejects a duplicate tenant domain with 400', async () => {
     const code = 'taken-domain';
-    await organizationDomainService.create(getSystemUserContext(), {
+    await organizationDomainService.create(getSystemContext(), {
+      _id: testUtils.getRandomId(),
       organizationId: getTestOrg()._id,
       domain: buildOrganizationTenantDomain(code),
     });

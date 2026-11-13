@@ -1,31 +1,31 @@
 import crypto from 'node:crypto';
 import {
   type IPasswordResetToken,
-  type IUserContext,
   PasswordResetTokenSpec,
 } from '@loomcore/common/models';
 import type { IDatabase } from '../databases/models/index.js';
-import { MultiTenantApiService } from './multi-tenant-api.service.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import type { IRequestContext } from './request-context.interface.js';
 import { AppIdType } from '@loomcore/common/types';
 
-export class PasswordResetTokenService extends MultiTenantApiService<IPasswordResetToken> {
+export class PasswordResetTokenService extends GenericApiService<IPasswordResetToken> {
   constructor(database: IDatabase) {
     super(
       database,
-      'passwordResetTokens',
       'passwordResetToken',
+      'passwordResetTokens',
       PasswordResetTokenSpec,
     );
   }
 
   async createPasswordResetToken(
-    userContext: IUserContext,
+    context: IRequestContext,
     organizationId: AppIdType | undefined,
     email: string,
     expiresOn: number,
   ): Promise<IPasswordResetToken | null> {
     const lowerCaseEmail = email.toLowerCase();
-    await this.deleteMany(userContext, {
+    await this.deleteMany(context, {
       filters: { email: { eq: lowerCaseEmail }, _orgId: { eq: organizationId } },
     });
 
@@ -36,6 +36,6 @@ export class PasswordResetTokenService extends MultiTenantApiService<IPasswordRe
       expiresOn: expiresOn,
     };
 
-    return super.create(userContext, passwordResetToken);
+    return super.create(context, passwordResetToken);
   }
 }

@@ -7,6 +7,7 @@ import {
 import type { IDatabase } from '../../databases/models/index.js';
 import { BadRequestError } from '../../errors/index.js';
 import { AuthorizationService } from '../../services/authorization.service.js';
+import type { IRequestContext } from '../../services/request-context.interface.js';
 import { UserService } from '../../services/user.service.js';
 import { passwordUtils } from '../password.utils.js';
 import { logUserIn } from './log-user-in.util.js';
@@ -23,14 +24,16 @@ export async function attemptLogin(
   ),
 ): Promise<ILoginResponse> {
   const lowerCaseEmail = email.toLowerCase();
-  const userContext: IUserContext = {
-    ...EmptyUserContext,
-    user: {
-      ...EmptyUserContext.user,
-      _orgId: organization?._id,
+  const context: IRequestContext = {
+    userContext: {
+      ...EmptyUserContext,
+      user: {
+        ...EmptyUserContext.user,
+        _orgId: organization?._id,
+      },
     },
   };
-  const user = await userService.findOne(userContext, {
+  const user = await userService.findOne(context, {
     filters: {
       email: { eq: lowerCaseEmail },
     },
