@@ -1,15 +1,15 @@
 import {
-  getSystemUserContext,
+  type IModelSpec,
   type IOrganization,
   type IQueryOptions,
   type IUser,
-  type IUserContext,
   OrganizationSpec,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { config } from '../config/index.js';
 import type { IDatabase } from '../databases/models/index.js';
 import type { Operation } from '../databases/operations/operation.js';
+import { CrossTenant } from '../decorators/cross-tenant.decorator.js';
 import { BadRequestError, ServerError } from '../errors/index.js';
 import { initiatePasswordReset } from '../utils/auth/initiate-password-reset.util.js';
 import { logger } from '../utils/logger.utils.js';
@@ -20,6 +20,7 @@ import { FeatureService } from './feature.service.js';
 import { GenericApiService } from './generic-api-service/generic-api.service.js';
 import { OrganizationDomainService } from './organization-domain.service.js';
 import { PasswordResetTokenService } from './password-reset-token.service.js';
+import { createSystemContext, type IRequestContext } from './request-context.interface.js';
 import { RoleService } from './role.service.js';
 import { UserRoleService } from './user-role.service.js';
 import { UserService } from './user.service.js';
@@ -107,6 +108,7 @@ export function buildOrganizationClientBaseUrl(code: string): string {
   return `https://${buildOrganizationTenantDomain(code)}`;
 }
 
+@CrossTenant('Organizations are the tenants themselves; access is checked in OrganizationsController')
 export class OrganizationService extends GenericApiService<IOrganization> {
   private organizationDomainService: OrganizationDomainService;
 
@@ -116,27 +118,27 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   }
 
   override async preProcessEntity(
-    userContext: IUserContext,
+    context: IRequestContext,
+    spec: IModelSpec,
     entity: Partial<IOrganization>,
     isCreate: boolean,
-    allowId: boolean = true,
   ): Promise<Partial<IOrganization>> {
     if (isCreate) {
-      const metaOrg = await this.getMetaOrg(userContext);
+      const metaOrg = await this.getMetaOrg(context);
       if (metaOrg && entity.isMetaOrg) {
         throw new BadRequestError('Meta organization already exists');
       }
-      if (metaOrg && userContext.user._orgId !== metaOrg._id) {
+      if (metaOrg && context.userContext.user._orgId !== metaOrg._id) {
         throw new BadRequestError(
           'User is not authorized to create an organization',
         );
       }
     }
     const result = await super.preProcessEntity(
-      userContext,
+      context,
+      spec,
       entity,
       isCreate,
-      allowId,
     );
     if (typeof result.code === 'string') {
       result.code = normalizeOrganizationCode(result.code);
@@ -145,31 +147,31 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   }
 
   override prepareQuery(
-    userContext: IUserContext | undefined,
+    context: IRequestContext | undefined,
     queryOptions: IQueryOptions,
     operations: Operation[],
   ): { queryOptions: IQueryOptions; operations: Operation[] } {
-    const prepared = super.prepareQuery(userContext, queryOptions, operations);
+    const prepared = super.prepareQuery(context, queryOptions, operations);
     return {
       queryOptions: normalizeOrganizationCodeQuery(prepared.queryOptions),
       operations: prepared.operations,
     };
   }
 
-  async getByCode(userContext: IUserContext, code: string): Promise<IOrganization | null> {
-    return this.findOne(userContext, {
+  async getByCode(context: IRequestContext, code: string): Promise<IOrganization | null> {
+    return this.findOne(context, {
       filters: { code: { eq: code } },
     });
   }
 
-  async getMetaOrg(userContext: IUserContext): Promise<IOrganization | null> {
-    return this.findOne(userContext, {
+  async getMetaOrg(context: IRequestContext): Promise<IOrganization | null> {
+    return this.findOne(context, {
       filters: { isMetaOrg: { eq: true } },
     });
   }
 
   async findByDomain(
-    userContext: IUserContext,
+    context: IRequestContext,
     domain: string,
   ): Promise<IOrganization | null> {
     if (!domain) {
@@ -179,7 +181,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     }
     const normalizedDomain = domain.trim().toLowerCase();
     const organizationDomain = await this.organizationDomainService.findOne(
-      userContext,
+      context,
       {
         filters: { domain: { eq: normalizedDomain } },
       },
@@ -187,7 +189,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     if (!organizationDomain) {
       return null;
     }
-    return this.findOne(userContext, {
+    return this.findOne(context, {
       filters: { _id: { eq: organizationDomain.organizationId } },
     });
   }
@@ -197,12 +199,12 @@ export class OrganizationService extends GenericApiService<IOrganization> {
    * Intended for meta-org admin callers today; self-service signup can reuse this method later.
    */
   async createOrganizationWithAdmin(
-    userContext: IUserContext,
+    context: IRequestContext,
     input: ICreateOrganizationWithAdminInput,
   ): Promise<ICreateOrganizationWithAdminResult> {
     const parsed = this.parseCreateOrganizationWithAdminInput(input);
     const domain = buildOrganizationTenantDomain(parsed.code);
-    await this.assertCreateOrganizationWithAdminUniqueness(userContext, parsed, domain);
+    await this.assertCreateOrganizationWithAdminUniqueness(context, parsed, domain);
 
     const created: CreatedOrganizationRecords = {};
     const userService = new UserService(this.database);
@@ -212,7 +214,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     const authorizationService = new AuthorizationService(this.database);
 
     try {
-      const organization = await super.create(userContext, {
+      const organization = await super.create(context, {
         name: parsed.name,
         code: parsed.code,
         status: DEFAULT_ORGANIZATION_STATUS,
@@ -223,7 +225,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       }
       created.organizationId = organization._id;
 
-      const organizationDomain = await this.organizationDomainService.create(userContext, {
+      const organizationDomain = await this.organizationDomainService.create(context, {
         organizationId: organization._id,
         domain,
       });
@@ -232,7 +234,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       }
       created.domainId = organizationDomain._id;
 
-      const adminUser = await userService.create(userContext, {
+      const adminUser = await userService.create(context, {
         _orgId: organization._id,
         email: parsed.adminEmail,
         displayName: parsed.adminDisplayName,
@@ -243,7 +245,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       }
       created.userId = adminUser._id;
 
-      const role = await roleService.create(userContext, {
+      const role = await roleService.create(context, {
         _orgId: organization._id,
         name: ADMIN_ROLE_AND_FEATURE_NAME,
       });
@@ -252,7 +254,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       }
       created.roleId = role._id;
 
-      const feature = await featureService.create(userContext, {
+      const feature = await featureService.create(context, {
         _orgId: organization._id,
         name: ADMIN_ROLE_AND_FEATURE_NAME,
       });
@@ -261,7 +263,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       }
       created.featureId = feature._id;
 
-      const userRole = await userRoleService.create(userContext, {
+      const userRole = await userRoleService.create(context, {
         _orgId: organization._id,
         userId: adminUser._id,
         roleId: role._id,
@@ -271,7 +273,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       }
       created.userRoleId = userRole._id;
 
-      const authorization = await authorizationService.create(userContext, {
+      const authorization = await authorizationService.create(context, {
         _orgId: organization._id,
         roleId: role._id,
         featureId: feature._id,
@@ -284,7 +286,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       // clientBaseUrl is the new tenant origin so the set-password link lands on that org's host
       // (login resolves org from Referer via organizationDomains).
       await initiatePasswordReset(
-        getSystemUserContext(),
+        createSystemContext(),
         this.database,
         organization._id,
         parsed.adminEmail,
@@ -350,23 +352,23 @@ export class OrganizationService extends GenericApiService<IOrganization> {
   }
 
   private async assertCreateOrganizationWithAdminUniqueness(
-    userContext: IUserContext,
+    context: IRequestContext,
     parsed: { name: string; code: string; adminEmail: string },
     domain: string,
   ): Promise<void> {
-    const existingByName = await this.findOne(userContext, {
+    const existingByName = await this.findOne(context, {
       filters: { name: { eq: parsed.name } },
     });
     if (existingByName) {
       throw new BadRequestError('Organization name is already in use.');
     }
 
-    const existingByCode = await this.getByCode(userContext, parsed.code);
+    const existingByCode = await this.getByCode(context, parsed.code);
     if (existingByCode) {
       throw new BadRequestError('Organization code is already in use.');
     }
 
-    const existingDomain = await this.organizationDomainService.findOne(userContext, {
+    const existingDomain = await this.organizationDomainService.findOne(context, {
       filters: { domain: { eq: domain } },
     });
     if (existingDomain) {
@@ -378,7 +380,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     created: CreatedOrganizationRecords,
     adminEmail: string,
   ): Promise<void> {
-    const systemUserContext = getSystemUserContext();
+    const systemContext = createSystemContext();
     const userService = new UserService(this.database);
     const roleService = new RoleService(this.database);
     const featureService = new FeatureService(this.database);
@@ -388,14 +390,14 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 
     const deleteByIdIfPresent = async (
       label: string,
-      deleteById: (userContext: IUserContext, id: AppIdType) => Promise<unknown>,
+      deleteById: (context: IRequestContext, id: AppIdType) => Promise<unknown>,
       id: AppIdType | undefined,
     ) => {
       if (id === undefined) {
         return;
       }
       try {
-        await deleteById(systemUserContext, id);
+        await deleteById(systemContext, id);
       } catch (cleanupError) {
         logger.error(`Failed to clean up ${label} ${String(id)} after createOrganizationWithAdmin error`, cleanupError);
       }
@@ -403,7 +405,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
 
     if (created.organizationId !== undefined) {
       try {
-        await passwordResetTokenService.deleteMany(systemUserContext, {
+        await passwordResetTokenService.deleteMany(systemContext, {
           filters: { email: { eq: adminEmail }, _orgId: { eq: created.organizationId } },
         });
       } catch (cleanupError) {

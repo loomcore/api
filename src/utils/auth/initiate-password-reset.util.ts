@@ -1,9 +1,9 @@
-import { type IUserContext } from '@loomcore/common/models';
 import type { IDatabase } from '../../databases/models/index.js';
 import { ServerError } from '../../errors/index.js';
 import type { IAuthConfig } from '../../models/auth-config.interface.js';
 import { EmailService } from '../../services/email.service.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
+import type { IRequestContext } from '../../services/request-context.interface.js';
 import { getAuthConfig } from './get-auth-config.util.js';
 import { getExpiresOnFromMinutes } from './get-expires-on-from-minutes.util.js';
 import { AppIdType } from '@loomcore/common/types';
@@ -42,7 +42,7 @@ const passwordEmails: Record<
  * `emailType` selects which expiry and EmailService method to use; defaults to `'resetPassword'`.
  */
 export async function initiatePasswordReset(
-  userContext: IUserContext,
+  context: IRequestContext,
   database: IDatabase,
   organizationId: AppIdType | undefined,
   emailAddress: string,
@@ -57,7 +57,7 @@ export async function initiatePasswordReset(
   const expiresOn = getExpiresOnFromMinutes(passwordEmail.getExpiryInMinutes(authConfig));
 
   const passwordResetToken = await passwordResetTokenService.createPasswordResetToken(
-    userContext,
+    context,
     organizationId,
     emailAddress,
     expiresOn,

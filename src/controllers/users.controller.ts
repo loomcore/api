@@ -61,38 +61,41 @@ export class UsersController extends ApiController<IUser> {
   @Authorize()
   async getSelf(req: Request, res: Response): Promise<void> {
     res.set('Content-Type', 'application/json');
-    
+    const context = this.createContext(req);
+
     const user = await this.userService.getById(
-      req.userContext!,
-      req.userContext!.user._id,
+      context,
+      context.userContext.user._id,
     );
-    
+
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
     apiUtils.apiResponse<IUser>(
       res,
       200,
       { data: user },
-      this.modelSpec,
-      this.publicSpec,
+      modelSpec,
+      publicSpec,
     );
   }
 
   @Authorize()
   async partialUpdateSelf(req: Request, res: Response): Promise<void> {
     res.set('Content-Type', 'application/json');
-    this.validate(req.body, true);
-    
+    const context = this.createContext(req);
+
     const user = await this.userService.partialUpdateById(
-      req.userContext!,
-      req.userContext!.user._id,
+      context,
+      context.userContext.user._id,
       req.body,
     );
-    
+
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
     apiUtils.apiResponse<IUser>(
       res,
       200,
       { data: user },
-      this.modelSpec,
-      this.publicSpec,
+      modelSpec,
+      publicSpec,
     );
   }
 }

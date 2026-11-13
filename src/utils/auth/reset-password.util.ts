@@ -1,5 +1,4 @@
 import {
-  getSystemUserContext,
   type IModelSpec,
   type IOrganization,
   passwordValidator,
@@ -10,6 +9,7 @@ import type { IDatabase } from '../../databases/models/index.js';
 import type { UpdateResult } from '../../databases/models/update-result.js';
 import { BadRequestError, ServerError } from '../../errors/index.js';
 import { PasswordResetTokenService } from '../../services/password-reset-token.service.js';
+import { createSystemContext } from '../../services/request-context.interface.js';
 import { UserService } from '../../services/user.service.js';
 import { logger } from '../logger.utils.js';
 
@@ -35,10 +35,10 @@ export async function resetPassword(
 
   const lowerCaseEmail = email.toLowerCase();
   const passwordResetTokenService = new PasswordResetTokenService(database);
-  const systemUserContext = getSystemUserContext();
+  const systemContext = createSystemContext();
 
   const retrievedPasswordResetToken = await passwordResetTokenService.findOne(
-    systemUserContext,
+    systemContext,
     {
       filters: { email: { eq: lowerCaseEmail }, _orgId: { eq: organization?._id } },
     },
@@ -57,7 +57,7 @@ export async function resetPassword(
     throw new BadRequestError('Invalid password reset token');
   }
 
-  const user = await userService.findOne(systemUserContext, {
+  const user = await userService.findOne(systemContext, {
     filters: { email: { eq: lowerCaseEmail }, _orgId: { eq: organization?._id } },
   });
 
@@ -66,11 +66,11 @@ export async function resetPassword(
       `Unable to retrieve user for email: ${lowerCaseEmail}`,
     );
   }
-  const result = await userService.changePassword(systemUserContext, user._id, password);
+  const result = await userService.changePassword(systemContext, user._id, password);
   logger.info(`password changed using forgot-password for email: ${lowerCaseEmail}`);
 
   await passwordResetTokenService.deleteById(
-    systemUserContext,
+    systemContext,
     retrievedPasswordResetToken._id,
   );
   logger.info(`passwordResetToken deleted for email: ${lowerCaseEmail}`);

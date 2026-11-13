@@ -1,67 +1,49 @@
-import { IUserContext, IEntity, IPagedResult, IQueryOptions } from '@loomcore/common/models';
+import type { IEntity, IPagedResult, IQueryOptions, IModelSpec } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { Operation } from '../../databases/operations/operation.js';
-import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
+import type { Operation } from '../../databases/operations/operation.js';
+import type { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
+import type { IRequestContext } from '../request-context.interface.js';
 
-export interface IGenericQueryService<T extends IEntity> {
-    /**
-     * Prepare query before executing. Subclasses can override this to add operations, apply filters, etc.
-     * @param userContext The user context for the operation
-     * @param queryOptions The original query options
-     * @param operations The operations (joins) to apply
-     * @returns The potentially modified query options and operations
-     */
-    prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] };
+export interface IGenericQueryService<T extends IEntity, TContext extends IRequestContext = IRequestContext> {
+  /**
+   * Prepare query before executing. Query shaping only (operations, joins, filter-value normalization).
+   * Scope filters are merged after prepareQuery and cannot be dropped by an override.
+   */
+  prepareQuery(context: TContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions; operations: Operation[] };
 
-    /**
-     * Post-process an entity after fetching from the database. Subclasses can override this to transform data.
-     * @param userContext The user context
-     * @param entity The entity to post-process
-     * @returns The post-processed entity
-     */
-    postProcessEntity(userContext: IUserContext, entity: any): T;
+  /**
+   * Post-process an entity after fetching from the database. Uses the resolved model spec.
+   */
+  postProcessEntity(context: TContext, spec: IModelSpec, entity: any): T;
 
-    getAll(userContext: IUserContext): Promise<T[]>;
-    getAll<TCustom extends IEntity>(
-        userContext: IUserContext,
-        prepareQueryCustom: PrepareQueryCustomFunction,
-        postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-    ): Promise<TCustom[]>;
+  /** Resolves the model spec once per request (memoized on the context object). */
+  resolveModelSpec(context: TContext): Promise<IModelSpec>;
 
-    get(
-        userContext: IUserContext,
-        queryOptions?: IQueryOptions,
-    ): Promise<IPagedResult<T>>;
-    get<TCustom extends IEntity>(
-        userContext: IUserContext,
-        queryOptions: IQueryOptions,
-        prepareQueryCustom: PrepareQueryCustomFunction,
-        postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-    ): Promise<IPagedResult<TCustom>>;
+  getAll(context: TContext): Promise<T[]>;
+  getAll<TCustom extends IEntity>(
+    context: TContext,
+    prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+  ): Promise<TCustom[]>;
 
-    getById(userContext: IUserContext, id: AppIdType): Promise<T>;
-    getById<TCustom extends IEntity>(
-        userContext: IUserContext,
-        id: AppIdType,
-        prepareQueryCustom: PrepareQueryCustomFunction,
-        postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom>,
-    ): Promise<TCustom>;
+  get(context: TContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
+  get<TCustom extends IEntity>(
+    context: TContext,
+    queryOptions: IQueryOptions,
+    prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+  ): Promise<IPagedResult<TCustom>>;
 
-    /**
-     * Get the count of entities matching the query with joins applied
-     * @param userContext The user context
-     * @returns The count of entities
-     */
-    getCount(userContext: IUserContext): Promise<number>;
+  getById(context: TContext, id: AppIdType): Promise<T>;
+  getById<TCustom extends IEntity>(
+    context: TContext,
+    id: AppIdType,
+    prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
+    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+  ): Promise<TCustom>;
 
-    find(
-        userContext: IUserContext,
-        queryObject: IQueryOptions,
-        options?: any,
-    ): Promise<T[]>;
-    findOne(
-        userContext: IUserContext,
-        queryObject: IQueryOptions,
-        options?: any,
-    ): Promise<T | null>;
+  getCount(context: TContext): Promise<number>;
+
+  find(context: TContext, queryObject: IQueryOptions): Promise<T[]>;
+  findOne(context: TContext, queryObject: IQueryOptions): Promise<T | null>;
 }

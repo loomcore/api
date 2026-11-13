@@ -1,41 +1,31 @@
 import {
   AuthorizationModelSpec,
-  getSystemUserContext,
   type IAuthorization,
   type IQueryOptions,
   type IUser,
-  type IUserContext,
 } from '@loomcore/common/models';
 import type { IDatabase } from '../databases/index.js';
 import { FeatureService } from './feature.service.js';
-import { MultiTenantApiService } from './multi-tenant-api.service.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
+import { createSystemContext } from './request-context.interface.js';
 import { UserRoleService } from './user-role.service.js';
 
-export class AuthorizationService extends MultiTenantApiService<IAuthorization> {
+export class AuthorizationService extends GenericApiService<IAuthorization> {
   private userRolesService: UserRoleService;
   private featuresService: FeatureService;
 
   constructor(database: IDatabase) {
-    super(database, 'authorizations', 'authorization', AuthorizationModelSpec);
+    super(database, 'authorization', 'authorizations', AuthorizationModelSpec);
     this.userRolesService = new UserRoleService(database);
     this.featuresService = new FeatureService(database);
   }
 
-  override async preProcessEntity(
-    userContext: IUserContext,
-    entity: Partial<IAuthorization>,
-    isCreate: boolean,
-    allowId: boolean = true,
-  ): Promise<Partial<IAuthorization>> {
-    return super.preProcessEntity(userContext, entity, isCreate, allowId);
-  }
-
   /**
    * Resolves the current feature names for a user via userRoles → authorizations → features.
-   * Uses the system user context so this works during login/refresh (no authenticated context yet).
+   * Uses the system context so this works during login/refresh (no authenticated context yet).
    */
   async getUserContextFeatures(user: IUser): Promise<string[]> {
-    const systemUserContext = getSystemUserContext();
+    const systemContext = createSystemContext();
     const now = new Date();
 
     const userRoleQueryOptions: IQueryOptions = {
@@ -46,7 +36,7 @@ export class AuthorizationService extends MultiTenantApiService<IAuthorization> 
     }
 
     const userRoles = await this.userRolesService.find(
-      systemUserContext,
+      systemContext,
       userRoleQueryOptions,
     );
     const roleIds = [
@@ -68,7 +58,7 @@ export class AuthorizationService extends MultiTenantApiService<IAuthorization> 
     }
 
     const authorizations = await this.find(
-      systemUserContext,
+      systemContext,
       authorizationQuery,
     );
     const featureIds = [
@@ -95,7 +85,7 @@ export class AuthorizationService extends MultiTenantApiService<IAuthorization> 
     }
 
     const features = await this.featuresService.find(
-      systemUserContext,
+      systemContext,
       featureQuery,
     );
 

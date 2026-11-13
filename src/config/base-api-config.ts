@@ -66,7 +66,7 @@ export async function initSystemUserContext(database: IDatabase) {
       );
       const organizationService = new OrganizationService(database);
       // Fetch orgId from database
-      metaOrg = await organizationService.getMetaOrg(EmptyUserContext);
+      metaOrg = await organizationService.getMetaOrg({ userContext: EmptyUserContext });
 
       if (!metaOrg) {
         throw new Error(

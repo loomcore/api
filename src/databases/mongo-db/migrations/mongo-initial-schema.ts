@@ -355,7 +355,7 @@ export const getMongoInitialSchema = (
 
         // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
         const metaOrg = isMultiTenant
-          ? await organizationService.getMetaOrg(EmptyUserContext)
+          ? await organizationService.getMetaOrg({ userContext: EmptyUserContext })
           : undefined;
         if (isMultiTenant && !metaOrg) {
           throw new Error(
@@ -423,7 +423,7 @@ export const getMongoInitialSchema = (
         const database = new MongoDBDatabase(db);
         const organizationService = new OrganizationService(database);
         const metaOrg = isMultiTenant
-          ? await organizationService.getMetaOrg(EmptyUserContext)
+          ? await organizationService.getMetaOrg({ userContext: EmptyUserContext })
           : undefined;
 
         if (isMultiTenant && !metaOrg) return;

@@ -1,6 +1,5 @@
 import {
   EmptyUserContext,
-  getSystemUserContext,
   type ILoginResponse,
   type IModelSpec,
   type IOrganization,
@@ -18,7 +17,7 @@ import { config } from '../config/base-api-config.js';
 import type { IDatabase } from '../databases/models/index.js';
 import type { UpdateResult } from '../databases/models/update-result.js';
 import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
-import { OrganizationService, UserService } from '../services/index.js';
+import { createSystemContext, OrganizationService, UserService } from '../services/index.js';
 import {
   attemptLogin,
   authorizeMethod,
@@ -108,7 +107,7 @@ export class AuthController {
         );
       }
       organization = await this.organizationService.findByDomain(
-        EmptyUserContext,
+        { userContext: EmptyUserContext },
         domain,
       );
       if (!organization) {
@@ -198,7 +197,13 @@ export class AuthController {
       throw new UnauthenticatedError();
     }
 
-    const loginResponse = await impersonateUser(this.database, userContext, userId, refreshToken, this.userService);
+    const loginResponse = await impersonateUser(
+      this.database,
+      { userContext },
+      userId,
+      refreshToken,
+      this.userService,
+    );
     await this.afterAuth(req, res, loginResponse);
     apiUtils.apiResponse<ILoginResponse>(res, 200, { data: loginResponse }, this.loginResponseSpec);
   }
@@ -232,7 +237,7 @@ export class AuthController {
       'AuthController.changePassword',
     );
 
-    await this.userService.changePassword(userContext, userContext.user._id, password);
+    await this.userService.changePassword({ userContext }, userContext.user._id, password);
     const updateResult = {
       success: true,
       count: 1,
@@ -260,7 +265,7 @@ export class AuthController {
         );
       }
       organization = await this.organizationService.findByDomain(
-        EmptyUserContext,
+        { userContext: EmptyUserContext },
         domain,
       );
       if (!organization) {
@@ -270,15 +275,15 @@ export class AuthController {
       }
     }
 
-    const systemUserContext = getSystemUserContext();
+    const systemContext = createSystemContext();
 
-    const user = await this.userService.findOne(systemUserContext, {
+    const user = await this.userService.findOne(systemContext, {
       filters: { email: { eq: email.toLowerCase() }, _orgId: { eq: organization?._id } },
     });
 
     if (user) {
       await initiatePasswordReset(
-        systemUserContext,
+        systemContext,
         this.database,
         organization?._id,
         email,
@@ -317,7 +322,7 @@ export class AuthController {
         );
       }
       organization = await this.organizationService.findByDomain(
-        EmptyUserContext,
+        { userContext: EmptyUserContext },
         domain,
       );
 

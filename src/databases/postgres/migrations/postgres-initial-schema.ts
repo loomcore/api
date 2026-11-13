@@ -443,7 +443,7 @@ export const getPostgresInitialSchema = (
 
           // Get metaOrg if multi-tenant, otherwise use null/undefined for _orgId
           const metaOrg = isMultiTenant
-            ? await organizationService.getMetaOrg(EmptyUserContext)
+            ? await organizationService.getMetaOrg({ userContext: EmptyUserContext })
             : undefined;
           if (isMultiTenant && !metaOrg) {
             throw new Error(
@@ -572,7 +572,7 @@ export const getPostgresInitialSchema = (
           const database = new PostgresDatabase(client);
           const organizationService = new OrganizationService(database);
           const metaOrg = isMultiTenant
-            ? await organizationService.getMetaOrg(EmptyUserContext)
+            ? await organizationService.getMetaOrg({ userContext: EmptyUserContext })
             : undefined;
 
           if (isMultiTenant && !metaOrg) return;
