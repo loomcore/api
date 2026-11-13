@@ -12,9 +12,10 @@ import { isJoinOperation } from '../../utils/is-join-operation.util.js';
 
 export async function get<T>(
   client: PostgresConnection,
-  operations: Operation[],
+  pluralResourceName: string,
   queryOptions: IQueryOptions,
-  pluralResourceName: string
+  operations: Operation[],
+  modelSpec: IModelSpec,
 ): Promise<IPagedResult<T>> {
   const hasJoins = operations.some(isJoinOperation);
   const joinClauses = buildJoinClauses(operations, pluralResourceName);
@@ -44,4 +45,3 @@ export async function get<T>(
 
   return apiUtils.getPagedResult<T>(entities, total, queryOptions);
 }
-

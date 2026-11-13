@@ -8,20 +8,20 @@ import type { AppIdType } from '@loomcore/common/types';
 import { TSchema } from '@sinclair/typebox';
 import { DeleteResult, IDatabase } from '../models/index.js';
 import { Operation } from '../operations/operation.js';
+import type { Filters } from '../../services/filters.type.js';
 import { batchUpdate as batchUpdateCommand } from './commands/postgres-batch-update.command.js';
 import { create as createCommand } from './commands/postgres-create.command.js';
 import { createMany as createManyCommand } from './commands/postgres-create-many.command.js';
-import { deleteById as deleteByIdCommand } from './commands/postgres-delete-by-id.command.js';
 import { deleteMany as deleteManyCommand } from './commands/postgres-delete-many.command.js';
-import { fullUpdateById as fullUpdateByIdCommand } from './commands/postgres-full-update-by-id.command.js';
-import { partialUpdateById as partialUpdateByIdCommand } from './commands/postgres-partial-update-by-id.command.js';
-import { update as updateCommand } from './commands/postgres-update.command.js';
+import { deleteOne as deleteOneCommand } from './commands/postgres-delete-one.command.js';
+import { replaceOne as replaceOneCommand } from './commands/postgres-replace-one.command.js';
+import { updateMany as updateManyCommand } from './commands/postgres-update-many.command.js';
+import { updateOne as updateOneCommand } from './commands/postgres-update-one.command.js';
 import type { PostgresConnection } from './postgres-connection.js';
 import { find as findQuery } from './queries/postgres-find.query.js';
 import { findOne as findOneQuery } from './queries/postgres-find-one.query.js';
 import { get as getQuery } from './queries/postgres-get.query.js';
 import { getAll as getAllQuery } from './queries/postgres-get-all.query.js';
-import { getById as getByIdQuery } from './queries/postgres-get-by-id.query.js';
 import { getCount as getCountQuery } from './queries/postgres-get-count.query.js';
 import {
     convertKeysToCamelCase,
@@ -72,171 +72,154 @@ export class PostgresDatabase implements IDatabase {
         return convertKeysToCamelCase(withNullsConverted);
     }
     async getAll<T extends IEntity>(
+        collection: string,
+        filters: Filters,
         operations: Operation[],
-        pluralResourceName: string,
-        orgId?: AppIdType,
     ): Promise<T[]> {
         return getAllQuery(
             this.connection,
+            toPostgresStoreName(collection),
+            filters,
             operations,
-            toPostgresStoreName(pluralResourceName),
-            orgId,
         );
     }
     async get<T extends IEntity>(
-        operations: Operation[],
+        collection: string,
         queryOptions: IQueryOptions,
+        operations: Operation[],
         modelSpec: IModelSpec,
-        pluralResourceName: string,
     ): Promise<IPagedResult<T>> {
         return getQuery(
             this.connection,
-            operations,
+            toPostgresStoreName(collection),
             queryOptions,
-            toPostgresStoreName(pluralResourceName),
-        );
-    }
-    async getById<T extends IEntity>(
-        operations: Operation[],
-        queryObject: IQueryOptions,
-        id: AppIdType,
-        pluralResourceName: string,
-    ): Promise<T | null> {
-        return getByIdQuery(
-            this.connection,
             operations,
-            queryObject,
-            id,
-            toPostgresStoreName(pluralResourceName),
+            modelSpec,
         );
     }
-    async getCount(pluralResourceName: string, orgId?: AppIdType): Promise<number> {
+    async getCount(collection: string, filters: Filters): Promise<number> {
         return getCountQuery(
             this.connection,
-            toPostgresStoreName(pluralResourceName),
-            orgId,
+            toPostgresStoreName(collection),
+            filters,
         );
     }
     async create<T extends IEntity>(
+        collection: string,
         entity: Partial<T>,
-        pluralResourceName: string,
     ): Promise<{ insertedId: AppIdType; entity: T }> {
         return createCommand(
             this.connection,
-            toPostgresStoreName(pluralResourceName),
+            toPostgresStoreName(collection),
             entity,
         );
     }
     async createMany<T extends IEntity>(
+        collection: string,
         entities: Partial<T>[],
-        pluralResourceName: string,
     ): Promise<{ insertedIds: AppIdType[]; entities: T[] }> {
         return createManyCommand(
             this.connection,
-            toPostgresStoreName(pluralResourceName),
+            toPostgresStoreName(collection),
             entities,
         );
     }
     async batchUpdate<T extends IEntity>(
+        collection: string,
+        filters: Filters,
         entities: Partial<T>[],
         operations: Operation[],
-        queryObject: IQueryOptions,
-        pluralResourceName: string,
     ): Promise<T[]> {
         return batchUpdateCommand(
             this.connection,
+            toPostgresStoreName(collection),
+            filters,
             entities,
             operations,
-            queryObject,
-            toPostgresStoreName(pluralResourceName),
         );
     }
-    async fullUpdateById<T extends IEntity>(
-        operations: Operation[],
-        id: AppIdType,
+    async replaceOne<T extends IEntity>(
+        collection: string,
+        filters: Filters,
         entity: Partial<T>,
-        pluralResourceName: string,
-        orgId?: AppIdType,
+        operations: Operation[],
     ): Promise<T> {
-        return fullUpdateByIdCommand(
+        return replaceOneCommand(
             this.connection,
-            operations,
-            id,
+            toPostgresStoreName(collection),
+            filters,
             entity,
-            toPostgresStoreName(pluralResourceName),
-            orgId,
+            operations,
         );
     }
-    async partialUpdateById<T extends IEntity>(
-        operations: Operation[],
-        id: AppIdType,
+    async updateOne<T extends IEntity>(
+        collection: string,
+        filters: Filters,
         entity: Partial<T>,
-        pluralResourceName: string,
-        orgId?: AppIdType,
+        operations: Operation[],
     ): Promise<T> {
-        return partialUpdateByIdCommand(
+        return updateOneCommand(
             this.connection,
-            operations,
-            id,
+            toPostgresStoreName(collection),
+            filters,
             entity,
-            toPostgresStoreName(pluralResourceName),
-            orgId,
+            operations,
         );
     }
-    async update<T extends IEntity>(
-        queryObject: IQueryOptions,
+    async updateMany<T extends IEntity>(
+        collection: string,
+        filters: Filters,
         entity: Partial<T>,
         operations: Operation[],
-        pluralResourceName: string,
     ): Promise<T[]> {
-        return updateCommand(
+        return updateManyCommand(
             this.connection,
-            queryObject,
+            toPostgresStoreName(collection),
+            filters,
             entity,
             operations,
-            toPostgresStoreName(pluralResourceName),
         );
     }
-    async deleteById(
-        id: AppIdType,
-        pluralResourceName: string,
-        orgId?: AppIdType,
+    async deleteOne(
+        collection: string,
+        filters: Filters,
     ): Promise<DeleteResult> {
-        return deleteByIdCommand(
+        return deleteOneCommand(
             this.connection,
-            id,
-            toPostgresStoreName(pluralResourceName),
-            orgId,
+            toPostgresStoreName(collection),
+            filters,
         );
     }
     async deleteMany(
-        queryObject: IQueryOptions,
-        pluralResourceName: string,
+        collection: string,
+        filters: Filters,
     ): Promise<DeleteResult> {
         return deleteManyCommand(
             this.connection,
-            queryObject,
-            toPostgresStoreName(pluralResourceName),
+            toPostgresStoreName(collection),
+            filters,
         );
     }
     async find<T extends IEntity>(
+        collection: string,
         queryObject: IQueryOptions,
-        pluralResourceName: string,
     ): Promise<T[]> {
         return findQuery<T>(
             this.connection,
+            toPostgresStoreName(collection),
             queryObject,
-            toPostgresStoreName(pluralResourceName),
         );
     }
     async findOne<T extends IEntity>(
-        queryObject: IQueryOptions,
-        pluralResourceName: string,
+        collection: string,
+        filters: Filters,
+        operations: Operation[] = [],
     ): Promise<T | null> {
         return findOneQuery(
             this.connection,
-            queryObject,
-            toPostgresStoreName(pluralResourceName),
+            toPostgresStoreName(collection),
+            filters,
+            operations,
         );
     }
 }

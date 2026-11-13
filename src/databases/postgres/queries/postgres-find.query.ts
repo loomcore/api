@@ -6,8 +6,8 @@ import { buildPaginationClause } from '../utils/build-pagination-clause.js';
 
 export async function find<T>(
   client: PostgresConnection,
+  pluralResourceName: string,
   queryObject: IQueryOptions,
-  pluralResourceName: string
 ): Promise<T[]> {
   const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
   const orderByClause = buildOrderByClause(queryObject, pluralResourceName);
@@ -18,4 +18,3 @@ export async function find<T>(
 
   return result.rows as T[];
 }
-

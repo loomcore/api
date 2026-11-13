@@ -1,25 +1,34 @@
 import type { PostgresConnection } from '../postgres-connection.js';
-import { IQueryOptions } from '@loomcore/common/models';
+import { Operation } from '../../operations/operation.js';
+import { buildJoinClauses } from '../utils/build-join-clauses.js';
+import { buildSelectClause } from '../utils/build-select-clause.js';
 import { buildWhereClause } from '../utils/build-where-clause.js';
-import { buildOrderByClause } from '../utils/build-order-by-clause.js';
+import { isJoinOperation } from '../../utils/is-join-operation.util.js';
+import type { Filters } from '../../../services/filters.type.js';
 
 export async function findOne<T>(
   client: PostgresConnection,
-  queryObject: IQueryOptions,
-  pluralResourceName: string
+  pluralResourceName: string,
+  filters: Filters,
+  operations: Operation[] = [],
 ): Promise<T | null> {
-  const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
-  const orderByClause = buildOrderByClause(queryObject, pluralResourceName);
+  const hasJoins = operations.some(isJoinOperation);
+  const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
-  const query = `SELECT * FROM "${pluralResourceName}" ${whereClause} ${orderByClause} LIMIT 1`;
+  const selectClause = hasJoins
+    ? await buildSelectClause(client, pluralResourceName, operations)
+    : '*';
+
+  const { whereClause, values } = buildWhereClause({ filters }, pluralResourceName, [], operations);
+  const query = `SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses} ${whereClause} LIMIT 1`;
   const result = await client.query(query, values);
 
   if (result.rows.length === 0) {
     return null;
   }
 
-  const row = result.rows[0];
-
-  return row as T;
+  if (hasJoins) {
+    return (result.rows[0] as { entity: T }).entity;
+  }
+  return result.rows[0] as T;
 }
-
