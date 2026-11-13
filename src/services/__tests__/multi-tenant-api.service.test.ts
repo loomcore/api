@@ -967,7 +967,7 @@ describe('MultiTenantApiService', () => {
       }
     }
 
-    it('should decode with a subclass override spec and stamp _orgId', async () => {
+    it('should decode with a subclass override spec and enforce _orgId', async () => {
       const overrideService = new OverrideModelSpecMultiTenantService(database);
       const isoDateString = new Date().toISOString();
 
