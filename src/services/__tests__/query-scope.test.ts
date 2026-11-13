@@ -38,32 +38,21 @@ beforeAll(() => {
   initializeTypeBox();
 });
 
-interface StatusEntity extends IEntity {
-  name: string;
-  status?: string;
-}
-
-const StatusEntitySchema = Type.Object({
-  name: Type.String({ minLength: 1 }),
-  status: Type.Optional(Type.String()),
-});
-const statusModelSpec = entityUtils.getModelSpec(StatusEntitySchema, { isAuditable: true });
-
-/** Custom scope that restricts reads/writes to status === 'active'. */
-class ActiveStatusScope implements IQueryScope<IRequestContext> {
+/** Custom scope that restricts reads/writes to isActive === true (uses existing test_entities table). */
+class IsActiveScope implements IQueryScope<IRequestContext> {
   getFilters(_context: IRequestContext): Filters {
-    return { status: { eq: 'active' } };
+    return { isActive: { eq: true } };
   }
 
   applyToEntity(_context: IRequestContext, entity: Partial<IEntity>, _isCreate: boolean): void {
-    (entity as Partial<StatusEntity>).status = 'active';
+    (entity as Partial<TestEntity>).isActive = true;
   }
 }
 
-class ActiveScopedService extends GenericApiService<StatusEntity> {
+class ActiveScopedService extends GenericApiService<TestEntity> {
   constructor(database: IDatabase) {
-    super(database, 'statusEntity', 'statusEntities', statusModelSpec);
-    this.scopes = [new ActiveStatusScope()];
+    super(database, 'testEntity', 'testEntities', testModelSpec);
+    this.scopes = [new IsActiveScope()];
   }
 }
 
@@ -139,16 +128,13 @@ describe('IQueryScope custom filters', () => {
 
   describe('getAll', () => {
     it('should apply custom scope filters to getAll', async () => {
-      await service.create(getTestMetaOrgContext(), { name: 'Active One', status: 'active' });
-      // Bypass service write so we can seed an inactive row in the same org
-      await database.create('statusEntities', {
-        name: 'Inactive One',
-        status: 'inactive',
-        _orgId: getTestMetaOrgContext().userContext.user._orgId,
-      } as any);
+      const unrestricted = new GenericApiService<TestEntity>(database, 'testEntity', 'testEntities', testModelSpec);
+      await service.create(getTestMetaOrgContext(), { name: 'Active One', isActive: true });
+      // Seed inactive via unrestricted service (no IsActiveScope) so both DBs get proper preprocessing
+      await unrestricted.create(getTestMetaOrgContext(), { name: 'Inactive One', isActive: false });
 
       const results = await service.getAll(getTestMetaOrgContext());
-      expect(results.every((e) => e.status === 'active')).toBe(true);
+      expect(results.every((e) => e.isActive === true)).toBe(true);
       expect(results.some((e) => e.name === 'Active One')).toBe(true);
       expect(results.some((e) => e.name === 'Inactive One')).toBe(false);
     });
@@ -156,14 +142,14 @@ describe('IQueryScope custom filters', () => {
 
   describe('getById', () => {
     it('should return IdNotFoundError when by-id is filtered out by scope with no extra read', async () => {
-      const created = await database.create('statusEntities', {
+      const unrestricted = new GenericApiService<TestEntity>(database, 'testEntity', 'testEntities', testModelSpec);
+      const created = await unrestricted.create(getTestMetaOrgContext(), {
         name: 'Inactive By Id',
-        status: 'inactive',
-        _orgId: getTestMetaOrgContext().userContext.user._orgId,
-      } as any);
+        isActive: false,
+      });
 
       const findOneSpy = vi.spyOn(database, 'findOne');
-      await expect(service.getById(getTestMetaOrgContext(), created.insertedId)).rejects.toThrow(
+      await expect(service.getById(getTestMetaOrgContext(), created!._id)).rejects.toThrow(
         IdNotFoundError,
       );
       // Single scoped findOne — no follow-up unscoped read
@@ -176,9 +162,9 @@ describe('IQueryScope custom filters', () => {
     it('should apply custom scope applyToEntity on every write', async () => {
       const created = await service.create(getTestMetaOrgContext(), {
         name: 'Should Be Active',
-        status: 'inactive',
+        isActive: false,
       });
-      expect(created?.status).toBe('active');
+      expect(created?.isActive).toBe(true);
     });
   });
 });
@@ -215,25 +201,26 @@ describe('IModelSpecResolver', () => {
     });
 
     it('should use the resolved spec for validate/decode/encode on write', async () => {
-      const dateSpec = entityUtils.getModelSpec(
+      // Spec requires name minLength 5 — stricter than the default TestEntity schema
+      const strictSpec = entityUtils.getModelSpec(
         Type.Object({
-          name: Type.String(),
-          eventDate: Type.Optional(Type.String({ format: 'date-time' })),
+          name: Type.String({ minLength: 5 }),
+          isActive: Type.Optional(Type.Boolean()),
         }),
         { isAuditable: true },
       );
-      const resolver = new CountingResolver(dateSpec);
+      const resolver = new CountingResolver(strictSpec);
       const service = new ResolverService(database, resolver);
-      const iso = new Date().toISOString();
 
-      const created = await service.create(getTestMetaOrgContext(), {
-        name: 'With date',
-        eventDate: iso,
-      } as any);
-
-      expect(created).toBeDefined();
+      await expect(
+        service.create(getTestMetaOrgContext(), { name: 'ab' }),
+      ).rejects.toThrow();
       expect(resolver.resolveCount).toBe(1);
-      expect((created as any).eventDate).toBeDefined();
+
+      const created = await service.create(getTestMetaOrgContext(), { name: 'Valid' });
+      expect(created).toBeDefined();
+      expect(created!.name).toBe('Valid');
+      expect(resolver.resolveCount).toBe(2);
     });
   });
 });

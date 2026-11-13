@@ -6,8 +6,12 @@ import type {
 } from '@loomcore/common/models';
 import { createSystemContext, type IRequestContext } from '../services/index.js';
 
-export let TEST_META_ORG_ID: string | number = '69261691f936c45f85da24d0';
-export let TEST_META_ORG_USER_ID: string | number = '69261672f48fb7bf76e54dfb';
+/** Fixture ids must match IdSchema for the active TEST_DATABASE (number for postgres, ObjectId string for mongodb). */
+const isPostgresTest = () => process.env.TEST_DATABASE === 'postgres';
+
+export let TEST_META_ORG_ID: string | number = isPostgresTest() ? 900001 : '66661691f936c45f85da24d0';
+export let TEST_META_ORG_USER_ID: string | number = isPostgresTest() ? 900002 : '66661672f48fb7bf76e54dfb';
+const TEST_META_ORG_DOMAIN_ID: string | number = isPostgresTest() ? 900003 : '66661691f936c45f85da24d1';
 
 export function setTestMetaOrgId(metaOrgId: string | number) {
   TEST_META_ORG_ID = metaOrgId;
@@ -59,7 +63,7 @@ export function getTestMetaOrgDomain(
   organizationId: string | number = TEST_META_ORG_ID,
 ): Partial<IOrganizationDomain> {
   return {
-    _id: '69261691f936c45f85da24d1',
+    _id: TEST_META_ORG_DOMAIN_ID,
     organizationId,
     domain: TEST_META_ORG_DOMAIN,
   };
@@ -102,8 +106,9 @@ export function getTestMetaOrgAdminUserContext(): IUserContext {
   };
 }
 
-let TEST_ORG_ID: string | number = '6926167d06c0073a778a124f';
-let TEST_ORG_USER_ID: string | number = '6926167d06c0073a778a1250';
+let TEST_ORG_ID: string | number = isPostgresTest() ? 900101 : '6666167d06c0073a778a124f';
+let TEST_ORG_USER_ID: string | number = isPostgresTest() ? 900102 : '6666167d06c0073a778a1250';
+const TEST_ORG_DOMAIN_ID: string | number = isPostgresTest() ? 900103 : '6666167d06c0073a778a1251';
 export function setTestOrgId(orgId: string | number) {
   TEST_ORG_ID = orgId;
 }
@@ -135,7 +140,7 @@ export function getTestOrgDomain(
   organizationId: string | number = TEST_ORG_ID,
 ): Partial<IOrganizationDomain> {
   return {
-    _id: '6926167d06c0073a778a1251',
+    _id: TEST_ORG_DOMAIN_ID,
     organizationId,
     domain: TEST_ORG_DOMAIN,
   };

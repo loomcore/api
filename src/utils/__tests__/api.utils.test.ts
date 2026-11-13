@@ -70,7 +70,8 @@ describe('apiUtils', () => {
       const modelSpec = entityUtils.getModelSpec(TestSchema);
 
       // Create an entity with a string ID (proper usage according to our schema)
-      const idString = testUtils.getRandomId(); // Get ID string, not ObjectId instance
+      // Fixed ObjectId string — schema uses TypeboxObjectId regardless of TEST_DATABASE IdSchema
+      const idString = '507f1f77bcf86cd799439011';
       const entity = {
         name: 'Test Entity',
         refId: idString // This is a string, matching our schema
@@ -107,7 +108,7 @@ describe('apiUtils', () => {
       const modelSpec = entityUtils.getModelSpec(TestSchema);
 
       // Create an entity with a string ID
-      const idString = testUtils.getRandomId();
+      const idString = '507f1f77bcf86cd799439012';
       const entity = {
         name: 'Test Entity',
         refId: idString
@@ -144,8 +145,8 @@ describe('apiUtils', () => {
       const modelSpec = entityUtils.getModelSpec(TestSchema);
 
       // Create an array of entities with string IDs
-      const id1 = testUtils.getRandomId();
-      const id2 = testUtils.getRandomId();
+      const id1 = '507f1f77bcf86cd799439013';
+      const id2 = '507f1f77bcf86cd799439014';
       const entities = [
         { name: 'Entity 1', refId: id1 },
         { name: 'Entity 2', refId: id2 }

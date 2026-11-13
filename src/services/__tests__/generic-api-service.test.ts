@@ -280,12 +280,13 @@ describe('GenericApiService - Integration Tests', () => {
   describe('Error Handling', () => {
 
     it('should throw IdNotFoundError when getById is called with empty string', async () => {
-      // Arrange — scoped findOne with an empty _id matches nothing (no separate BadRequest path)
-      const emptyId = '';
+      // Arrange — scoped findOne with an empty/_invalid _id matches nothing (no separate BadRequest path).
+      // Postgres IdSchema is numeric, so use 0; Mongo uses empty string.
+      const emptyId = process.env.TEST_DATABASE === 'postgres' ? 0 : '';
 
       // Act & Assert
       await expect(
-        service.getById(getTestMetaOrgContext(), emptyId)
+        service.getById(getTestMetaOrgContext(), emptyId as any)
       ).rejects.toThrow(IdNotFoundError);
     });
 
@@ -847,19 +848,15 @@ describe('GenericApiService - Integration Tests', () => {
       // Act
       const updatedEntities = await service.batchUpdate(getTestMetaOrgContext(), updateEntities);
 
-      // Assert
+      // Assert — match by id (DB list order is not guaranteed)
       expect(updatedEntities).toHaveLength(3);
-      expect(updatedEntities[0].description).toBe('Updated description 1');
-      expect(updatedEntities[0].isActive).toBe(false);
-      expect(updatedEntities[1].description).toBe('Updated description 2');
-      expect(updatedEntities[1].isActive).toBe(true);
-      expect(updatedEntities[2].description).toBe('Updated description 3');
-      expect(updatedEntities[2].count).toBe(100);
-
-      // Verify IDs are preserved
-      expect(updatedEntities[0]._id).toBe(createdEntities[0]._id);
-      expect(updatedEntities[1]._id).toBe(createdEntities[1]._id);
-      expect(updatedEntities[2]._id).toBe(createdEntities[2]._id);
+      const byId = Object.fromEntries(updatedEntities.map((e) => [String(e._id), e]));
+      expect(byId[String(createdEntities[0]._id)].description).toBe('Updated description 1');
+      expect(byId[String(createdEntities[0]._id)].isActive).toBe(false);
+      expect(byId[String(createdEntities[1]._id)].description).toBe('Updated description 2');
+      expect(byId[String(createdEntities[1]._id)].isActive).toBe(true);
+      expect(byId[String(createdEntities[2]._id)].description).toBe('Updated description 3');
+      expect(byId[String(createdEntities[2]._id)].count).toBe(100);
     });
 
     it('should return empty array when batchUpdate is called with empty array', async () => {
@@ -974,22 +971,20 @@ describe('GenericApiService - Integration Tests', () => {
       // Act
       const updatedEntities = await service.batchUpdate(getTestMetaOrgContext(), updateEntities);
 
-      // Assert
+      // Assert — match by id (DB list order is not guaranteed)
       expect(updatedEntities).toHaveLength(3);
+      const byId = Object.fromEntries(updatedEntities.map((e) => [String(e._id), e]));
 
-      // Verify first entity
-      expect(updatedEntities[0].isActive).toBe(false);
-      expect(updatedEntities[0].count).toBe(10); // Should be preserved
+      expect(byId[String(createdEntities[0]._id)].isActive).toBe(false);
+      expect(byId[String(createdEntities[0]._id)].count).toBe(10); // Should be preserved
 
-      // Verify second entity
-      expect(updatedEntities[1].count).toBe(25);
-      expect(updatedEntities[1].tags).toEqual(['new', 'tags']);
-      expect(updatedEntities[1].isActive).toBe(false); // Should be preserved
+      expect(byId[String(createdEntities[1]._id)].count).toBe(25);
+      expect(byId[String(createdEntities[1]._id)].tags).toEqual(['new', 'tags']);
+      expect(byId[String(createdEntities[1]._id)].isActive).toBe(false); // Should be preserved
 
-      // Verify third entity
-      expect(updatedEntities[2].name).toBe('Entity C Updated');
-      expect(updatedEntities[2].description).toBe('New description');
-      expect(updatedEntities[2].count).toBe(30); // Should be preserved
+      expect(byId[String(createdEntities[2]._id)].name).toBe('Entity C Updated');
+      expect(byId[String(createdEntities[2]._id)].description).toBe('New description');
+      expect(byId[String(createdEntities[2]._id)].count).toBe(30); // Should be preserved
     });
 
     it('should handle batch update with single entity', async () => {
