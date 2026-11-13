@@ -1,27 +1,22 @@
 import type { PostgresConnection } from '../postgres-connection.js';
-import { IQueryOptions } from '@loomcore/common/models';
 import { Operation } from '../../operations/operation.js';
-import { LeftJoin } from '../../operations/left-join.operation.js';
-import { InnerJoin } from '../../operations/inner-join.operation.js';
-import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { BadRequestError, NotFoundError } from '../../../errors/index.js';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
-import { buildOrderByClause } from '../utils/build-order-by-clause.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
+import { isJoinOperation } from '../../utils/is-join-operation.util.js';
 import { IEntity } from '@loomcore/common/models';
+import type { Filters } from '../../../services/filters.type.js';
 
-export async function update<T extends IEntity>(
+export async function updateMany<T extends IEntity>(
   client: PostgresConnection,
-  queryObject: IQueryOptions,
+  pluralResourceName: string,
+  filters: Filters,
   entity: Partial<T>,
   operations: Operation[],
-  pluralResourceName: string
 ): Promise<T[]> {
   try {
-    const { whereClause, values: whereValues } = buildWhereClause(queryObject, pluralResourceName);
-
     // Extract columns and values from the entity (only the fields to update)
     const { columns, values: entityValues } = columnsAndValuesFromEntity(entity);
 
@@ -36,20 +31,18 @@ export async function update<T extends IEntity>(
     // Build SET clause for UPDATE
     const setClause = updateColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
-    // Combine values: first the SET values, then the WHERE values
-    // Need to adjust parameter indices in WHERE clause
-    const whereClauseWithAdjustedParams = whereClause.replace(/\$(\d+)/g, (match, num) => {
-      const originalIndex = parseInt(num, 10);
-      return `$${originalIndex + updateValues.length}`;
-    });
+    const { whereClause, values: allUpdateValues } = buildWhereClause(
+      { filters },
+      pluralResourceName,
+      [...updateValues],
+    );
 
     const updateQuery = `
       UPDATE "${pluralResourceName}"
       SET ${setClause}
-      ${whereClauseWithAdjustedParams}
+      ${whereClause}
     `;
 
-    const allUpdateValues = [...updateValues, ...whereValues];
     const result = await client.query(updateQuery, allUpdateValues);
 
     if (result.rowCount === 0) {
@@ -57,10 +50,14 @@ export async function update<T extends IEntity>(
     }
 
     // Retrieve updated entities with operations applied
-    const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+    const hasJoins = operations.some(isJoinOperation);
     const joinClauses = buildJoinClauses(operations, pluralResourceName);
-    const orderByClause = buildOrderByClause(queryObject, pluralResourceName);
-    const { whereClause: selectWhereClause, values: selectWhereValues } = buildWhereClause(queryObject, pluralResourceName);
+    const { whereClause: selectWhereClause, values: selectWhereValues } = buildWhereClause(
+      { filters },
+      pluralResourceName,
+      [],
+      operations,
+    );
 
     const selectClause = hasJoins
       ? await buildSelectClause(client, pluralResourceName, operations)
@@ -68,7 +65,7 @@ export async function update<T extends IEntity>(
 
     const selectQuery = `
       SELECT ${selectClause} FROM "${pluralResourceName}" ${joinClauses}
-      ${selectWhereClause} ${orderByClause}
+      ${selectWhereClause}
     `.trim();
 
     const selectResult = await client.query(selectQuery, selectWhereValues);
@@ -76,8 +73,7 @@ export async function update<T extends IEntity>(
     return hasJoins
       ? (selectResult.rows as { entity: T }[]).map(r => r.entity)
       : (selectResult.rows as T[]);
-  }
-  catch (err: any) {
+  } catch (err: any) {
     // Re-throw NotFoundError as-is
     if (err instanceof NotFoundError) {
       throw err;

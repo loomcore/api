@@ -1,24 +1,23 @@
 import { Pool, type PoolClient, type Client } from 'pg';
 import type { PostgresConnection } from '../postgres-connection.js';
 import { Operation } from '../../operations/operation.js';
-import { LeftJoin } from '../../operations/left-join.operation.js';
-import { InnerJoin } from '../../operations/inner-join.operation.js';
-import { LeftJoinMany } from '../../operations/left-join-many.operation.js';
 import { BadRequestError } from '../../../errors/index.js';
 import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { transformJoinResults } from '../utils/transform-join-results.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
-import { Filter, IEntity, IQueryOptions } from '@loomcore/common/models';
+import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
+import { isJoinOperation } from '../../utils/is-join-operation.util.js';
+import type { Filters } from '../../../services/filters.type.js';
 
 export async function batchUpdate<T extends IEntity>(
   connection: PostgresConnection,
+  pluralResourceName: string,
+  filters: Filters,
   entities: Partial<T>[],
   operations: Operation[],
-  queryObject: IQueryOptions,
-  pluralResourceName: string
 ): Promise<T[]> {
   if (!entities || entities.length === 0) {
     return [];
@@ -33,7 +32,6 @@ export async function batchUpdate<T extends IEntity>(
     }
     entityIds.push(entity._id);
   }
-  queryObject.filters = queryObject.filters || {};
 
   let session: PoolClient | Client;
   let releaseSession = false;
@@ -61,8 +59,8 @@ export async function batchUpdate<T extends IEntity>(
 
       const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
-      queryObject.filters._id = { eq: _id };
-      const { whereClause } = buildWhereClause(queryObject, pluralResourceName, values);
+      const entityFilters: Filters = { ...filters, _id: { eq: _id } };
+      const { whereClause } = buildWhereClause({ filters: entityFilters }, pluralResourceName, values);
 
       const query = `
         UPDATE "${pluralResourceName}"
@@ -77,11 +75,10 @@ export async function batchUpdate<T extends IEntity>(
 
     const joinClauses = buildJoinClauses(operations, pluralResourceName);
 
-    const hasJoins = operations.some(op => op instanceof LeftJoin || op instanceof InnerJoin || op instanceof LeftJoinMany);
+    const hasJoins = operations.some(isJoinOperation);
 
-    queryObject.filters._id = { in: entityIds as any };
-
-    const { whereClause, values } = buildWhereClause(queryObject, pluralResourceName);
+    const selectFilters: Filters = { ...filters, _id: { in: entityIds as any } };
+    const { whereClause, values } = buildWhereClause({ filters: selectFilters }, pluralResourceName);
 
     // Build SELECT clause with explicit columns and JSON aggregation for joins
     // If no joins, use SELECT * for simplicity
@@ -100,8 +97,7 @@ export async function batchUpdate<T extends IEntity>(
     return hasJoins
       ? transformJoinResults<T>(result.rows, operations)
       : result.rows as T[];
-  }
-  catch (err: any) {
+  } catch (err: any) {
     // Rollback transaction on error
     await session.query('ROLLBACK');
 
@@ -110,8 +106,7 @@ export async function batchUpdate<T extends IEntity>(
       throw new BadRequestError(`One or more ${pluralResourceName} have duplicate key violations`);
     }
     throw new BadRequestError(`Error updating ${pluralResourceName}: ${err.message}`);
-  }
-  finally {
+  } finally {
     if (releaseSession) {
       (session as PoolClient).release();
     }
