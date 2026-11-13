@@ -1,11 +1,11 @@
 import {
   ILoginResponse,
-  type IUserContext,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import type { IDatabase } from '../../databases/models/index.js';
-import { BadRequestError, UnauthenticatedError } from '../../errors/index.js';
+import { BadRequestError } from '../../errors/index.js';
 import { AuthorizationService } from '../../services/authorization.service.js';
+import type { IRequestContext } from '../../services/request-context.interface.js';
 import { UserService } from '../../services/user.service.js';
 import { generateJwt, IMPERSONATION_JWT_EXPIRATION_IN_SECONDS } from '../jwt.utils.js';
 import { getExpiresOnFromSeconds } from './get-expires-on-from-seconds.util.js';
@@ -13,12 +13,14 @@ import { isAdmin } from './is-admin.util.js';
 
 export async function impersonateUser(
   database: IDatabase,
-  impersonatorUserContext: IUserContext,
+  impersonatorContext: IRequestContext,
   targetUserId: AppIdType,
   refreshToken: string,
   userService: UserService = new UserService(database),
   authorizationsService: AuthorizationService = new AuthorizationService(database),
 ): Promise<ILoginResponse> {
+  const impersonatorUserContext = impersonatorContext.userContext;
+
   if (impersonatorUserContext.impersonatorId) {
     throw new BadRequestError('Already impersonating.');
   }
@@ -27,7 +29,7 @@ export async function impersonateUser(
     throw new BadRequestError('Cannot impersonate yourself.');
   }
 
-  const targetUser = await userService.findOne(impersonatorUserContext, {
+  const targetUser = await userService.findOne(impersonatorContext, {
     filters: { _id: { eq: targetUserId } },
   });
   if (!targetUser) {
@@ -35,7 +37,7 @@ export async function impersonateUser(
   }
 
   const targetFeatures = await authorizationsService.getUserContextFeatures(targetUser);
-  const impersonatedUserContext: IUserContext = {
+  const impersonatedUserContext = {
     user: targetUser,
     features: targetFeatures,
     impersonatorId: impersonatorUserContext.user._id,

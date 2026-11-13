@@ -1,23 +1,25 @@
 import { Application, NextFunction, Request, Response } from 'express';
 import { IEntity, IPagedResult, IModelSpec } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { BadRequestError } from '../errors/index.js';
-import { entityUtils } from '@loomcore/common/utils';
+import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
 import { Value } from '@sinclair/typebox/value';
 import { getIdSchema } from '@loomcore/common/validation';
 import type { TSchema } from '@sinclair/typebox';
 
-import { IGenericApiService } from '../services/index.js';
+import { IGenericApiService, type IRequestContext } from '../services/index.js';
 import { apiUtils, authorizeMethod, createPublicSpec } from '../utils/index.js';
 import { DeleteResult } from '../databases/models/delete-result.js';
 
-export abstract class ApiController<T extends IEntity> {
+export abstract class ApiController<T extends IEntity, TContext extends IRequestContext = IRequestContext> {
   protected app: Application;
-  protected service: IGenericApiService<T>;
+  protected service: IGenericApiService<T, TContext>;
   protected slug: string;
   protected apiResourceName: string;
   protected modelSpec?: IModelSpec;
   protected publicSpec?: IModelSpec;
+  /** True when the constructor received an explicit publicSpec (wins over createPublicSpec(resolved)). */
+  private readonly explicitPublicSpec: boolean;
+  private readonly publicSpecCache = new WeakMap<IModelSpec, IModelSpec>();
   protected idSchema: TSchema;
 
   /**
@@ -48,7 +50,7 @@ export abstract class ApiController<T extends IEntity> {
   protected constructor(
     slug: string,
     app: Application,
-    service: IGenericApiService<T>,
+    service: IGenericApiService<T, TContext>,
     resourceName: string = '',
     modelSpec?: IModelSpec,
     publicSpec?: IModelSpec
@@ -59,6 +61,7 @@ export abstract class ApiController<T extends IEntity> {
     this.apiResourceName = resourceName;
     this.modelSpec = modelSpec;
     this.idSchema = getIdSchema();
+    this.explicitPublicSpec = publicSpec !== undefined;
 
     this.mapRoutes(app);
 
@@ -67,6 +70,54 @@ export abstract class ApiController<T extends IEntity> {
     } else {
       this.publicSpec = publicSpec;
     }
+  }
+
+  /**
+   * Builds typed request context from Express. Throws if the request is unauthenticated.
+   */
+  protected createContext(req: Request): TContext {
+    if (!req.userContext) {
+      throw new UnauthenticatedError();
+    }
+    return { userContext: req.userContext } as TContext;
+  }
+
+  /**
+   * Converts the `:id` route param to AppIdType via TypeBox.
+   */
+  protected parseId(req: Request): AppIdType {
+    const idParam = req.params?.id;
+    if (!idParam) {
+      throw new BadRequestError('ID parameter is required');
+    }
+
+    try {
+      return Value.Convert(this.idSchema, idParam) as AppIdType;
+    } catch (error: any) {
+      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
+    }
+  }
+
+  /**
+   * Memoized createPublicSpec(resolvedSpec). Used when the controller was not given an explicit publicSpec.
+   */
+  protected getPublicSpec(resolvedSpec: IModelSpec): IModelSpec {
+    let cached = this.publicSpecCache.get(resolvedSpec);
+    if (!cached) {
+      cached = createPublicSpec(resolvedSpec);
+      this.publicSpecCache.set(resolvedSpec, cached);
+    }
+    return cached;
+  }
+
+  /**
+   * Resolves the model spec for this request and the public spec used for encoding.
+   * Explicit constructor publicSpec wins; otherwise createPublicSpec(resolved) (memoized).
+   */
+  protected async getResponseSpecs(context: TContext): Promise<{ modelSpec: IModelSpec; publicSpec: IModelSpec }> {
+    const modelSpec = await this.service.resolveModelSpec(context);
+    const publicSpec = this.explicitPublicSpec ? this.publicSpec! : this.getPublicSpec(modelSpec);
+    return { modelSpec, publicSpec };
   }
 
   /**
@@ -100,82 +151,57 @@ export abstract class ApiController<T extends IEntity> {
     app.delete(`/api/${this.slug}/:id`, this.authorize('deleteById'), this.deleteById.bind(this));
   }
 
-  /**
-   * Validates a single entity using the service's validation logic
-   * @param entity The entity to validate
-   * @param isPartial Whether to use partial validation (for PATCH operations)
-   */
-  protected validate(entity: any, isPartial: boolean = false): void {
-    const validationErrors = this.service.validate(entity, isPartial);
-    entityUtils.handleValidationResult(validationErrors, `ApiController.validate for ${this.slug}`);
-  }
-
-  /**
-   * Validates multiple entities using the service's validation logic
-   * @param entities Array of entities to validate
-   * @param isPartial Whether to use partial validation
-   */
-  protected validateMany(entities: any[], isPartial: boolean = false): void {
-    const validationErrors = this.service.validateMany(entities, isPartial);
-    entityUtils.handleValidationResult(validationErrors, `ApiController.validateMany for ${this.slug}`);
-  }
-
   async getAll(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    const entities = await this.service.getAll(req.userContext!);
-    apiUtils.apiResponse<T[]>(res, 200, { data: entities }, this.modelSpec, this.publicSpec);
+    const context = this.createContext(req);
+    const entities = await this.service.getAll(context);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T[]>(res, 200, { data: entities }, modelSpec, publicSpec);
   }
 
   async get(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
 
     // Extract query options from request
     const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
 
     // Get paged result from service
-    const pagedResult = await this.service.get(req.userContext!, queryOptions);
-    // Prepare API response
-    apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSpec);
+    const pagedResult = await this.service.get(context, queryOptions);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, modelSpec, publicSpec);
   }
 
   async getById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
+    const id = this.parseId(req);
 
-    // Convert HTTP string to AppIdType using TypeBox
-    const idParam = req.params?.id;
-    if (!idParam) {
-      throw new BadRequestError('ID parameter is required');
-    }
-
-    let id: AppIdType;
-    try {
-      id = Value.Convert(this.idSchema, idParam) as AppIdType;
-    } catch (error: any) {
-      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
-    }
-
-    const entity = await this.service.getById(req.userContext!, id);
-    apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
+    const entity = await this.service.getById(context, id);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T>(res, 200, { data: entity }, modelSpec, publicSpec);
   }
 
   async getCount(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    const count = await this.service.getCount(req.userContext!); // result is in the form { count: number }
-    apiUtils.apiResponse<number>(res, 200, { data: count }, this.modelSpec, this.publicSpec);
+    const context = this.createContext(req);
+    const count = await this.service.getCount(context); // result is in the form { count: number }
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<number>(res, 200, { data: count }, modelSpec, publicSpec);
   }
 
   async create(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
 
-    // Validate request body
-    this.validate(req.body);
-
-    const entity = await this.service.create(req.userContext!, req.body);
-    apiUtils.apiResponse<T>(res, 201, { data: entity || undefined }, this.modelSpec, this.publicSpec);
+    const entity = await this.service.create(context, req.body);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T>(res, 201, { data: entity || undefined }, modelSpec, publicSpec);
   }
 
   async batchUpdate(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
 
     const entities = req.body as Partial<T>[];
 
@@ -197,76 +223,38 @@ export abstract class ApiController<T extends IEntity> {
       return entity;
     });
 
-    // Validate and prepare entities (using partial validation for PATCH operations)
-    this.validateMany(convertedEntities, true);
-
-    const updatedEntities = await this.service.batchUpdate(req.userContext!, convertedEntities);
-    apiUtils.apiResponse<T[]>(res, 200, { data: updatedEntities }, this.modelSpec, this.publicSpec);
+    const updatedEntities = await this.service.batchUpdate(context, convertedEntities);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T[]>(res, 200, { data: updatedEntities }, modelSpec, publicSpec);
   }
 
   async fullUpdateById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
+    const id = this.parseId(req);
 
-    // Validate and prepare the entity
-    this.validate(req.body);
-
-    // Convert HTTP string to AppIdType using TypeBox
-    const idParam = req.params?.id;
-    if (!idParam) {
-      throw new BadRequestError('ID parameter is required');
-    }
-
-    let id: AppIdType;
-    try {
-      id = Value.Convert(this.idSchema, idParam) as AppIdType;
-    } catch (error: any) {
-      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
-    }
-
-    const updateResult = await this.service.fullUpdateById(req.userContext!, id, req.body);
-    apiUtils.apiResponse<T>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
+    const updateResult = await this.service.fullUpdateById(context, id, req.body);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T>(res, 200, { data: updateResult }, modelSpec, publicSpec);
   }
 
   async partialUpdateById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
+    const id = this.parseId(req);
 
-    // Validate and prepare the entity (using partial validation for PATCH operations)
-    this.validate(req.body, true);
-
-    // Convert HTTP string to AppIdType using TypeBox
-    const idParam = req.params?.id;
-    if (!idParam) {
-      throw new BadRequestError('ID parameter is required');
-    }
-
-    let id: AppIdType;
-    try {
-      id = Value.Convert(this.idSchema, idParam) as AppIdType;
-    } catch (error: any) {
-      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
-    }
-
-    const updateResult = await this.service.partialUpdateById(req.userContext!, id, req.body);
-    apiUtils.apiResponse<T>(res, 200, { data: updateResult }, this.modelSpec, this.publicSpec);
+    const updateResult = await this.service.partialUpdateById(context, id, req.body);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T>(res, 200, { data: updateResult }, modelSpec, publicSpec);
   }
 
   async deleteById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
+    const id = this.parseId(req);
 
-    // Convert HTTP string to AppIdType using TypeBox
-    const idParam = req.params?.id;
-    if (!idParam) {
-      throw new BadRequestError('ID parameter is required');
-    }
-
-    let id: AppIdType;
-    try {
-      id = Value.Convert(this.idSchema, idParam) as AppIdType;
-    } catch (error: any) {
-      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
-    }
-
-    const deleteResult = await this.service.deleteById(req.userContext!, id);
-    apiUtils.apiResponse<DeleteResult>(res, 200, { data: deleteResult }, this.modelSpec, this.publicSpec);
+    const deleteResult = await this.service.deleteById(context, id);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<DeleteResult>(res, 200, { data: deleteResult }, modelSpec, publicSpec);
   }
 }

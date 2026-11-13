@@ -1,7 +1,8 @@
 import type { AppIdType } from '@loomcore/common/types';
-import { getSystemUserContext, type IUser } from '@loomcore/common/models';
+import type { IUser } from '@loomcore/common/models';
 import moment from 'moment';
 import type { IDatabase } from '../../databases/models/index.js';
+import { createSystemContext } from '../../services/request-context.interface.js';
 import { UserService } from '../../services/user.service.js';
 
 export async function updateLastLoggedIn(
@@ -14,7 +15,7 @@ export async function updateLastLoggedIn(
       _lastLoggedIn: moment().utc().toDate(),
     };
     await userService.update(
-      getSystemUserContext(),
+      createSystemContext(),
       { filters: { _id: { eq: userId } } },
       updates,
     );

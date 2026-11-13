@@ -1,15 +1,15 @@
 import {
-  getSystemUserContext,
   IQueryOptions,
   type ITokenResponse,
   type IUserContext,
 } from '@loomcore/common/models';
 import type { IDatabase } from '../../databases/models/index.js';
+import { BadRequestError } from '../../errors/index.js';
 import { AuthorizationService } from '../../services/authorization.service.js';
+import { createSystemContext } from '../../services/request-context.interface.js';
 import { UserService } from '../../services/user.service.js';
 import { createNewTokens } from './create-new-tokens.util.js';
 import { getActiveRefreshToken } from './get-active-refresh-token.util.js';
-import { BadRequestError } from '../../errors/index.js';
 
 export async function requestTokenUsingRefreshToken(
   database: IDatabase,
@@ -20,10 +20,10 @@ export async function requestTokenUsingRefreshToken(
     database,
   ),
 ): Promise<ITokenResponse | null> {
-  const systemUserContext = getSystemUserContext();
+  const systemContext = createSystemContext();
   const activeRefreshToken = await getActiveRefreshToken(
     database,
-    systemUserContext,
+    systemContext,
     refreshToken,
     deviceId,
   );
@@ -35,7 +35,7 @@ export async function requestTokenUsingRefreshToken(
   let userQueryOptions: IQueryOptions = {
     filters: { _id: { eq: activeRefreshToken.userId } },
   };
-  const user = await userService.findOne(systemUserContext, userQueryOptions);
+  const user = await userService.findOne(systemContext, userQueryOptions);
   if (!user) {
     throw new BadRequestError('User not found');
   }

@@ -1,21 +1,24 @@
 import { Application, NextFunction, Request, Response } from 'express';
 import { IEntity, IPagedResult, IModelSpec } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { BadRequestError } from '../errors/index.js';
+import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
 import { Value } from '@sinclair/typebox/value';
 import { getIdSchema } from '@loomcore/common/validation';
 import type { TSchema } from '@sinclair/typebox';
 
-import { IGenericQueryService } from '../services/index.js';
-import { apiUtils, authorizeMethod } from '../utils/index.js';
+import { IGenericQueryService, type IRequestContext } from '../services/index.js';
+import { apiUtils, authorizeMethod, createPublicSpec } from '../utils/index.js';
 
-export abstract class QueryApiController<T extends IEntity> {
+export abstract class QueryApiController<T extends IEntity, TContext extends IRequestContext = IRequestContext> {
   protected app: Application;
-  protected service: IGenericQueryService<T>;
+  protected service: IGenericQueryService<T, TContext>;
   protected slug: string;
   protected apiResourceName: string;
   protected modelSpec?: IModelSpec;
   protected publicSpec?: IModelSpec;
+  /** True when the constructor received an explicit publicSpec (wins over createPublicSpec(resolved)). */
+  private readonly explicitPublicSpec: boolean;
+  private readonly publicSpecCache = new WeakMap<IModelSpec, IModelSpec>();
   protected idSchema: TSchema;
 
   /**
@@ -46,7 +49,7 @@ export abstract class QueryApiController<T extends IEntity> {
   protected constructor(
     slug: string,
     app: Application,
-    service: IGenericQueryService<T>,
+    service: IGenericQueryService<T, TContext>,
     resourceName: string = '',
     modelSpec?: IModelSpec,
     publicSpec?: IModelSpec
@@ -56,10 +59,59 @@ export abstract class QueryApiController<T extends IEntity> {
     this.service = service;
     this.apiResourceName = resourceName;
     this.modelSpec = modelSpec;
+    this.explicitPublicSpec = publicSpec !== undefined;
     this.publicSpec = publicSpec;
     this.idSchema = getIdSchema();
 
     this.mapRoutes(app);
+  }
+
+  /**
+   * Builds typed request context from Express. Throws if the request is unauthenticated.
+   */
+  protected createContext(req: Request): TContext {
+    if (!req.userContext) {
+      throw new UnauthenticatedError();
+    }
+    return { userContext: req.userContext } as TContext;
+  }
+
+  /**
+   * Converts the `:id` route param to AppIdType via TypeBox.
+   */
+  protected parseId(req: Request): AppIdType {
+    const idParam = req.params?.id;
+    if (!idParam) {
+      throw new BadRequestError('ID parameter is required');
+    }
+
+    try {
+      return Value.Convert(this.idSchema, idParam) as AppIdType;
+    } catch (error: any) {
+      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
+    }
+  }
+
+  /**
+   * Memoized createPublicSpec(resolvedSpec). Used when the controller was not given an explicit publicSpec.
+   */
+  protected getPublicSpec(resolvedSpec: IModelSpec): IModelSpec {
+    let cached = this.publicSpecCache.get(resolvedSpec);
+    if (!cached) {
+      cached = createPublicSpec(resolvedSpec);
+      this.publicSpecCache.set(resolvedSpec, cached);
+    }
+    return cached;
+  }
+
+  /**
+   * Resolves the model spec for this request and the public spec used for encoding.
+   * Explicit constructor publicSpec wins; otherwise createPublicSpec(resolved) (memoized).
+   */
+  protected async getResponseSpecs(context: TContext): Promise<{ modelSpec: IModelSpec; publicSpec: IModelSpec }> {
+    const modelSpec = await this.service.resolveModelSpec(context);
+    const publicSpec = this.explicitPublicSpec ? this.publicSpec! : this.getPublicSpec(modelSpec);
+    return { modelSpec, publicSpec };
   }
 
   /**
@@ -85,46 +137,41 @@ export abstract class QueryApiController<T extends IEntity> {
 
   async getAll(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    const entities = await this.service.getAll(req.userContext!);
-    apiUtils.apiResponse<T[]>(res, 200, { data: entities }, this.modelSpec, this.publicSpec);
+    const context = this.createContext(req);
+    const entities = await this.service.getAll(context);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T[]>(res, 200, { data: entities }, modelSpec, publicSpec);
   }
 
   async get(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
 
     // Extract query options from request
     const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
 
     // Get paged result from service
-    const pagedResult = await this.service.get(req.userContext!, queryOptions);
-    // Prepare API response
-    apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, this.modelSpec, this.publicSpec);
+    const pagedResult = await this.service.get(context, queryOptions);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<IPagedResult<T>>(res, 200, { data: pagedResult }, modelSpec, publicSpec);
   }
 
   async getById(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
+    const id = this.parseId(req);
 
-    // Convert HTTP string to AppIdType using TypeBox
-    const idParam = req.params?.id;
-    if (!idParam) {
-      throw new BadRequestError('ID parameter is required');
-    }
-
-    let id: AppIdType;
-    try {
-      id = Value.Convert(this.idSchema, idParam) as AppIdType;
-    } catch (error: any) {
-      throw new BadRequestError(`Invalid ID format: ${error.message || error}`);
-    }
-
-    const entity = await this.service.getById(req.userContext!, id);
-    apiUtils.apiResponse<T>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
+    const entity = await this.service.getById(context, id);
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<T>(res, 200, { data: entity }, modelSpec, publicSpec);
   }
 
   async getCount(req: Request, res: Response, next: NextFunction) {
     res.set('Content-Type', 'application/json');
-    const count = await this.service.getCount(req.userContext!); // result is in the form { count: number }
-    apiUtils.apiResponse<number>(res, 200, { data: count }, this.modelSpec, this.publicSpec);
+    const context = this.createContext(req);
+    const count = await this.service.getCount(context); // result is in the form { count: number }
+    const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
+    apiUtils.apiResponse<number>(res, 200, { data: count }, modelSpec, publicSpec);
   }
 
 }

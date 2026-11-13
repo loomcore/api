@@ -1,9 +1,9 @@
-import { IRole, IUserContext, RoleModelSpec } from '@loomcore/common/models';
+import { IRole, RoleModelSpec } from '@loomcore/common/models';
 import { IDatabase } from '../databases/index.js';
-import { MultiTenantApiService } from './multi-tenant-api.service.js';
+import { GenericApiService } from './generic-api-service/generic-api.service.js';
 
-export class RoleService extends MultiTenantApiService<IRole> {
+export class RoleService extends GenericApiService<IRole> {
   constructor(database: IDatabase) {
-    super(database, 'roles', 'role', RoleModelSpec);
+    super(database, 'role', 'roles', RoleModelSpec);
   }
 }
