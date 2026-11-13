@@ -6,7 +6,7 @@ import {
   OrganizationSpec,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { ObjectId } from 'mongodb';
+import crypto from 'node:crypto';
 import { config } from '../config/index.js';
 import type { IDatabase } from '../databases/models/index.js';
 import type { Operation } from '../databases/operations/operation.js';
@@ -118,12 +118,16 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     this.organizationDomainService = new OrganizationDomainService(database);
   }
 
-  /** Id suitable for create validation; Postgres create strips _id, MongoDB persists it. */
+  /**
+   * OrganizationSchema requires _id in the create validator. Validation now runs in the service
+   * write pipeline (createOrganizationWithAdmin previously skipped controller validation).
+   * Postgres create strips _id and uses serial; MongoDB persists the provided 24-char hex id.
+   */
   private newCreateId(): AppIdType {
     if (config.app.dbType === 'postgres') {
       return Date.now() + Math.floor(Math.random() * 1000);
     }
-    return new ObjectId().toString();
+    return crypto.randomBytes(12).toString('hex');
   }
 
   override async preProcessEntity(

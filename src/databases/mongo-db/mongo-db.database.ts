@@ -38,7 +38,9 @@ export class MongoDBDatabase implements IDatabase {
     }
 
     preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
-        if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
+        // Allow already-converted ObjectId instances (write pipeline may call this twice: once in
+        // preProcessEntity and again after applyScopesToEntity stamps camelCase fields).
+        if (entity._id && typeof entity._id === 'string' && !entityUtils.isValidObjectId(entity._id)) {
             throw new BadRequestError('id is not a valid ObjectId');
         }
         return convertStringsToObjectIds(entity, schema);

@@ -88,8 +88,11 @@ function initialize(db: IDatabase) {
   deviceIdCookie = constDeviceIdCookie;
 }
 
-function getRandomId(): string {
-  // This satisfies MongoDB and Postgres shouldn't really care what the id is.
+function getRandomId(): string | number {
+  // Must match IdSchema for the active TEST_DATABASE — validation runs in the service create pipeline.
+  if (process.env.TEST_DATABASE === 'postgres') {
+    return Date.now() + Math.floor(Math.random() * 1000);
+  }
   return new ObjectId().toString();
 }
 

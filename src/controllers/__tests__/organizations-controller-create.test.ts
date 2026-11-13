@@ -240,6 +240,7 @@ describe('OrganizationsController POST /organizations', () => {
   it('rejects a duplicate tenant domain with 400', async () => {
     const code = 'taken-domain';
     await organizationDomainService.create(getSystemContext(), {
+      _id: testUtils.getRandomId(),
       organizationId: getTestOrg()._id,
       domain: buildOrganizationTenantDomain(code),
     });

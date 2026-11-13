@@ -64,6 +64,15 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   /** Extension point; the default does nothing beyond the TODO above. */
   protected onFieldsStripped(_context: TContext, _original: unknown, _cleaned: unknown): void {}
 
+  /**
+   * Scope stamps use domain (camelCase) field names. preProcessEntity already ran
+   * IDatabase.preProcessEntity (e.g. camelCase → snake_case on Postgres), so re-run it
+   * after applyScopesToEntity so newly stamped fields are converted before the write.
+   */
+  protected finalizeEntityForWrite(spec: IModelSpec, entity: Partial<T>): Partial<T> {
+    return this.database.preProcessEntity(entity, spec.fullSchema);
+  }
+
   async create(context: TContext, entity: Partial<T>): Promise<T | null> {
     let createdEntity: T | null = null;
 
@@ -72,8 +81,9 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     this.detectStrippedFields(context, spec, entity);
     const preparedEntity = await this.preProcessEntity(context, spec, entity, true);
     this.applyScopesToEntity(context, preparedEntity, true);
+    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
 
-    const insertResult = await this.database.create<T>(this.pluralResourceName, preparedEntity);
+    const insertResult = await this.database.create<T>(this.pluralResourceName, dbReady);
 
     if (insertResult.insertedId) {
       createdEntity = this.postProcessEntity(context, spec, insertResult.entity);
@@ -93,7 +103,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
           this.detectStrippedFields(context, spec, entity);
           const prepared = await this.preProcessEntity(context, spec, entity, true);
           this.applyScopesToEntity(context, prepared, true);
-          return prepared;
+          return this.finalizeEntityForWrite(spec, prepared);
         }),
       );
       const insertResult = await this.database.createMany<T>(this.pluralResourceName, preparedEntities);
@@ -120,7 +130,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
         this.detectStrippedFields(context, spec, entity);
         const prepared = await this.preProcessEntity(context, spec, entity, false);
         this.applyScopesToEntity(context, prepared, false);
-        return prepared;
+        return this.finalizeEntityForWrite(spec, prepared);
       }),
     );
 
@@ -167,10 +177,11 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
       });
     }
 
+    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
     const rawUpdatedEntity = await this.database.replaceOne<T>(
       this.pluralResourceName,
       scopeFilters,
-      preparedEntity,
+      dbReady,
       operations,
     );
 
@@ -183,6 +194,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     this.detectStrippedFields(context, spec, entity);
     const prepared = await this.preProcessEntity(context, spec, entity, false);
     this.applyScopesToEntity(context, prepared, false);
+    const dbReady = this.finalizeEntityForWrite(spec, prepared);
 
     const { operations } = this.buildQuery(context, {});
     const filters: Filters = { _id: { eq: id }, ...this.getScopeFilters(context) };
@@ -190,7 +202,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     const updated = await this.database.updateOne<T>(
       this.pluralResourceName,
       filters,
-      prepared,
+      dbReady,
       operations,
     );
 
@@ -205,11 +217,12 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     const { queryOptions: preparedQuery, operations } = this.buildQuery(context, queryOptions, []);
     const preparedEntity = await this.preProcessEntity(context, spec, entity, false);
     this.applyScopesToEntity(context, preparedEntity, false);
+    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
 
     const rawUpdatedEntities = await this.database.updateMany<T>(
       this.pluralResourceName,
       preparedQuery.filters || {},
-      preparedEntity,
+      dbReady,
       operations,
     );
 

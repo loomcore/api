@@ -9,7 +9,6 @@ import {
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
   getTestMetaOrgContext,
-  getTestMetaOrgAdminContext,
 } from '../../__tests__/test-objects.js';
 import { UserService } from '../../services/user.service.js';
 import { AuthController } from '../auth.controller.js';
@@ -129,7 +128,7 @@ describe('AuthController impersonation', () => {
 
   it('should return a 400 when already impersonating', async () => {
     const nestedToken = jwt.sign(
-      { ...getTestMetaOrgAdminContext(), impersonatorId: getTestMetaOrgUser()._id },
+      { ...getTestMetaOrgAdminUserContext(), impersonatorId: getTestMetaOrgUser()._id },
       'test-secret',
       { expiresIn: 3600 },
     );
