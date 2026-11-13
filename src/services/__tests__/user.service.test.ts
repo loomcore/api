@@ -9,6 +9,8 @@ import {
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
   getTestOrgUser,
+  getTestMetaOrgContext,
+  getTestMetaOrgAdminContext,
 } from '../../__tests__/test-objects.js';
 import { BadRequestError } from '../../errors/index.js';
 import { passwordUtils } from '../../utils/password.utils.js';
@@ -42,13 +44,13 @@ describe('UserService', () => {
 
   describe('getById', () => {
     it('should allow a user to get themselves', async () => {
-      const user = await service.getById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id);
+      const user = await service.getById(getTestMetaOrgContext(), getTestMetaOrgUser()._id);
 
       expect(user._id).toEqual(getTestMetaOrgUser()._id);
     });
 
     it('should allow getting another user in the same tenant', async () => {
-      const created = await service.create(getTestMetaOrgAdminUserContext(), {
+      const created = await service.create(getTestMetaOrgAdminContext(), {
         email: 'another-meta-user@example.com',
         displayName: 'Another Meta User',
         password: 'password123!',
@@ -56,7 +58,7 @@ describe('UserService', () => {
       });
       expect(created).toBeTruthy();
 
-      const user = await service.getById(getTestMetaOrgAdminUserContext(), created!._id);
+      const user = await service.getById(getTestMetaOrgAdminContext(), created!._id);
 
       expect(user._id).toEqual(created!._id);
     });
@@ -64,7 +66,7 @@ describe('UserService', () => {
 
   describe('get / getAll / getCount', () => {
     it('should allow get, getAll, and getCount', async () => {
-      const adminContext = getTestMetaOrgAdminUserContext();
+      const adminContext = getTestMetaOrgAdminContext();
 
       const paged = await service.get(adminContext);
       expect(paged.entities?.length).toBeGreaterThan(0);
@@ -83,11 +85,11 @@ describe('UserService', () => {
         filters: { _id: { eq: getTestMetaOrgUser()._id } },
       };
 
-      await expect(service.update(getTestMetaOrgAdminUserContext(), queryObject, {
+      await expect(service.update(getTestMetaOrgAdminContext(), queryObject, {
         password: 'new-password',
       })).rejects.toThrow(BadRequestError);
 
-      await expect(service.update(getTestMetaOrgAdminUserContext(), queryObject, {
+      await expect(service.update(getTestMetaOrgAdminContext(), queryObject, {
         password: 'new-password',
       })).rejects.toThrow(PASSWORD_ON_ENTITY_MESSAGE);
     });
@@ -97,7 +99,7 @@ describe('UserService', () => {
         filters: { _id: { eq: getTestMetaOrgUser()._id } },
       };
 
-      const updatedUsers = await service.update(getTestMetaOrgAdminUserContext(), queryObject, {
+      const updatedUsers = await service.update(getTestMetaOrgAdminContext(), queryObject, {
         displayName: 'Updated Display Name',
       });
 
@@ -108,14 +110,14 @@ describe('UserService', () => {
 
   describe('batchUpdate', () => {
     it('should reject batch updates when any entity includes a password', async () => {
-      await expect(service.batchUpdate(getTestMetaOrgAdminUserContext(), [
+      await expect(service.batchUpdate(getTestMetaOrgAdminContext(), [
         {
           _id: getTestMetaOrgUser()._id,
           password: 'new-password',
         },
       ])).rejects.toThrow(BadRequestError);
 
-      await expect(service.batchUpdate(getTestMetaOrgAdminUserContext(), [
+      await expect(service.batchUpdate(getTestMetaOrgAdminContext(), [
         {
           _id: getTestMetaOrgUser()._id,
           password: 'new-password',
@@ -124,7 +126,7 @@ describe('UserService', () => {
     });
 
     it('should reject batch updates when only one entity in the batch includes a password', async () => {
-      await expect(service.batchUpdate(getTestMetaOrgAdminUserContext(), [
+      await expect(service.batchUpdate(getTestMetaOrgAdminContext(), [
         {
           _id: getTestMetaOrgUser()._id,
           displayName: 'Updated Meta Org User',
@@ -135,7 +137,7 @@ describe('UserService', () => {
         },
       ])).rejects.toThrow(BadRequestError);
 
-      await expect(service.batchUpdate(getTestMetaOrgAdminUserContext(), [
+      await expect(service.batchUpdate(getTestMetaOrgAdminContext(), [
         {
           _id: getTestMetaOrgUser()._id,
           displayName: 'Updated Meta Org User',
@@ -148,7 +150,7 @@ describe('UserService', () => {
     });
 
     it('should allow batch updates when no entities include a password', async () => {
-      const updatedUsers = await service.batchUpdate(getTestMetaOrgAdminUserContext(), [
+      const updatedUsers = await service.batchUpdate(getTestMetaOrgAdminContext(), [
         {
           _id: getTestMetaOrgUser()._id,
           displayName: 'Updated Meta Org User',
@@ -162,17 +164,17 @@ describe('UserService', () => {
 
   describe('partialUpdateById', () => {
     it('should reject updates that include a password', async () => {
-      await expect(service.partialUpdateById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id, {
+      await expect(service.partialUpdateById(getTestMetaOrgContext(), getTestMetaOrgUser()._id, {
         password: 'new-password',
       })).rejects.toThrow(BadRequestError);
 
-      await expect(service.partialUpdateById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id, {
+      await expect(service.partialUpdateById(getTestMetaOrgContext(), getTestMetaOrgUser()._id, {
         password: 'new-password',
       })).rejects.toThrow(PASSWORD_ON_ENTITY_MESSAGE);
     });
 
     it('should allow partial updates that do not include a password', async () => {
-      const updatedUser = await service.partialUpdateById(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id, {
+      const updatedUser = await service.partialUpdateById(getTestMetaOrgContext(), getTestMetaOrgUser()._id, {
         displayName: 'Updated Display Name',
       });
 
@@ -180,7 +182,7 @@ describe('UserService', () => {
     });
 
     it('should allow partial user updates', async () => {
-      const updatedUser = await service.partialUpdateById(getTestMetaOrgAdminUserContext(), getTestOrgUser()._id, {
+      const updatedUser = await service.partialUpdateById(getTestMetaOrgAdminContext(), getTestOrgUser()._id, {
         displayName: 'Admin Updated',
       });
 
@@ -190,17 +192,17 @@ describe('UserService', () => {
 
   describe('changePassword', () => {
     it('should reject empty string passwords', async () => {
-      await expect(service.changePassword(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id, ''))
+      await expect(service.changePassword(getTestMetaOrgContext(), getTestMetaOrgUser()._id, ''))
         .rejects.toThrow(BadRequestError);
 
-      await expect(service.changePassword(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id, ''))
+      await expect(service.changePassword(getTestMetaOrgContext(), getTestMetaOrgUser()._id, ''))
         .rejects.toThrow(EMPTY_PASSWORD_MESSAGE);
     });
 
     it('should hash the password and set _lastPasswordChange', async () => {
       const newPassword = 'newSecurePassword123!';
 
-      const updatedUser = await service.changePassword(getTestMetaOrgUserContext(), getTestMetaOrgUser()._id, newPassword);
+      const updatedUser = await service.changePassword(getTestMetaOrgContext(), getTestMetaOrgUser()._id, newPassword);
 
       expect(updatedUser.password).toBeDefined();
       expect(updatedUser.password).not.toEqual(newPassword);

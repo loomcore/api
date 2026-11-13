@@ -9,7 +9,7 @@ import { LeftJoin } from '../left-join.operation.js';
 import { InnerJoin } from '../inner-join.operation.js';
 import { LeftJoinMany } from '../left-join-many.operation.js';
 import { Operation } from '../operation.js';
-import { IQueryOptions, DefaultQueryOptions, IUserContext, EmptyUserContext, IPagedResult } from '@loomcore/common/models';
+import { IQueryOptions, DefaultQueryOptions, IPagedResult } from '@loomcore/common/models';
 import { ITestClientReportsModel, testClientReportsModelSpec } from './models/test-client-report.model.js';
 import { ITestPersonModel } from './models/test-person.model.js';
 import { ITestEmailAddressModel } from './models/test-email-address.model.js';
@@ -19,6 +19,7 @@ import { ITestPolicyModel } from './models/test-policy.model.js';
 import { ITestPremiumModel } from './models/test-premium.model.js';
 import { ApiController } from '../../../controllers/api.controller.js';
 import { GenericApiService } from '../../../services/generic-api-service/generic-api.service.js';
+import type { IRequestContext } from '../../../services/request-context.interface.js';
 import { AppIdType } from '@loomcore/common/types';
 import { apiUtils } from '../../../utils/index.js';
 import { Value } from '@sinclair/typebox/value';
@@ -40,7 +41,7 @@ interface ITestClientReportsApiModel extends ITestClientReportsModel {
 
 // Custom prepareQuery function that adds join operations
 const prepareQueryCustom: PrepareQueryCustomFunction = (
-  userContext: IUserContext | undefined,
+  _context: IRequestContext | undefined,
   queryOptions: IQueryOptions,
   operations: Operation[]
 ): { queryOptions: IQueryOptions, operations: Operation[] } => {
@@ -114,7 +115,7 @@ const prepareQueryCustom: PrepareQueryCustomFunction = (
 
 // Custom postProcessEntity function that merges _joinData into the main entity
 const postProcessEntityCustom: PostProcessEntityCustomFunction<any, ITestClientReportsApiModel> = (
-  userContext: IUserContext,
+  _context: IRequestContext,
   entity: any
 ): ITestClientReportsApiModel => {
   const joinData = entity._joinData;
@@ -219,11 +220,11 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
   override async get(req: Request, res: Response) {
     res.set('Content-Type', 'application/json');
 
-
+    const context = this.createContext(req);
     const queryOptions = apiUtils.getQueryOptionsFromRequest(req);
 
     const entity = await this.service.get<ITestClientReportsApiModel>(
-      req.userContext!,
+      context,
       queryOptions,
       prepareQueryCustom,
       postProcessEntityCustom
@@ -237,8 +238,9 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
 
   override async getAll(req: Request, res: Response) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
     const entities = await this.service.getAll<ITestClientReportsApiModel>(
-      req.userContext!,
+      context,
       prepareQueryCustom,
       postProcessEntityCustom
     );
@@ -248,6 +250,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
 
   override async getById(req: Request, res: Response) {
     res.set('Content-Type', 'application/json');
+    const context = this.createContext(req);
     const idParam = req.params?.id;
     if (!idParam) {
       throw new Error('ID parameter is required');
@@ -260,7 +263,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
     }
 
     const entity = await this.service.getById<ITestClientReportsApiModel>(
-      req.userContext!,
+      context,
       id,
       prepareQueryCustom,
       postProcessEntityCustom

@@ -7,7 +7,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { IDatabase } from '../../databases/models/index.js';
-import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, getTestMetaOrgContext } from '../../__tests__/test-objects.js';
 import { ITestItem, TestItemSpec } from '../../__tests__/models/test-item.model.js';
 import { AuthController } from '../auth.controller.js';
 
@@ -150,7 +150,7 @@ describe('ApiController - Integration Tests', () => {
       expectPublicItem(response.body.data);
       expect(response.body.data.name).toBe('Test Item');
 
-      const stored = await testItemService.getById(getTestMetaOrgUserContext(), response.body.data._id);
+      const stored = await testItemService.getById(getTestMetaOrgContext(), response.body.data._id);
       expect(stored._created).toBeDefined();
       expect(stored._createdBy).toBe(userId);
     });
@@ -164,7 +164,7 @@ describe('ApiController - Integration Tests', () => {
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
       expect(itemId).toBeDefined();
-      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const originalStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -177,7 +177,7 @@ describe('ApiController - Integration Tests', () => {
       expectPublicItem(updateResponse.body.data);
       expect(updateResponse.body.data.name).toBe('Updated Name');
 
-      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
       expect(updatedStored._created).toEqual(originalStored._created);
       expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
       expect(updatedStored._updated).toBeDefined();
@@ -193,7 +193,7 @@ describe('ApiController - Integration Tests', () => {
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
       expect(itemId).toBeDefined();
-      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const originalStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -209,7 +209,7 @@ describe('ApiController - Integration Tests', () => {
       expectPublicItem(updateResponse.body.data);
       expect(updateResponse.body.data.name).toBe('New Name');
 
-      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
       expect(updatedStored._created).toEqual(originalStored._created);
       expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
       expect(updatedStored._updated).toBeDefined();
@@ -225,7 +225,7 @@ describe('ApiController - Integration Tests', () => {
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
       expect(itemId).toBeDefined();
-      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const originalStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
 
       const tamperedDate = new Date(2000, 1, 1).toISOString();
       const updateResponse = await testAgent
@@ -242,7 +242,7 @@ describe('ApiController - Integration Tests', () => {
       expect(updateResponse.status).toBe(200);
       expectPublicItem(updateResponse.body.data);
 
-      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
       expect(updatedStored._created).toEqual(originalStored._created);
       expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
       expect(updatedStored._updatedBy).not.toEqual('hacker');
@@ -290,7 +290,7 @@ describe('ApiController - Integration Tests', () => {
       expect(getResponse.status).toBe(200);
       expectPublicItem(getResponse.body.data);
 
-      const stored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const stored = await testItemService.getById(getTestMetaOrgContext(), itemId);
       expect(stored._created).toBeDefined();
       expect(stored._createdBy).toBe(userId);
     });
@@ -424,7 +424,7 @@ describe('ApiController - Integration Tests', () => {
       expect(response.status).toBe(201);
       expectPublicItem(response.body.data);
 
-      const stored = await testItemService.getById(getTestMetaOrgUserContext(), response.body.data._id);
+      const stored = await testItemService.getById(getTestMetaOrgContext(), response.body.data._id);
       expect(stored._created).toBeDefined();
       expect(stored._createdBy).toBe(userId);
       expect(stored._updated).toBeUndefined();
@@ -451,7 +451,7 @@ describe('ApiController - Integration Tests', () => {
       expect(response.status).toBe(201);
       expectPublicItem(response.body.data);
 
-      const stored = await testItemService.getById(getTestMetaOrgUserContext(), response.body.data._id);
+      const stored = await testItemService.getById(getTestMetaOrgContext(), response.body.data._id);
       expect(stored._createdBy).not.toEqual('hacker');
       expect(stored._createdBy).toEqual(userId);
       expect(stored._updatedBy).not.toEqual('hacker');
@@ -466,7 +466,7 @@ describe('ApiController - Integration Tests', () => {
 
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
-      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const originalStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -478,7 +478,7 @@ describe('ApiController - Integration Tests', () => {
       expect(updateResponse.status).toBe(200);
       expectPublicItem(updateResponse.body.data);
 
-      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
       expect(updatedStored._created).toEqual(originalStored._created);
       expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
       expect(updatedStored._updated).toBeDefined();
@@ -493,7 +493,7 @@ describe('ApiController - Integration Tests', () => {
 
       expect(createResponse.status).toBe(201);
       const itemId = createResponse.body.data._id;
-      const originalStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const originalStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -508,7 +508,7 @@ describe('ApiController - Integration Tests', () => {
       expect(updateResponse.body.data.name).toBe('PUT Updated');
       expect(updateResponse.body.data.value).toBe(75);
 
-      const updatedStored = await testItemService.getById(getTestMetaOrgUserContext(), itemId);
+      const updatedStored = await testItemService.getById(getTestMetaOrgContext(), itemId);
       expect(updatedStored._created).toEqual(originalStored._created);
       expect(updatedStored._createdBy).toEqual(originalStored._createdBy);
       expect(updatedStored._updated).toBeDefined();

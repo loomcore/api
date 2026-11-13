@@ -12,7 +12,8 @@ export async function updateLastLoggedIn(
 ): Promise<void> {
   try {
     const updates: Partial<IUser> = {
-      _lastLoggedIn: moment().utc().toDate(),
+      // Validate runs before decode, so dates must be ISO strings at the service boundary
+      _lastLoggedIn: moment().utc().toISOString() as unknown as Date,
     };
     await userService.update(
       createSystemContext(),

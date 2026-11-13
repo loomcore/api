@@ -5,6 +5,7 @@ import { TestExpressApp } from '../../__tests__/test-express-app.js';
 import {
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
+  getTestMetaOrgContext,
   getTestMetaOrgRefererUrl,
 } from '../../__tests__/test-objects.js';
 import { UserService } from '../../services/user.service.js';
@@ -118,9 +119,9 @@ describe('AuthController', () => {
 
     it('should update the user\'s _lastLoggedIn property in the database after successful login', async () => {
       const user = getTestMetaOrgUser();
-      const userContext = getTestMetaOrgUserContext();
+      const context = getTestMetaOrgContext();
       // Get the user before login to check initial state
-      const userBeforeLogin = await userService.findOne(userContext, {
+      const userBeforeLogin = await userService.findOne(context, {
         filters: { _id: { eq: user._id } },
       });
 
@@ -138,7 +139,7 @@ describe('AuthController', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Get the user after login to check if _lastLoggedIn was updated
-      const userAfterLogin = await userService.findOne(userContext, {
+      const userAfterLogin = await userService.findOne(context, {
         filters: { _id: { eq: user._id } },
       });
 

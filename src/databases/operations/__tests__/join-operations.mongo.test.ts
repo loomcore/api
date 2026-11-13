@@ -223,11 +223,10 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     // Query using getById
     const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-    const rawResult = await database.getById<ITestClientReportsModel>(
+    const rawResult = await database.findOne<ITestClientReportsModel>(
+      'clients',
+      { ...(queryOptions.filters || {}), _id: { eq: clientId } },
       operations,
-      queryOptions,
-      clientId,
-      'clients'
     );
 
     // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
@@ -306,10 +305,10 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
     };
 
     const rawResult = await database.get<ITestClientReportsModel>(
-      operations,
+      'clients',
       queryOptions,
+      operations,
       testClientReportsModelSpec,
-      'clients'
     );
 
     // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
@@ -353,8 +352,9 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     // Query using getAll
     const rawResults = await database.getAll<ITestClientReportsModel>(
+      'clients',
+      {},
       operations,
-      'clients'
     );
 
     // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)
@@ -422,11 +422,10 @@ describe.skipIf(!isMongo)('Join Operations - Complex Data Joining (MongoDB)', ()
 
     // Query the new client
     const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-    const rawResult = await database.getById<ITestClientReportsModel>(
+    const rawResult = await database.findOne<ITestClientReportsModel>(
+      'clients',
+      { ...(queryOptions.filters || {}), _id: { eq: newClientId } },
       operations,
-      queryOptions,
-      newClientId,
-      'clients'
     );
 
     // Convert ObjectIds to strings (MongoDB returns raw ObjectIds)

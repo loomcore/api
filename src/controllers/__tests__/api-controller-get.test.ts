@@ -12,6 +12,9 @@ import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
 import { getSystemUserContext } from '@loomcore/common/models';
 import { AppIdType } from '@loomcore/common/types';
+import {
+  getSystemContext,
+} from '../../__tests__/test-objects.js';
 
 // Skip this test suite if not running with PostgreSQL
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
@@ -51,12 +54,12 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
     await TestExpressApp.clearCollections();
 
     // Insert a category
-    const categoryResult = await categoryService.create(getSystemUserContext(), { name: 'Test Category' });
+    const categoryResult = await categoryService.create(getSystemContext(), { name: 'Test Category' });
     if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
     // Insert a product with a sensitive internalNumber
-    const productResult = await productService.create(getSystemUserContext(), {
+    const productResult = await productService.create(getSystemContext(), {
       name: 'Test Product',
       internalNumber: 'ABC-123-XYZ',
       categoryId: categoryId

@@ -8,6 +8,8 @@ import {
   getTestMetaOrgRefererUrl,
   getTestMetaOrgUser,
   getTestMetaOrgUserContext,
+  getTestMetaOrgContext,
+  getTestMetaOrgAdminContext,
 } from '../../__tests__/test-objects.js';
 import { UserService } from '../../services/user.service.js';
 import { AuthController } from '../auth.controller.js';
@@ -31,7 +33,7 @@ describe('AuthController impersonation', () => {
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
     await testUtils.setupTestUsers();
-    const created = await userService.create(getTestMetaOrgUserContext(), {
+    const created = await userService.create(getTestMetaOrgContext(), {
       email: 'impersonation-target@example.com',
       displayName: 'Impersonation Target',
       password: 'target-password-1',
@@ -127,7 +129,7 @@ describe('AuthController impersonation', () => {
 
   it('should return a 400 when already impersonating', async () => {
     const nestedToken = jwt.sign(
-      { ...getTestMetaOrgAdminUserContext(), impersonatorId: getTestMetaOrgUser()._id },
+      { ...getTestMetaOrgAdminContext(), impersonatorId: getTestMetaOrgUser()._id },
       'test-secret',
       { expiresIn: 3600 },
     );

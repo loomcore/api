@@ -14,6 +14,10 @@ import {
   getTestMetaOrg,
   getTestOrgUserContext,
   getTestMetaOrgUser,
+  getTestMetaOrgContext,
+  getTestMetaOrgAdminContext,
+  getTestOrgContext,
+  getSystemContext,
 } from '../../__tests__/test-objects.js';
 import { MongoDBDatabase } from '../../databases/mongo-db/mongo-db.database.js';
 import { EmailService } from '../email.service.js';
@@ -56,7 +60,8 @@ describe('OrganizationService', () => {
       const referer = `https://${domain}/products`;
       const host = referer.split('/')[2];
 
-      const createdOrg = await service.create(getSystemUserContext(), {
+      const createdOrg = await service.create(getSystemContext(), {
+        _id: testUtils.getRandomId(),
         name: 'My Org',
         code: 'my-org',
         status: 1,
@@ -64,12 +69,13 @@ describe('OrganizationService', () => {
       });
       expect(createdOrg?._id).toBeDefined();
 
-      await organizationDomainService.create(getSystemUserContext(), {
+      await organizationDomainService.create(getSystemContext(), {
+        _id: testUtils.getRandomId(),
         organizationId: createdOrg!._id,
         domain,
       });
 
-      const found = await service.findByDomain(EmptyUserContext, host);
+      const found = await service.findByDomain({ userContext: EmptyUserContext }, host);
 
       expect(found).toBeDefined();
       expect(found?._id).toBe(createdOrg!._id);
@@ -122,7 +128,7 @@ describe('OrganizationService', () => {
       expect(rawDomain).toBeTruthy();
       expect(rawDomain.organizationId.toString()).toBe(orgObjectId.toString());
 
-      const found = await service.findByDomain(EmptyUserContext, domain);
+      const found = await service.findByDomain({ userContext: EmptyUserContext }, domain);
 
       expect(found).toBeDefined();
       expect(found?._id).toBe(orgObjectId.toString());
@@ -130,25 +136,27 @@ describe('OrganizationService', () => {
     });
 
     it('should return null when domain is not registered', async () => {
-      const found = await service.findByDomain(EmptyUserContext, 'unknown.example.com');
+      const found = await service.findByDomain({ userContext: EmptyUserContext }, 'unknown.example.com');
       expect(found).toBeNull();
     });
 
     it('should resolve a tenant domain case-insensitively', async () => {
       const domain = 'acme.localhost';
-      const createdOrg = await service.create(getSystemUserContext(), {
+      const createdOrg = await service.create(getSystemContext(), {
+        _id: testUtils.getRandomId(),
         name: 'Acme Domain Org',
         code: 'acme-domain',
         status: 1,
         isMetaOrg: false,
       });
 
-      await organizationDomainService.create(getSystemUserContext(), {
+      await organizationDomainService.create(getSystemContext(), {
+        _id: testUtils.getRandomId(),
         organizationId: createdOrg!._id,
         domain,
       });
 
-      const found = await service.findByDomain(EmptyUserContext, 'ACME.LocalHost');
+      const found = await service.findByDomain({ userContext: EmptyUserContext }, 'ACME.LocalHost');
       expect(found?._id).toBe(createdOrg!._id);
     });
   });
@@ -157,16 +165,18 @@ describe('OrganizationService', () => {
     it('should throw BadRequestError when trying to create a metaOrg if one already exists', async () => {
       // Arrange: Create the first metaOrg
       const firstMetaOrg: Partial<IOrganization> = {
+        _id: testUtils.getRandomId(),
         name: 'First Meta Organization',
         code: 'first-meta-org',
         status: 1,
         isMetaOrg: true,
       };
 
-      await service.create(getTestMetaOrgUserContext(), firstMetaOrg);
+      await service.create(getTestMetaOrgContext(), firstMetaOrg);
 
       // Act & Assert: Try to create a second metaOrg and expect BadRequestError
       const secondMetaOrg: Partial<IOrganization> = {
+        _id: testUtils.getRandomId(),
         name: 'Second Meta Organization',
         code: 'second-meta-org',
         status: 1,
@@ -174,11 +184,11 @@ describe('OrganizationService', () => {
       };
 
       await expect(
-        service.create(getTestMetaOrgUserContext(), secondMetaOrg)
+        service.create(getTestMetaOrgContext(), secondMetaOrg)
       ).rejects.toThrow(BadRequestError);
 
       await expect(
-        service.create(getTestMetaOrgUserContext(), secondMetaOrg)
+        service.create(getTestMetaOrgContext(), secondMetaOrg)
       ).rejects.toThrow('Meta organization already exists');
     });
 
@@ -187,7 +197,7 @@ describe('OrganizationService', () => {
       const metaOrg = getTestMetaOrg();
 
       // Act
-      const result = await service.create(getTestMetaOrgUserContext(), metaOrg);
+      const result = await service.create(getTestMetaOrgContext(), metaOrg);
 
       // Assert
       expect(result).toBeDefined();
@@ -199,11 +209,12 @@ describe('OrganizationService', () => {
       // Arrange: Create a metaOrg first
       const metaOrg = getTestMetaOrg();
 
-      const createdMetaOrg = await service.create(getTestMetaOrgUserContext(), metaOrg);
+      const createdMetaOrg = await service.create(getTestMetaOrgContext(), metaOrg);
       expect(createdMetaOrg).toBeDefined();
 
       // Act & Assert: Try to create a regular org with a non-metaOrg userContext
       const regularOrg: Partial<IOrganization> = {
+        _id: testUtils.getRandomId(),
         name: 'Regular Organization',
         code: 'regular-org',
         status: 1,
@@ -211,11 +222,11 @@ describe('OrganizationService', () => {
       };
 
       await expect(
-        service.create(getTestOrgUserContext(), regularOrg)
+        service.create(getTestOrgContext(), regularOrg)
       ).rejects.toThrow(BadRequestError);
 
       await expect(
-        service.create(getTestOrgUserContext(), regularOrg)
+        service.create(getTestOrgContext(), regularOrg)
       ).rejects.toThrow('User is not authorized to create an organization');
     });
 
@@ -223,7 +234,7 @@ describe('OrganizationService', () => {
       // Arrange: Create a metaOrg first
       const metaOrg = getTestMetaOrg();
 
-      const createdMetaOrg = await service.create(getTestMetaOrgUserContext(), metaOrg);
+      const createdMetaOrg = await service.create(getTestMetaOrgContext(), metaOrg);
       expect(createdMetaOrg).toBeDefined();
       expect(createdMetaOrg?._id).toBeDefined();
 
@@ -239,13 +250,14 @@ describe('OrganizationService', () => {
 
       // Act: Create a regular org with metaOrg userContext
       const regularOrg: Partial<IOrganization> = {
+        _id: testUtils.getRandomId(),
         name: 'Regular Organization',
         code: 'regular-org',
         status: 1,
         isMetaOrg: false,
       };
 
-      const result = await service.create(metaOrgUserContext, regularOrg);
+      const result = await service.create({ userContext: metaOrgUserContext }, regularOrg);
 
       // Assert
       expect(result).toBeDefined();
@@ -276,20 +288,20 @@ describe('OrganizationService', () => {
       };
 
       await expect(
-        service.createOrganizationWithAdmin(getTestMetaOrgAdminUserContext(), payload),
+        service.createOrganizationWithAdmin(getTestMetaOrgAdminContext(), payload),
       ).rejects.toThrow();
 
-      const leftoverOrg = await service.findOne(getSystemUserContext(), {
+      const leftoverOrg = await service.findOne(getSystemContext(), {
         filters: { code: { eq: payload.code } },
       });
       expect(leftoverOrg).toBeNull();
 
-      const leftoverDomain = await organizationDomainService.findOne(getSystemUserContext(), {
+      const leftoverDomain = await organizationDomainService.findOne(getSystemContext(), {
         filters: { domain: { eq: buildOrganizationTenantDomain(payload.code) } },
       });
       expect(leftoverDomain).toBeNull();
 
-      const leftoverUser = await userService.findOne(getSystemUserContext(), {
+      const leftoverUser = await userService.findOne(getSystemContext(), {
         filters: { email: { eq: payload.adminEmail } },
       });
       expect(leftoverUser).toBeNull();
@@ -298,7 +310,7 @@ describe('OrganizationService', () => {
     it('stores a mixed-case code as lowercase and builds a lowercase tenant domain', async () => {
       vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
-      const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminUserContext(), {
+      const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminContext(), {
         name: 'Mixed Case Tenant',
         code: '  AcMe  ',
         adminEmail: 'mixed-case-admin@example.com',
@@ -306,7 +318,7 @@ describe('OrganizationService', () => {
 
       expect(result.organization.code).toBe('acme');
 
-      const createdDomain = await organizationDomainService.findOne(getSystemUserContext(), {
+      const createdDomain = await organizationDomainService.findOne(getSystemContext(), {
         filters: { domain: { eq: buildOrganizationTenantDomain('acme') } },
       });
       expect(createdDomain).toBeDefined();
@@ -316,7 +328,7 @@ describe('OrganizationService', () => {
     it('defaults adminDisplayName to Admin User when it is omitted', async () => {
       vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
-      const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminUserContext(), {
+      const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminContext(), {
         name: 'Default Name Tenant',
         code: 'default-name',
         adminEmail: 'default-name-admin@example.com',
@@ -329,7 +341,8 @@ describe('OrganizationService', () => {
 
   describe('organization code normalization', () => {
     it('stores a mixed-case code as lowercase on create', async () => {
-      const created = await service.create(getTestMetaOrgUserContext(), {
+      const created = await service.create(getTestMetaOrgContext(), {
+        _id: testUtils.getRandomId(),
         name: 'Mixed Case Create',
         code: '  AcMe  ',
         status: 1,
@@ -340,7 +353,8 @@ describe('OrganizationService', () => {
     });
 
     it('stores a mixed-case code as lowercase on update', async () => {
-      const created = await service.create(getTestMetaOrgUserContext(), {
+      const created = await service.create(getTestMetaOrgContext(), {
+        _id: testUtils.getRandomId(),
         name: 'Mixed Case Update',
         code: 'original-code',
         status: 1,
@@ -351,7 +365,7 @@ describe('OrganizationService', () => {
       }
 
       const updated = await service.partialUpdateById(
-        getTestMetaOrgUserContext(),
+        getTestMetaOrgContext(),
         created._id,
         { code: 'New-Code' },
       );
@@ -360,19 +374,21 @@ describe('OrganizationService', () => {
     });
 
     it('finds an organization by mixed-case code', async () => {
-      await service.create(getTestMetaOrgUserContext(), {
+      await service.create(getTestMetaOrgContext(), {
+        _id: testUtils.getRandomId(),
         name: 'Lookup Org',
         code: 'lookup-org',
         status: 1,
         isMetaOrg: false,
       });
 
-      const found = await service.getByCode(getTestMetaOrgUserContext(), 'Lookup-ORG');
+      const found = await service.getByCode(getTestMetaOrgContext(), 'Lookup-ORG');
       expect(found?.code).toBe('lookup-org');
     });
 
     it('throws DuplicateKeyError when creating Acme if acme already exists', async () => {
-      await service.create(getTestMetaOrgUserContext(), {
+      await service.create(getTestMetaOrgContext(), {
+        _id: testUtils.getRandomId(),
         name: 'Acme One',
         code: 'acme',
         status: 1,
@@ -380,7 +396,8 @@ describe('OrganizationService', () => {
       });
 
       await expect(
-        service.create(getTestMetaOrgUserContext(), {
+        service.create(getTestMetaOrgContext(), {
+          _id: testUtils.getRandomId(),
           name: 'Acme Two',
           code: 'Acme',
           status: 1,

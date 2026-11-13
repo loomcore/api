@@ -7,13 +7,14 @@ import { LeftJoin } from '../../../databases/operations/left-join.operation.js';
 import { InnerJoin } from '../../../databases/operations/inner-join.operation.js';
 import { LeftJoinMany } from '../../../databases/operations/left-join-many.operation.js';
 import { Operation } from '../../../databases/operations/operation.js';
-import { IQueryOptions, DefaultQueryOptions, IUserContext } from '@loomcore/common/models';
+import { IQueryOptions, DefaultQueryOptions } from '@loomcore/common/models';
+import type { IRequestContext } from '../../request-context.interface.js';
 import { GenericQueryService } from '../generic-query.service.js';
 import { ITestClientReportsModel, testClientReportsModelSpec } from '../../../databases/operations/__tests__/models/test-client-report.model.js';
 import { ITestPersonModel } from '../../../databases/operations/__tests__/models/test-person.model.js';
 import { ITestEmailAddressModel } from '../../../databases/operations/__tests__/models/test-email-address.model.js';
 import { ITestPhoneNumberModel } from '../../../databases/operations/__tests__/models/test-phone-number.model.js';
-import { getTestMetaOrgUserContext } from '../../../__tests__/test-objects.js';
+import { getTestMetaOrgContext } from '../../../__tests__/test-objects.js';
 import { IdNotFoundError } from '../../../errors/index.js';
 
 // Skip this test suite if not running with PostgreSQL
@@ -25,7 +26,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
   let client: PostgresConnection;
   let testDatabase: TestPostgresDatabase;
   let service: GenericQueryService<ITestClientReportsModel>;
-  let userContext: IUserContext;
+  let context: IRequestContext;
   let personId: number;
   let clientId: number;
   let emailAddress1Id: number;
@@ -45,7 +46,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     client = (testDatabase as any).postgresClient as PostgresConnection;
 
     // Get user context for tests
-    userContext = getTestMetaOrgUserContext();
+    context = getTestMetaOrgContext();
 
     // Create default join operations for client-report
     const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
@@ -170,7 +171,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
   describe('getById', () => {
     it('should fetch a client-report with all joins applied', async () => {
-      const result = await service.getById(userContext, clientId);
+      const result = await service.getById(context, clientId);
 
       // Verify the result structure
       expect(result).toBeDefined();
@@ -221,7 +222,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     it('should throw IdNotFoundError when client does not exist', async () => {
       const nonExistentId = 99999;
 
-      await expect(service.getById(userContext, nonExistentId)).rejects.toThrow(IdNotFoundError);
+      await expect(service.getById(context, nonExistentId)).rejects.toThrow(IdNotFoundError);
     });
   });
 
@@ -233,7 +234,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         pageSize: 10
       };
 
-      const result = await service.get(userContext, queryOptions);
+      const result = await service.get(context, queryOptions);
 
       // Verify paginated result
       expect(result).toBeDefined();
@@ -257,7 +258,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         pageSize: 1
       };
 
-      const result = await service.get(userContext, queryOptions);
+      const result = await service.get(context, queryOptions);
 
       expect(result.entities).toBeDefined();
       expect(result.entities!.length).toBeLessThanOrEqual(1);
@@ -272,7 +273,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         sortDirection: 'desc'
       };
 
-      const result = await service.get(userContext, queryOptions);
+      const result = await service.get(context, queryOptions);
 
       expect(result.entities).toBeDefined();
       if (result.entities!.length > 1) {
@@ -287,7 +288,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
 
   describe('getAll', () => {
     it('should fetch all client-reports with joins applied', async () => {
-      const results = await service.getAll(userContext);
+      const results = await service.getAll(context);
 
       // Verify results
       expect(results).toBeDefined();
@@ -308,11 +309,11 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     it('should allow overriding prepareQuery to add additional operations', async () => {
       // Create a service with a custom prepareQuery that adds operations dynamically
       class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
-        override prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
+        override prepareQuery(context: IRequestContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
           // Add join operations dynamically
           const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
           const additionalOps = [joinPerson, ...operations];
-          const { queryOptions: preparedOptions, operations: mergedOps } = super.prepareQuery(userContext, queryOptions, additionalOps);
+          const { queryOptions: preparedOptions, operations: mergedOps } = super.prepareQuery(context, queryOptions, additionalOps);
           return { queryOptions: preparedOptions, operations: mergedOps };
         }
       }
@@ -326,7 +327,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
       );
 
       // Should work with joins added via prepareQuery override
-      const result = await customService.getById(userContext, clientId);
+      const result = await customService.getById(context, clientId);
 
       expect(result).toBeDefined();
       expect(result._id).toBe(clientId);
@@ -339,8 +340,8 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
   describe('prepareQuery hook for query options', () => {
     it('should allow overriding prepareQuery to modify query options used by get', async () => {
       class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
-        override prepareQuery(userContext: IUserContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
-          const prepared = super.prepareQuery(userContext, queryOptions, operations);
+        override prepareQuery(context: IRequestContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions, operations: Operation[] } {
+          const prepared = super.prepareQuery(context, queryOptions, operations);
           prepared.queryOptions = {
             ...prepared.queryOptions,
             filters: {
@@ -361,7 +362,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
       );
 
       const queryOptions: IQueryOptions = { ...DefaultQueryOptions };
-      const result = await customService.get(userContext, queryOptions);
+      const result = await customService.get(context, queryOptions);
 
       // Should only return the client with the filtered ID
       expect(result.entities).toBeDefined();
@@ -373,8 +374,8 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
   describe('postProcessEntity hook', () => {
     it('should allow overriding postProcessEntity to transform entities', async () => {
       class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
-        override postProcessEntity(userContext: IUserContext, entity: ITestClientReportsModel): ITestClientReportsModel {
-          const processed = super.postProcessEntity(userContext, entity);
+        override postProcessEntity(context: IRequestContext, spec: import('@loomcore/common/models').IModelSpec, entity: ITestClientReportsModel): ITestClientReportsModel {
+          const processed = super.postProcessEntity(context, spec, entity);
           // Add a custom property
           (processed as any).customProperty = 'custom-value';
           return processed;
@@ -389,7 +390,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
         []
       );
 
-      const result = await customService.getById(userContext, clientId);
+      const result = await customService.getById(context, clientId);
 
       expect(result).toBeDefined();
       expect((result as any).customProperty).toBe('custom-value');
@@ -413,7 +414,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
       `, [newPersonId]);
       const newClientId = clientResult.rows[0]._id;
 
-      const result = await service.getById(userContext, newClientId);
+      const result = await service.getById(context, newClientId);
 
       // Verify empty arrays are returned
       expect(result).toBeDefined();
@@ -436,7 +437,7 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
       );
 
       // Should still work but without joins
-      const result = await serviceWithoutDefaults.getById(userContext, clientId);
+      const result = await serviceWithoutDefaults.getById(context, clientId);
 
       expect(result).toBeDefined();
       expect(result._id).toBe(clientId);

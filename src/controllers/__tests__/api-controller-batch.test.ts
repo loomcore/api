@@ -7,10 +7,9 @@ import { IProduct } from '../../__tests__/models/product.model.js';
 import { ICategory } from '../../__tests__/models/category.model.js';
 import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
-import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
-import { EmptyUserContext, getSystemUserContext } from '@loomcore/common/models';
-import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
-import { MultiTenantApiService } from '../../services/index.js';
+import { EmptyUserContext } from '@loomcore/common/models';
+import { getTestMetaOrgUserContext, getTestMetaOrgContext, getSystemContext } from '../../__tests__/test-objects.js';
+import { GenericApiService } from '../../services/index.js';
 import { AppIdType } from '@loomcore/common/types';
 
 // Skip this test suite if not running with PostgreSQL
@@ -23,8 +22,8 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
   let authorizationHeader: string;
   let productService: GenericApiService<IProduct>;
   let categoryService: GenericApiService<ICategory>;
-  let multiTenantProductService: MultiTenantApiService<IProduct>;
-  let multiTenantCategoryService: MultiTenantApiService<ICategory>;
+  let multiTenantProductService: GenericApiService<IProduct>;
+  let multiTenantCategoryService: GenericApiService<ICategory>;
   let productIds: AppIdType[];
   let multiTenantProductIds: AppIdType[];
   let categoryId: string | number;
@@ -44,8 +43,8 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     productService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     categoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
 
-    multiTenantProductService = new MultiTenantApiService<IProduct>(testSetup.database, 'products', 'product', ProductSpec);
-    multiTenantCategoryService = new MultiTenantApiService<ICategory>(testSetup.database, 'categories', 'category', CategorySpec);
+    multiTenantProductService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
+    multiTenantCategoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
     await TestExpressApp.setupErrorHandling();
   });
 
@@ -57,30 +56,30 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     await TestExpressApp.clearCollections();
 
     // 1. Arrange: Create initial products using services
-    const categoryResult = await categoryService.create(getSystemUserContext(), { name: 'Test Category' });
+    const categoryResult = await categoryService.create(getSystemContext(), { name: 'Test Category' });
     if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
 
-    const multiTenantCategoryResult = await multiTenantCategoryService.create(getTestMetaOrgUserContext(), { name: 'Test Category' });
+    const multiTenantCategoryResult = await multiTenantCategoryService.create(getTestMetaOrgContext(), { name: 'Test Category' });
     if (!multiTenantCategoryResult) throw new Error('multi-tenant category creation failed');
     multiTenantCategoryId = multiTenantCategoryResult._id;
     // Create products using services
-    const productA = await productService.create(getSystemUserContext(), {
+    const productA = await productService.create(getSystemContext(), {
       name: 'Product A',
       description: 'Description A',
       categoryId: categoryId
     });
     if (!productA) throw new Error('product A creation failed');
 
-    const productB = await productService.create(getSystemUserContext(), {
+    const productB = await productService.create(getSystemContext(), {
       name: 'Product B',
       description: 'Description B',
       categoryId: categoryId
     });
     if (!productB) throw new Error('product B creation failed');
 
-    const productC = await productService.create(getSystemUserContext(), {
+    const productC = await productService.create(getSystemContext(), {
       name: 'Product C',
       description: 'Description C',
       categoryId: categoryId
@@ -89,21 +88,21 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
 
     productIds = [productA._id, productB._id, productC._id];
 
-    const multiTenantProductA = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
+    const multiTenantProductA = await multiTenantProductService.create(getTestMetaOrgContext(), {
       ...productA,
       _id: undefined,
       _orgId: getTestMetaOrgUserContext().user?._orgId
     });
     if (!multiTenantProductA) throw new Error('multi-tenant product A creation failed');
 
-    const multiTenantProductB = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
+    const multiTenantProductB = await multiTenantProductService.create(getTestMetaOrgContext(), {
       ...productB,
       _id: undefined,
       _orgId: getTestMetaOrgUserContext().user?._orgId
     });
     if (!multiTenantProductB) throw new Error('multi-tenant product B creation failed');
 
-    const multiTenantProductC = await multiTenantProductService.create(getTestMetaOrgUserContext(), {
+    const multiTenantProductC = await multiTenantProductService.create(getTestMetaOrgContext(), {
       ...productC,
       _id: undefined,
       _orgId: getTestMetaOrgUserContext().user?._orgId
@@ -145,10 +144,10 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     expect(updatedProductC.description).toBe('Description C also Updated');
 
     // Verify directly from service
-    const productAFromDb = await productService.getById(EmptyUserContext, productIds[0]);
+    const productAFromDb = await productService.getById({ userContext: EmptyUserContext }, productIds[0]);
     expect(productAFromDb.name).toBe('Product A Updated');
 
-    const productBFromDb = await productService.getById(EmptyUserContext, productIds[1]);
+    const productBFromDb = await productService.getById({ userContext: EmptyUserContext }, productIds[1]);
     expect(productBFromDb.description).toBe('Description B Updated');
   });
 
@@ -175,7 +174,7 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     expect(updatedProductA!.name).toBe('Product A Updated');
 
     // Verify directly from service
-    const productAFromDb = await multiTenantProductService.getById(getTestMetaOrgUserContext(), multiTenantProductIds[0]);
+    const productAFromDb = await multiTenantProductService.getById(getTestMetaOrgContext(), multiTenantProductIds[0]);
     expect(productAFromDb.name).toBe('Product A Updated');
   });
 });
