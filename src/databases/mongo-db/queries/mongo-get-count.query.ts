@@ -1,13 +1,11 @@
 import { Db } from 'mongodb';
-import type { AppIdType } from '@loomcore/common/types';
+import type { Filters } from '../../../services/filters.type.js';
+import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 
-export async function getCount(db: Db, pluralResourceName: string, orgId?: AppIdType): Promise<number> {
+export async function getCount(db: Db, pluralResourceName: string, filters: Filters): Promise<number> {
   const collection = db.collection(pluralResourceName);
+  const matchDocument = buildNoSqlMatch({ filters });
+  const filter = matchDocument.$match || {};
 
-  if (orgId !== undefined) {
-    const filter = { _orgId: orgId.toString() };
-    return await collection.countDocuments(filter);
-  }
-
-  return await collection.countDocuments();
+  return await collection.countDocuments(filter);
 }
