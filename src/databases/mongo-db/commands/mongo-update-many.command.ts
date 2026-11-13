@@ -1,14 +1,15 @@
 import { Db } from 'mongodb';
-import { IEntity, IQueryOptions } from '@loomcore/common/models';
+import { IEntity } from '@loomcore/common/models';
 import { Operation } from '../../operations/operation.js';
 import { DuplicateKeyError, NotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
+import type { Filters } from '../../../services/filters.type.js';
 
-export async function update<T extends IEntity>(db: Db, queryObject: IQueryOptions, entity: Partial<T>, operations: Operation[], pluralResourceName: string): Promise<T[]> {
+export async function updateMany<T extends IEntity>(db: Db, pluralResourceName: string, filters: Filters, entity: Partial<T>, operations: Operation[]): Promise<T[]> {
   const collection = db.collection(pluralResourceName);
-  const matchDocument = buildNoSqlMatch(queryObject);
+  const matchDocument = buildNoSqlMatch({ filters });
   const filter = matchDocument.$match;
   let updateResult;
   try {
@@ -27,9 +28,8 @@ export async function update<T extends IEntity>(db: Db, queryObject: IQueryOptio
   
   // Build pipeline for retrieving updated entities (with operations)
   const pipeline = new NoSqlPipeline()
-    .addMatch(queryObject)
+    .addMatch({ filters })
     .addOperations(operations)
-    .addQueryOptions(queryObject, false)
     .build();
   
   const updatedEntities = await collection.aggregate(pipeline).toArray();

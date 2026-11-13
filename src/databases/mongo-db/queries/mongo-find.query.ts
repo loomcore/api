@@ -3,7 +3,7 @@ import { IQueryOptions } from '@loomcore/common/models';
 import { buildNoSqlMatch, buildFindOptions } from '../utils/index.js';
 
 
-export async function find<T>(db: Db, queryObject: IQueryOptions, pluralResourceName: string): Promise<T[]> {
+export async function find<T>(db: Db, pluralResourceName: string, queryObject: IQueryOptions): Promise<T[]> {
   const collection = db.collection(pluralResourceName);
   const matchDocument = buildNoSqlMatch(queryObject);
   const filter = matchDocument.$match;
@@ -14,4 +14,3 @@ export async function find<T>(db: Db, queryObject: IQueryOptions, pluralResource
       
   return entities as T[];
 }
-

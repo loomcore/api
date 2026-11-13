@@ -1,23 +1,17 @@
-import { Db, ObjectId } from 'mongodb';
+import { Db } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
-import { BadRequestError, DuplicateKeyError, IdNotFoundError } from '../../../errors/index.js';
+import { DuplicateKeyError, IdNotFoundError } from '../../../errors/index.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
-import { entityUtils } from '@loomcore/common/utils';
+import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import { IEntity } from '@loomcore/common/models';
-import type { AppIdType } from '@loomcore/common/types';
+import type { Filters } from '../../../services/filters.type.js';
 
-export async function fullUpdateById<T extends IEntity>(db: Db, operations: Operation[], id: AppIdType, entity: Partial<T>, pluralResourceName: string, orgId?: AppIdType): Promise<T> {
-  if (!entityUtils.isValidObjectId(id)) {
-    throw new BadRequestError('id is not a valid ObjectId');
-  }
-
+export async function replaceOne<T extends IEntity>(db: Db, pluralResourceName: string, filters: Filters, entity: Partial<T>, operations: Operation[]): Promise<T> {
   const collection = db.collection(pluralResourceName);
   // Build match document and extract the filter object
-  const filter: Record<string, unknown> = { _id: new ObjectId(id.toString()) };
-  if (orgId !== undefined) {
-    filter._orgId = orgId.toString();
-  }
+  const matchDocument = buildNoSqlMatch({ filters });
+  const filter = matchDocument.$match || {};
 
   let replaceResult;
   try {
@@ -31,11 +25,6 @@ export async function fullUpdateById<T extends IEntity>(db: Db, operations: Oper
   }
   if (replaceResult.matchedCount <= 0) {
     throw new IdNotFoundError();
-  }
-
-  const filters: Record<string, { eq: AppIdType }> = { _id: { eq: id } };
-  if (orgId !== undefined) {
-    filters._orgId = { eq: orgId };
   }
 
   const pipeline = new NoSqlPipeline()

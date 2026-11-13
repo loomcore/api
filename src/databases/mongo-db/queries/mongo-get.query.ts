@@ -7,7 +7,7 @@ import { buildJoinMatchStage } from '../utils/build-join-match.util.js';
 import { apiUtils } from '../../../utils/api.utils.js';
 
 
-export async function get<T>(db: Db, operations: Operation[], queryOptions: IQueryOptions, modelSpec: IModelSpec, pluralResourceName: string): Promise<IPagedResult<T>> {
+export async function get<T>(db: Db, pluralResourceName: string, queryOptions: IQueryOptions, operations: Operation[], modelSpec: IModelSpec): Promise<IPagedResult<T>> {
   const collection = db.collection(pluralResourceName);
   const { rootOptions, joinFilters } = splitFiltersByType(queryOptions, operations, pluralResourceName);
   const pipelineBuilder = new NoSqlPipeline()
@@ -31,4 +31,3 @@ export async function get<T>(db: Db, operations: Operation[], queryOptions: IQue
   );
   return pagedResult;
 }
-
