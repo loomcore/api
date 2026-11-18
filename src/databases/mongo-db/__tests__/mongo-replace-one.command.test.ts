@@ -13,6 +13,8 @@ interface ReplaceOneEntity extends IEntity {
   name: string;
   description?: string;
   extra?: string;
+  formula?: string;
+  'a.b'?: string;
   _created?: Date;
   _createdBy?: ObjectId | string;
   _updated?: Date;
@@ -54,7 +56,7 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
     await collection.deleteMany({});
   });
 
-  it('should preserve _id, _created, and _createdBy when the replacement omits them', async () => {
+  it('should remove fields omitted from the replacement document', async () => {
     const id = new ObjectId();
     const createdBy = new ObjectId();
     const created = new Date('2020-01-15T12:00:00.000Z');
@@ -63,6 +65,37 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
       name: 'Original',
       description: 'keep-me-gone',
       extra: 'removed-by-full-replace',
+      _created: created,
+      _createdBy: createdBy,
+    });
+
+    const replaced = await replaceOne<ReplaceOneEntity>(
+      db,
+      collectionName,
+      { _id: { eq: id.toString() } },
+      { name: 'Replaced' },
+      [],
+    );
+
+    expect(replaced.name).toBe('Replaced');
+    expect(replaced.description).toBeUndefined();
+    expect(replaced.extra).toBeUndefined();
+
+    const stored = await collection.findOne({ _id: id });
+    expect(stored?.description).toBeUndefined();
+    expect(stored?.extra).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(stored, 'description')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(stored, 'extra')).toBe(false);
+  });
+
+  it('should preserve _id, _created, and _createdBy when the replacement omits them', async () => {
+    const id = new ObjectId();
+    const createdBy = new ObjectId();
+    const created = new Date('2020-01-15T12:00:00.000Z');
+    await collection.insertOne({
+      _id: id,
+      name: 'Original',
+      description: 'keep-me-gone',
       _created: created,
       _createdBy: createdBy,
       _updated: new Date('2020-01-15T12:00:00.000Z'),
@@ -85,17 +118,13 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
     expect(replaced.name).toBe('Replaced');
     expect(replaced._created).toEqual(created);
     expect(replaced._createdBy?.toString()).toBe(createdBy.toString());
-    expect(replaced.description).toBeUndefined();
-    expect(replaced.extra).toBeUndefined();
 
     const stored = await collection.findOne({ _id: id });
     expect(stored?._created).toEqual(created);
     expect(stored?._createdBy?.toString()).toBe(createdBy.toString());
-    expect(stored?.description).toBeUndefined();
-    expect(stored?.extra).toBeUndefined();
   });
 
-  it('should ignore caller-supplied _created and _createdBy and keep the stored values', async () => {
+  it('should ignore client-forged _id, _created, and _createdBy and keep the stored values', async () => {
     const id = new ObjectId();
     const createdBy = new ObjectId();
     const created = new Date('2021-03-01T08:30:00.000Z');
@@ -106,6 +135,7 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
       _createdBy: createdBy,
     });
 
+    const forgedId = new ObjectId();
     const forgedCreated = new Date('1999-01-01T00:00:00.000Z');
     const forgedCreatedBy = new ObjectId();
 
@@ -114,18 +144,51 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
       collectionName,
       { _id: { eq: id.toString() } },
       {
-        name: 'Forged audit attempt',
+        _id: forgedId.toString(),
+        name: 'Forged system props attempt',
         _created: forgedCreated,
         _createdBy: forgedCreatedBy.toString(),
       },
       [],
     );
 
-    expect(replaced.name).toBe('Forged audit attempt');
+    expect(replaced._id.toString()).toBe(id.toString());
+    expect(replaced.name).toBe('Forged system props attempt');
     expect(replaced._created).toEqual(created);
     expect(replaced._createdBy?.toString()).toBe(createdBy.toString());
-    expect(replaced._created).not.toEqual(forgedCreated);
-    expect(replaced._createdBy?.toString()).not.toBe(forgedCreatedBy.toString());
+    expect(await collection.findOne({ _id: forgedId })).toBeNull();
+  });
+
+  it('should store user values that start with $ literally', async () => {
+    const id = new ObjectId();
+    const createdBy = new ObjectId();
+    await collection.insertOne({
+      _id: id,
+      name: 'Original',
+      _created: new Date('2022-01-01T00:00:00.000Z'),
+      _createdBy: createdBy,
+    });
+
+    const replaced = await replaceOne<ReplaceOneEntity>(
+      db,
+      collectionName,
+      { _id: { eq: id.toString() } },
+      {
+        name: '$name',
+        formula: '$add',
+        'a.b': '$path.value',
+      } as ReplaceOneEntity,
+      [],
+    );
+
+    expect(replaced.name).toBe('$name');
+    expect(replaced.formula).toBe('$add');
+    expect((replaced as any)['a.b']).toBe('$path.value');
+
+    const stored = await collection.findOne({ _id: id });
+    expect(stored?.name).toBe('$name');
+    expect(stored?.formula).toBe('$add');
+    expect(stored?.['a.b']).toBe('$path.value');
   });
 
   it('should throw IdNotFoundError when no document matches the filter', async () => {
