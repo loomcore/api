@@ -109,10 +109,10 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       ).rejects.toThrow(IdNotFoundError);
     });
 
-    it('should throw IdNotFoundError when id is not a valid ObjectId', async () => {
+    it('should throw BadRequestError when id is not a valid ObjectId', async () => {
       await expect(
         replaceOne<DuplicateKeyUpdateEntity>(db, collectionName, { _id: { eq: 'invalid-object-id' } }, { name: 'Alice' }, []),
-      ).rejects.toThrow(IdNotFoundError);
+      ).rejects.toThrow(BadRequestError);
     });
 
     it('should rethrow non-duplicate Mongo errors unchanged', async () => {
@@ -201,10 +201,10 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       ).rejects.toThrow(IdNotFoundError);
     });
 
-    it('should throw IdNotFoundError when id is not a valid ObjectId', async () => {
+    it('should throw BadRequestError when id is not a valid ObjectId', async () => {
       await expect(
         updateOne<DuplicateKeyUpdateEntity>(db, collectionName, { _id: { eq: 'invalid-object-id' } }, { name: 'Alice' }, []),
-      ).rejects.toThrow(IdNotFoundError);
+      ).rejects.toThrow(BadRequestError);
     });
 
     it('should rethrow non-duplicate Mongo errors unchanged', async () => {

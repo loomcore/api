@@ -2,12 +2,24 @@ import { IQueryOptions, IModelSpec } from '@loomcore/common/models';
 import { entityUtils } from '@loomcore/common/utils';
 import { TSchema } from '@sinclair/typebox';
 import { Document, ObjectId } from 'mongodb';
+import { BadRequestError } from '../../../errors/index.js';
 import { PROPERTIES_THAT_ARE_NOT_OBJECT_IDS } from '../../models/constants.js';
 import { getPropertySchema } from '../../utils/get-property-schema.util.js';
 import { readFilterValue } from '../../utils/nullish-filter-value.js';
 
 function isExcludedFromObjectIdConversion(key: string): boolean {
   return PROPERTIES_THAT_ARE_NOT_OBJECT_IDS.includes(key);
+}
+
+/** `_id` and schema `objectid` fields must be valid ObjectIds; invalid values are 400, not a silent miss → 404. */
+function isStrictObjectIdFilterField(key: string, propSchema: TSchema | undefined): boolean {
+  return key === '_id' || propSchema?.format === 'objectid';
+}
+
+function assertValidObjectIdFilterValue(key: string, propSchema: TSchema | undefined, value: string): void {
+  if (isStrictObjectIdFilterField(key, propSchema) && !entityUtils.isValidObjectId(value)) {
+    throw new BadRequestError('id is not a valid ObjectId');
+  }
 }
 
 function shouldConvertEqToObjectId(
@@ -59,9 +71,14 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
           match[key] = { $type: 'null' };
         } else if (comparison.kind === 'undefined') {
           match[key] = { $exists: false };
-        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
-          && typeof comparison.value === 'string' && entityUtils.isValidObjectId(comparison.value)) {
-          match[key] = new ObjectId(comparison.value);
+        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema) && typeof comparison.value === 'string') {
+          assertValidObjectIdFilterValue(key, propSchema, comparison.value);
+          if (entityUtils.isValidObjectId(comparison.value)) {
+            match[key] = new ObjectId(comparison.value);
+          } else {
+            // Heuristic *Id fields: keep invalid strings as-is (not strict ObjectId columns).
+            match[key] = comparison.value;
+          }
         }
 
         // Convert numeric strings to numbers
@@ -81,9 +98,13 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
           match[key] = { $not: { $type: 'null' } };
         } else if (comparison.kind === 'undefined') {
           match[key] = { $exists: true };
-        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema)
-          && typeof comparison.value === 'string' && entityUtils.isValidObjectId(comparison.value)) {
-          match[key] = { $ne: new ObjectId(comparison.value) };
+        } else if (shouldConvertEqToObjectId(key, propSchema, hasSchema) && typeof comparison.value === 'string') {
+          assertValidObjectIdFilterValue(key, propSchema, comparison.value);
+          if (entityUtils.isValidObjectId(comparison.value)) {
+            match[key] = { $ne: new ObjectId(comparison.value) };
+          } else {
+            match[key] = { $ne: comparison.value };
+          }
         }
 
         // Convert numeric strings to numbers
@@ -96,6 +117,11 @@ export function buildNoSqlMatch(queryOptions: IQueryOptions, modelSpec?: IModelS
       }
       if (value.in !== undefined && Array.isArray(value.in)) {
         if (shouldConvertInToObjectIds(key, propSchema, hasSchema)) {
+          for (const val of value.in) {
+            if (typeof val === 'string') {
+              assertValidObjectIdFilterValue(key, propSchema, val);
+            }
+          }
           // Convert string values to ObjectIds
           const objectIds = value.in
             .filter(val => typeof val === 'string' && entityUtils.isValidObjectId(val))

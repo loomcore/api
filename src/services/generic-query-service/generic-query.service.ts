@@ -28,10 +28,12 @@
 import type { IEntity, IQueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
 import { DefaultQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
+import { getIdSchema } from '@loomcore/common/validation';
+import { Value } from '@sinclair/typebox/value';
 import { config } from '../../config/base-api-config.js';
 import { IGenericQueryService } from './generic-query-service.interface.js';
 import { Operation } from '../../databases/operations/operation.js';
-import { IdNotFoundError } from '../../errors/index.js';
+import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
 import { hasCrossTenant } from '../../decorators/cross-tenant.decorator.js';
 import type { Filters } from '../filters.type.js';
@@ -224,6 +226,8 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
     prepareQueryCustom?: PrepareQueryCustomFunction<TContext>,
     customProcessEntityAfterRead?: CustomProcessEntityAfterReadFunction<T, Y, TContext>,
   ): Promise<Y> {
+    this.assertValidId(id);
+
     let operations: Operation[] = [];
     let queryOptions: IQueryOptions = {};
 
@@ -268,6 +272,17 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
       operations,
     );
     return rawEntity ? this.postProcessEntity(context, spec, rawEntity) : null;
+  }
+
+  /**
+   * Reject ids that fail the active IdSchema (invalid ObjectId strings, empty string, non-positive
+   * postgres ints, etc.) with 400 — matching controller validation and main's Mongo ObjectId checks.
+   * A well-formed id that simply does not exist still yields IdNotFoundError (404) from callers.
+   */
+  protected assertValidId(id: AppIdType): void {
+    if (!Value.Check(getIdSchema(), id)) {
+      throw new BadRequestError('id is not a valid ObjectId');
+    }
   }
 
   /**

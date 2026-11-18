@@ -279,15 +279,14 @@ describe('GenericApiService - Integration Tests', () => {
 
   describe('Error Handling', () => {
 
-    it('should throw IdNotFoundError when getById is called with empty string', async () => {
-      // Arrange — scoped findOne with an empty/_invalid _id matches nothing (no separate BadRequest path).
-      // Postgres IdSchema is numeric, so use 0; Mongo uses empty string.
-      const emptyId = process.env.TEST_DATABASE === 'postgres' ? 0 : '';
+    it('should throw BadRequestError when getById is called with empty string', async () => {
+      // Arrange
+      const emptyId = '';
 
       // Act & Assert
       await expect(
-        service.getById(getTestMetaOrgContext(), emptyId as any)
-      ).rejects.toThrow(IdNotFoundError);
+        service.getById(getTestMetaOrgContext(), emptyId)
+      ).rejects.toThrow(BadRequestError);
     });
 
 
