@@ -109,13 +109,21 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       ).rejects.toThrow(IdNotFoundError);
     });
 
-    it('should rethrow non-duplicate Mongo errors unchanged', async () => {
+    it('should ignore a caller-supplied _id and keep the stored _id on replace', async () => {
       const { secondId } = await insertNamedPair();
+      const forgedId = new ObjectId();
 
-      const error = await expectNonDuplicateError(
-        replaceOne<DuplicateKeyUpdateEntity>(db, collectionName, { _id: { eq: secondId.toString() } }, { _id: new ObjectId().toString(), name: 'Charlie' }, []),
+      const replaced = await replaceOne<DuplicateKeyUpdateEntity>(
+        db,
+        collectionName,
+        { _id: { eq: secondId.toString() } },
+        { _id: forgedId.toString(), name: 'Charlie' },
+        [],
       );
-      expect(error).not.toBeInstanceOf(IdNotFoundError);
+
+      expect(replaced._id.toString()).toBe(secondId.toString());
+      expect(replaced.name).toBe('Charlie');
+      expect(await collection.findOne({ _id: forgedId })).toBeNull();
     });
   });
 
