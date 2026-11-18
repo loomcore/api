@@ -6,7 +6,6 @@ import {
   OrganizationSpec,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import crypto from 'node:crypto';
 import { config } from '../config/index.js';
 import type { IDatabase } from '../databases/models/index.js';
 import type { Operation } from '../databases/operations/operation.js';
@@ -118,21 +117,9 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     this.organizationDomainService = new OrganizationDomainService(database);
   }
 
-  /**
-   * OrganizationSchema requires _id in the create validator. Validation now runs in the service
-   * write pipeline (createOrganizationWithAdmin previously skipped controller validation).
-   * Postgres create strips _id and uses serial; MongoDB persists the provided 24-char hex id.
-   */
-  private newCreateId(): AppIdType {
-    if (config.app.dbType === 'postgres') {
-      return Date.now() + Math.floor(Math.random() * 1000);
-    }
-    return crypto.randomBytes(12).toString('hex');
-  }
-
-  override async preProcessEntity(
+  override async prepareEntityForWrite(
     context: IRequestContext,
-    spec: IModelSpec,
+    _spec: IModelSpec,
     entity: Partial<IOrganization>,
     isCreate: boolean,
   ): Promise<Partial<IOrganization>> {
@@ -147,16 +134,10 @@ export class OrganizationService extends GenericApiService<IOrganization> {
         );
       }
     }
-    const result = await super.preProcessEntity(
-      context,
-      spec,
-      entity,
-      isCreate,
-    );
-    if (typeof result.code === 'string') {
-      result.code = normalizeOrganizationCode(result.code);
+    if (typeof entity.code === 'string') {
+      entity.code = normalizeOrganizationCode(entity.code);
     }
-    return result;
+    return entity;
   }
 
   override prepareQuery(
@@ -227,11 +208,7 @@ export class OrganizationService extends GenericApiService<IOrganization> {
     const authorizationService = new AuthorizationService(this.database);
 
     try {
-      // OrganizationSchema/_domain schemas require _id in the base validator; supply one for create.
-      // Postgres create strips _id and uses serial; MongoDB keeps the provided ObjectId.
-      const organizationIdForCreate = this.newCreateId();
       const organization = await super.create(context, {
-        _id: organizationIdForCreate,
         name: parsed.name,
         code: parsed.code,
         status: DEFAULT_ORGANIZATION_STATUS,
@@ -243,7 +220,6 @@ export class OrganizationService extends GenericApiService<IOrganization> {
       created.organizationId = organization._id;
 
       const organizationDomain = await this.organizationDomainService.create(context, {
-        _id: this.newCreateId(),
         organizationId: organization._id,
         domain,
       });

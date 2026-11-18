@@ -8,7 +8,8 @@ export type PrepareQueryCustomFunction<TContext extends IRequestContext = IReque
   operations: Operation[],
 ) => { queryOptions: IQueryOptions; operations: Operation[] };
 
-export type PostProcessEntityCustomFunction<
+/** Per-call callback after processEntityAfterRead on get/getAll/getById overloads. */
+export type CustomProcessEntityAfterReadFunction<
   TIn extends IEntity,
   TOut extends IEntity,
   TContext extends IRequestContext = IRequestContext,

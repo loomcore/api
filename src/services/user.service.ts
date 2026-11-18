@@ -50,28 +50,25 @@ export class UserService extends GenericApiService<IUser> {
     return super.partialUpdateById(context, id, updates);
   }
 
-  override async preProcessEntity(
-    context: IRequestContext,
-    spec: import('@loomcore/common/models').IModelSpec,
+  override async prepareEntityForWrite(
+    _context: IRequestContext,
+    _spec: import('@loomcore/common/models').IModelSpec,
     entity: Partial<IUser>,
     isCreate: boolean,
   ): Promise<Partial<IUser>> {
-    // First, let the base class do its preparation
-    const preparedEntity = await super.preProcessEntity(context, spec, entity, isCreate);
-
-    if (preparedEntity.email) {
-      preparedEntity.email = preparedEntity.email.toLowerCase();
+    if (entity.email) {
+      entity.email = entity.email.toLowerCase();
     }
 
-    if (preparedEntity.password) {
-      preparedEntity.password = await passwordUtils.hashPassword(preparedEntity.password);
+    if (entity.password) {
+      entity.password = await passwordUtils.hashPassword(entity.password);
       if (!isCreate) {
-        // Do this here 'cause the system property _lastPasswordChange may get stripped in super.preProcessEntity in the logged-in change password flow.
-        preparedEntity._lastPasswordChange = moment().utc().toDate();
+        // Do this here 'cause the system property _lastPasswordChange may get stripped in applySystemWriteRules in the logged-in change password flow.
+        entity._lastPasswordChange = moment().utc().toDate();
       }
     }
 
-    return preparedEntity;
+    return entity;
   }
 
   private assertPasswordNotPresent(entity: Partial<IUser>) {

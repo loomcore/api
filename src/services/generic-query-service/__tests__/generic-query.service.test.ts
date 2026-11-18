@@ -371,14 +371,13 @@ describe.skipIf(!isPostgres || !isRealPostgres)('GenericQueryService - Complex D
     });
   });
 
-  describe('postProcessEntity hook', () => {
-    it('should allow overriding postProcessEntity to transform entities', async () => {
+  describe('processEntityAfterRead hook', () => {
+    it('should allow overriding processEntityAfterRead to transform entities', async () => {
       class CustomQueryService extends GenericQueryService<ITestClientReportsModel> {
-        override postProcessEntity(context: IRequestContext, spec: import('@loomcore/common/models').IModelSpec, entity: ITestClientReportsModel): ITestClientReportsModel {
-          const processed = super.postProcessEntity(context, spec, entity);
+        override processEntityAfterRead(_context: IRequestContext, _spec: import('@loomcore/common/models').IModelSpec, entity: ITestClientReportsModel): ITestClientReportsModel {
           // Add a custom property
-          (processed as any).customProperty = 'custom-value';
-          return processed;
+          (entity as any).customProperty = 'custom-value';
+          return entity;
         }
       }
 

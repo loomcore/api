@@ -26,8 +26,7 @@ export async function createNewRefreshToken(
     deviceId,
     userId,
     expiresOn: expiresOn,
-    // Validate runs before decode, so dates must be ISO strings at the service boundary
-    created: moment().utc().toISOString() as unknown as Date,
+    created: moment().utc().toDate(),
     createdBy: userId,
   };
 
