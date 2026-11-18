@@ -3,7 +3,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Collection, Db, MongoClient, ObjectId } from 'mongodb';
 import { IEntity } from '@loomcore/common/models';
 
-import { IdNotFoundError } from '../../../errors/index.js';
+import { BadRequestError, IdNotFoundError } from '../../../errors/index.js';
 import { replaceOne } from '../commands/mongo-replace-one.command.js';
 
 const isMongo = process.env.TEST_DATABASE === 'mongodb';
@@ -124,7 +124,7 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
     expect(stored?._createdBy?.toString()).toBe(createdBy.toString());
   });
 
-  it('should ignore client-forged _id, _created, and _createdBy and keep the stored values', async () => {
+  it('should ignore client-forged _created and _createdBy and keep the stored values', async () => {
     const id = new ObjectId();
     const createdBy = new ObjectId();
     const created = new Date('2021-03-01T08:30:00.000Z');
@@ -135,7 +135,6 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
       _createdBy: createdBy,
     });
 
-    const forgedId = new ObjectId();
     const forgedCreated = new Date('1999-01-01T00:00:00.000Z');
     const forgedCreatedBy = new ObjectId();
 
@@ -144,19 +143,94 @@ describe.skipIf(!isMongo)('Mongo replaceOne command', () => {
       collectionName,
       { _id: { eq: id.toString() } },
       {
-        _id: forgedId.toString(),
-        name: 'Forged system props attempt',
+        name: 'Forged audit attempt',
         _created: forgedCreated,
         _createdBy: forgedCreatedBy.toString(),
       },
       [],
     );
 
-    expect(replaced._id.toString()).toBe(id.toString());
-    expect(replaced.name).toBe('Forged system props attempt');
+    expect(replaced.name).toBe('Forged audit attempt');
     expect(replaced._created).toEqual(created);
     expect(replaced._createdBy?.toString()).toBe(createdBy.toString());
-    expect(await collection.findOne({ _id: forgedId })).toBeNull();
+  });
+
+  it('should write provided _updated and _updatedBy instead of preserving stored values', async () => {
+    const id = new ObjectId();
+    const createdBy = new ObjectId();
+    const created = new Date('2020-01-01T00:00:00.000Z');
+    const oldUpdated = new Date('2020-01-01T00:00:00.000Z');
+    const newUpdated = new Date('2024-06-01T12:00:00.000Z');
+    const newUpdatedBy = new ObjectId();
+    await collection.insertOne({
+      _id: id,
+      name: 'Original',
+      _created: created,
+      _createdBy: createdBy,
+      _updated: oldUpdated,
+      _updatedBy: createdBy,
+    });
+
+    const replaced = await replaceOne<ReplaceOneEntity>(
+      db,
+      collectionName,
+      { _id: { eq: id.toString() } },
+      {
+        name: 'Updated',
+        _updated: newUpdated,
+        _updatedBy: newUpdatedBy.toString(),
+      },
+      [],
+    );
+
+    expect(replaced._created).toEqual(created);
+    expect(replaced._createdBy?.toString()).toBe(createdBy.toString());
+    expect(replaced._updated).toEqual(newUpdated);
+    expect(replaced._updatedBy?.toString()).toBe(newUpdatedBy.toString());
+  });
+
+  it('should return 400 when body _id does not match url id', async () => {
+    const id = new ObjectId();
+    await collection.insertOne({ _id: id, name: 'Original' });
+    const forgedId = new ObjectId();
+
+    const error = await replaceOne<ReplaceOneEntity>(
+      db,
+      collectionName,
+      { _id: { eq: id.toString() } },
+      { _id: forgedId.toString(), name: 'Nope' },
+      [],
+    ).then(
+      () => {
+        throw new Error('Expected BadRequestError');
+      },
+      (err) => err,
+    );
+
+    expect(error).toBeInstanceOf(BadRequestError);
+    expect(error.statusCode).toBe(400);
+    expect(await collection.findOne({ _id: id })).toMatchObject({ name: 'Original' });
+  });
+
+  it('should succeed when body _id matches url id', async () => {
+    const id = new ObjectId();
+    await collection.insertOne({
+      _id: id,
+      name: 'Original',
+      _created: new Date('2022-01-01T00:00:00.000Z'),
+      _createdBy: new ObjectId(),
+    });
+
+    const replaced = await replaceOne<ReplaceOneEntity>(
+      db,
+      collectionName,
+      { _id: { eq: id.toString() } },
+      { _id: id.toString(), name: 'Matched id' },
+      [],
+    );
+
+    expect(replaced._id.toString()).toBe(id.toString());
+    expect(replaced.name).toBe('Matched id');
   });
 
   it('should store user values that start with $ literally', async () => {

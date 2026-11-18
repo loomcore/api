@@ -515,6 +515,46 @@ describe('ApiController - Integration Tests', () => {
       expect(updatedStored._updatedBy).toEqual(userId);
     });
 
+    it('should return 400 when body _id does not match url id', async () => {
+      // Mongo replace rejects mismatched body _id; Postgres ignores body _id on replace
+      if (isPostgres) {
+        return;
+      }
+
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send({ name: 'Mismatch id test', value: 1 });
+      expect(createResponse.status).toBe(201);
+      const itemId = createResponse.body.data._id;
+
+      const forgedId = testUtils.getRandomId();
+      const updateResponse = await testAgent
+        .put(`/api/test-items/${String(itemId)}`)
+        .set('Authorization', authToken)
+        .send({ _id: forgedId, name: 'Should fail', value: 2 });
+
+      expect(updateResponse.status).toBe(400);
+    });
+
+    it('should succeed when body _id matches url id', async () => {
+      const createResponse = await testAgent
+        .post('/api/test-items')
+        .set('Authorization', authToken)
+        .send({ name: 'Matching id test', value: 1 });
+      expect(createResponse.status).toBe(201);
+      const itemId = createResponse.body.data._id;
+
+      const updateResponse = await testAgent
+        .put(`/api/test-items/${String(itemId)}`)
+        .set('Authorization', authToken)
+        .send({ _id: itemId, name: 'Matched body id', value: 2 });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body.data.name).toBe('Matched body id');
+      expect(String(updateResponse.body.data._id)).toBe(String(itemId));
+    });
+
     it('should handle bulk operations with audit properties', async () => {
       const entities: Partial<ITestItem>[] = [
         { name: 'Bulk Item 1', value: 10, eventDate: new Date() },
