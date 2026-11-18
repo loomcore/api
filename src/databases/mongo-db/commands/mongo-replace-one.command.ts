@@ -10,31 +10,39 @@ import type { Filters } from '../../../services/filters.type.js';
 /** Same set Postgres replaceOne skips — full replace never overwrites these. */
 const PRESERVED_FIELDS = ['_id', '_created', '_createdBy'] as const;
 
+function entityWithoutPreservedFields<T extends IEntity>(entity: Partial<T>): Record<string, unknown> {
+  const replacement: Record<string, unknown> = { ...(entity as Record<string, unknown>) };
+  for (const key of PRESERVED_FIELDS) {
+    delete replacement[key];
+  }
+  return replacement;
+}
+
 export async function replaceOne<T extends IEntity>(db: Db, pluralResourceName: string, filters: Filters, entity: Partial<T>, operations: Operation[]): Promise<T> {
   const collection = db.collection(pluralResourceName);
   // Build match document and extract the filter object
   const matchDocument = buildNoSqlMatch({ filters });
   const filter = matchDocument.$match || {};
 
-  // Load the matched doc so we can keep system fields; also serves as the not-found check
-  const existing = await collection.findOne(filter);
-  if (!existing) {
-    throw new IdNotFoundError();
-  }
-
-  // Full-replace semantics for every other field; never overwrite preserved system fields (matches Postgres)
-  const replacement: Record<string, unknown> = { ...(entity as Record<string, unknown>) };
-  for (const key of PRESERVED_FIELDS) {
-    if (key in existing) {
-      replacement[key] = existing[key];
-    } else {
-      delete replacement[key];
-    }
-  }
-
-  let replaceResult;
+  // Atomic full replace: provided fields win, omitted fields are removed, system fields keep stored values.
+  // $literal so user values starting with '$' (or dotted keys) are not treated as aggregation expressions.
+  const replacementLiteral = entityWithoutPreservedFields(entity);
+  let updateResult;
   try {
-    replaceResult = await collection.replaceOne(filter, replacement);
+    updateResult = await collection.updateOne(filter, [
+      {
+        $replaceWith: {
+          $mergeObjects: [
+            { $literal: replacementLiteral },
+            {
+              _id: '$_id',
+              _created: '$_created',
+              _createdBy: '$_createdBy',
+            },
+          ],
+        },
+      },
+    ]);
   }
   catch (err: any) {
     if (isMongoDuplicateKeyError(err)) { // this is the MongoDb error code for duplicate key
@@ -42,10 +50,11 @@ export async function replaceOne<T extends IEntity>(db: Db, pluralResourceName: 
     }
     throw err;
   }
-  if (replaceResult.matchedCount <= 0) {
+  if (updateResult.matchedCount <= 0) {
     throw new IdNotFoundError();
   }
 
+  // Re-read via the same operations pipeline used by other write commands (joins, etc.)
   const pipeline = new NoSqlPipeline()
     .addMatch({ filters })
     .addOperations(operations)
