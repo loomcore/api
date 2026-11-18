@@ -153,9 +153,8 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   }
 
   async fullUpdateById(context: TContext, id: AppIdType, entity: T): Promise<T> {
-    // this is not the most performant function - In order to protect system properties (like _created). it retrieves the
-    //  existing entity, then updates using the supplied entity.
-    //  as the update process gets more complex. PREFER using partialUpdateById.
+    // Full replace at the DB layer; Mongo/Postgres replaceOne never overwrite _id/_created/_createdBy.
+    // Prefer partialUpdateById as the update path grows more complex.
 
     const spec = await this.resolveModelSpec(context);
     this.validate(spec, entity, { partial: false });
@@ -164,13 +163,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     const { operations, queryOptions } = this.buildQuery(context, {});
     const scopeFilters: Filters = { ...queryOptions.filters, _id: { eq: id } };
 
-    // Get existing entity to preserve audit properties (scoped read — mismatch is 404)
-    const existingEntity = await this.database.findOne<T>(this.pluralResourceName, scopeFilters, operations);
-    if (!existingEntity) {
-      throw new IdNotFoundError();
-    }
-
-    const preparedEntity = await this.preProcessEntity(context, spec, entity, false, existingEntity);
+    const preparedEntity = await this.preProcessEntity(context, spec, entity, false);
 
     const rawUpdatedEntity = await this.database.replaceOne<T>(
       this.pluralResourceName,
@@ -245,10 +238,9 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     spec: IModelSpec,
     entity: Partial<T>,
     isCreate: boolean,
-    existingEntity?: T,
   ): Promise<Partial<T>> {
     // a. System write rules — common to all databases and not optional
-    let preparedEntity = this.applySystemWriteRules(context, spec, entity, isCreate, existingEntity);
+    let preparedEntity = this.applySystemWriteRules(context, spec, entity, isCreate);
 
     // b. Derived-class hook — default no-op; derived classes do NOT need to call super
     preparedEntity = await this.prepareEntityForWrite(context, spec, preparedEntity, isCreate);
@@ -267,14 +259,14 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
 
   /**
    * Common to all databases and not optional: strip client system props, audit when auditable,
-   * decode via the resolved spec, and re-apply _created/_createdBy from an existing entity on full update.
+   * and decode via the resolved spec. Create-audit survival on full replace is enforced by
+   * IDatabase.replaceOne (Mongo and Postgres never overwrite _id/_created/_createdBy).
    */
   private applySystemWriteRules(
     context: TContext,
     spec: IModelSpec,
     entity: Partial<T>,
     isCreate: boolean,
-    existingEntity?: T,
   ): Partial<T> {
     // Clone the entity to avoid modifying the original
     let preparedEntity = _.clone(entity);
@@ -310,14 +302,6 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
      *   importing MongoDb, which we definitely don't want in a shared model library.
      */
     preparedEntity = spec.decode(preparedEntity);
-
-    // Preserve system properties that should not be updated on full replace (after decode to avoid stripping)
-    if (existingEntity && '_created' in existingEntity && '_createdBy' in existingEntity) {
-      Object.assign(preparedEntity, {
-        _created: existingEntity._created,
-        _createdBy: existingEntity._createdBy,
-      });
-    }
 
     return preparedEntity;
   }
