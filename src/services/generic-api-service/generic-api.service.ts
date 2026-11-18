@@ -155,6 +155,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   async fullUpdateById(context: TContext, id: AppIdType, entity: T): Promise<T> {
     // Full replace at the DB layer; Mongo/Postgres replaceOne never overwrite _id/_created/_createdBy.
     // Prefer partialUpdateById as the update path grows more complex.
+    this.assertValidId(id);
 
     const spec = await this.resolveModelSpec(context);
     this.validate(spec, entity, { partial: false });
@@ -176,6 +177,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   }
 
   async partialUpdateById(context: TContext, id: AppIdType, entity: Partial<T>): Promise<T> {
+    this.assertValidId(id);
     const spec = await this.resolveModelSpec(context);
     this.validate(spec, entity, { partial: true });
     this.detectStrippedFields(context, spec, entity);
@@ -213,6 +215,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   }
 
   async deleteById(context: TContext, id: AppIdType): Promise<DeleteResult> {
+    this.assertValidId(id);
     const filters: Filters = { _id: { eq: id }, ...this.getScopeFilters(context) };
     const deleteResult = await this.database.deleteOne(this.pluralResourceName, filters);
 

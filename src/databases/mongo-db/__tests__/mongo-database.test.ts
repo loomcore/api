@@ -744,24 +744,24 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
     });
 
     describe('Error Handling - ObjectId Validation', () => {
-      it('should throw IdNotFoundError when getById is called with invalid ObjectId', async () => {
+      it('should throw BadRequestError when getById is called with invalid ObjectId', async () => {
         // Arrange
         const invalidId = 'invalid-object-id';
 
         // Act & Assert
         await expect(
           service.getById(getTestMetaOrgContext(), invalidId)
-        ).rejects.toThrow(IdNotFoundError);
+        ).rejects.toThrow(BadRequestError);
       });
 
-      it('should throw IdNotFoundError when providing invalid ObjectId', async () => {
+      it('should throw BadRequestError when providing invalid ObjectId', async () => {
         // Arrange
         const invalidId = 'not-an-object-id';
 
         // Act & Assert
         await expect(
           service.getById(getTestMetaOrgContext(), invalidId)
-        ).rejects.toThrow(IdNotFoundError);
+        ).rejects.toThrow(BadRequestError);
       });
 
       it('should throw IdNotFoundError when getById is called with non-existent ID', async () => {
@@ -774,14 +774,14 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
         ).rejects.toThrow(IdNotFoundError);
       });
 
-      it('should throw IdNotFoundError when getById is called with non-hexadecimal string', async () => {
+      it('should throw BadRequestError when getById is called with non-hexadecimal string', async () => {
         // Arrange
         const invalidId = '12345678901234567890123g'; // 'g' is not a valid hex character
 
         // Act & Assert
         await expect(
           service.getById(getTestMetaOrgContext(), invalidId)
-        ).rejects.toThrow(IdNotFoundError);
+        ).rejects.toThrow(BadRequestError);
       });
     });
 
@@ -818,7 +818,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
     });
 
     describe('Full Update Operations - ObjectId Transformation', () => {
-      it('should throw IdNotFoundError when fullUpdateById is called with invalid ObjectId', async () => {
+      it('should throw BadRequestError when fullUpdateById is called with invalid ObjectId', async () => {
         // Arrange
         const invalidId = 'invalid-object-id';
         const updateEntity: TestEntity = {
@@ -828,7 +828,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
         // Act & Assert
         await expect(
           service.fullUpdateById(getTestMetaOrgContext(), invalidId, updateEntity)
-        ).rejects.toThrow(IdNotFoundError);
+        ).rejects.toThrow(BadRequestError);
       });
 
       it('should throw IdNotFoundError when fullUpdateById is called with non-existent ID', async () => {
@@ -875,7 +875,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
     });
 
     describe('Partial Update Operations - ObjectId Transformation', () => {
-      it('should throw IdNotFoundError when partialUpdateById is called with invalid ObjectId', async () => {
+      it('should throw BadRequestError when partialUpdateById is called with invalid ObjectId', async () => {
         // Arrange
         const invalidId = 'invalid-object-id';
         const updateEntity: Partial<TestEntity> = {
@@ -885,7 +885,7 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
         // Act & Assert
         await expect(
           service.partialUpdateById(getTestMetaOrgContext(), invalidId, updateEntity)
-        ).rejects.toThrow(IdNotFoundError);
+        ).rejects.toThrow(BadRequestError);
       });
 
       it('should throw IdNotFoundError when partialUpdateById is called with non-existent ID', async () => {
@@ -962,14 +962,14 @@ describe.skipIf(!isMongo)('MongoDBDatabase - Join Operations', () => {
     });
 
     describe('Delete Operations - ObjectId Transformation', () => {
-      it('should throw IdNotFoundError when deleteById is called with invalid ObjectId', async () => {
+      it('should throw BadRequestError when deleteById is called with invalid ObjectId', async () => {
         // Arrange
         const invalidId = 'invalid-object-id';
 
         // Act & Assert
         await expect(
           service.deleteById(getTestMetaOrgContext(), invalidId)
-        ).rejects.toThrow(IdNotFoundError);
+        ).rejects.toThrow(BadRequestError);
       });
 
       it('should throw IdNotFoundError when deleteById is called with non-existent ID', async () => {
