@@ -5,7 +5,7 @@ import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { isMongoDuplicateKeyError } from '../utils/is-mongo-duplicate-key-error.util.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import { IEntity } from '@loomcore/common/models';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 /** Same set Postgres replaceOne skips — full replace never overwrites these. */
 const PRESERVED_FIELDS = ['_id', '_created', '_createdBy'] as const;

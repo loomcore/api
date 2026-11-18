@@ -1,4 +1,5 @@
 import {
+  type Filters,
   type IEntity,
   type IModelSpec,
   type IQueryOptions,
@@ -15,7 +16,6 @@ import { auditForUpdate } from '../utils/audit-for-update.util.js';
 import { stripSenderProvidedSystemProperties } from '../utils/strip-sender-provided-system-properties.util.js';
 import type { IGenericApiService } from './generic-api-service.interface.js';
 import { GenericQueryService } from '../generic-query-service/generic-query.service.js';
-import type { Filters } from '../filters.type.js';
 import type { IRequestContext } from '../request-context.interface.js';
 
 export class GenericApiService<T extends IEntity, TContext extends IRequestContext = IRequestContext>
@@ -43,31 +43,11 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   /**
    * Validates a document against the given model spec. Synchronous because the spec is resolved first.
    * Override and call super.validate first for extra domain validation.
-   * Accepts typed values (e.g. Date objects): TypeboxIsoDate Check is on the encoded (ISO string) side,
-   * so Date instances are converted to ISO strings for Check only (callers still pass Dates).
+   * Accepts typed values (e.g. Date objects) — TypeboxIsoDate Check accepts Date as well as ISO strings.
    */
   protected validate(spec: IModelSpec, entity: unknown, options: { partial: boolean }): void {
-    const forValidation = this.datesToIsoStringsForValidation(structuredClone(entity));
-    const errors = entityUtils.validate(spec, forValidation, options.partial);
+    const errors = entityUtils.validate(spec, entity, options.partial);
     entityUtils.handleValidationResult(errors, `${this.constructor.name}.validate`);
-  }
-
-  /** TypeBox Transform Check validates the encoded (string) side; convert Dates without a full Encode (Encode also requires all schema fields). */
-  private datesToIsoStringsForValidation(value: unknown): unknown {
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-    if (Array.isArray(value)) {
-      return value.map((item) => this.datesToIsoStringsForValidation(item));
-    }
-    if (value !== null && typeof value === 'object') {
-      const result: Record<string, unknown> = {};
-      for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-        result[key] = this.datesToIsoStringsForValidation(child);
-      }
-      return result;
-    }
-    return value;
   }
 
   /**

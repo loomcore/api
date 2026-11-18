@@ -4,7 +4,7 @@ import { BadRequestError, DuplicateKeyError } from '../../../errors/index.js';
 import { convertOperationsToPipeline, isMongoDuplicateKeyError } from '../utils/index.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 
 export async function batchUpdate<T>(db: Db, pluralResourceName: string, filters: Filters, entities: Partial<T>[], operations: Operation[]): Promise<T[]> {

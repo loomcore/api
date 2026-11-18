@@ -9,7 +9,7 @@ import { create, createMany, batchUpdate, replaceOne, updateOne, updateMany, del
 import { getAll, get, getCount, find, findOne } from './queries/index.js';
 import { entityUtils } from '@loomcore/common/utils';
 import { BadRequestError } from '../../errors/bad-request.error.js';
-import type { Filters } from '../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export class MongoDBDatabase implements IDatabase {
     private db: Db;

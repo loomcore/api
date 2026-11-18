@@ -1,6 +1,6 @@
 import { Db, Document } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 
 export async function getAll<T>(db: Db, pluralResourceName: string, filters: Filters, operations: Operation[]): Promise<T[]> {

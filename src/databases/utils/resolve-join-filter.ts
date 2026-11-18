@@ -1,4 +1,4 @@
-import type { Filter, IQueryOptions } from '@loomcore/common/models';
+import type { Filters, IQueryOptions } from '@loomcore/common/models';
 import { BadRequestError } from '../../errors/index.js';
 import type { ClassifiedFilterKey } from '../models/classified-filter-key.js';
 import { LeftJoinMany } from '../operations/left-join-many.operation.js';
@@ -72,7 +72,7 @@ export function splitFiltersByType(
   operations: Operation[],
   mainTableName: string,
 ): { rootOptions: IQueryOptions; joinFilters: JoinFilter[] } {
-  const rootFilters: { [key: string]: Filter } = {};
+  const rootFilters: Filters = {};
   const joinFilters: JoinFilter[] = [];
 
   for (const [key, filter] of Object.entries(queryOptions.filters ?? {})) {

@@ -1,5 +1,5 @@
 import type { IEntity } from '@loomcore/common/models';
-import type { Filters } from './filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import type { IRequestContext } from './request-context.interface.js';
 
 /**

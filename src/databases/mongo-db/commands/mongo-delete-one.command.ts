@@ -1,6 +1,6 @@
 import { Db } from 'mongodb';
 import { DeleteResult as GenericDeleteResult } from '../../models/delete-result.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 
 export async function deleteOne(db: Db, pluralResourceName: string, filters: Filters): Promise<GenericDeleteResult> {

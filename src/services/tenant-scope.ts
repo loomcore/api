@@ -3,7 +3,7 @@ import type { AppIdType } from '@loomcore/common/types';
 import { BadRequestError } from '../errors/index.js';
 import { isMetaOrgAdmin } from '../utils/auth/is-admin.util.js';
 import { isSystemUser } from '../utils/auth/is-system-user.util.js';
-import type { Filters } from './filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import type { IQueryScope } from './query-scope.interface.js';
 import type { IRequestContext } from './request-context.interface.js';
 

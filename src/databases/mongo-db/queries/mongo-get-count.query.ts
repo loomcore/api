@@ -1,5 +1,5 @@
 import { Db } from 'mongodb';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
 
 export async function getCount(db: Db, pluralResourceName: string, filters: Filters): Promise<number> {

@@ -25,7 +25,7 @@
  * // Result will have person and email_addresses populated
  * ```
  */
-import type { IEntity, IQueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
+import type { Filters, IEntity, IQueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';
 import { DefaultQueryOptions } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { getIdSchema } from '@loomcore/common/validation';
@@ -36,7 +36,6 @@ import { Operation } from '../../databases/operations/operation.js';
 import { BadRequestError, IdNotFoundError } from '../../errors/index.js';
 import { IDatabase } from '../../databases/models/index.js';
 import { hasCrossTenant } from '../../decorators/cross-tenant.decorator.js';
-import type { Filters } from '../filters.type.js';
 import type { IQueryScope } from '../query-scope.interface.js';
 import type { IRequestContext } from '../request-context.interface.js';
 import type { TenancyMode } from '../tenancy-mode.type.js';

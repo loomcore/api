@@ -1,8 +1,7 @@
-import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from '@loomcore/common/models';
+import { type Filters, IModelSpec, IQueryOptions, IPagedResult, IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { DeleteResult } from './delete-result.js';
 import { Operation } from '../operations/operation.js';
-import type { Filters } from '../../services/filters.type.js';
 
 /**
  * Database executes filters and knows nothing about tenants or content types.

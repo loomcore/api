@@ -13,7 +13,6 @@ export * from './role.service.js';
 export * from './user-role.service.js';
 export * from './user.service.js';
 export * from './types.js';
-export * from './filters.type.js';
 export * from './request-context.interface.js';
 export * from './query-scope.interface.js';
 export * from './tenant-scope.js';

@@ -1,7 +1,7 @@
 import type { PostgresConnection } from '../postgres-connection.js';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { DeleteResult } from '../../models/delete-result.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export async function deleteMany(
   client: PostgresConnection,

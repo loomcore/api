@@ -10,7 +10,7 @@ import { IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { isJoinOperation } from '../../utils/is-join-operation.util.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export async function batchUpdate<T extends IEntity>(
   connection: PostgresConnection,
