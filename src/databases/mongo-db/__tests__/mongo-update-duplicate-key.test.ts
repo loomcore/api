@@ -109,21 +109,65 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       ).rejects.toThrow(IdNotFoundError);
     });
 
-    it('should ignore a caller-supplied _id and keep the stored _id on replace', async () => {
+    it('should throw IdNotFoundError when id is not a valid ObjectId', async () => {
+      await expect(
+        replaceOne<DuplicateKeyUpdateEntity>(db, collectionName, { _id: { eq: 'invalid-object-id' } }, { name: 'Alice' }, []),
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
+    it('should rethrow non-duplicate Mongo errors unchanged', async () => {
+      const { secondId } = await insertNamedPair();
+
+      // Oversized string triggers a MongoServerError (not duplicate key) through the production update path
+      const error = await expectNonDuplicateError(
+        replaceOne<DuplicateKeyUpdateEntity>(
+          db,
+          collectionName,
+          { _id: { eq: secondId.toString() } },
+          { name: 'x'.repeat(16 * 1024 * 1024 + 1000) },
+          [],
+        ),
+      );
+      expect(error).not.toBeInstanceOf(BadRequestError);
+      expect(error).not.toBeInstanceOf(IdNotFoundError);
+    });
+
+    it('should return 400 when body _id does not match url id', async () => {
       const { secondId } = await insertNamedPair();
       const forgedId = new ObjectId();
 
-      const replaced = await replaceOne<DuplicateKeyUpdateEntity>(
+      const error = await replaceOne<DuplicateKeyUpdateEntity>(
         db,
         collectionName,
         { _id: { eq: secondId.toString() } },
         { _id: forgedId.toString(), name: 'Charlie' },
         [],
+      ).then(
+        () => {
+          throw new Error('Expected BadRequestError');
+        },
+        (err) => err,
+      );
+
+      expect(error).toBeInstanceOf(BadRequestError);
+      expect(error.statusCode).toBe(400);
+      expect(await collection.findOne({ _id: forgedId })).toBeNull();
+      expect((await collection.findOne({ _id: secondId }))?.name).toBe('Bob');
+    });
+
+    it('should succeed when body _id matches url id', async () => {
+      const { secondId } = await insertNamedPair();
+
+      const replaced = await replaceOne<DuplicateKeyUpdateEntity>(
+        db,
+        collectionName,
+        { _id: { eq: secondId.toString() } },
+        { _id: secondId.toString(), name: 'Charlie' },
+        [],
       );
 
       expect(replaced._id.toString()).toBe(secondId.toString());
       expect(replaced.name).toBe('Charlie');
-      expect(await collection.findOne({ _id: forgedId })).toBeNull();
     });
   });
 
@@ -157,12 +201,19 @@ describe.skipIf(!isMongo)('Mongo update commands - duplicate key handling', () =
       ).rejects.toThrow(IdNotFoundError);
     });
 
+    it('should throw IdNotFoundError when id is not a valid ObjectId', async () => {
+      await expect(
+        updateOne<DuplicateKeyUpdateEntity>(db, collectionName, { _id: { eq: 'invalid-object-id' } }, { name: 'Alice' }, []),
+      ).rejects.toThrow(IdNotFoundError);
+    });
+
     it('should rethrow non-duplicate Mongo errors unchanged', async () => {
       const { secondId } = await insertNamedPair();
 
       const error = await expectNonDuplicateError(
         updateOne<DuplicateKeyUpdateEntity>(db, collectionName, { _id: { eq: secondId.toString() } }, { _id: new ObjectId().toString() }, []),
       );
+      expect(error).not.toBeInstanceOf(BadRequestError);
       expect(error).not.toBeInstanceOf(IdNotFoundError);
     });
   });

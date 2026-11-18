@@ -1140,6 +1140,35 @@ describe('GenericApiService - Integration Tests', () => {
       expect(updatedEntity._updatedBy).toBe(createdEntity._createdBy);
     });
 
+    it('should set _updated and _updatedBy on full update', async () => {
+      const createdEntity = await service.create(getTestMetaOrgContext(), {
+        name: 'Entity for set-updated audit test',
+      });
+
+      if (!createdEntity || !createdEntity._id) {
+        throw new Error('Entity not created or missing ID');
+      }
+
+      const originalCreated = createdEntity._created;
+      const originalCreatedBy = createdEntity._createdBy;
+      const originalUpdated = createdEntity._updated;
+      const callerId = getTestMetaOrgUserContext().user._id;
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const updatedEntity = await service.fullUpdateById(
+        getTestMetaOrgContext(),
+        createdEntity._id,
+        { name: 'Name after full update' } as TestEntity,
+      );
+
+      expect(updatedEntity._created).toEqual(originalCreated);
+      expect(updatedEntity._createdBy).toBe(originalCreatedBy);
+      expect(updatedEntity._updated).toBeDefined();
+      expect(updatedEntity._updated).not.toEqual(originalUpdated);
+      expect(updatedEntity._updatedBy).toBe(callerId);
+    });
+
 
     it('should fully replace all fields when updating', async () => {
       // Arrange
