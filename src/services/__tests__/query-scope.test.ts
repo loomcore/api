@@ -29,7 +29,7 @@ import { IdNotFoundError, ServerError } from '../../errors/index.js';
 import { GenericApiService } from '../generic-api-service/generic-api.service.js';
 import type { IModelSpecResolver } from '../model-spec-resolver.interface.js';
 import { OrganizationService } from '../organization.service.js';
-import type { Filters } from '../filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import type { IQueryScope } from '../query-scope.interface.js';
 import type { IRequestContext } from '../request-context.interface.js';
 import { EmptyUserContext } from '@loomcore/common/models';

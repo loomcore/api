@@ -8,7 +8,7 @@ import { batchUpdate } from '../commands/mongo-batch-update.command.js';
 import { replaceOne } from '../commands/mongo-replace-one.command.js';
 import { updateOne } from '../commands/mongo-update-one.command.js';
 import { updateMany } from '../commands/mongo-update-many.command.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 const isMongo = process.env.TEST_DATABASE === 'mongodb';
 const collectionName = 'duplicateKeyUpdateEntities';

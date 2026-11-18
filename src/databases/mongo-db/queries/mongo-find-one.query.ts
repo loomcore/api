@@ -1,6 +1,6 @@
 import { Db } from 'mongodb';
 import { Operation } from '../../operations/operation.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import { splitFiltersByType } from '../../utils/resolve-join-filter.js';
 import NoSqlPipeline from '../models/no-sql-pipeline.js';
 import { buildJoinMatchStage } from '../utils/build-join-match.util.js';

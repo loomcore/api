@@ -7,7 +7,7 @@ import {
 import type { AppIdType } from '@loomcore/common/types';
 import { DeleteResult, IDatabase } from '../models/index.js';
 import { Operation } from '../operations/operation.js';
-import type { Filters } from '../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 import { batchUpdate as batchUpdateCommand } from './commands/postgres-batch-update.command.js';
 import { create as createCommand } from './commands/postgres-create.command.js';
 import { createMany as createManyCommand } from './commands/postgres-create-many.command.js';

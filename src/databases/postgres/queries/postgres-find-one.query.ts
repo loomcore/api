@@ -4,7 +4,7 @@ import { buildJoinClauses } from '../utils/build-join-clauses.js';
 import { buildSelectClause } from '../utils/build-select-clause.js';
 import { buildWhereClause } from '../utils/build-where-clause.js';
 import { isJoinOperation } from '../../utils/is-join-operation.util.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export async function findOne<T>(
   client: PostgresConnection,

@@ -7,7 +7,7 @@ import { buildWhereClause } from '../utils/build-where-clause.js';
 import { columnsAndValuesFromEntity } from '../utils/columns-and-values-from-entity.js';
 import { isJoinOperation } from '../../utils/is-join-operation.util.js';
 import { IEntity } from '@loomcore/common/models';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export async function updateOne<T extends IEntity>(
   client: PostgresConnection,

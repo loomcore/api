@@ -1,7 +1,7 @@
 import { Db } from 'mongodb';
 import { DeleteResult as GenericDeleteResult } from '../../models/delete-result.js';
 import { buildNoSqlMatch } from '../utils/build-no-sql-match.util.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export async function deleteMany(db: Db, pluralResourceName: string, filters: Filters): Promise<GenericDeleteResult> {
   const collection = db.collection(pluralResourceName);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IQueryOptions } from '@loomcore/common/models';
+import type { Filters } from '@loomcore/common/models';
 import { BadRequestError } from '../../../../errors/index.js';
 import { InnerJoin } from '../../../operations/inner-join.operation.js';
 import { LeftJoin } from '../../../operations/left-join.operation.js';
@@ -7,7 +7,7 @@ import { LeftJoinMany } from '../../../operations/left-join-many.operation.js';
 import { buildCountQuerySql } from '../build-count-query.js';
 import { buildWhereClause } from '../build-where-clause.js';
 
-function whereFor(filters: IQueryOptions['filters'], tablePrefix = 'items') {
+function whereFor(filters: Filters, tablePrefix = 'items') {
   return buildWhereClause({ filters }, tablePrefix);
 }
 

@@ -1,6 +1,6 @@
 import type { PostgresConnection } from '../postgres-connection.js';
 import { buildWhereClause } from '../utils/build-where-clause.js';
-import type { Filters } from '../../../services/filters.type.js';
+import type { Filters } from '@loomcore/common/models';
 
 export async function getCount(
   client: PostgresConnection,

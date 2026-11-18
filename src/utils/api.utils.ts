@@ -3,7 +3,7 @@ import {
   IApiResponse,
   IQueryOptions,
   IError,
-  Filter,
+  Filters,
   DefaultQueryOptions,
   IPagedResult,
   IModelSpec
@@ -86,7 +86,7 @@ function getQueryOptionsFromRequest(request: Request): IQueryOptions {
     sortDirection: request.query.sortDirection as SortDirection,
     page: request.query.page ? parseInt(request.query.page as string) : DefaultQueryOptions.page,
     pageSize: request.query.pageSize ? parseInt(request.query.pageSize as string) : DefaultQueryOptions.pageSize,
-    filters: request.query.filters as { [key: string]: Filter } | undefined
+    filters: request.query.filters as Filters | undefined
   };
 
   return queryOptions;
