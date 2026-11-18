@@ -9,6 +9,10 @@ export interface IGenericApiService<T extends IEntity, TContext extends IRequest
 {
   getModelSpec(): IModelSpec;
 
+  /**
+   * Outer write-prep pipeline (not an override point — customize via prepareEntityForWrite).
+   * Order: applySystemWriteRules → prepareEntityForWrite → applyScopesToEntity → prepareEntityForStorage.
+   */
   preProcessEntity(
     context: TContext,
     spec: IModelSpec,

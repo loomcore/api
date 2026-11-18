@@ -1,7 +1,7 @@
 import type { IEntity, IPagedResult, IQueryOptions, IModelSpec } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
 import type { Operation } from '../../databases/operations/operation.js';
-import type { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
+import type { CustomProcessEntityAfterReadFunction, PrepareQueryCustomFunction } from '../types.js';
 import type { IRequestContext } from '../request-context.interface.js';
 
 export interface IGenericQueryService<T extends IEntity, TContext extends IRequestContext = IRequestContext> {
@@ -12,7 +12,8 @@ export interface IGenericQueryService<T extends IEntity, TContext extends IReque
   prepareQuery(context: TContext | undefined, queryOptions: IQueryOptions, operations: Operation[]): { queryOptions: IQueryOptions; operations: Operation[] };
 
   /**
-   * Post-process an entity after fetching from the database. Uses the resolved model spec.
+   * Outer post-read pipeline: processEntityFromStorage then processEntityAfterRead.
+   * Customize domain logic via processEntityAfterRead, not by overriding this.
    */
   postProcessEntity(context: TContext, spec: IModelSpec, entity: any): T;
 
@@ -23,7 +24,7 @@ export interface IGenericQueryService<T extends IEntity, TContext extends IReque
   getAll<TCustom extends IEntity>(
     context: TContext,
     prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+    customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<T, TCustom, TContext>,
   ): Promise<TCustom[]>;
 
   get(context: TContext, queryOptions?: IQueryOptions): Promise<IPagedResult<T>>;
@@ -31,7 +32,7 @@ export interface IGenericQueryService<T extends IEntity, TContext extends IReque
     context: TContext,
     queryOptions: IQueryOptions,
     prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+    customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<T, TCustom, TContext>,
   ): Promise<IPagedResult<TCustom>>;
 
   getById(context: TContext, id: AppIdType): Promise<T>;
@@ -39,7 +40,7 @@ export interface IGenericQueryService<T extends IEntity, TContext extends IReque
     context: TContext,
     id: AppIdType,
     prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+    customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<T, TCustom, TContext>,
   ): Promise<TCustom>;
 
   getCount(context: TContext): Promise<number>;

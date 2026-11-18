@@ -24,7 +24,7 @@ import { AppIdType } from '@loomcore/common/types';
 import { apiUtils } from '../../../utils/index.js';
 import { Value } from '@sinclair/typebox/value';
 import testUtils from '../../../__tests__/common-test.utils.js';
-import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../../../services/types.js';
+import { CustomProcessEntityAfterReadFunction, PrepareQueryCustomFunction } from '../../../services/types.js';
 
 // Skip this test suite if not running with PostgreSQL
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
@@ -113,14 +113,14 @@ const prepareQueryCustom: PrepareQueryCustomFunction = (
   };
 };
 
-// Custom postProcessEntity function that merges _joinData into the main entity
-const postProcessEntityCustom: PostProcessEntityCustomFunction<any, ITestClientReportsApiModel> = (
+// Custom processEntityAfterRead callback that merges _joinData into the main entity
+const customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<any, ITestClientReportsApiModel> = (
   _context: IRequestContext,
   entity: any
 ): ITestClientReportsApiModel => {
   const joinData = entity._joinData;
 
-  // After database postProcessEntity, keys are camelCase (convertKeysToCamelCase)
+  // After database processEntityFromStorage, keys are camelCase (convertKeysToCamelCase)
   const dbClientPerson = joinData?.clientPerson;
 
   const emailAddresses = dbClientPerson?.clientEmailAddresses || [];
@@ -203,7 +203,7 @@ const postProcessEntityCustom: PostProcessEntityCustomFunction<any, ITestClientR
   };
 };
 
-// Test service that uses the custom prepareQuery and postProcessEntity
+// Test service that uses the custom prepareQuery and customProcessEntityAfterRead
 class TestClientReportsService extends GenericApiService<ITestClientReportsApiModel> {
   constructor(database: any) {
     super(database, 'client', 'clients', testClientReportsModelSpec);
@@ -227,7 +227,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
       context,
       queryOptions,
       prepareQueryCustom,
-      postProcessEntityCustom
+      customProcessEntityAfterRead
     );
 
 
@@ -242,7 +242,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
     const entities = await this.service.getAll<ITestClientReportsApiModel>(
       context,
       prepareQueryCustom,
-      postProcessEntityCustom
+      customProcessEntityAfterRead
     );
     // Wrap in entities object to match test expectation
     apiUtils.apiResponse<{ entities: ITestClientReportsApiModel[] }>(res, 200, { data: { entities } }, this.modelSpec, this.publicSpec);
@@ -266,7 +266,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
       context,
       id,
       prepareQueryCustom,
-      postProcessEntityCustom
+      customProcessEntityAfterRead
     );
     apiUtils.apiResponse<ITestClientReportsApiModel>(res, 200, { data: entity }, this.modelSpec, this.publicSpec);
   }

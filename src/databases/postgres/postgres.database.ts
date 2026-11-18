@@ -5,7 +5,6 @@ import {
     IQueryOptions,
 } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { TSchema } from '@sinclair/typebox';
 import { DeleteResult, IDatabase } from '../models/index.js';
 import { Operation } from '../operations/operation.js';
 import type { Filters } from '../../services/filters.type.js';
@@ -61,14 +60,14 @@ export class PostgresDatabase implements IDatabase {
         }
     }
 
-    preProcessEntity<T extends IEntity>(
+    prepareEntityForStorage<T extends IEntity>(
         entity: Partial<T>,
-        modelSpec: TSchema,
+        _spec: IModelSpec,
     ): Partial<T> {
         return convertKeysToSnakeCase(entity);
     }
-    postProcessEntity<T extends IEntity>(entity: T, modelSpec: TSchema): T {
-        const withNullsConverted = convertNullToUndefined(entity, modelSpec);
+    processEntityFromStorage<T extends IEntity>(entity: T, spec: IModelSpec): T {
+        const withNullsConverted = convertNullToUndefined(entity, spec.fullSchema);
         return convertKeysToCamelCase(withNullsConverted);
     }
     async getAll<T extends IEntity>(

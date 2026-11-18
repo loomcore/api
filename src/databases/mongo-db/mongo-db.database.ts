@@ -4,7 +4,6 @@ import type { AppIdType } from '@loomcore/common/types';
 import { Operation } from '../operations/operation.js';
 import { convertObjectIdsToStrings, convertStringsToObjectIds } from './utils/index.js';
 import { DeleteResult as GenericDeleteResult } from '../models/delete-result.js';
-import { TSchema } from '@sinclair/typebox';
 import { IDatabase } from '../models/database.interface.js';
 import { create, createMany, batchUpdate, replaceOne, updateOne, updateMany, deleteOne, deleteMany } from './commands/index.js';
 import { getAll, get, getCount, find, findOne } from './queries/index.js';
@@ -37,16 +36,14 @@ export class MongoDBDatabase implements IDatabase {
         }
     }
 
-    preProcessEntity<T extends IEntity>(entity: Partial<T>, schema: TSchema): Partial<T> {
-        // Allow already-converted ObjectId instances (write pipeline may call this twice: once in
-        // preProcessEntity and again after applyScopesToEntity stamps camelCase fields).
-        if (entity._id && typeof entity._id === 'string' && !entityUtils.isValidObjectId(entity._id)) {
+    prepareEntityForStorage<T extends IEntity>(entity: Partial<T>, spec: IModelSpec): Partial<T> {
+        if (entity._id && !entityUtils.isValidObjectId(entity._id)) {
             throw new BadRequestError('id is not a valid ObjectId');
         }
-        return convertStringsToObjectIds(entity, schema);
+        return convertStringsToObjectIds(entity, spec.fullSchema);
     }
 
-    postProcessEntity<T extends IEntity>(single: T, schema: TSchema): T {
+    processEntityFromStorage<T extends IEntity>(single: T, _spec: IModelSpec): T {
         if (!single) return single;
 
         return convertObjectIdsToStrings<T>(single);

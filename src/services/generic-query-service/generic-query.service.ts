@@ -40,7 +40,7 @@ import type { IRequestContext } from '../request-context.interface.js';
 import type { TenancyMode } from '../tenancy-mode.type.js';
 import { tenantScope } from '../tenant-scope.js';
 import { IModelSpecResolver, StaticModelSpecResolver } from '../model-spec-resolver.interface.js';
-import { PostProcessEntityCustomFunction, PrepareQueryCustomFunction } from '../types.js';
+import { CustomProcessEntityAfterReadFunction, PrepareQueryCustomFunction } from '../types.js';
 
 export class GenericQueryService<T extends IEntity, TContext extends IRequestContext = IRequestContext>
   implements IGenericQueryService<T, TContext>
@@ -136,13 +136,13 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
   async getAll<TCustom extends IEntity>(
     context: TContext,
     prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+    customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<T, TCustom, TContext>,
   ): Promise<TCustom[]>;
 
   async getAll<Y extends IEntity = T>(
     context: TContext,
     prepareQueryCustom?: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y, TContext>,
+    customProcessEntityAfterRead?: CustomProcessEntityAfterReadFunction<T, Y, TContext>,
   ): Promise<Y[]> {
     let operations: Operation[] = [];
     let queryOptions: IQueryOptions = {};
@@ -159,11 +159,11 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
     );
 
     return entities.map((entity) => {
-      const dbProcessed = this.postProcessEntity(context, spec, entity);
-      if (postProcessEntityCustom) {
-        return postProcessEntityCustom(context, dbProcessed);
+      const processed = this.postProcessEntity(context, spec, entity);
+      if (customProcessEntityAfterRead) {
+        return customProcessEntityAfterRead(context, processed);
       }
-      return dbProcessed as unknown as Y;
+      return processed as unknown as Y;
     });
   }
 
@@ -173,14 +173,14 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
     context: TContext,
     queryOptions: IQueryOptions,
     prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+    customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<T, TCustom, TContext>,
   ): Promise<IPagedResult<TCustom>>;
 
   async get<Y extends IEntity = T>(
     context: TContext,
     queryOptions: IQueryOptions = { ...DefaultQueryOptions },
     prepareQueryCustom?: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y, TContext>,
+    customProcessEntityAfterRead?: CustomProcessEntityAfterReadFunction<T, Y, TContext>,
   ): Promise<IPagedResult<Y>> {
     let operations: Operation[] = [];
     if (prepareQueryCustom) {
@@ -198,8 +198,8 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
 
     const transformedEntities = (pagedResult.entities || []).map((entity) => {
       const transformedEntity: T = this.postProcessEntity(context, spec, entity);
-      if (postProcessEntityCustom) {
-        return postProcessEntityCustom(context, transformedEntity);
+      if (customProcessEntityAfterRead) {
+        return customProcessEntityAfterRead(context, transformedEntity);
       }
       return transformedEntity as unknown as Y;
     });
@@ -215,14 +215,14 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
     context: TContext,
     id: AppIdType,
     prepareQueryCustom: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom: PostProcessEntityCustomFunction<T, TCustom, TContext>,
+    customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<T, TCustom, TContext>,
   ): Promise<TCustom>;
 
   async getById<Y extends IEntity = T>(
     context: TContext,
     id: AppIdType,
     prepareQueryCustom?: PrepareQueryCustomFunction<TContext>,
-    postProcessEntityCustom?: PostProcessEntityCustomFunction<T, Y, TContext>,
+    customProcessEntityAfterRead?: CustomProcessEntityAfterReadFunction<T, Y, TContext>,
   ): Promise<Y> {
     let operations: Operation[] = [];
     let queryOptions: IQueryOptions = {};
@@ -241,8 +241,8 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
 
     const spec = await this.resolveModelSpec(context);
     const transformedEntity = this.postProcessEntity(context, spec, entity);
-    if (postProcessEntityCustom) {
-      return postProcessEntityCustom(context, transformedEntity);
+    if (customProcessEntityAfterRead) {
+      return customProcessEntityAfterRead(context, transformedEntity);
     }
     return transformedEntity as unknown as Y;
   }
@@ -283,8 +283,23 @@ export class GenericQueryService<T extends IEntity, TContext extends IRequestCon
     return { queryOptions, operations: mergedOperations };
   }
 
-  postProcessEntity(_context: TContext, spec: IModelSpec, entity: T): T {
-    return this.database.postProcessEntity(entity, spec.fullSchema);
+  /**
+   * Outer method for preparing an entity after a read. Do not override for domain logic —
+   * customize via processEntityAfterRead instead.
+   */
+  postProcessEntity(context: TContext, spec: IModelSpec, entity: T): T {
+    // a. DB storage → domain (Mongo ObjectId→string; Postgres null/keys)
+    const fromStorage = this.database.processEntityFromStorage(entity, spec);
+    // b. Derived-class hook — default no-op
+    return this.processEntityAfterRead(context, spec, fromStorage);
+  }
+
+  /**
+   * Extension point for derived classes after storage→domain conversion.
+   * Default is a no-op. Derived classes do NOT need to call super.
+   */
+  protected processEntityAfterRead(_context: TContext, _spec: IModelSpec, entity: T): T {
+    return entity;
   }
 
   getModelSpec(): IModelSpec {

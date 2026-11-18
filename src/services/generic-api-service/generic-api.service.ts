@@ -43,10 +43,31 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   /**
    * Validates a document against the given model spec. Synchronous because the spec is resolved first.
    * Override and call super.validate first for extra domain validation.
+   * Accepts typed values (e.g. Date objects): TypeboxIsoDate Check is on the encoded (ISO string) side,
+   * so Date instances are converted to ISO strings for Check only (callers still pass Dates).
    */
   protected validate(spec: IModelSpec, entity: unknown, options: { partial: boolean }): void {
-    const errors = entityUtils.validate(spec, entity, options.partial);
+    const forValidation = this.datesToIsoStringsForValidation(structuredClone(entity));
+    const errors = entityUtils.validate(spec, forValidation, options.partial);
     entityUtils.handleValidationResult(errors, `${this.constructor.name}.validate`);
+  }
+
+  /** TypeBox Transform Check validates the encoded (string) side; convert Dates without a full Encode (Encode also requires all schema fields). */
+  private datesToIsoStringsForValidation(value: unknown): unknown {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.datesToIsoStringsForValidation(item));
+    }
+    if (value !== null && typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+        result[key] = this.datesToIsoStringsForValidation(child);
+      }
+      return result;
+    }
+    return value;
   }
 
   /**
@@ -64,15 +85,6 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   /** Extension point; the default does nothing beyond the TODO above. */
   protected onFieldsStripped(_context: TContext, _original: unknown, _cleaned: unknown): void {}
 
-  /**
-   * Scope stamps use domain (camelCase) field names. preProcessEntity already ran
-   * IDatabase.preProcessEntity (e.g. camelCase → snake_case on Postgres), so re-run it
-   * after applyScopesToEntity so newly stamped fields are converted before the write.
-   */
-  protected finalizeEntityForWrite(spec: IModelSpec, entity: Partial<T>): Partial<T> {
-    return this.database.preProcessEntity(entity, spec.fullSchema);
-  }
-
   async create(context: TContext, entity: Partial<T>): Promise<T | null> {
     let createdEntity: T | null = null;
 
@@ -80,10 +92,8 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     this.validate(spec, entity, { partial: false });
     this.detectStrippedFields(context, spec, entity);
     const preparedEntity = await this.preProcessEntity(context, spec, entity, true);
-    this.applyScopesToEntity(context, preparedEntity, true);
-    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
 
-    const insertResult = await this.database.create<T>(this.pluralResourceName, dbReady);
+    const insertResult = await this.database.create<T>(this.pluralResourceName, preparedEntity);
 
     if (insertResult.insertedId) {
       createdEntity = this.postProcessEntity(context, spec, insertResult.entity);
@@ -101,9 +111,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
         entities.map(async (entity) => {
           this.validate(spec, entity, { partial: false });
           this.detectStrippedFields(context, spec, entity);
-          const prepared = await this.preProcessEntity(context, spec, entity, true);
-          this.applyScopesToEntity(context, prepared, true);
-          return this.finalizeEntityForWrite(spec, prepared);
+          return this.preProcessEntity(context, spec, entity, true);
         }),
       );
       const insertResult = await this.database.createMany<T>(this.pluralResourceName, preparedEntities);
@@ -128,9 +136,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
       entities.map(async (entity) => {
         this.validate(spec, entity, { partial: true });
         this.detectStrippedFields(context, spec, entity);
-        const prepared = await this.preProcessEntity(context, spec, entity, false);
-        this.applyScopesToEntity(context, prepared, false);
-        return this.finalizeEntityForWrite(spec, prepared);
+        return this.preProcessEntity(context, spec, entity, false);
       }),
     );
 
@@ -164,24 +170,12 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
       throw new IdNotFoundError();
     }
 
-    const preparedEntity = await this.preProcessEntity(context, spec, entity, false);
-    this.applyScopesToEntity(context, preparedEntity, false);
+    const preparedEntity = await this.preProcessEntity(context, spec, entity, false, existingEntity);
 
-    // Preserve system properties that should not be updated
-    // (_orgId may already be stamped by TenantScope.applyToEntity for tenant users)
-    if ('_created' in existingEntity && '_createdBy' in existingEntity) {
-      // Merge audit properties back into the prepared entity (after preparation to avoid stripping)
-      Object.assign(preparedEntity, {
-        _created: existingEntity._created,
-        _createdBy: existingEntity._createdBy,
-      });
-    }
-
-    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
     const rawUpdatedEntity = await this.database.replaceOne<T>(
       this.pluralResourceName,
       scopeFilters,
-      dbReady,
+      preparedEntity,
       operations,
     );
 
@@ -193,8 +187,6 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     this.validate(spec, entity, { partial: true });
     this.detectStrippedFields(context, spec, entity);
     const prepared = await this.preProcessEntity(context, spec, entity, false);
-    this.applyScopesToEntity(context, prepared, false);
-    const dbReady = this.finalizeEntityForWrite(spec, prepared);
 
     const { operations } = this.buildQuery(context, {});
     const filters: Filters = { _id: { eq: id }, ...this.getScopeFilters(context) };
@@ -202,7 +194,7 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
     const updated = await this.database.updateOne<T>(
       this.pluralResourceName,
       filters,
-      dbReady,
+      prepared,
       operations,
     );
 
@@ -216,13 +208,11 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
 
     const { queryOptions: preparedQuery, operations } = this.buildQuery(context, queryOptions, []);
     const preparedEntity = await this.preProcessEntity(context, spec, entity, false);
-    this.applyScopesToEntity(context, preparedEntity, false);
-    const dbReady = this.finalizeEntityForWrite(spec, preparedEntity);
 
     const rawUpdatedEntities = await this.database.updateMany<T>(
       this.pluralResourceName,
       preparedQuery.filters || {},
-      dbReady,
+      preparedEntity,
       operations,
     );
 
@@ -246,15 +236,46 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
   }
 
   /**
-   * Prepares a single entity before database operations.
-   * Receives the resolved spec explicitly. _orgId stamping lives in TenantScope.applyToEntity.
+   * Single outer method for preparing an entity for a write. Do not override —
+   * customize via prepareEntityForWrite instead. Fixed order:
+   * applySystemWriteRules → prepareEntityForWrite → applyScopesToEntity → prepareEntityForStorage.
    */
   async preProcessEntity(
     context: TContext,
     spec: IModelSpec,
     entity: Partial<T>,
     isCreate: boolean,
+    existingEntity?: T,
   ): Promise<Partial<T>> {
+    // a. System write rules — common to all databases and not optional
+    let preparedEntity = this.applySystemWriteRules(context, spec, entity, isCreate, existingEntity);
+
+    // b. Derived-class hook — default no-op; derived classes do NOT need to call super
+    preparedEntity = await this.prepareEntityForWrite(context, spec, preparedEntity, isCreate);
+
+    // c. Scoping lane — TenantScope stamps _orgId; feature scopes stamp their fields
+    this.applyScopesToEntity(context, preparedEntity, isCreate);
+
+    // d. DB storage prep — exactly once, last, right before the write
+    if (!spec?.fullSchema) {
+      throw new ServerError(
+        `Cannot prepare entity: No model specification with schema provided for ${this.pluralResourceName}`,
+      );
+    }
+    return this.database.prepareEntityForStorage(preparedEntity, spec);
+  }
+
+  /**
+   * Common to all databases and not optional: strip client system props, audit when auditable,
+   * decode via the resolved spec, and re-apply _created/_createdBy from an existing entity on full update.
+   */
+  private applySystemWriteRules(
+    context: TContext,
+    spec: IModelSpec,
+    entity: Partial<T>,
+    isCreate: boolean,
+    existingEntity?: T,
+  ): Partial<T> {
     // Clone the entity to avoid modifying the original
     let preparedEntity = _.clone(entity);
 
@@ -277,24 +298,40 @@ export class GenericApiService<T extends IEntity, TContext extends IRequestConte
       );
     }
 
-    let cleanedEntity = preparedEntity;
-    if (spec) {
-      /**
-       * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming
-       *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the
-       *  controllers, transforming entities back into json format as the response of the controller endpoints.
-       *  We keep the actual types (ObjectId, Date, etc) for use throughout the api, only transforming to their json
-       *  format when finally sending back to the client.
-       * Note: All our models define props that are ObjectIds in Mongodb as strings. That's why we have a separate step
-       *  (below) to convert those strings into ObjectIds. As far as TypeBox is concerned, those props are strings.
-       *   This is necessary because shared model classes can't define anything as ObjectId - it would require
-       *   importing MongoDb, which we definitely don't want in a shared model library.
-       */
-      cleanedEntity = spec.decode(preparedEntity);
+    /**
+     * We use TypeBox decode on all models here in prepareEntity for all saves (create, update, etc), transforming
+     *  entities before they go into the database. The analagous encode is used in apiUtils.apiResponse<T> in the
+     *  controllers, transforming entities back into json format as the response of the controller endpoints.
+     *  We keep the actual types (ObjectId, Date, etc) for use throughout the api, only transforming to their json
+     *  format when finally sending back to the client.
+     * Note: All our models define props that are ObjectIds in Mongodb as strings. That's why we have a separate step
+     *  (prepareEntityForStorage) to convert those strings into ObjectIds. As far as TypeBox is concerned, those props are strings.
+     *   This is necessary because shared model classes can't define anything as ObjectId - it would require
+     *   importing MongoDb, which we definitely don't want in a shared model library.
+     */
+    preparedEntity = spec.decode(preparedEntity);
+
+    // Preserve system properties that should not be updated on full replace (after decode to avoid stripping)
+    if (existingEntity && '_created' in existingEntity && '_createdBy' in existingEntity) {
+      Object.assign(preparedEntity, {
+        _created: existingEntity._created,
+        _createdBy: existingEntity._createdBy,
+      });
     }
 
-    preparedEntity = this.database.preProcessEntity(cleanedEntity, spec.fullSchema);
-
     return preparedEntity;
+  }
+
+  /**
+   * Extension point for derived classes (email lowercase, password hashing, domain checks, etc.).
+   * Default is a no-op. Derived classes do NOT need to call super.
+   */
+  protected async prepareEntityForWrite(
+    _context: TContext,
+    _spec: IModelSpec,
+    entity: Partial<T>,
+    _isCreate: boolean,
+  ): Promise<Partial<T>> {
+    return entity;
   }
 }

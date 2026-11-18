@@ -1,6 +1,5 @@
 import { IModelSpec, IQueryOptions, IPagedResult, IEntity } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { TSchema } from '@sinclair/typebox';
 import { DeleteResult } from './delete-result.js';
 import { Operation } from '../operations/operation.js';
 import type { Filters } from '../../services/filters.type.js';
@@ -11,8 +10,10 @@ import type { Filters } from '../../services/filters.type.js';
  */
 export interface IDatabase {
   close(): Promise<void>;
-  preProcessEntity<T extends IEntity>(entity: Partial<T>, modelSpec: TSchema): Partial<T>;
-  postProcessEntity<T extends IEntity>(entity: T, modelSpec: TSchema): T;
+  /** Last step before a write: DB-specific storage prep (Mongo ObjectId conversion; Postgres snake_case). */
+  prepareEntityForStorage<T extends IEntity>(entity: Partial<T>, spec: IModelSpec): Partial<T>;
+  /** First step after a read: DB-specific storage → domain (Mongo ObjectId→string; Postgres null/keys). */
+  processEntityFromStorage<T extends IEntity>(entity: T, spec: IModelSpec): T;
 
   getAll<T extends IEntity>(collection: string, filters: Filters, operations: Operation[]): Promise<T[]>;
   get<T extends IEntity>(collection: string, queryOptions: IQueryOptions, operations: Operation[], modelSpec: IModelSpec): Promise<IPagedResult<T>>;

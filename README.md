@@ -83,21 +83,22 @@ This is a clean breaking release. There are no compatibility shims.
 
 - Constructor order is `(database, singularResourceName, pluralResourceName, modelSpec, ...)`. `MultiTenantApiService` previously used plural-then-singular — reverse those arguments.
 - `prepareQuery(context, queryOptions, operations)` — query shaping only; scope filters are merged after it.
-- `preProcessEntity(context, spec, entity, isCreate)` — receives the resolved spec; no `allowId` parameter; do not stamp `_orgId` here.
-- `postProcessEntity(context, spec, entity)` — uses the resolved spec.
+- `preProcessEntity(context, spec, entity, isCreate)` — single outer write-prep method (not the override point). Order: `applySystemWriteRules` → `prepareEntityForWrite` → `applyScopesToEntity` → `prepareEntityForStorage`. Customize via `prepareEntityForWrite`; do not stamp `_orgId` there.
+- `postProcessEntity(context, spec, entity)` — outer read method: `processEntityFromStorage` then `processEntityAfterRead`. Customize via `processEntityAfterRead`. Per-call callback on get/getAll/getById is `customProcessEntityAfterRead`.
 - `getModelSpecForPreProcessing` is removed; override `modelSpecResolver` / use `resolveModelSpec(context)`.
 - `partialUpdateByIdWithoutPreAndPostProcessing` is removed.
 
 ### Validation
 
 - Controllers no longer call `validate` / `validateMany` (removed from `ApiController` and from the public service interface).
-- The service write pipeline validates with `validate(spec, entity, { partial })` after resolving the model spec.
-- Dates at the service boundary must be ISO strings when validation runs before decode.
+- `ApiController` converts the HTTP JSON body (ISO strings → Date via Convert+Decode, no Clean) before calling the service.
+- The service write pipeline validates with `validate(spec, entity, { partial })` after resolving the model spec. Internal callers pass real `Date` objects for date fields.
 
 ### IDatabase
 
 - Trailing `orgId` parameters are removed. Callers supply scope via `Filters`.
 - Renames: `fullUpdateById` → `replaceOne`, `partialUpdateById` → `updateOne`, `update` → `updateMany`, `deleteById` → `deleteOne`.
+- `preProcessEntity` → `prepareEntityForStorage`; `postProcessEntity` → `processEntityFromStorage`.
 - `getAll` and `getCount` take filters. Collection name is first on the public `IDatabase` methods.
 
 ### Feature scopes and resolvers

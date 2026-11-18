@@ -54,7 +54,7 @@ const {
 import { entityUtils } from '@loomcore/common/utils';
 import { config, setBaseApiConfig } from '../config/index.js';
 import type {
-  PostProcessEntityCustomFunction,
+  CustomProcessEntityAfterReadFunction,
   PrepareQueryCustomFunction,
 } from '../services/types.js';
 import type { DbType } from '../databases/db-type.type.js';
@@ -479,7 +479,7 @@ const prepareQueryCustom: PrepareQueryCustomFunction = (
   };
 };
 
-const postProcessEntityCustom: PostProcessEntityCustomFunction<
+const customProcessEntityAfterRead: CustomProcessEntityAfterReadFunction<
   IProduct,
   IProductWithCategory
 > = (_context: IRequestContext, entity: IProduct): IProductWithCategory => {
@@ -514,7 +514,7 @@ export class ProductsController extends ApiController<IProduct> {
       context,
       queryOptions,
       prepareQueryCustom,
-      postProcessEntityCustom,
+      customProcessEntityAfterRead,
     );
 
     // Prepare API response
@@ -536,7 +536,7 @@ export class ProductsController extends ApiController<IProduct> {
     const entities = await this.service.getAll<IProductWithCategory>(
       context,
       prepareQueryCustom,
-      postProcessEntityCustom,
+      customProcessEntityAfterRead,
     );
 
     // Prepare API response
@@ -572,7 +572,7 @@ export class ProductsController extends ApiController<IProduct> {
       context,
       id,
       prepareQueryCustom,
-      postProcessEntityCustom,
+      customProcessEntityAfterRead,
     );
 
     // Prepare API response
@@ -607,7 +607,7 @@ export class MultiTenantProductService extends GenericApiService<IProduct> {
     return super.prepareQuery(context, queryOptions, newOperations);
   }
 
-  override postProcessEntity(context: IRequestContext, spec: IModelSpec, single: any): any {
+  override processEntityAfterRead(context: IRequestContext, _spec: IModelSpec, single: any): any {
     if (single && single.category) {
       const categoryService = new CategoryService(this.db);
       single.category = categoryService.postProcessEntity(
@@ -616,7 +616,7 @@ export class MultiTenantProductService extends GenericApiService<IProduct> {
         single.category,
       );
     }
-    return super.postProcessEntity(context, spec, single);
+    return single;
   }
 }
 

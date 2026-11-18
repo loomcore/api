@@ -121,6 +121,16 @@ export abstract class ApiController<T extends IEntity, TContext extends IRequest
   }
 
   /**
+   * Transport conversion only: ISO strings → Date (and other Transform fields) via Convert+Decode.
+   * Does not Clean (so detectStrippedFields still sees unknown fields) and does not validate.
+   */
+  protected async decodeRequestBody<TBody>(context: TContext, body: TBody, partial: boolean): Promise<TBody> {
+    const spec = await this.service.resolveModelSpec(context);
+    const schema = partial ? spec.partialSchema : spec.fullSchema;
+    return Value.Parse(['Convert', 'Decode'], schema, structuredClone(body)) as TBody;
+  }
+
+  /**
    * Resolves @Authorize metadata for a controller method and returns Express middleware.
    * Use from mapRoutes in this class or any derived controller:
    *
@@ -194,7 +204,8 @@ export abstract class ApiController<T extends IEntity, TContext extends IRequest
     res.set('Content-Type', 'application/json');
     const context = this.createContext(req);
 
-    const entity = await this.service.create(context, req.body);
+    const body = await this.decodeRequestBody(context, req.body as Partial<T>, false);
+    const entity = await this.service.create(context, body);
     const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
     apiUtils.apiResponse<T>(res, 201, { data: entity || undefined }, modelSpec, publicSpec);
   }
@@ -210,18 +221,19 @@ export abstract class ApiController<T extends IEntity, TContext extends IRequest
       throw new BadRequestError('Request body must be an array of entities.');
     }
 
-    // Convert HTTP string IDs to AppIdType using TypeBox
-    const convertedEntities = entities.map(entity => {
+    // Convert HTTP string IDs to AppIdType using TypeBox, then transport-decode each entity
+    const convertedEntities = await Promise.all(entities.map(async (entity) => {
+      let withId = entity;
       if (entity._id !== undefined) {
         try {
           const convertedId = Value.Convert(this.idSchema, entity._id) as AppIdType;
-          return { ...entity, _id: convertedId };
+          withId = { ...entity, _id: convertedId };
         } catch (error: any) {
           throw new BadRequestError(`Invalid ID format for entity: ${error.message || error}`);
         }
       }
-      return entity;
-    });
+      return this.decodeRequestBody(context, withId, true);
+    }));
 
     const updatedEntities = await this.service.batchUpdate(context, convertedEntities);
     const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
@@ -233,7 +245,8 @@ export abstract class ApiController<T extends IEntity, TContext extends IRequest
     const context = this.createContext(req);
     const id = this.parseId(req);
 
-    const updateResult = await this.service.fullUpdateById(context, id, req.body);
+    const body = await this.decodeRequestBody(context, req.body as T, false);
+    const updateResult = await this.service.fullUpdateById(context, id, body);
     const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
     apiUtils.apiResponse<T>(res, 200, { data: updateResult }, modelSpec, publicSpec);
   }
@@ -243,7 +256,8 @@ export abstract class ApiController<T extends IEntity, TContext extends IRequest
     const context = this.createContext(req);
     const id = this.parseId(req);
 
-    const updateResult = await this.service.partialUpdateById(context, id, req.body);
+    const body = await this.decodeRequestBody(context, req.body as Partial<T>, true);
+    const updateResult = await this.service.partialUpdateById(context, id, body);
     const { modelSpec, publicSpec } = await this.getResponseSpecs(context);
     apiUtils.apiResponse<T>(res, 200, { data: updateResult }, modelSpec, publicSpec);
   }
