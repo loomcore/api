@@ -1,5 +1,4 @@
 import {
-  EmptyUserContext,
   type ILoginResponse,
   type IModelSpec,
   type IOrganization,
@@ -92,29 +91,16 @@ export class AuthController {
       );
     }
 
+    // Multi-tenant org comes from createUserContextMiddleware (Origin/Referer → _orgId).
     let organization: IOrganization | null = null;
     if (config.app.isMultiTenant) {
-      const referer = req.get('referer') || req.headers.referer;
-      if (!referer) {
+      const orgId = req.userContext?.user?._orgId;
+      if (orgId == null) {
         throw new BadRequestError(
-          'Missing required fields: referer is required.',
+          'Missing required fields: organization is required.',
         );
       }
-      const domain = referer.split('/')[2];
-      if (!domain) {
-        throw new BadRequestError(
-          'Missing required fields: domain is required.',
-        );
-      }
-      organization = await this.organizationService.findByDomain(
-        { userContext: EmptyUserContext },
-        domain,
-      );
-      if (!organization) {
-        throw new BadRequestError(
-          `No organization found for domain: ${domain}`,
-        );
-      }
+      organization = { _id: orgId } as IOrganization;
     }
     res.set('Content-Type', 'application/json');
     const deviceId = getAndSetDeviceIdCookie(req, res);
@@ -250,29 +236,27 @@ export class AuthController {
     if (!email || typeof email !== 'string') {
       throw new BadRequestError('Missing required fields: email is required.');
     }
+    // Referer (or Origin) is still required as the client base URL for the reset email link.
     let referer: string | undefined = req.get('referer') || req.headers.referer;
+    if (!referer) {
+      const origin = req.get('origin') || (typeof req.headers.origin === 'string' ? req.headers.origin : undefined);
+      referer = origin && origin !== 'null' ? origin : undefined;
+    }
     if (!referer) {
       throw new BadRequestError(
         'Missing required fields: referer is required.',
       );
     }
+    // Multi-tenant org comes from createUserContextMiddleware (Origin/Referer → _orgId).
     let organization: IOrganization | null = null;
     if (config.app.isMultiTenant) {
-      const domain = referer.split('/')[2];
-      if (!domain) {
-        throw new BadRequestError(
-          'Missing required fields: domain is required.',
-        );
-      }
-      organization = await this.organizationService.findByDomain(
-        { userContext: EmptyUserContext },
-        domain,
-      );
-      if (!organization) {
+      const orgId = req.userContext?.user?._orgId;
+      if (orgId == null) {
         throw new BadRequestError(
           'Missing required fields: organization is required.',
         );
       }
+      organization = { _id: orgId } as IOrganization;
     }
 
     const systemContext = createSystemContext();
@@ -307,30 +291,16 @@ export class AuthController {
       );
     }
 
+    // Multi-tenant org comes from createUserContextMiddleware (Origin/Referer → _orgId).
     let organization: IOrganization | null = null;
     if (config.app.isMultiTenant) {
-      const referer = req.get('referer') || req.headers.referer;
-      if (!referer) {
-        throw new BadRequestError(
-          'Missing required fields: referer is required.',
-        );
-      }
-      const domain = referer.split('/')[2];
-      if (!domain) {
-        throw new BadRequestError(
-          'Missing required fields: domain is required.',
-        );
-      }
-      organization = await this.organizationService.findByDomain(
-        { userContext: EmptyUserContext },
-        domain,
-      );
-
-      if (!organization) {
+      const orgId = req.userContext?.user?._orgId;
+      if (orgId == null) {
         throw new BadRequestError(
           'Missing required fields: organization is required.',
         );
       }
+      organization = { _id: orgId } as IOrganization;
     }
 
     const response = await resetPassword(
