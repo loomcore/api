@@ -2,7 +2,12 @@ import { getSystemUserContext } from '@loomcore/common/models';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import { getTestMetaOrgUser, getTestOrg, getSystemContext } from '../../__tests__/test-objects.js';
+import {
+  getTestMetaOrgUser,
+  getTestOrg,
+  getSystemContext,
+  TEST_ORG_DOMAIN,
+} from '../../__tests__/test-objects.js';
 import { config } from '../../config/index.js';
 import { EmailService } from '../../services/email.service.js';
 import { AuthorizationService } from '../../services/authorization.service.js';
@@ -291,8 +296,11 @@ describe('OrganizationsController POST /organizations', () => {
   });
 
   it('rejects a tenant-org admin who is not in the meta organization', async () => {
+    // Origin must match the token's org so middleware authenticates the tenant admin;
+    // mismatched Origin would yield EmptyUserContext and 401 before requireMetaOrg runs.
     const response = await testAgent
       .post(apiEndpoint)
+      .set('Origin', `https://${TEST_ORG_DOMAIN}`)
       .set('Authorization', testUtils.getOrgAdminAuthToken())
       .send(validPayload());
 
