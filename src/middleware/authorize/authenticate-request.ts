@@ -14,10 +14,14 @@ function extractBearerToken(req: Request): string | null {
   return parts.length > 1 ? parts[1] : null;
 }
 
-export function authenticateRequest(req: Request): IUserContext {
+/**
+ * Verifies a Bearer token when present. Returns null when missing or invalid —
+ * never throws. Used to enrich `req.userContext` without deciding authentication.
+ */
+export function tryAuthenticateRequest(req: Request): IUserContext | null {
   const token = extractBearerToken(req);
   if (!token) {
-    throw new UnauthenticatedError();
+    return null;
   }
 
   const authConfig = getAuthConfig();
@@ -26,7 +30,15 @@ export function authenticateRequest(req: Request): IUserContext {
     rawPayload = jwt.verify(token, authConfig.clientSecret);
   } catch {
     // jwt.verify throws TokenExpiredError ("jwt expired"), JsonWebTokenError, etc.
-    throw new UnauthenticatedError();
+    return null;
   }
   return getAuthUserContextSpec().decode(rawPayload) as IUserContext;
+}
+
+export function authenticateRequest(req: Request): IUserContext {
+  const userContext = tryAuthenticateRequest(req);
+  if (!userContext) {
+    throw new UnauthenticatedError();
+  }
+  return userContext;
 }
