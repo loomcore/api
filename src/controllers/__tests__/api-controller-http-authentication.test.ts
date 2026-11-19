@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
-import { getTestMetaOrgUserContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, TEST_META_ORG_ID } from '../../__tests__/test-objects.js';
 import type { IDatabase } from '../../databases/models/index.js';
 import { CrossTenant } from '../../decorators/cross-tenant.decorator.js';
 import { AllowAnonymous } from '../../decorators/index.js';
@@ -92,6 +92,9 @@ describe('ApiController HTTP authentication', () => {
     expect(received).toBeDefined();
     expect(received.user.email).toBe(EmptyUserContext.user.email);
     expect(received.features).toEqual(EmptyUserContext.features);
+    // Multi-tenant middleware sets host org on anonymous context (TenantScope-readable).
+    expect(received.user._orgId).toBe(TEST_META_ORG_ID);
+    expect(received.user._id).toBeUndefined();
   });
 
   it('should succeed on a route registered without authorize middleware without a token', async () => {
@@ -102,6 +105,7 @@ describe('ApiController HTTP authentication', () => {
     const received = probeController.probeService.lastContext?.userContext as IUserContext;
     expect(received).toBeDefined();
     expect(received.user.email).toBe(EmptyUserContext.user.email);
+    expect(received.user._orgId).toBe(TEST_META_ORG_ID);
   });
 
   it('should pass the authenticated userContext to the service on an @AllowAnonymous route when a valid token is supplied', async () => {

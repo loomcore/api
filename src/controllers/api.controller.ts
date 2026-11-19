@@ -74,7 +74,7 @@ export abstract class ApiController<T extends IEntity, TContext extends IRequest
 
   /**
    * Builds typed request context from Express.
-   * Always wraps `req.userContext` (set by ensureUserContext / authorize). Presence of a userContext
+   * Always wraps `req.userContext` (set by userContext middleware / authorize). Presence of a userContext
    * is not authentication — that is decided only by authorize / @Authorize / @AllowAnonymous.
    */
   protected createContext(req: Request): TContext {

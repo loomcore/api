@@ -10,7 +10,7 @@ import qs from 'qs';
 import { NotFoundError } from '../errors/not-found.error.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { IBaseApiConfig } from '../models/index.js';
-import { ensureUserContext } from '../middleware/ensure-user-context.js';
+import { createUserContextMiddleware } from '../middleware/ensure-user-context.js';
 import { IDatabase } from '../databases/models/index.js';
 import { toCorsAllowedOrigins } from './cors-origin.util.js';
 
@@ -41,7 +41,7 @@ function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoute
     origin: toCorsAllowedOrigins(config.network.corsAllowedOrigins),
     credentials: true
   }));
-  app.use(ensureUserContext);
+  app.use(createUserContextMiddleware(database));
 
   setupRoutes(app, database, config); // setupRoutes calls every controller to map its own routes
 
