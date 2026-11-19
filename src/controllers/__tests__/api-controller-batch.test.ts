@@ -7,16 +7,16 @@ import { IProduct } from '../../__tests__/models/product.model.js';
 import { ICategory } from '../../__tests__/models/category.model.js';
 import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
-import { EmptyUserContext } from '@loomcore/common/models';
-import { getTestMetaOrgUserContext, getTestMetaOrgContext, getSystemContext } from '../../__tests__/test-objects.js';
+import { getTestMetaOrgUserContext, getTestMetaOrgContext } from '../../__tests__/test-objects.js';
+import { AuthController } from '../auth.controller.js';
 import { GenericApiService } from '../../services/index.js';
 import { AppIdType } from '@loomcore/common/types';
 
-// Skip this test suite if not running with PostgreSQL
+// Skip on default pg-mem Postgres when product LeftJoin aggregation needs real PostgreSQL; always run on Mongo.
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
 const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
-describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
+describe.skipIf(isPostgres && !isRealPostgres)('ApiController Batch Update', () => {
   let app: Application;
   let agent: supertest.SuperTest<supertest.Test>;
   let authorizationHeader: string;
@@ -36,17 +36,22 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
         new ProductsController(app, database);
         new CategoryController(app, database);
         new MultiTenantProductsController(app, database);
+        // Initialize AuthController (needed for loginWithTestUser)
+        new AuthController(app, database);
       },
     });
     app = testSetup.app;
     agent = testSetup.agent;
-    authorizationHeader = testUtils.getAuthToken();
 
     productService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     categoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
 
     multiTenantProductService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     multiTenantCategoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
+
+    // Seed meta-org + organizationDomains so Origin resolves like production
+    await testUtils.setupTestUsers();
+    authorizationHeader = await testUtils.loginWithTestUser(agent);
   });
 
   afterAll(async () => {
@@ -55,9 +60,11 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
 
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
+    await testUtils.setupTestUsers();
+    authorizationHeader = await testUtils.loginWithTestUser(agent);
 
-    // 1. Arrange: Create initial products using services
-    const categoryResult = await categoryService.create(getSystemContext(), { name: 'Test Category' });
+    // 1. Arrange: Create initial products using services (meta-org context so TenantScope matches the logged-in user)
+    const categoryResult = await categoryService.create(getTestMetaOrgContext(), { name: 'Test Category' });
     if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
@@ -66,21 +73,21 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     if (!multiTenantCategoryResult) throw new Error('multi-tenant category creation failed');
     multiTenantCategoryId = multiTenantCategoryResult._id;
     // Create products using services
-    const productA = await productService.create(getSystemContext(), {
+    const productA = await productService.create(getTestMetaOrgContext(), {
       name: 'Product A',
       description: 'Description A',
       categoryId: categoryId
     });
     if (!productA) throw new Error('product A creation failed');
 
-    const productB = await productService.create(getSystemContext(), {
+    const productB = await productService.create(getTestMetaOrgContext(), {
       name: 'Product B',
       description: 'Description B',
       categoryId: categoryId
     });
     if (!productB) throw new Error('product B creation failed');
 
-    const productC = await productService.create(getSystemContext(), {
+    const productC = await productService.create(getTestMetaOrgContext(), {
       name: 'Product C',
       description: 'Description C',
       categoryId: categoryId
@@ -144,11 +151,11 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
     expect(updatedProductC.name).toBe('Product C Updated');
     expect(updatedProductC.description).toBe('Description C also Updated');
 
-    // Verify directly from service
-    const productAFromDb = await productService.getById({ userContext: EmptyUserContext }, productIds[0]);
+    // Verify directly from service (meta-org context required for TenantScope)
+    const productAFromDb = await productService.getById(getTestMetaOrgContext(), productIds[0]);
     expect(productAFromDb.name).toBe('Product A Updated');
 
-    const productBFromDb = await productService.getById({ userContext: EmptyUserContext }, productIds[1]);
+    const productBFromDb = await productService.getById(getTestMetaOrgContext(), productIds[1]);
     expect(productBFromDb.description).toBe('Description B Updated');
   });
 

@@ -16,11 +16,11 @@ import { ITestAgentModel } from './models/test-agent.model.js';
 import { ITestPolicyModel } from './models/test-policy.model.js';
 import { ITestPremiumModel } from './models/test-premium.model.js';
 
-// Skip this test suite if not running with PostgreSQL
+// Requires real PostgreSQL (pg-mem lacks LATERAL / jsonb_build_object support used by joins).
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
 const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
-describe.skipIf(!isRealPostgres)('Join Operations - Complex Data Joining', () => {
+describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - Complex Data Joining', () => {
   let database: PostgresDatabase;
   let client: PostgresConnection;
   let testDatabase: TestPostgresDatabase;

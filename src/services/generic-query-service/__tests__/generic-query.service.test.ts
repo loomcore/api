@@ -17,7 +17,7 @@ import { ITestPhoneNumberModel } from '../../../databases/operations/__tests__/m
 import { getTestMetaOrgContext } from '../../../__tests__/test-objects.js';
 import { IdNotFoundError } from '../../../errors/index.js';
 
-// Skip this test suite if not running with PostgreSQL
+// Requires real PostgreSQL (pg-mem lacks LATERAL / jsonb_build_object support used by joins).
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
 const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
