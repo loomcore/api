@@ -1,7 +1,7 @@
 import { Application, NextFunction, Request, Response } from 'express';
 import { IEntity, IPagedResult, IModelSpec } from '@loomcore/common/models';
 import type { AppIdType } from '@loomcore/common/types';
-import { BadRequestError, UnauthenticatedError } from '../errors/index.js';
+import { BadRequestError } from '../errors/index.js';
 import { Value } from '@sinclair/typebox/value';
 import { getIdSchema } from '@loomcore/common/validation';
 import type { TSchema } from '@sinclair/typebox';
@@ -67,12 +67,11 @@ export abstract class QueryApiController<T extends IEntity, TContext extends IRe
   }
 
   /**
-   * Builds typed request context from Express. Throws if the request is unauthenticated.
+   * Builds typed request context from Express.
+   * Always wraps `req.userContext` (set by ensureUserContext / authorize). Presence of a userContext
+   * is not authentication — that is decided only by authorize / @Authorize / @AllowAnonymous.
    */
   protected createContext(req: Request): TContext {
-    if (!req.userContext) {
-      throw new UnauthenticatedError();
-    }
     return { userContext: req.userContext } as TContext;
   }
 
