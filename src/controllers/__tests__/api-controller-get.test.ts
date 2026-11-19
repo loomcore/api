@@ -10,17 +10,17 @@ import { ProductsController } from '../../__tests__/common-test.utils.js';
 import { ProductSpec } from '../../__tests__/models/product.model.js';
 import { CategorySpec } from '../../__tests__/models/category.model.js';
 import { GenericApiService } from '../../services/generic-api-service/generic-api.service.js';
-import { getSystemUserContext } from '@loomcore/common/models';
 import { AppIdType } from '@loomcore/common/types';
 import {
-  getSystemContext,
+  getTestMetaOrgContext,
 } from '../../__tests__/test-objects.js';
+import { AuthController } from '../auth.controller.js';
 
-// Skip this test suite if not running with PostgreSQL
+// Skip on default pg-mem Postgres when product LeftJoin aggregation needs real PostgreSQL; always run on Mongo.
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
 const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
-describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - Integration Tests', () => {
+describe.skipIf(isPostgres && !isRealPostgres)('ApiController get (paged) with aggregation - Integration Tests', () => {
   let app: Application;
   let productService: GenericApiService<IProduct>;
   let categoryService: GenericApiService<ICategory>;
@@ -35,15 +35,19 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
         // Instantiate controllers to map routes
         new ProductsController(app, database);
         new CategoryController(app, database);
+        // Initialize AuthController (needed for loginWithTestUser)
+        new AuthController(app, database);
       },
     });
     app = testSetup.app;
 
     testAgent = testSetup.agent;
-    authToken = testUtils.getAuthToken();
-
     productService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     categoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
+
+    // Seed meta-org + organizationDomains so Origin resolves like production
+    await testUtils.setupTestUsers();
+    authToken = await testUtils.loginWithTestUser(testAgent);
   });
 
   afterAll(async () => {
@@ -52,14 +56,16 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
 
   beforeEach(async () => {
     await TestExpressApp.clearCollections();
+    await testUtils.setupTestUsers();
+    authToken = await testUtils.loginWithTestUser(testAgent);
 
-    // Insert a category
-    const categoryResult = await categoryService.create(getSystemContext(), { name: 'Test Category' });
+    // Insert a category (meta-org context so TenantScope matches the logged-in user)
+    const categoryResult = await categoryService.create(getTestMetaOrgContext(), { name: 'Test Category' });
     if (!categoryResult) throw new Error('category creation failed');
     categoryId = categoryResult._id;
 
     // Insert a product with a sensitive internalNumber
-    const productResult = await productService.create(getSystemContext(), {
+    const productResult = await productService.create(getTestMetaOrgContext(), {
       name: 'Test Product',
       internalNumber: 'ABC-123-XYZ',
       categoryId: categoryId

@@ -26,7 +26,7 @@ import { Value } from '@sinclair/typebox/value';
 import testUtils from '../../../__tests__/common-test.utils.js';
 import { CustomProcessEntityAfterReadFunction, PrepareQueryCustomFunction } from '../../../services/types.js';
 
-// Skip this test suite if not running with PostgreSQL
+// Requires real PostgreSQL (pg-mem lacks LATERAL / jsonb_build_object support used by joins).
 const isPostgres = process.env.TEST_DATABASE === 'postgres';
 const isRealPostgres = process.env.USE_REAL_POSTGRES === 'true';
 
@@ -272,7 +272,7 @@ class TestClientReportsController extends ApiController<ITestClientReportsApiMod
   }
 }
 
-describe.skipIf(!isRealPostgres)('Join Operations - API Response Level Tests', () => {
+describe.skipIf(!isPostgres || !isRealPostgres)('Join Operations - API Response Level Tests', () => {
   let app: Application;
   let database: PostgresDatabase;
   let client: PostgresConnection;
