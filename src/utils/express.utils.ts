@@ -14,10 +14,25 @@ import { createUserContextMiddleware } from '../middleware/ensure-user-context.j
 import { IDatabase } from '../databases/models/index.js';
 import { toCorsAllowedOrigins } from './cors-origin.util.js';
 
-// Define the type for the routes setup function
-type RouteSetupFunction = (app: Application, database: IDatabase, config: IBaseApiConfig) => void;
+/** Registers host application routes (controllers) after userContext middleware. */
+export type RouteSetupFunction = (app: Application, database: IDatabase, config: IBaseApiConfig) => void;
 
-function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoutes: RouteSetupFunction): Application {
+/**
+ * Optional hooks for `setupExpressApp`.
+ * `registerUtilityRoutes` runs after early middleware and before `createUserContextMiddleware`,
+ * so those routes skip Origin/Referer org resolution and do not receive `req.userContext`
+ * unless the handler sets one (e.g. `EmptyUserContext`) itself.
+ */
+export type SetupExpressAppOptions = {
+  registerUtilityRoutes?: (app: Application) => void;
+};
+
+function setupExpressApp(
+  database: IDatabase,
+  config: IBaseApiConfig,
+  setupRoutes: RouteSetupFunction,
+  options?: SetupExpressAppOptions,
+): Application {
   const app: Application = express();
 
   // Use the 'qs' library for parsing query strings which allows for nested objects
@@ -41,6 +56,10 @@ function setupExpressApp(database: IDatabase, config: IBaseApiConfig, setupRoute
     origin: toCorsAllowedOrigins(config.network.corsAllowedOrigins),
     credentials: true
   }));
+
+  // Utility routes: before userContext so they are exempt from Origin/Referer org requirement.
+  options?.registerUtilityRoutes?.(app);
+
   app.use(createUserContextMiddleware(database));
 
   setupRoutes(app, database, config); // setupRoutes calls every controller to map its own routes

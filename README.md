@@ -16,6 +16,7 @@ This library provides a foundational structure for creating robust APIs, with a 
 - **Password Management**: Includes services for handling password reset requests and workflows.
 - **Email Service Integration**: A ready-to-use service for sending transactional emails (e.g., for password resets or welcome messages).
 - **Configuration-Driven**: Easily enable or disable features like multi-tenancy through a single configuration file.
+- **Utility routes hook**: `expressUtils.setupExpressApp(..., options?)` accepts optional `registerUtilityRoutes` so hosts can mount health/readiness (or similar) routes before `createUserContextMiddleware` — those routes skip Origin/Referer org resolution and do not get `req.userContext` unless the handler sets one.
 - **TypeScript & ES Modules**: A modern codebase written entirely in TypeScript, using ES Modules.
 - **Extensible Services**: A generic service layer that can be extended to add custom business logic while leveraging common data access patterns.
 - **Custom Error Handling**: A set of predefined error classes for consistent and meaningful API error responses.
@@ -61,6 +62,18 @@ Response (`201`): `{ organization, adminUser }` (password omitted). Org-only cre
 
 - `GET /` (`get`) returns a paged `IPagedResult`.
 - `GET /all` (`getAll`) is the only unpaged list.
+
+### Express app setup and utility routes
+
+`expressUtils.setupExpressApp(database, config, setupRoutes, options?)` builds the Express application in this order:
+
+1. Early middleware: query parser, request log (skips `/api/health`), `bodyParser`, `cookieParser`, `cors`
+2. `options?.registerUtilityRoutes?.(app)` — optional host-registered utility routes
+3. `createUserContextMiddleware(database)` — resolves multi-tenant org from Origin (else Referer) onto `req.userContext.user._orgId`
+4. `setupRoutes(app, database, config)` — normal API controllers
+5. Not-found handler and `errorHandler`
+
+Utility routes are exempt from the Origin/Referer org requirement. There is no built-in loomcore health route; hosts register their own via `registerUtilityRoutes` if needed. Auth routes (login, forgot-password, reset-password) use the middleware-resolved `_orgId` rather than parsing Referer again.
 
 ## Migrating from 0.2.x to 0.3.0
 
