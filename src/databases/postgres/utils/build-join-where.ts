@@ -6,22 +6,14 @@ import {
   parentAliasOf,
 } from '../../utils/resolve-join-filter.js';
 import { collectOuterOneToOneAliases } from './build-join-clauses.js';
-import { toPostgresStoreName, toSnakeCase } from './convert-keys.util.js';
+import { toPostgresStoreName, toSqlColumnName } from './convert-keys.util.js';
 import { JoinFilter } from '../../models/join-filter.interface.js';
 import { JoinOperation } from '../../operations/join-operation.js';
 
+export { toSqlColumnName } from './convert-keys.util.js';
+
 export interface SqlParamIndex {
   current: number;
-}
-
-export function toSqlColumnName(column: string): string {
-  if (column.startsWith('_')) {
-    return column;
-  }
-  if (column === 'id') {
-    return '_id';
-  }
-  return toSnakeCase(column);
 }
 
 function quoteIdent(value: string): string {
@@ -93,10 +85,11 @@ export function appendFilterConditions(
 function qualifyLocalField(localField: string, mainTableName: string): string {
   const dot = localField.indexOf('.');
   if (dot === -1) {
-    return mainTableName ? `${quoteIdent(mainTableName)}.${quoteIdent(localField)}` : quoteIdent(localField);
+    const column = quoteIdent(toSqlColumnName(localField));
+    return mainTableName ? `${quoteIdent(mainTableName)}.${column}` : column;
   }
   const alias = localField.slice(0, dot);
-  const column = localField.slice(dot + 1);
+  const column = toSqlColumnName(localField.slice(dot + 1));
   return `${quoteIdent(alias)}.${quoteIdent(column)}`;
 }
 
@@ -148,11 +141,11 @@ function existsSql(
     const fromTable = quoteIdent(toPostgresStoreName(child.from));
     const childAlias = quoteIdent(child.as);
     const onLeft = qualifyLocalField(child.localField, mainTableName);
-    sql += ` INNER JOIN ${fromTable} AS ${childAlias} ON ${onLeft} = ${childAlias}.${quoteIdent(child.foreignField)}`;
+    sql += ` INNER JOIN ${fromTable} AS ${childAlias} ON ${onLeft} = ${childAlias}.${quoteIdent(toSqlColumnName(child.foreignField))}`;
   }
 
   const conditions = [
-    `${qualifyLocalField(first.localField, mainTableName)} = ${quoteIdent(first.as)}.${quoteIdent(first.foreignField)}`,
+    `${qualifyLocalField(first.localField, mainTableName)} = ${quoteIdent(first.as)}.${quoteIdent(toSqlColumnName(first.foreignField))}`,
   ];
   appendFilterConditions(qualifiedColumn, filter, conditions, values, paramIndex);
   sql += ` WHERE ${conditions.join(' AND ')})`;

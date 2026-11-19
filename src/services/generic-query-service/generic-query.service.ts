@@ -7,9 +7,9 @@
  *
  * @example
  * ```typescript
- * // Create join operations for client-report
- * const joinPerson = new LeftJoin('persons', 'person_id', '_id', 'person');
- * const joinEmailAddresses = new LeftJoinMany('email_addresses', 'person._id', 'person_id', 'email_addresses');
+ * // Create join operations for client-report (model field names; Postgres maps columns)
+ * const joinPerson = new LeftJoin('persons', 'personId', '_id', 'person');
+ * const joinEmailAddresses = new LeftJoinMany('emailAddresses', 'person._id', 'personId', 'emailAddresses');
  *
  * // Create the service with default operations
  * const clientReportService = new GenericQueryService<IClientReportsModel>(
@@ -22,7 +22,7 @@
  *
  * // Use the service
  * const result = await clientReportService.getById(context, clientId);
- * // Result will have person and email_addresses populated
+ * // Result will have person and emailAddresses populated
  * ```
  */
 import type { Filters, IEntity, IQueryOptions, IPagedResult, IModelSpec } from '@loomcore/common/models';

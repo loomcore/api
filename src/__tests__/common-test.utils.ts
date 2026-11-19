@@ -470,14 +470,11 @@ const prepareQueryCustom: PrepareQueryCustomFunction = (
   queryOptions: IQueryOptions,
   operations: Operation[],
 ): { queryOptions: IQueryOptions; operations: Operation[] } => {
-  // Postgres stores snake_case columns; Mongo keeps the camelCase model field name.
-  const categoryLocalField =
-    process.env.TEST_DATABASE === 'mongodb' ? 'categoryId' : 'category_id';
   return {
     queryOptions: queryOptions,
     operations: [
       ...operations,
-      new LeftJoin('categories', categoryLocalField, '_id', 'category'),
+      new LeftJoin('categories', 'categoryId', '_id', 'category'),
     ],
   };
 };

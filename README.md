@@ -63,6 +63,10 @@ Response (`201`): `{ organization, adminUser }` (password omitted). Org-only cre
 - `GET /` (`get`) returns a paged `IPagedResult`.
 - `GET /all` (`getAll`) is the only unpaged list.
 
+### Joins
+
+`LeftJoin`, `InnerJoin`, and `LeftJoinMany` take **model field names** for `localField` and `foreignField` (camelCase, e.g. `categoryId`, `_id`). Mongo uses those names as-is. Postgres maps them to stored snake_case columns with the same `toSnakeCase` / `toSqlColumnName` conversion used for regular columns and filters (already-snake_case names are left unchanged). The join `as` alias is the output field name and is not remapped. Nested refs use `alias.field` (alias unchanged; field mapped on Postgres).
+
 ### Express app setup and utility routes
 
 `expressUtils.setupExpressApp(database, config, setupRoutes, options?)` builds the Express application in this order:
