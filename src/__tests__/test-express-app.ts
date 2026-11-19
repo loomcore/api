@@ -5,12 +5,16 @@ import express, { type Application } from 'express';
 import supertest from 'supertest';
 
 import type { IDatabase } from '../databases/models/database.interface.js';
-import { ensureUserContext } from '../middleware/ensure-user-context.js';
+import {
+  clearActiveOrganizationDomainCache,
+  createUserContextMiddleware,
+} from '../middleware/ensure-user-context.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { setupTestConfig } from './common-test.utils.js';
 import { TestMongoDatabase } from './mongo-db.test-database.js';
 import { TestPostgresDatabase } from './postgres.test-database.js';
 import type { ITestDatabase } from './test-database.interface.js';
+import { TEST_META_ORG_DOMAIN } from './test-objects.js';
 
 type TestExpressAppInitResult = {
   app: Application;
@@ -72,7 +76,8 @@ async function performInit(
     app = express();
     app.use(bodyParser.json());
     app.use(cookieParser()); // Add cookie-parser middleware
-    app.use(ensureUserContext);
+    // Same production middleware as expressUtils.setupExpressApp
+    app.use(createUserContextMiddleware(database));
 
     // Add diagnostic middleware to log all requests
     app.use((req, res, next) => {
@@ -80,8 +85,10 @@ async function performInit(
     });
   }
 
-  // Create a supertest agent for making test requests
+  // Create a supertest agent for making test requests.
+  // Default Origin simulates a browser hitting the meta-org client app (required in multi-tenant mode).
   const agent = supertest.agent(app);
+  agent.set('Origin', `https://${TEST_META_ORG_DOMAIN}`);
 
   return {
     app,
@@ -104,6 +111,8 @@ async function clearCollections(): Promise<void> {
   if (testDatabase) {
     await testDatabase.clearCollections();
   }
+  // Domains were wiped with collections; drop stale domain→orgId mappings.
+  clearActiveOrganizationDomainCache();
 }
 
 /**

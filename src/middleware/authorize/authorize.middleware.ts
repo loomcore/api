@@ -7,8 +7,8 @@ import { getSystemUserContext } from '@loomcore/common/models';
 /**
  * Builds an Express middleware that enforces a resolved auth requirement.
  *
- * - `allowAnonymous: true` → no JWT required
- * - otherwise → JWT required; populates `req.userContext`
+ * - otherwise → requires an authenticated `req.userContext` already built by userContext middleware
+ *   (does not decode the JWT a second time)
  * - `denyOnImpersonation: true` → rejects impersonated sessions
  * - if `features` is non-empty → also enforces feature access
  *
@@ -18,8 +18,8 @@ import { getSystemUserContext } from '@loomcore/common/models';
  */
 export function buildAuthGuard(requirement: IAuthRequirement | undefined): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
+    // userContext middleware already soft-enriched (or set EmptyUserContext); only gate here.
     const userContext = authenticateRequest(req);
-    req.userContext = userContext;
 
     // Deny on impersonation
     if (requirement?.denyOnImpersonation && userContext.impersonatorId !== undefined) {

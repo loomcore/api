@@ -10,4 +10,6 @@ export interface IAppConfig {
   isAuthEnabled: boolean;
   name: string;
   primaryTimezone?: string;
+  /** Max entries in the in-process organizationDomains LRU (default 500). */
+  organizationDomainCacheMaxSize?: number;
 }
