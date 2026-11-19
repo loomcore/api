@@ -77,12 +77,14 @@ describe('userContext middleware multi-tenant', () => {
   let mismatchedOrgToken: string;
 
   beforeAll(async () => {
-    const setup = await TestExpressApp.init();
+    const setup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        probeController = new MultiTenantProbeController(app, database);
+        new AuthController(app, database);
+      },
+    });
     database = setup.database;
     organizationDomainService = new OrganizationDomainService(database);
-    probeController = new MultiTenantProbeController(setup.app, database);
-    new AuthController(setup.app, database);
-    await TestExpressApp.setupErrorHandling();
     await testUtils.setupTestUsers();
     testAgent = setup.agent;
   });

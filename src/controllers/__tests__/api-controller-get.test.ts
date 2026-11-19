@@ -30,20 +30,20 @@ describe.skipIf(!isRealPostgres)('ApiController get (paged) with aggregation - I
   let productId: AppIdType;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Instantiate controllers to map routes
+        new ProductsController(app, database);
+        new CategoryController(app, database);
+      },
+    });
     app = testSetup.app;
 
     testAgent = testSetup.agent;
     authToken = testUtils.getAuthToken();
 
-    // Instantiate controllers to map routes
-    new ProductsController(app, testSetup.database);
-    new CategoryController(app, testSetup.database);
-
     productService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     categoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
-
-    await TestExpressApp.setupErrorHandling();
   });
 
   afterAll(async () => {
