@@ -11,14 +11,13 @@ describe('[library] AuthController', () => {
   //let authToken: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Initialize the AuthController with the Express app and database
+        authController = new AuthController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
-
-    // Initialize the AuthController with the Express app and database
-    authController = new AuthController(testSetup.app, testSetup.database);
-
-    // Setup error handling middleware AFTER controller initialization
-    await TestExpressApp.setupErrorHandling();
 
     // Set up test user data
     await testUtils.setupTestUsers();

@@ -18,16 +18,16 @@ describe('AuthController.resetPassword', () => {
   let passwordResetTokenService: PasswordResetTokenService;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        new AuthController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
     userService = new UserService(testSetup.database);
     passwordResetTokenService = new PasswordResetTokenService(
       testSetup.database,
     );
-
-    new AuthController(testSetup.app, testSetup.database);
-
-    await TestExpressApp.setupErrorHandling();
   });
 
   beforeEach(async () => {

@@ -12,13 +12,13 @@ describe('UsersController', () => {
   let usersController: UsersController;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        authController = new AuthController(app, database);
+        usersController = new UsersController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
-
-    authController = new AuthController(testSetup.app, testSetup.database);
-    usersController = new UsersController(testSetup.app, testSetup.database);
-
-    await TestExpressApp.setupErrorHandling();
     await testUtils.setupTestUsers();
   });
 

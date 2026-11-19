@@ -15,15 +15,14 @@ describe('AuthController.changePassword', () => {
   let database: IDatabase;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Initialize the AuthController with the Express app and database
+        new AuthController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
     database = testSetup.database;
-
-    // Initialize the AuthController with the Express app and database
-    new AuthController(testSetup.app, testSetup.database);
-
-    // Setup error handling middleware AFTER controller initialization
-    await TestExpressApp.setupErrorHandling();
   });
 
   beforeEach(async () => {

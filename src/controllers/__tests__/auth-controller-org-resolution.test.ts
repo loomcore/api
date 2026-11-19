@@ -16,11 +16,13 @@ describe('AuthController org resolution from userContext', () => {
   let testAgent: any;
   let passwordResetTokenService: PasswordResetTokenService;
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        new AuthController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
     passwordResetTokenService = new PasswordResetTokenService(testSetup.database);
-    new AuthController(testSetup.app, testSetup.database);
-    await TestExpressApp.setupErrorHandling();
   });
 
   // Typed loosely: matches existing spy patterns in this repo (vitest MockInstance generics vs method signatures).

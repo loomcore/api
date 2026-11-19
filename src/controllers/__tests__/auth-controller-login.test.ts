@@ -17,15 +17,15 @@ describe('AuthController', () => {
   let testDb: any;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Initialize the AuthController with the Express app and database
+        new AuthController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
     testDb = testSetup.database;
-
-    // Initialize the AuthController with the Express app and database
-    new AuthController(testSetup.app, testSetup.database);
     userService = new UserService(testSetup.database);
-    // Setup error handling middleware AFTER controller initialization
-    await TestExpressApp.setupErrorHandling();
 
     // Set up test user data
     await testUtils.setupTestUsers();
