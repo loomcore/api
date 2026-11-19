@@ -60,10 +60,12 @@ describe('QueryApiController HTTP authentication', () => {
   let expiredToken: string;
 
   beforeAll(async () => {
-    const setup = await TestExpressApp.init();
-    probeController = new AuthProbeQueryController(setup.app, setup.database);
-    new AuthController(setup.app, setup.database);
-    await TestExpressApp.setupErrorHandling();
+    const setup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        probeController = new AuthProbeQueryController(app, database);
+        new AuthController(app, database);
+      },
+    });
     await testUtils.setupTestUsers();
     testAgent = setup.agent;
   });

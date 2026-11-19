@@ -1,5 +1,5 @@
 import { initializeTypeBox } from '@loomcore/common/validation';
-import express, { type Application } from 'express';
+import type { Application } from 'express';
 import supertest from 'supertest';
 
 import { config } from '../config/base-api-config.js';
@@ -7,6 +7,7 @@ import type { IDatabase } from '../databases/models/database.interface.js';
 import { clearActiveOrganizationDomainCache } from '../middleware/ensure-user-context.js';
 import {
   expressUtils,
+  type RouteSetupFunction,
   type SetupExpressAppOptions,
 } from '../utils/express.utils.js';
 import { setupTestConfig } from './common-test.utils.js';
@@ -15,7 +16,14 @@ import { TestPostgresDatabase } from './postgres.test-database.js';
 import type { ITestDatabase } from './test-database.interface.js';
 import { TEST_META_ORG_DOMAIN } from './test-objects.js';
 
-export type TestExpressAppInitOptions = SetupExpressAppOptions;
+/**
+ * Options for `TestExpressApp.init`.
+ * `setupRoutes` is passed through to production `expressUtils.setupExpressApp` as its
+ * `setupRoutes` argument (controller registration). `registerUtilityRoutes` matches production.
+ */
+export type TestExpressAppInitOptions = SetupExpressAppOptions & {
+  setupRoutes?: RouteSetupFunction;
+};
 
 type TestExpressAppInitResult = {
   app: Application;
@@ -25,18 +33,17 @@ type TestExpressAppInitResult = {
 };
 
 let app: Application;
-let mainApp: Application;
 let database: IDatabase;
 let testDatabase: ITestDatabase;
 let initPromise: Promise<TestExpressAppInitResult> | null = null;
 
 /**
  * Initialize the Express application with a test database.
- * Uses the same `expressUtils.setupExpressApp` path as production (including optional
- * `registerUtilityRoutes` before userContext). Controllers register on a mounted sub-app
- * so routes can be added after init and still sit before the production not-found/error handlers.
+ * Uses the same `expressUtils.setupExpressApp` path as production: pass controller
+ * registration via `options.setupRoutes` (and optional `registerUtilityRoutes`) so
+ * route order matches production (utility → userContext → routes → not-found → errorHandler).
  * @param useMongoDb - If not provided, will check TEST_DATABASE env var ('mongodb' or 'postgres')
- * @param options - Same optional hooks as production `setupExpressApp` (e.g. registerUtilityRoutes)
+ * @param options - `setupRoutes` / `registerUtilityRoutes` forwarded to `setupExpressApp`
  * @returns Promise resolving to an object with the app, database, and supertest agent
  */
 async function init(
@@ -81,24 +88,20 @@ async function performInit(
     }
   }
 
-  // Set up Express app if not already done — same production setupExpressApp path
-  if (!mainApp) {
-    mainApp = expressUtils.setupExpressApp(
+  // Same production setupExpressApp path (no nested sub-app)
+  if (!app) {
+    const { setupRoutes, registerUtilityRoutes } = options ?? {};
+    app = expressUtils.setupExpressApp(
       database,
       config,
-      (expressApp) => {
-        // Mount a sub-app so tests can register controllers after init; the sub-app's
-        // route stack is consulted at request time and sits before not-found/errorHandler.
-        app = express();
-        expressApp.use(app);
-      },
-      options,
+      setupRoutes ?? ((_app, _database, _config) => {}),
+      registerUtilityRoutes ? { registerUtilityRoutes } : undefined,
     );
   }
 
   // Create a supertest agent for making test requests.
   // Default Origin simulates a browser hitting the meta-org client app (required in multi-tenant mode).
-  const agent = supertest.agent(mainApp);
+  const agent = supertest.agent(app);
   agent.set('Origin', `https://${TEST_META_ORG_DOMAIN}`);
 
   return {
@@ -107,14 +110,6 @@ async function performInit(
     testDatabase,
     agent,
   };
-}
-
-/**
- * No-op for callers that historically registered the error handler after controllers.
- * Terminal not-found and errorHandler are already registered by setupExpressApp.
- */
-async function setupErrorHandling(): Promise<void> {
-  // Production path already registered not-found + errorHandler in setupExpressApp.
 }
 
 /**
@@ -140,7 +135,6 @@ async function cleanup(): Promise<void> {
     // Reset initialization state even if cleanup fails (e.g. init never completed)
     initPromise = null;
     app = undefined as any;
-    mainApp = undefined as any;
     database = undefined as any;
     testDatabase = undefined as any;
   }
@@ -149,11 +143,10 @@ async function cleanup(): Promise<void> {
 /**
  * Utility for setting up a minimal Express application for testing.
  * Uses the real `setupExpressApp` production path (middleware order, utility routes hook,
- * userContext, not-found, errorHandler).
+ * userContext, setupRoutes, not-found, errorHandler).
  */
 export const TestExpressApp = {
   init,
-  setupErrorHandling,
   clearCollections,
   cleanup,
 };

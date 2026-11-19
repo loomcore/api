@@ -306,14 +306,15 @@ describe.skipIf(!isRealPostgres)('Join Operations - API Response Level Tests', (
     client = (testDatabase as any).postgresClient as PostgresConnection;
 
     // Initialize Express app
-    const testSetup = await TestExpressApp.init(false);
+    const testSetup = await TestExpressApp.init(false, {
+      setupRoutes: (app) => {
+        // Instantiate controller to map routes
+        new TestClientReportsController(app, database);
+      },
+    });
     app = testSetup.app;
     testAgent = testSetup.agent;
     authToken = testUtils.getAuthToken();
-
-    // Instantiate controller to map routes
-    new TestClientReportsController(app, database);
-    await TestExpressApp.setupErrorHandling();
 
     // Create test data (same as database-level tests)
     // 1. Create a person

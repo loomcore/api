@@ -56,22 +56,22 @@ describe('ApiController - Integration Tests', () => {
 
   beforeAll(async () => {
     // Initialize with our new test express app
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Create service and controller instances
+        testItemController = new TestItemController(app, database);
+        testItemService = testItemController.testItemService;
+
+        // Initialize AuthController (needed for loginWithTestUser)
+        new AuthController(app, database);
+      },
+    });
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;
 
     // Determine database type from env var (which is now guaranteed to be set by vitest-setup.ts)
     isPostgres = process.env.TEST_DATABASE === 'postgres';
-
-    // Create service and controller instances
-    testItemController = new TestItemController(app, database);
-    testItemService = testItemController.testItemService;
-
-    // Initialize AuthController (needed for loginWithTestUser)
-    new AuthController(app, database);
-
-    await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created
 
     // Set up test users and organizations (required for foreign key constraints)
     const { metaOrgUser } = await testUtils.setupTestUsers();

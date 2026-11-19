@@ -54,10 +54,12 @@ describe('userContext middleware single-tenant', () => {
   let authToken: string;
 
   beforeAll(async () => {
-    const setup = await TestExpressApp.init();
-    probeController = new SingleTenantProbeController(setup.app, setup.database);
-    new AuthController(setup.app, setup.database);
-    await TestExpressApp.setupErrorHandling();
+    const setup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        probeController = new SingleTenantProbeController(app, database);
+        new AuthController(app, database);
+      },
+    });
     originalIsMultiTenant = config.app.isMultiTenant;
     // Seed users while multi-tenant so org fixtures exist; flip after.
     await testUtils.setupTestUsers();

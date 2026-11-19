@@ -50,7 +50,13 @@ describe('ApiController with GenericApiService (multi-tenant)', () => {
 
   beforeAll(async () => {
     // Initialize with our test express app
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Create service and controller instances
+        testItemController = new TestItemController(app, database);
+        testItemService = testItemController.testItemService;
+      },
+    });
     app = testSetup.app;
     database = testSetup.database;
     testAgent = testSetup.agent;
@@ -60,12 +66,6 @@ describe('ApiController with GenericApiService (multi-tenant)', () => {
     // Get auth token and user ID from testUtils
     authToken = testUtils.getAuthToken();
     userId = getTestMetaOrgUser()._id;
-
-    // Create service and controller instances
-    testItemController = new TestItemController(app, database);
-    testItemService = testItemController.testItemService;
-
-    await TestExpressApp.setupErrorHandling(); // needs to come after all controllers are created
   });
 
   afterAll(async () => {

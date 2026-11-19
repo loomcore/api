@@ -30,22 +30,23 @@ describe.skipIf(!isRealPostgres)('ApiController Batch Update', () => {
   let multiTenantCategoryId: AppIdType;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        // Instantiate controllers to map routes
+        new ProductsController(app, database);
+        new CategoryController(app, database);
+        new MultiTenantProductsController(app, database);
+      },
+    });
     app = testSetup.app;
     agent = testSetup.agent;
     authorizationHeader = testUtils.getAuthToken();
-
-    // Instantiate controllers to map routes
-    new ProductsController(app, testSetup.database);
-    new CategoryController(app, testSetup.database);
-    new MultiTenantProductsController(app, testSetup.database);
 
     productService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     categoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
 
     multiTenantProductService = new GenericApiService<IProduct>(testSetup.database, 'product', 'products', ProductSpec);
     multiTenantCategoryService = new GenericApiService<ICategory>(testSetup.database, 'category', 'categories', CategorySpec);
-    await TestExpressApp.setupErrorHandling();
   });
 
   afterAll(async () => {
