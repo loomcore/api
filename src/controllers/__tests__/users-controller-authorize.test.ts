@@ -13,13 +13,13 @@ describe('UsersController authorization', () => {
   let adminToken: string;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        new AuthController(app, database);
+        new UsersController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
-
-    new AuthController(testSetup.app, testSetup.database);
-    new UsersController(testSetup.app, testSetup.database);
-
-    await TestExpressApp.setupErrorHandling();
     await testUtils.setupTestUsers();
   });
 

@@ -30,7 +30,11 @@ describe('OrganizationsController POST /organizations', () => {
   let authorizationService: AuthorizationService;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        new OrganizationsController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
     database = testSetup.database;
     testUtils.initialize(database);
@@ -39,9 +43,6 @@ describe('OrganizationsController POST /organizations', () => {
     organizationDomainService = new OrganizationDomainService(database);
     userService = new UserService(database);
     authorizationService = new AuthorizationService(database);
-
-    new OrganizationsController(testSetup.app, database);
-    await TestExpressApp.setupErrorHandling();
   });
 
   afterAll(async () => {

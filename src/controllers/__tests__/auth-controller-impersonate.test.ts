@@ -20,12 +20,13 @@ describe('AuthController impersonation', () => {
   let targetUser: IUser;
 
   beforeAll(async () => {
-    const testSetup = await TestExpressApp.init();
+    const testSetup = await TestExpressApp.init(undefined, {
+      setupRoutes: (app, database) => {
+        new AuthController(app, database);
+      },
+    });
     testAgent = testSetup.agent;
     userService = new UserService(testSetup.database);
-
-    new AuthController(testSetup.app, testSetup.database);
-    await TestExpressApp.setupErrorHandling();
     await testUtils.setupTestUsers();
   });
 
