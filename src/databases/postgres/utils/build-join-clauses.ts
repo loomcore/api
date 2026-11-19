@@ -1,7 +1,7 @@
 import { Operation } from '../../operations/operation.js';
 import { LeftJoin } from '../../operations/left-join.operation.js';
 import { InnerJoin } from '../../operations/inner-join.operation.js';
-import { toPostgresStoreName } from './convert-keys.util.js';
+import { toPostgresStoreName, toSqlColumnName, toSqlJoinLocalField } from './convert-keys.util.js';
 
 function getParentAlias(localField: string): string | null {
   if (!localField.includes('.')) return null;
@@ -48,15 +48,18 @@ export function buildJoinClauses(
     }
 
     const joinType = operation instanceof LeftJoin ? 'LEFT JOIN' : 'INNER JOIN';
+    const mappedLocalField = toSqlJoinLocalField(operation.localField);
     let leftSide: string;
-    if (operation.localField.includes('.')) {
-      const [alias, column] = operation.localField.split('.');
+    if (mappedLocalField.includes('.')) {
+      const [alias, column] = mappedLocalField.split('.');
       leftSide = `"${alias}"."${column}"`;
     } else {
-      leftSide = `"${mainTableName}"."${operation.localField}"`;
+      leftSide = `"${mainTableName}"."${mappedLocalField}"`;
     }
     const fromTable = toPostgresStoreName(operation.from);
-    joinClauses.push(`${joinType} "${fromTable}" AS "${operation.as}" ON ${leftSide} = "${operation.as}"."${operation.foreignField}"`);
+    joinClauses.push(
+      `${joinType} "${fromTable}" AS "${operation.as}" ON ${leftSide} = "${operation.as}"."${toSqlColumnName(operation.foreignField)}"`,
+    );
   }
   return joinClauses.join(' ');
 }

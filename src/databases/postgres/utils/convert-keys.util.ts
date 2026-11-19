@@ -33,6 +33,33 @@ export function toPostgresStoreName(logicalResourceName: string): string {
 }
 
 /**
+ * Maps a model field name to a Postgres column name.
+ * Underscore-prefixed names (`_id`) and already-snake_case names are left unchanged;
+ * bare `id` maps to `_id`. Same conversion used for filters and entity keys.
+ */
+export function toSqlColumnName(column: string): string {
+  if (column.startsWith('_')) {
+    return column;
+  }
+  if (column === 'id') {
+    return '_id';
+  }
+  return toSnakeCase(column);
+}
+
+/**
+ * Maps a join localField (model field name, optionally `alias.field`) to SQL column form.
+ * The alias segment is left unchanged; only the column segment is converted.
+ */
+export function toSqlJoinLocalField(localField: string): string {
+  const dot = localField.indexOf('.');
+  if (dot === -1) {
+    return toSqlColumnName(localField);
+  }
+  return `${localField.slice(0, dot)}.${toSqlColumnName(localField.slice(dot + 1))}`;
+}
+
+/**
  * Converts a snake_case string to camelCase
  * @param str The string to convert
  * @returns The camelCase version of the string

@@ -34,3 +34,14 @@ describe('convertOperationsToPipeline inner join', () => {
     expect(unwindPreservesMissing('policyAgentsThrough', [policies, through])).toBe(true);
   });
 });
+
+describe('convertOperationsToPipeline field names', () => {
+  it('should pass camelCase localField and foreignField through unchanged for Mongo', () => {
+    const customer = new LeftJoin('customers', 'customerId', '_id', 'customer');
+    const pipeline = convertOperationsToPipeline([customer]);
+    const lookup = pipeline.find(stage => stage.$lookup?.as === 'customerArr');
+    // ObjectId foreignField uses let/pipeline; names must stay camelCase (no Postgres snake_case mapping).
+    expect(lookup?.$lookup.let.localId.$cond[0].$eq[0].$type).toBe('$customerId');
+    expect(lookup?.$lookup.pipeline[0].$match.$expr.$eq[0]).toBe('$_id');
+  });
+});
