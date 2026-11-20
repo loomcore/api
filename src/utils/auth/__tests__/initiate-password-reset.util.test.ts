@@ -40,7 +40,7 @@ describe('initiatePasswordReset', () => {
     };
   }
 
-  it('uses the auth config reset expiry and calls EmailService.sendResetPasswordEmail by default', async () => {
+  it('should use the auth config reset expiry and call EmailService.sendResetPasswordEmail by default', async () => {
     await testUtils.setupTestUsers();
     const context = { userContext: getTestMetaOrgUserContext() };
     const email = 'test@example.com';
@@ -74,7 +74,7 @@ describe('initiatePasswordReset', () => {
     expect(resetLink).toContain(encodeURIComponent(email));
   });
 
-  it('uses the configured welcome expiry and calls EmailService.sendWelcomeEmail when emailType is welcome', async () => {
+  it('should use the configured welcome expiry and call EmailService.sendWelcomeEmail when emailType is welcome', async () => {
     await testUtils.setupTestUsers();
     const context = { userContext: getTestMetaOrgUserContext() };
     const email = 'welcome-configured@example.com';
@@ -106,7 +106,7 @@ describe('initiatePasswordReset', () => {
     expect(resetLink).toContain(encodeURIComponent(email));
   });
 
-  it('uses 10080 minutes when welcome expiry is unset and emailType is welcome', async () => {
+  it('should use 10080 minutes when welcome expiry is unset and emailType is welcome', async () => {
     await testUtils.setupTestUsers();
     const context = { userContext: getTestMetaOrgUserContext() };
     const email = 'welcome-default@example.com';

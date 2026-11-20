@@ -281,7 +281,7 @@ describe('OrganizationService', () => {
       vi.restoreAllMocks();
     });
 
-    it('cleans up the half-built org when a later step fails', async () => {
+    it('should clean up the half-built org when a later step fails', async () => {
       vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockRejectedValue(new Error('smtp down'));
 
       const payload = {
@@ -310,7 +310,7 @@ describe('OrganizationService', () => {
       expect(leftoverUser).toBeNull();
     });
 
-    it('stores a mixed-case code as lowercase and builds a lowercase tenant domain', async () => {
+    it('should store a mixed-case code as lowercase and build a lowercase tenant domain', async () => {
       vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
       const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminContext(), {
@@ -328,7 +328,7 @@ describe('OrganizationService', () => {
       expect(createdDomain?.domain).toBe(buildOrganizationTenantDomain('acme'));
     });
 
-    it('defaults adminDisplayName to Admin User when it is omitted', async () => {
+    it('should default adminDisplayName to Admin User when it is omitted', async () => {
       vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
       const result = await service.createOrganizationWithAdmin(getTestMetaOrgAdminContext(), {
@@ -343,7 +343,7 @@ describe('OrganizationService', () => {
   });
 
   describe('organization code normalization', () => {
-    it('stores a mixed-case code as lowercase on create', async () => {
+    it('should store a mixed-case code as lowercase on create', async () => {
       const created = await service.create(getTestMetaOrgContext(), {
         _id: testUtils.getRandomId(),
         name: 'Mixed Case Create',
@@ -355,7 +355,7 @@ describe('OrganizationService', () => {
       expect(created?.code).toBe('acme');
     });
 
-    it('stores a mixed-case code as lowercase on update', async () => {
+    it('should store a mixed-case code as lowercase on update', async () => {
       const created = await service.create(getTestMetaOrgContext(), {
         _id: testUtils.getRandomId(),
         name: 'Mixed Case Update',
@@ -376,7 +376,7 @@ describe('OrganizationService', () => {
       expect(updated.code).toBe('new-code');
     });
 
-    it('finds an organization by mixed-case code', async () => {
+    it('should find an organization by mixed-case code', async () => {
       await service.create(getTestMetaOrgContext(), {
         _id: testUtils.getRandomId(),
         name: 'Lookup Org',
@@ -389,7 +389,7 @@ describe('OrganizationService', () => {
       expect(found?.code).toBe('lookup-org');
     });
 
-    it('throws DuplicateKeyError when creating Acme if acme already exists', async () => {
+    it('should throw DuplicateKeyError when creating Acme if acme already exists', async () => {
       await service.create(getTestMetaOrgContext(), {
         _id: testUtils.getRandomId(),
         name: 'Acme One',
