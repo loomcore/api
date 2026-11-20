@@ -72,6 +72,17 @@ export class TestMongoDatabase implements ITestDatabase {
     return new ObjectId().toString();
   }
 
+  /**
+   * Returns the native MongoDB Db used by this test database.
+   * @throws Error if called before init()
+   */
+  getMongoDb(): Db {
+    if (!this.mongoDb) {
+      throw new Error('TestMongoDatabase is not initialized; call init() first');
+    }
+    return this.mongoDb;
+  }
+
   private async _performInit(): Promise<IDatabase> {
     // Set up MongoDB memory server if not already done
     if (!this.database) {
