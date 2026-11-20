@@ -34,7 +34,7 @@ describe.skipIf(!isMongo)('mongo initial schema meta-org seed', () => {
     }
   });
 
-  it('stores a mixed-case metaOrgCode as lowercase', async () => {
+  it('should store a mixed-case metaOrgCode as lowercase', async () => {
     const db = mongoClient.db('meta-org-seed-test');
 
     if (!isSystemUserContextInitialized()) {

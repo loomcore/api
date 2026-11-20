@@ -21,7 +21,7 @@ describe('EmailService.sendWelcomeEmail', () => {
     await TestExpressApp.cleanup();
   });
 
-  it('calls the client sendWelcomeEmail when it is defined', async () => {
+  it('should call the client sendWelcomeEmail when it is defined', async () => {
     const client = config.thirdPartyClients!.emailClient as IEmailClient;
     const sendWelcomeEmail = vi.fn().mockResolvedValue(undefined);
     client.sendWelcomeEmail = sendWelcomeEmail;
@@ -38,7 +38,7 @@ describe('EmailService.sendWelcomeEmail', () => {
     expect(sendResetPasswordEmail).not.toHaveBeenCalled();
   });
 
-  it('falls back to the client sendResetPasswordEmail when sendWelcomeEmail is not defined', async () => {
+  it('should fall back to the client sendResetPasswordEmail when sendWelcomeEmail is not defined', async () => {
     const client = config.thirdPartyClients!.emailClient as IEmailClient;
     delete client.sendWelcomeEmail;
     const sendResetPasswordEmail = vi.spyOn(client, 'sendResetPasswordEmail');

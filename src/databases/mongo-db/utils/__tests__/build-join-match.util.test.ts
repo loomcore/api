@@ -8,7 +8,7 @@ import { buildJoinMatchStage } from '../build-join-match.util.js';
 describe('buildJoinMatchStage', () => {
   const customer = new LeftJoin('customers', 'customerId', '_id', 'customer');
 
-  it('matches a one-to-one join on its _joinData path', () => {
+  it('should match a one-to-one join on its _joinData path', () => {
     const { joinFilters } = splitFiltersByType(
       { filters: { 'customer.name': { eq: 'Jane' } } },
       [customer],
@@ -22,7 +22,7 @@ describe('buildJoinMatchStage', () => {
     });
   });
 
-  it('requires the joined object to exist when using ne', () => {
+  it('should require the joined object to exist when using ne', () => {
     const { joinFilters } = splitFiltersByType(
       { filters: { 'customer.name': { ne: 'Jane' } } },
       [customer],
@@ -37,7 +37,7 @@ describe('buildJoinMatchStage', () => {
     });
   });
 
-  it('matches a one-to-many join when any array element matches', () => {
+  it('should match a one-to-many join when any array element matches', () => {
     const lineItems = new LeftJoinMany('lineItems', '_id', 'orderId', 'items');
     const operations = [lineItems];
     const { joinFilters } = splitFiltersByType(
@@ -66,7 +66,7 @@ describe('buildJoinMatchStage', () => {
     });
   });
 
-  it('filters a many nested under a one-to-one join', () => {
+  it('should filter a many nested under a one-to-one join', () => {
     const person = new LeftJoin('persons', 'personId', '_id', 'clientPerson');
     const emails = new LeftJoinMany('emailAddresses', 'clientPerson._id', 'personId', 'clientEmailAddresses');
     const operations = [person, emails];
@@ -102,7 +102,7 @@ describe('buildJoinMatchStage', () => {
     });
   });
 
-  it('rejects a join path that does not match the operations', () => {
+  it('should reject a join path that does not match the operations', () => {
     expect(() => splitFiltersByType(
       { filters: { 'customer.nope.name': { eq: 'x' } } },
       [customer],

@@ -6,10 +6,10 @@ import { resolveAuthDecoratorTarget } from './resolve-auth-decorator-target.util
  * A method decorator replaces the controller decorator entirely.
  */
 export function resolveAllowAnonymous(
-    controllerConstructor: Function,
-    prototype: any,
-    propertyKey: string,
+  controllerConstructor: Function,
+  prototype: any,
+  propertyKey: string,
 ): boolean | undefined {
-    const target = resolveAuthDecoratorTarget(controllerConstructor, prototype, propertyKey);
-    return getValue(target);
+  const target = resolveAuthDecoratorTarget(controllerConstructor, prototype, propertyKey);
+  return getValue(target);
 }
