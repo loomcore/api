@@ -18,7 +18,7 @@ const inequality = (column: string, index: number) =>
   `(${column} != $${index} OR (${column} IS NOT NULL AND $${index} IS NULL) OR (${column} IS NULL AND $${index} IS NOT NULL))`;
 
 describe('buildWhereClause', () => {
-  it('matches a null parentId with IS NULL and no bound value', () => {
+  it('should match a null parentId with IS NULL and no bound value', () => {
     expect(whereFor({ parentId: { eq: 'null' } })).toEqual({
       whereClause: 'WHERE "items"."parent_id" IS NULL',
       values: []
@@ -29,14 +29,14 @@ describe('buildWhereClause', () => {
     });
   });
 
-  it('treats a bare undefined token the same as null', () => {
+  it('should treat a bare undefined token the same as null', () => {
     expect(whereFor({ parentId: { eq: 'undefined' } })).toEqual({
       whereClause: 'WHERE "items"."parent_id" IS NULL',
       values: []
     });
   });
 
-  it('matches ne null and ne undefined with IS NOT NULL', () => {
+  it('should match ne null and ne undefined with IS NOT NULL', () => {
     expect(whereFor({ parentId: { ne: 'null' } })).toEqual({
       whereClause: 'WHERE "items"."parent_id" IS NOT NULL',
       values: []
@@ -51,7 +51,7 @@ describe('buildWhereClause', () => {
     });
   });
 
-  it('binds a double-quoted null or undefined as a literal string', () => {
+  it('should bind a double-quoted null or undefined as a literal string', () => {
     expect(whereFor({ parentId: { eq: '"null"' } })).toEqual({
       whereClause: `WHERE ${equality('"items"."parent_id"', 1)}`,
       values: ['null']
@@ -70,28 +70,28 @@ describe('buildWhereClause', () => {
     });
   });
 
-  it('leaves other quoted strings unchanged', () => {
+  it('should leave other quoted strings unchanged', () => {
     expect(whereFor({ name: { eq: '"hello"' } })).toEqual({
       whereClause: `WHERE ${equality('"items"."name"', 1)}`,
       values: ['"hello"']
     });
   });
 
-  it('still binds an ordinary eq value', () => {
+  it('should still bind an ordinary eq value', () => {
     expect(whereFor({ parentId: { eq: 5 } })).toEqual({
       whereClause: `WHERE ${equality('"items"."parent_id"', 1)}`,
       values: [5]
     });
   });
 
-  it('does not consume a parameter for a nullish filter combined with another eq', () => {
+  it('should not consume a parameter for a nullish filter combined with another eq', () => {
     expect(whereFor({ parentId: { eq: 'null' }, name: { eq: 'Warehouse' } })).toEqual({
       whereClause: `WHERE "items"."parent_id" IS NULL AND ${equality('"items"."name"', 1)}`,
       values: ['Warehouse']
     });
   });
 
-  it('qualifies the column when a table prefix is provided', () => {
+  it('should qualify the column when a table prefix is provided', () => {
     expect(whereFor({ parentId: { eq: 'undefined' } }, 'locations')).toEqual({
       whereClause: 'WHERE "locations"."parent_id" IS NULL',
       values: []
@@ -102,7 +102,7 @@ describe('buildWhereClause', () => {
 const customerJoin = new LeftJoin('customers', 'customer_id', '_id', 'customer');
 
 describe('buildWhereClause join filters', () => {
-  it('qualifies a root filter with the main table when joins are present', () => {
+  it('should qualify a root filter with the main table when joins are present', () => {
     const { whereClause, values } = buildWhereClause(
       { filters: { status: { eq: 'pending' } } },
       'orders',
@@ -114,7 +114,7 @@ describe('buildWhereClause join filters', () => {
     expect(values).toEqual(['pending']);
   });
 
-  it('qualifies a one-to-one join column and snake-cases it', () => {
+  it('should qualify a one-to-one join column and snake-case it', () => {
     const { whereClause, values } = buildWhereClause(
       { filters: { 'customer.firstName': { eq: 'Jane' } } },
       'orders',
@@ -126,7 +126,7 @@ describe('buildWhereClause join filters', () => {
     expect(values).toEqual(['Jane']);
   });
 
-  it('does not treat a missing left join as a match for ne', () => {
+  it('should not treat a missing left join as a match for ne', () => {
     const { whereClause } = buildWhereClause(
       { filters: { 'customer.name': { ne: 'Jane' } } },
       'orders',
@@ -138,7 +138,7 @@ describe('buildWhereClause join filters', () => {
     expect(whereClause).toContain('"customer"."_id" IS NOT NULL');
   });
 
-  it('filters a nested one-to-one column on the joined alias', () => {
+  it('should filter a nested one-to-one column on the joined alias', () => {
     const person = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
     const school = new LeftJoin('schools', 'clientPerson.school_id', '_id', 'school');
     const { whereClause } = buildWhereClause(
@@ -152,7 +152,7 @@ describe('buildWhereClause join filters', () => {
     expect(whereClause).not.toContain('EXISTS');
   });
 
-  it('keeps a dotted key on the root table when it is not a join alias', () => {
+  it('should keep a dotted key on the root table when it is not a join alias', () => {
     const { whereClause } = buildWhereClause(
       { filters: { 'address.city': { eq: 'Austin' } } },
       'orders',
@@ -163,14 +163,14 @@ describe('buildWhereClause join filters', () => {
     expect(whereClause).toContain('"orders"."address.city"');
   });
 
-  it('keeps dotted keys as a single column when no joins are supplied', () => {
+  it('should keep dotted keys as a single column when no joins are supplied', () => {
     const { whereClause } = buildWhereClause({ filters: { 'customer.name': { eq: 'Jane' } } }, 'orders');
 
     expect(whereClause).toContain('"orders"."customer.name"');
     expect(whereClause).not.toContain('EXISTS');
   });
 
-  it('matches a one-to-many join when any related row matches', () => {
+  it('should match a one-to-many join when any related row matches', () => {
     const lineItems = new LeftJoinMany('line_items', '_id', 'order_id', 'lineItems');
     const { whereClause, values } = buildWhereClause(
       { filters: { 'lineItems.sku': { eq: 'ABC' } } },
@@ -185,7 +185,7 @@ describe('buildWhereClause join filters', () => {
     expect(values).toEqual(['ABC']);
   });
 
-  it('correlates a many-to-many filter to the through table already in the outer query', () => {
+  it('should correlate a many-to-many filter to the through table already in the outer query', () => {
     const person = new LeftJoin('persons', 'person_id', '_id', 'clientPerson');
     const through = new InnerJoin('persons_phone_numbers', 'clientPerson._id', 'person_id', 'phoneThrough');
     const phones = new LeftJoinMany('phone_numbers', 'phoneThrough.phone_number_id', '_id', 'phones');
@@ -202,7 +202,7 @@ describe('buildWhereClause join filters', () => {
     expect(values).toEqual(['%555%']);
   });
 
-  it('includes a through table inside EXISTS when that table is not in the outer query', () => {
+  it('should include a through table inside EXISTS when that table is not in the outer query', () => {
     const policies = new LeftJoinMany('policies', '_id', 'client_id', 'clientPolicies');
     const through = new InnerJoin('agents_policies', 'clientPolicies._id', 'policy_id', 'policyAgentsThrough');
     const agents = new LeftJoinMany('agents', 'policyAgentsThrough.agent_id', '_id', 'policyAgents');
@@ -219,7 +219,7 @@ describe('buildWhereClause join filters', () => {
     expect(values).toEqual(['Ada']);
   });
 
-  it('rejects a dotted key that starts with a join alias but is not a real path', () => {
+  it('should reject a dotted key that starts with a join alias but is not a real path', () => {
     expect(() => buildWhereClause(
       { filters: { 'customer.nope.name': { eq: 'x' } } },
       'orders',
@@ -228,7 +228,7 @@ describe('buildWhereClause join filters', () => {
     )).toThrow(BadRequestError);
   });
 
-  it('builds a count query with the same joins and where clause', () => {
+  it('should build a count query with the same joins and where clause', () => {
     const { countQuery, values } = buildCountQuerySql('orders', {
       filters: {
         status: { eq: 'pending' },
@@ -243,7 +243,7 @@ describe('buildWhereClause join filters', () => {
     expect(values).toEqual(['pending', 'Jane']);
   });
 
-  it('counts a one-to-many filter with EXISTS and no outer join', () => {
+  it('should count a one-to-many filter with EXISTS and no outer join', () => {
     const lineItems = new LeftJoinMany('line_items', '_id', 'order_id', 'lineItems');
     const { countQuery, values } = buildCountQuerySql(
       'orders',

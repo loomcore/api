@@ -1,6 +1,6 @@
 import { EmptyUserContext, type IUserContext } from '@loomcore/common/models';
 import type { Application, NextFunction, Request, Response } from 'express';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import testUtils from '../../__tests__/common-test.utils.js';
 import { TestEntity, testModelSpec } from '../../__tests__/index.js';
 import { TestExpressApp } from '../../__tests__/test-express-app.js';
@@ -233,7 +233,7 @@ describe('userContext middleware multi-tenant', () => {
   });
 
   describe('organizationDomains cache', () => {
-    let findByDomainSpy: ReturnType<typeof vi.spyOn>;
+    let findByDomainSpy: MockInstance<OrganizationService['findByDomain']>;
 
     beforeEach(() => {
       findByDomainSpy = vi.spyOn(OrganizationService.prototype, 'findByDomain');
