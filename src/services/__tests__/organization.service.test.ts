@@ -18,6 +18,7 @@ import {
   getTestMetaOrgAdminContext,
   getTestOrgContext,
   getSystemContext,
+  setTestMetaOrgId,
 } from '../../__tests__/test-objects.js';
 import { MongoDBDatabase } from '../../databases/mongo-db/mongo-db.database.js';
 import { EmailService } from '../email.service.js';
@@ -241,6 +242,8 @@ describe('OrganizationService', () => {
       if (!createdMetaOrg || !createdMetaOrg._id) {
         throw new Error('Failed to create metaOrg for test');
       }
+
+      setTestMetaOrgId(createdMetaOrg._id);
 
       // Create a userContext with the actual metaOrg _id
       const metaOrgUserContext: IUserContext = {

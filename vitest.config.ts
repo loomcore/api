@@ -22,6 +22,7 @@ export default defineConfig({
       exclude: ['node_modules/', 'dist/', 'src/test/']
     },
     root: '.',
+    fileParallelism: process.env.USE_REAL_POSTGRES !== 'true',
     resolveSnapshotPath: (testPath, snapExtension) => 
       testPath.replace(/\.test\.([tj]sx?)$/, `.test${snapExtension}.$1`),
   },

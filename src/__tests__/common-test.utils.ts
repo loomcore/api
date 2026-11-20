@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import {
   EmptyUserContext,
   getSystemUserContext,
+  initializeSystemUserContext,
   type IModelSpec,
   type IPagedResult,
   type IQueryOptions,
@@ -91,7 +92,7 @@ function initialize(db: IDatabase) {
 function getRandomId(): string | number {
   // Must match IdSchema for the active TEST_DATABASE — validation runs in the service create pipeline.
   if (process.env.TEST_DATABASE === 'postgres') {
-    return Date.now() + Math.floor(Math.random() * 1000);
+    return 1_000_000_000 + Math.floor(Math.random() * 1_000_000_000);
   }
   return new ObjectId().toString();
 }
@@ -132,33 +133,31 @@ async function createMetaOrg() {
   try {
     // Bootstrap uses the system user so audit columns are populated.
     const systemUserContext = getSystemUserContext();
-    const existingMetaOrg =
-      await organizationService.getMetaOrg({ userContext: systemUserContext });
-    if (!existingMetaOrg) {
-      const metaOrgInsertResult = await organizationService.create(
-        { userContext: systemUserContext },
-        getTestMetaOrg(),
-      );
+    let metaOrg = await organizationService.getMetaOrg({ userContext: systemUserContext });
+    if (!metaOrg) {
+      const metaOrgInsertResult = await organizationService.create({ userContext: systemUserContext }, getTestMetaOrg());
       if (metaOrgInsertResult) {
+        metaOrg = metaOrgInsertResult;
         setTestMetaOrgId(metaOrgInsertResult._id);
-        await organizationDomainService.create(
-          { userContext: systemUserContext },
-          getTestMetaOrgDomain(metaOrgInsertResult._id),
-        );
+        await organizationDomainService.create({ userContext: systemUserContext }, getTestMetaOrgDomain(metaOrgInsertResult._id));
       }
     } else {
       // Update test objects with the actual meta org ID from database
-      setTestMetaOrgId(existingMetaOrg._id);
+      setTestMetaOrgId(metaOrg._id);
       const existingDomain = await organizationDomainService.findOne(
         { userContext: systemUserContext },
         { filters: { domain: { eq: TEST_META_ORG_DOMAIN } } },
       );
       if (!existingDomain) {
-        await organizationDomainService.create(
-          { userContext: systemUserContext },
-          getTestMetaOrgDomain(existingMetaOrg._id),
-        );
+        await organizationDomainService.create({ userContext: systemUserContext }, getTestMetaOrgDomain(metaOrg._id));
       }
+    }
+
+    // Re-initialize the system user context with the meta org that actually exists in the database,
+    // mirroring production (base-api-config). Needed when the meta-org migration was already applied
+    // by an earlier test file and therefore didn't run (and initialize the context) in this process.
+    if (metaOrg) {
+      initializeSystemUserContext(config.email?.systemEmailAddress || 'system@test.com', metaOrg);
     }
   } catch (error: any) {
     console.log('Error in createMetaOrg:', error);

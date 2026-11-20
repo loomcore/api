@@ -8,153 +8,153 @@ import { IDatabase } from '../databases/models/index.js';
 import { MongoDBDatabase } from '../databases/index.js';
 
 function isPortBindError(error: unknown): boolean {
-    const code = (error as { code?: string })?.code;
-    const message = error instanceof Error ? error.message : String(error);
-    return code === 'EACCES' || code === 'EADDRINUSE' || message.includes('EACCES') || message.includes('EADDRINUSE');
+  const code = (error as { code?: string })?.code;
+  const message = error instanceof Error ? error.message : String(error);
+  return code === 'EACCES' || code === 'EADDRINUSE' || message.includes('EACCES') || message.includes('EADDRINUSE');
 }
 
 /** Windows Hyper-V/WSL excluded port ranges can make a "free" port unbindable (EACCES). Retry with a new port. */
 async function createMongoMemoryServer(): Promise<MongoMemoryServer> {
-    const maxAttempts = 5;
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-            return await MongoMemoryServer.create({
-                instance: {
-                    ip: '127.0.0.1', // Use localhost to avoid permission issues
-                    port: 0, // Use dynamic port allocation
-                },
-                binary: {
-                    downloadDir: process.env.HOME ? `${process.env.HOME}/.cache/mongodb-binaries` : undefined,
-                },
-            });
-        } catch (error) {
-            lastError = error;
-            if (!isPortBindError(error) || attempt === maxAttempts) {
-                throw error;
-            }
-        }
+  const maxAttempts = 5;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await MongoMemoryServer.create({
+        instance: {
+          ip: '127.0.0.1', // Use localhost to avoid permission issues
+          port: 0, // Use dynamic port allocation
+        },
+        binary: {
+          downloadDir: process.env.HOME ? `${process.env.HOME}/.cache/mongodb-binaries` : undefined,
+        },
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isPortBindError(error) || attempt === maxAttempts) {
+        throw error;
+      }
     }
-    throw lastError;
+  }
+  throw lastError;
 }
 
 /**
  * Utility class for setting up a MongoDB memory server for testing
  */
 export class TestMongoDatabase implements ITestDatabase {
-    private mongoServer: MongoMemoryServer | null = null;
-    private mongoClient: MongoClient | null = null;
-    private mongoDb: Db | null = null;
-    private database: IDatabase | null = null;
-    private initPromise: Promise<IDatabase> | null = null;
+  private mongoServer: MongoMemoryServer | null = null;
+  private mongoClient: MongoClient | null = null;
+  private mongoDb: Db | null = null;
+  private database: IDatabase | null = null;
+  private initPromise: Promise<IDatabase> | null = null;
 
-    /**
-     * Initialize the MongoDB memory server and database
-     * @returns Promise resolving to the database instance
-     */
-    async init(): Promise<IDatabase> {
-        // Return existing promise if initialization is already in progress
-        if (this.initPromise) {
-            return this.initPromise;
-        }
-
-        // Create and cache the initialization promise
-        this.initPromise = this._performInit();
-        try {
-            return await this.initPromise;
-        } catch (error) {
-            this.initPromise = null;
-            throw error;
-        }
+  /**
+   * Initialize the MongoDB memory server and database
+   * @returns Promise resolving to the database instance
+   */
+  async init(): Promise<IDatabase> {
+    // Return existing promise if initialization is already in progress
+    if (this.initPromise) {
+      return this.initPromise;
     }
 
-    getRandomId(): string {
-        return new ObjectId().toString();
+    // Create and cache the initialization promise
+    this.initPromise = this._performInit();
+    try {
+      return await this.initPromise;
+    } catch (error) {
+      this.initPromise = null;
+      throw error;
+    }
+  }
+
+  getRandomId(): string {
+    return new ObjectId().toString();
+  }
+
+  private async _performInit(): Promise<IDatabase> {
+    // Set up MongoDB memory server if not already done
+    if (!this.database) {
+      this.mongoServer = await createMongoMemoryServer();
+      const uri = this.mongoServer.getUri();
+      this.mongoClient = await MongoClient.connect(uri);
+      this.mongoDb = this.mongoClient.db();
+      const testDatabase = new MongoDBDatabase(this.mongoDb);
+      this.database = testDatabase;
+      testUtils.initialize(testDatabase);
+      await this.createIndexes(this.mongoDb);
+
+      // Bootstrap a system user so createMetaOrg can populate audit columns.
+      // initSystemUserContext below replaces this with the meta org once it exists.
+      const { initializeSystemUserContext, isSystemUserContextInitialized } =
+        await import('@loomcore/common/models');
+      if (!isSystemUserContextInitialized()) {
+        initializeSystemUserContext(
+          config.email?.systemEmailAddress || 'system@test.com',
+          undefined,
+        );
+      }
+
+      await testUtils.createMetaOrg();
     }
 
-    private async _performInit(): Promise<IDatabase> {
-        // Set up MongoDB memory server if not already done
-        if (!this.database) {
-            this.mongoServer = await createMongoMemoryServer();
-            const uri = this.mongoServer.getUri();
-            this.mongoClient = await MongoClient.connect(uri);
-            this.mongoDb = this.mongoClient.db();
-            const testDatabase = new MongoDBDatabase(this.mongoDb);
-            this.database = testDatabase;
-            testUtils.initialize(testDatabase);
-            await this.createIndexes(this.mongoDb);
+    await initSystemUserContext(this.database);
 
-            // Bootstrap a system user so createMetaOrg can populate audit columns.
-            // initSystemUserContext below replaces this with the meta org once it exists.
-            const { initializeSystemUserContext, isSystemUserContextInitialized } =
-                await import('@loomcore/common/models');
-            if (!isSystemUserContextInitialized()) {
-                initializeSystemUserContext(
-                    config.email?.systemEmailAddress || 'system@test.com',
-                    undefined,
-                );
-            }
+    return this.database;
+  }
 
-            await testUtils.createMetaOrg();
-        }
+  private async createIndexes(db: Db) {
+    // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
+    //  If we can figure out how to use a single file for both, that would be great.
+    await db.command({
+      createIndexes: 'users', indexes: [{ key: { _orgId: 1, email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
+    });
+    await db.command({
+      createIndexes: 'organizations', indexes: [{ key: { code: 1 }, name: 'code_index', unique: true }]
+    });
+  }
 
-        await initSystemUserContext(this.database);
-
-        return this.database;
+  /**
+   * Clear all collections in the database
+   */
+  async clearCollections(): Promise<void> {
+    if (!this.mongoDb) {
+      throw new Error('Database not initialized');
     }
 
-    private async createIndexes(db: Db) {
-        // create indexes - keep this in sync with the k8s/02-mongo-init-configmap.yaml that is used for actual deployment
-        //  If we can figure out how to use a single file for both, that would be great.
-        await db.command({
-            createIndexes: 'users', indexes: [{ key: { _orgId: 1, email: 1 }, name: 'email_index', unique: true, collation: { locale: 'en', strength: 1 } }]
-        });
-        await db.command({
-            createIndexes: 'organizations', indexes: [{ key: { code: 1 }, name: 'code_index', unique: true }]
-        });
+    const collections = await this.mongoDb.collections();
+    for (const collection of collections) {
+      await collection.deleteMany({});
+    }
+  }
+
+  /**
+   * Clean up MongoDB resources
+   */
+  async cleanup(): Promise<void> {
+    // Clean up test data first (only if database was initialized)
+    if (this.database) {
+      await testUtils.cleanup();
     }
 
-    /**
-     * Clear all collections in the database
-     */
-    async clearCollections(): Promise<void> {
-        if (!this.mongoDb) {
-            throw new Error('Database not initialized');
-        }
-
-        const collections = await this.mongoDb.collections();
-        for (const collection of collections) {
-            await collection.deleteMany({});
-        }
+    if (this.mongoDb) {
+      const collections = await this.mongoDb.collections();
+      for (const collection of collections) {
+        await collection.deleteMany({});
+      }
     }
 
-    /**
-     * Clean up MongoDB resources
-     */
-    async cleanup(): Promise<void> {
-        // Clean up test data first (only if database was initialized)
-        if (this.database) {
-            await testUtils.cleanup();
-        }
-
-        if (this.mongoDb) {
-            const collections = await this.mongoDb.collections();
-            for (const collection of collections) {
-                await collection.deleteMany({});
-            }
-        }
-
-        if (this.mongoClient) {
-            await this.mongoClient.close();
-        }
-        if (this.mongoServer) {
-            await this.mongoServer.stop();
-        }
-        // Reset initialization state
-        this.initPromise = null;
-        this.mongoDb = null;
-        this.database = null;
-        this.mongoClient = null;
-        this.mongoServer = null;
+    if (this.mongoClient) {
+      await this.mongoClient.close();
     }
+    if (this.mongoServer) {
+      await this.mongoServer.stop();
+    }
+    // Reset initialization state
+    this.initPromise = null;
+    this.mongoDb = null;
+    this.database = null;
+    this.mongoClient = null;
+    this.mongoServer = null;
+  }
 }
