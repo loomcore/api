@@ -8,7 +8,7 @@ import {
 } from '../auth-user-specs.util.js';
 
 describe('auth-user-specs', () => {
-  it('creates a login response spec from a user context spec', () => {
+  it('should create a login response spec from a user context spec', () => {
     const loginResponseSpec = createLoginResponseSpec(UserContextSpec);
     const loginEncoded = loginResponseSpec.encode({
       tokens: {
@@ -39,7 +39,7 @@ describe('auth-user-specs', () => {
     expect(loginEncoded.userContext.user.email).toBe('test@example.com');
   });
 
-  it('registers the JWT user context spec used by auth middleware', () => {
+  it('should register the JWT user context spec used by auth middleware', () => {
     expect(getAuthUserContextSpec()).toBe(UserContextSpec);
 
     const custom = entityUtils.getModelSpec(Type.Object({}), {

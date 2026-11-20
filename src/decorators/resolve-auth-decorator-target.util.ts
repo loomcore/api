@@ -7,13 +7,13 @@ import { hasAuthRequirement } from './authorize.decorator.js';
  * Otherwise the controller decorators apply, including to inherited actions.
  */
 export function resolveAuthDecoratorTarget(
-    controllerConstructor: Function,
-    prototype: any,
-    propertyKey: string,
+  controllerConstructor: Function,
+  prototype: any,
+  propertyKey: string,
 ): Function {
-    const method = prototype?.[propertyKey];
-    if (typeof method === 'function' && (hasAuthRequirement(method) || hasAllowAnonymous(method))) {
-        return method;
-    }
-    return controllerConstructor;
+  const method = prototype?.[propertyKey];
+  if (typeof method === 'function' && (hasAuthRequirement(method) || hasAllowAnonymous(method))) {
+    return method;
+  }
+  return controllerConstructor;
 }

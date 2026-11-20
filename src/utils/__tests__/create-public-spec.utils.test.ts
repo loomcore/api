@@ -10,7 +10,7 @@ describe('createPublicSpec', () => {
     setupTestConfig(true, process.env.TEST_DATABASE === 'postgres' ? 'postgres' : 'mongodb');
   });
 
-  it('keeps _id and _orgId and omits audit fields', () => {
+  it('should keep _id and _orgId and omit audit fields', () => {
     const isPostgres = process.env.TEST_DATABASE === 'postgres';
     const id = isPostgres ? 1 : '507f1f77bcf86cd799439011';
     const orgId = isPostgres ? 2 : '507f1f77bcf86cd799439012';
@@ -36,7 +36,7 @@ describe('createPublicSpec', () => {
     expect(encoded._updatedBy).toBeUndefined();
   });
 
-  it('does not add identity fields when the source spec is not an entity', () => {
+  it('should not add identity fields when the source spec is not an entity', () => {
     const spec = entityUtils.getModelSpec(Type.Object({ name: Type.String() }), { isEntity: false });
     const publicSpec = createPublicSpec(spec);
     const encoded = publicSpec.encode({

@@ -127,7 +127,7 @@ describe.skipIf(!isPostgres)('setupDatabaseForMultitenant', () => {
 });
 
 describe.skipIf(!isPostgres)('postgres initial schema meta-org seed', () => {
-  it('stores a mixed-case metaOrgCode as lowercase', async () => {
+  it('should store a mixed-case metaOrgCode as lowercase', async () => {
     setupTestConfig(true, 'postgres');
     const { Client } = newDb().adapters.createPg();
     const client = new Client();

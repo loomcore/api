@@ -68,7 +68,7 @@ describe('OrganizationsController POST /organizations', () => {
     };
   }
 
-  it('creates the org, domain, admin user and authorization records, and sends a welcome email', async () => {
+  it('should create the org, domain, admin user and authorization records, and send a welcome email', async () => {
     const sendWelcomeEmailSpy = vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
     const sendResetPasswordEmailSpy = vi.spyOn(EmailService.prototype, 'sendResetPasswordEmail').mockResolvedValue();
     const payload = validPayload();
@@ -119,7 +119,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(setPasswordLink).not.toContain('undefined');
   });
 
-  it('does not create an organization from the legacy org-only body (no admin)', async () => {
+  it('should not create an organization from the legacy org-only body (no admin)', async () => {
     const response = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAdminAuthToken())
@@ -139,7 +139,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(leftover).toBeNull();
   });
 
-  it('does not expose the removed create-with-admin route', async () => {
+  it('should not expose the removed create-with-admin route', async () => {
     const response = await testAgent
       .post('/api/organizations/create-with-admin')
       .set('Authorization', testUtils.getAdminAuthToken())
@@ -148,7 +148,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.status).toBe(404);
   });
 
-  it('stores a mixed-case organization code as lowercase', async () => {
+  it('should store a mixed-case organization code as lowercase', async () => {
     vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
     const response = await testAgent
@@ -160,7 +160,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.body?.data?.organization?.code).toBe('acme');
   });
 
-  it('finds an organization by mixed-case code', async () => {
+  it('should find an organization by mixed-case code', async () => {
     vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
 
     await testAgent
@@ -176,7 +176,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.body?.data?.code).toBe('acme');
   });
 
-  it('rejects invalid organization codes with 400', async () => {
+  it('should reject invalid organization codes with 400', async () => {
     const invalidCodes = ['-acme', 'acme-', 'acme.code', 'acme_code', 'a'.repeat(64), ''];
 
     for (const code of invalidCodes) {
@@ -190,7 +190,7 @@ describe('OrganizationsController POST /organizations', () => {
     }
   });
 
-  it('rejects missing name, code, and admin email with 400', async () => {
+  it('should reject missing name, code, and admin email with 400', async () => {
     const missingName = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAdminAuthToken())
@@ -213,7 +213,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(missingEmail.body?.errors?.[0]?.message).toContain('email');
   });
 
-  it('rejects a caller-supplied password with 400', async () => {
+  it('should reject a caller-supplied password with 400', async () => {
     const response = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAdminAuthToken())
@@ -223,7 +223,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.body?.errors?.[0]?.message).toContain('Password must not be provided');
   });
 
-  it('rejects a duplicate organization name with 400', async () => {
+  it('should reject a duplicate organization name with 400', async () => {
     const response = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAdminAuthToken())
@@ -233,7 +233,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.body?.errors?.[0]?.message).toBe('Organization name is already in use.');
   });
 
-  it('rejects a duplicate organization code with 400', async () => {
+  it('should reject a duplicate organization code with 400', async () => {
     const response = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAdminAuthToken())
@@ -243,7 +243,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.body?.errors?.[0]?.message).toBe('Organization code is already in use.');
   });
 
-  it('rejects a duplicate tenant domain with 400', async () => {
+  it('should reject a duplicate tenant domain with 400', async () => {
     const code = 'taken-domain';
     await organizationDomainService.create(getSystemContext(), {
       _id: testUtils.getRandomId(),
@@ -260,7 +260,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.body?.errors?.[0]?.message).toBe('Organization domain is already in use.');
   });
 
-  it('allows the same admin email on two different organizations', async () => {
+  it('should allow the same admin email on two different organizations', async () => {
     const sendWelcomeEmailSpy = vi.spyOn(EmailService.prototype, 'sendWelcomeEmail').mockResolvedValue();
     const sharedEmail = getTestMetaOrgUser().email;
 
@@ -282,12 +282,12 @@ describe('OrganizationsController POST /organizations', () => {
     expect(sendWelcomeEmailSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects unauthenticated requests', async () => {
+  it('should reject unauthenticated requests', async () => {
     const response = await testAgent.post(apiEndpoint).send(validPayload());
     expect(response.status).toBe(401);
   });
 
-  it('rejects a meta-org user who is not an admin', async () => {
+  it('should reject a meta-org user who is not an admin', async () => {
     const response = await testAgent
       .post(apiEndpoint)
       .set('Authorization', testUtils.getAuthToken())
@@ -296,7 +296,7 @@ describe('OrganizationsController POST /organizations', () => {
     expect(response.status).toBe(403);
   });
 
-  it('rejects a tenant-org admin who is not in the meta organization', async () => {
+  it('should reject a tenant-org admin who is not in the meta organization', async () => {
     // Origin must match the token's org so middleware authenticates the tenant admin;
     // mismatched Origin would yield EmptyUserContext and 401 before requireMetaOrg runs.
     const response = await testAgent

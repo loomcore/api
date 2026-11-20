@@ -69,7 +69,7 @@ class BothOnClass {
 }
 
 describe('auth decorator composition', () => {
-  it('returns the fields set on that @Authorize', () => {
+  it('should return the fields set on that @Authorize', () => {
     expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'stacked')).toEqual({
       features: ['admin'],
       denyOnImpersonation: true,
@@ -80,11 +80,11 @@ describe('auth decorator composition', () => {
     });
   });
 
-  it('returns no extra fields when only @Authorize() is present', () => {
+  it('should return no extra fields when only @Authorize() is present', () => {
     expect(resolveAuthRequirement(MethodController, MethodController.prototype, 'authOnly')).toBeUndefined();
   });
 
-  it('keeps the class requirement on actions with no method decorator', () => {
+  it('should keep the class requirement on actions with no method decorator', () => {
     expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'inherited')).toEqual({
       features: ['admin'],
       denyOnImpersonation: true,
@@ -96,7 +96,7 @@ describe('auth decorator composition', () => {
     });
   });
 
-  it('lets a method @Authorize replace the class requirement', () => {
+  it('should let a method @Authorize replace the class requirement', () => {
     expect(resolveAuthRequirement(ClassStackedController, ClassStackedController.prototype, 'methodOverridesFeatures')).toBeUndefined();
 
     expect(resolveAuthRequirement(MetaOrgController, MetaOrgController.prototype, 'getById')).toEqual({
@@ -110,7 +110,7 @@ describe('auth decorator composition', () => {
     });
   });
 
-  it('lets a method decorator replace the other decorator on the controller', () => {
+  it('should let a method decorator replace the other decorator on the controller', () => {
     expect(resolveAllowAnonymous(AuthorizeClass, AuthorizeClass.prototype, 'health')).toBe(true);
     expect(resolveAuthRequirement(AuthorizeClass, AuthorizeClass.prototype, 'health')).toBeUndefined();
 
@@ -127,7 +127,7 @@ describe('auth decorator composition', () => {
     });
   });
 
-  it('rejects both decorators only when they are on the same method or the same class', () => {
+  it('should reject both decorators only when they are on the same method or the same class', () => {
     expect(() => authorizeMethod(new AuthorizeClass(), 'both')).toThrow(/cannot be used together/);
     expect(() => authorizeMethod(new BothOnClass(), 'plain')).toThrow(/cannot be used together/);
     expect(() => authorizeMethod(new BothOnClass(), 'health')).toThrow(/cannot be used together/);
